@@ -1,0 +1,17 @@
+venv/
+__pycache__/
+*.pyc
+
+uploads/
+*.csv
+
+.env
+
+instance/
+
+tokens.json
+oauth_tokens.json
+
+*.db
+
+.vscode/

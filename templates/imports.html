@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {% extends "base.html" %}
+
+    {% block content %}
+
+    <title>Import Center</title>
+
+    <style>
+        body{
+            font-family:Arial;
+            margin:40px;
+            background:#f5f5f5;
+        }
+
+        .card{
+            background:white;
+            padding:20px;
+            border-radius:10px;
+            margin-bottom:20px;
+        }
+
+        nav a{
+            margin-right:20px;
+            text-decoration:none;
+            font-weight:bold;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Import Center</h1>
+
+<div class="card">
+
+<h2>Upload Rankings CSV</h2>
+
+<form method="post" enctype="multipart/form-data">
+
+    <input
+        type="file"
+        name="file"
+        required>
+
+    <br><br>
+
+    <button type="submit">
+        Upload
+    </button>
+
+</form>
+
+</div>
+
+{% endblock %}
+
+</body>
+</html>

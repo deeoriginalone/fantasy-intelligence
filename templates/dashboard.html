@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {% extends "base.html" %}
+
+    {% block content %}
+    <title>Fantasy Intelligence Dashboard</title>
+
+    <style>
+        body{
+            font-family:Arial;
+            margin:40px;
+            background:#f5f5f5;
+        }
+
+        .card{
+            background:white;
+            padding:20px;
+            border-radius:10px;
+            margin-bottom:20px;
+        }
+
+        nav a{
+            margin-right:20px;
+            text-decoration:none;
+            font-weight:bold;
+        }
+    </style>
+
+</head>
+<body>
+
+<h1>Fantasy Intelligence Dashboard</h1>
+
+<div class="card">
+
+<h2>{{ league_name }}</h2>
+
+<p><b>Team:</b> {{ team_name }}</p>
+
+<p><b>Teams:</b> {{ teams }}</p>
+
+<p><b>Scoring:</b> {{ scoring_type }}</p>
+
+</div>
+{% endblock %}
+</body>
+</html>

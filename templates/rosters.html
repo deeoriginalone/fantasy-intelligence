@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="card">
+    <h2>League Rosters</h2>
+    <p>Players currently recorded for each league team.</p>
+</div>
+
+{% for team in rosters_by_team %}
+<div class="card">
+    <h2>{{ team.team_name }}</h2>
+
+    {% if team.players %}
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:8px; border-bottom:1px solid #ccc;">Position</th>
+                    <th style="text-align:left; padding:8px; border-bottom:1px solid #ccc;">Player</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for player in team.players %}
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">{{ player[3] }}</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">{{ player[2] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p style="color:#666; font-style:italic;">No drafted players recorded.</p>
+    {% endif %}
+</div>
+{% endfor %}
+
+{% endblock %}

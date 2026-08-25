@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="card">
+
+<table>
+
+<tr>
+    <th>Rank</th>
+    <th>Player</th>
+    <th>Team</th>
+</tr>
+
+{% for player in players %}
+
+<tr>
+    <td>{{ player[0] }}</td>
+    <td>{{ player[1] }}</td>
+    <td>{{ player[2] }}</td>
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+{% endblock %}

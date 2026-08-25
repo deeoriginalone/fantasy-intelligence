@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>Record Draft Pick</h2>
+
+    {% if message %}
+        <p style="padding:12px; border-radius:8px; background:#d4edda; color:#155724;">{{ message }}</p>
+    {% endif %}
+
+    {% if error %}
+        <p style="padding:12px; border-radius:8px; background:#f8d7da; color:#721c24;">{{ error }}</p>
+    {% endif %}
+
+    <form method="POST" action="/trackdraft">
+        <label for="team_name"><b>Team</b></label><br>
+        <select id="team_name" name="team_name" required style="width:100%; max-width:520px; padding:10px; margin:8px 0 18px;">
+            <option value="">Select a team</option>
+            {% for team in teams %}
+                <option value="{{ team }}">{{ team }}</option>
+            {% endfor %}
+        </select><br>
+
+        <label for="player_name"><b>Available Player</b></label><br>
+        <select id="player_name" name="player_name" required style="width:100%; max-width:520px; padding:10px; margin:8px 0 18px;">
+            <option value="">Select a player</option>
+            {% for player in available_players %}
+                <option value="{{ player[1] }}">#{{ player[0] }} {{ player[1] }} | {{ player[2] }} | {{ player[3] }}</option>
+            {% endfor %}
+        </select><br>
+
+        <button type="submit" style="padding:10px 18px; border:0; border-radius:6px; background:#1565c0; color:white; font-weight:bold; cursor:pointer;">
+            Record Pick
+        </button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Recent Picks</h2>
+
+    {% if recent_picks %}
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th style="padding:8px; text-align:left; border-bottom:1px solid #ccc;">Team</th>
+                    <th style="padding:8px; text-align:left; border-bottom:1px solid #ccc;">Player</th>
+                    <th style="padding:8px; text-align:left; border-bottom:1px solid #ccc;">Position</th>
+                    <th style="padding:8px; text-align:left; border-bottom:1px solid #ccc;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pick in recent_picks %}
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">{{ pick[1] }}</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">{{ pick[2] }}</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">{{ pick[3] }}</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">
+                            <form method="POST" action="/trackdraft/undo" style="display:inline;">
+                                <input type="hidden" name="pick_id" value="{{ pick[0] }}">
+                                <button type="submit" style="padding:7px 11px; border:0; border-radius:6px; background:#f8d7da; color:#721c24; font-weight:bold; cursor:pointer;">Undo</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p style="color:#666; font-style:italic;">No draft picks recorded.</p>
+    {% endif %}
+</div>
+{% endblock %}
