@@ -1,0 +1,1570 @@
+from flask import Flask, render_template, request, redirect, url_for, jsonify
+from werkzeug.utils import secure_filename
+from services.sleeper_service import (
+    get_league,
+    get_users,
+    get_rosters,
+    get_draft,
+    get_draft_picks,
+    get_all_players,
+)
+import os
+import re
+import unicodedata
+
+import psycopg2
+
+from services.import_rankings import import_rankings
+
+
+app = Flask(__name__)
+
+UPLOAD_FOLDER = "uploads"
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+SLEEPER_LEAGUE_ID = "1398094330668797952"
+SLEEPER_DRAFT_ID = "1398094331272794112"
+
+# Strategic final-roster targets used by the Draft Agent.
+# K and DEF remain outside this offensive recommendation model.
+ROSTER_TARGETS = {
+    "QB": 2,
+    "RB": 5,
+    "WR": 5,
+    "TE": 2,
+}
+
+
+def get_db_connection():
+    return psycopg2.connect(
+        host="localhost",
+        port=5433,
+        database="fantasy_intelligence",
+        user="fantasy",
+        password="fantasy",
+    )
+
+
+def get_local_league():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT league_name, team_name, teams, scoring_type
+        FROM league_info
+        LIMIT 1
+        """
+    )
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row
+
+
+def build_roster_slots(roster):
+    slots = {
+        "QB": None,
+        "RB1": None,
+        "RB2": None,
+        "WR1": None,
+        "WR2": None,
+        "TE": None,
+        "FLEX": None,
+    }
+    bench = []
+
+    for player in roster:
+        position = player[2]
+
+        if position == "QB" and slots["QB"] is None:
+            slots["QB"] = player
+        elif position == "RB" and slots["RB1"] is None:
+            slots["RB1"] = player
+        elif position == "RB" and slots["RB2"] is None:
+            slots["RB2"] = player
+        elif position == "WR" and slots["WR1"] is None:
+            slots["WR1"] = player
+        elif position == "WR" and slots["WR2"] is None:
+            slots["WR2"] = player
+        elif position == "TE" and slots["TE"] is None:
+            slots["TE"] = player
+        elif position in {"RB", "WR", "TE"} and slots["FLEX"] is None:
+            slots["FLEX"] = player
+        else:
+            bench.append(player)
+
+    return slots, bench
+
+
+def get_player_tier(overall_rank):
+    """Group overall ranks into draft-value tiers."""
+    if overall_rank <= 12:
+        return 1
+    if overall_rank <= 24:
+        return 2
+    if overall_rank <= 50:
+        return 3
+    if overall_rank <= 100:
+        return 4
+    return 5
+
+
+def build_pick_forecast(available_players, scarcity):
+    """Estimate availability at the user's next Sleeper pick."""
+    forecast = {
+        "current_pick": 0,
+        "next_pick": None,
+        "picks_until_next": None,
+        "projected_gone": {position: 0 for position in ["QB", "RB", "WR", "TE"]},
+        "projected_remaining": dict(scarcity),
+    }
+
+    try:
+        draft = get_draft(SLEEPER_DRAFT_ID)
+        users = get_users(SLEEPER_LEAGUE_ID) or []
+        rosters = get_rosters(SLEEPER_LEAGUE_ID) or []
+        picks = get_draft_picks(SLEEPER_DRAFT_ID) or []
+        forecast["current_pick"] = len(picks)
+
+        owner_ids = {
+            str(user.get("user_id"))
+            for user in users
+            if user.get("is_owner") is True
+        }
+        my_roster_ids = {
+            roster.get("roster_id")
+            for roster in rosters
+            if str(roster.get("owner_id")) in owner_ids
+        }
+
+        slot_to_roster = draft.get("slot_to_roster_id") or {}
+        my_slot = next(
+            (
+                int(slot)
+                for slot, roster_id in slot_to_roster.items()
+                if roster_id in my_roster_ids
+            ),
+            None,
+        )
+        teams = int((draft.get("settings") or {}).get("teams") or 0)
+        rounds = int((draft.get("settings") or {}).get("rounds") or 0)
+
+        if my_slot and teams and rounds:
+            own_picks = []
+            for round_number in range(1, rounds + 1):
+                if draft.get("type") == "snake" and round_number % 2 == 0:
+                    slot_in_round = teams - my_slot + 1
+                else:
+                    slot_in_round = my_slot
+                own_picks.append((round_number - 1) * teams + slot_in_round)
+
+            next_pick = next(
+                (pick for pick in own_picks if pick > forecast["current_pick"]),
+                None,
+            )
+            forecast["next_pick"] = next_pick
+
+            if next_pick is not None:
+                picks_until_next = max(0, next_pick - forecast["current_pick"] - 1)
+                forecast["picks_until_next"] = picks_until_next
+
+                projected_players = available_players[:picks_until_next]
+                for player in projected_players:
+                    position = player[2]
+                    if position in forecast["projected_gone"]:
+                        forecast["projected_gone"][position] += 1
+
+                forecast["projected_remaining"] = {
+                    position: max(
+                        0,
+                        scarcity.get(position, 0)
+                        - forecast["projected_gone"].get(position, 0),
+                    )
+                    for position in ["QB", "RB", "WR", "TE"]
+                }
+    except Exception as exc:
+        forecast["error"] = str(exc)
+
+    return forecast
+
+
+def fetch_available_players(cur):
+    cur.execute(
+        """
+        SELECT p.ranking, p.player_name, p.position, p.nfl_team
+        FROM players p
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM league_rosters lr
+            WHERE lr.player_name = p.player_name
+        )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM draft_board db
+            WHERE db.player_name = p.player_name
+              AND db.drafted = true
+        )
+        ORDER BY p.ranking
+        """
+    )
+    return cur.fetchall()
+
+
+def normalize_player_name(value):
+    value = unicodedata.normalize("NFKD", value or "")
+    value = value.encode("ascii", "ignore").decode("ascii").lower()
+    value = re.sub(r"\\b(jr|sr|ii|iii|iv)\\b", "", value)
+    return re.sub(r"[^a-z0-9]", "", value)
+
+
+def ensure_sleeper_sync_tables(cur):
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS sleeper_player_map (
+            sleeper_player_id VARCHAR(50) PRIMARY KEY,
+            sleeper_name VARCHAR(255),
+            normalized_name VARCHAR(255),
+            position VARCHAR(20),
+            nfl_team VARCHAR(20),
+            local_player_name VARCHAR(255),
+            matched BOOLEAN DEFAULT FALSE,
+            synced_at TIMESTAMP DEFAULT NOW()
+        )
+        """
+    )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS sleeper_draft_picks (
+            id SERIAL PRIMARY KEY,
+            draft_id VARCHAR(50),
+            roster_id INTEGER,
+            round_num INTEGER,
+            pick_no INTEGER,
+            player_id VARCHAR(50),
+            player_name VARCHAR(255),
+            synced_at TIMESTAMP DEFAULT NOW()
+        )
+        """
+    )
+    cur.execute(
+        """
+        ALTER TABLE sleeper_draft_picks
+        ADD COLUMN IF NOT EXISTS synced_at TIMESTAMP DEFAULT NOW()
+        """
+    )
+    cur.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS sleeper_draft_pick_number_uidx
+        ON sleeper_draft_picks (draft_id, pick_no)
+        """
+    )
+
+
+def sync_sleeper_player_map():
+    sleeper_players = get_all_players() or {}
+    conn = get_db_connection()
+    cur = conn.cursor()
+    ensure_sleeper_sync_tables(cur)
+
+    cur.execute("SELECT player_name FROM players")
+    local_names = [row[0] for row in cur.fetchall()]
+    local_by_normalized = {
+        normalize_player_name(name): name
+        for name in local_names
+    }
+
+    matched = 0
+    for player_id, player in sleeper_players.items():
+        full_name = (
+            player.get("full_name")
+            or " ".join(
+                part
+                for part in [player.get("first_name"), player.get("last_name")]
+                if part
+            )
+        ).strip()
+        normalized = normalize_player_name(full_name)
+        local_player_name = local_by_normalized.get(normalized)
+        is_matched = local_player_name is not None
+        matched += int(is_matched)
+
+        cur.execute(
+            """
+            INSERT INTO sleeper_player_map (
+                sleeper_player_id, sleeper_name, normalized_name,
+                position, nfl_team, local_player_name, matched, synced_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+            ON CONFLICT (sleeper_player_id)
+            DO UPDATE SET
+                sleeper_name = EXCLUDED.sleeper_name,
+                normalized_name = EXCLUDED.normalized_name,
+                position = EXCLUDED.position,
+                nfl_team = EXCLUDED.nfl_team,
+                local_player_name = EXCLUDED.local_player_name,
+                matched = EXCLUDED.matched,
+                synced_at = NOW()
+            """,
+            (
+                str(player_id),
+                full_name,
+                normalized,
+                player.get("position"),
+                player.get("team"),
+                local_player_name,
+                is_matched,
+            ),
+        )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {
+        "sleeper_players": len(sleeper_players),
+        "matched_to_rankings": matched,
+        "unmatched": len(sleeper_players) - matched,
+    }
+
+
+def sync_sleeper_draft_picks():
+    picks = get_draft_picks(SLEEPER_DRAFT_ID) or []
+    users = get_users(SLEEPER_LEAGUE_ID) or []
+    rosters = get_rosters(SLEEPER_LEAGUE_ID) or []
+
+    users_by_id = {str(user.get("user_id")): user for user in users}
+    team_by_roster_id = {}
+    my_roster_ids = set()
+
+    for sleeper_roster in rosters:
+        roster_id = sleeper_roster.get("roster_id")
+        owner_id = str(sleeper_roster.get("owner_id") or "")
+        user = users_by_id.get(owner_id, {})
+        metadata = user.get("metadata") or {}
+        display_name = user.get("display_name") or f"Roster {roster_id}"
+        team_by_roster_id[roster_id] = metadata.get("team_name") or display_name
+        if user.get("is_owner") is True:
+            my_roster_ids.add(roster_id)
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    ensure_sleeper_sync_tables(cur)
+
+    matched = 0
+    my_team_picks = 0
+
+    for pick in picks:
+        metadata = pick.get("metadata") or {}
+        player_id = str(pick.get("player_id") or "")
+        roster_id = pick.get("roster_id")
+        pick_no = pick.get("pick_no")
+        round_num = pick.get("round")
+
+        cur.execute(
+            """
+            SELECT local_player_name, sleeper_name, position
+            FROM sleeper_player_map
+            WHERE sleeper_player_id = %s
+            LIMIT 1
+            """,
+            (player_id,),
+        )
+        mapped_player = cur.fetchone()
+
+        if mapped_player:
+            local_player_name, sleeper_name, mapped_position = mapped_player
+        else:
+            first_name = (metadata.get("first_name") or "").strip()
+            last_name = (metadata.get("last_name") or "").strip()
+            sleeper_name = " ".join(
+                part for part in [first_name, last_name] if part
+            ).strip() or player_id
+            local_player_name = None
+            mapped_position = metadata.get("position")
+
+        if not local_player_name:
+            normalized = normalize_player_name(sleeper_name)
+            cur.execute(
+                """
+                SELECT player_name, position
+                FROM players
+                WHERE REGEXP_REPLACE(
+                    LOWER(player_name), '[^a-z0-9]', '', 'g'
+                ) = %s
+                LIMIT 1
+                """,
+                (normalized,),
+            )
+            local_player = cur.fetchone()
+            if local_player:
+                local_player_name, mapped_position = local_player
+
+        stored_name = local_player_name or sleeper_name
+        cur.execute(
+            """
+            INSERT INTO sleeper_draft_picks (
+                draft_id, roster_id, round_num, pick_no,
+                player_id, player_name, synced_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, NOW())
+            ON CONFLICT (draft_id, pick_no)
+            DO UPDATE SET
+                roster_id = EXCLUDED.roster_id,
+                round_num = EXCLUDED.round_num,
+                player_id = EXCLUDED.player_id,
+                player_name = EXCLUDED.player_name,
+                synced_at = NOW()
+            """,
+            (
+                SLEEPER_DRAFT_ID, roster_id, round_num, pick_no,
+                player_id, stored_name,
+            ),
+        )
+
+        if not local_player_name:
+            continue
+
+        matched += 1
+        cur.execute(
+            """
+            INSERT INTO draft_board (player_name, starred, drafted)
+            VALUES (%s, false, true)
+            ON CONFLICT (player_name)
+            DO UPDATE SET drafted = true
+            """,
+            (local_player_name,),
+        )
+
+        team_name = team_by_roster_id.get(roster_id, f"Roster {roster_id}")
+        cur.execute(
+            """
+            INSERT INTO league_teams (team_name)
+            VALUES (%s)
+            ON CONFLICT DO NOTHING
+            """,
+            (team_name,),
+        )
+        cur.execute(
+            """
+            INSERT INTO league_rosters (team_name, player_name, position)
+            SELECT %s, %s, %s
+            WHERE NOT EXISTS (
+                SELECT 1 FROM league_rosters WHERE player_name = %s
+            )
+            """,
+            (team_name, local_player_name, mapped_position, local_player_name),
+        )
+
+        if roster_id in my_roster_ids:
+            my_team_picks += 1
+            cur.execute(
+                """
+                INSERT INTO my_roster (player_name, position)
+                SELECT %s, %s
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM my_roster WHERE player_name = %s
+                )
+                """,
+                (local_player_name, mapped_position, local_player_name),
+            )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {
+        "draft_id": SLEEPER_DRAFT_ID,
+        "received": len(picks),
+        "stored": len(picks),
+        "matched_to_rankings": matched,
+        "my_team_picks": my_team_picks,
+    }
+
+
+@app.route("/")
+def dashboard():
+    league = get_local_league()
+
+    if league is None:
+        return render_template(
+            "dashboard.html",
+            title="Fantasy Intelligence Dashboard",
+            league_name="Fantasy Intelligence",
+            team_name="Not configured",
+            teams="Not configured",
+            scoring_type="Not configured",
+        )
+
+    return render_template(
+        "dashboard.html",
+        title="Fantasy Intelligence Dashboard",
+        league_name=league[0],
+        team_name=league[1],
+        teams=league[2],
+        scoring_type=league[3],
+    )
+
+
+@app.route("/predraft")
+def predraft():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT ranking, player_name, position, nfl_team
+        FROM players
+        ORDER BY ranking
+        LIMIT 25
+        """
+    )
+    players = cur.fetchall()
+
+    counts = {}
+    tops = {}
+
+    for position in ["QB", "RB", "WR", "TE"]:
+        cur.execute(
+            "SELECT COUNT(*) FROM players WHERE position = %s",
+            (position,),
+        )
+        counts[position] = cur.fetchone()[0]
+
+        cur.execute(
+            """
+            SELECT ranking, player_name
+            FROM players
+            WHERE position = %s
+            ORDER BY ranking
+            LIMIT 10
+            """,
+            (position,),
+        )
+        tops[position] = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template(
+        "predraft.html",
+        title="Predraft Intelligence Lab",
+        players=players,
+        qb_count=counts["QB"],
+        rb_count=counts["RB"],
+        wr_count=counts["WR"],
+        te_count=counts["TE"],
+        top_qbs=tops["QB"],
+        top_rbs=tops["RB"],
+        top_wrs=tops["WR"],
+        top_tes=tops["TE"],
+        best_pick=players[0][1] if players else None,
+    )
+
+
+@app.route("/imports", methods=["GET", "POST"])
+def imports():
+    if request.method == "POST":
+        uploaded_file = request.files.get("file")
+
+        if uploaded_file is None or not uploaded_file.filename:
+            return "No file selected", 400
+
+        filename = secure_filename(uploaded_file.filename)
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        uploaded_file.save(filepath)
+        import_rankings(filepath)
+
+        return f"Imported: {filename}"
+
+    return render_template("imports.html", title="Imports")
+
+
+@app.route("/agents")
+def agents():
+    return render_template("agents.html", title="Agents")
+
+
+@app.route("/draftcenter")
+def draftcenter():
+    return render_template("draftcenter.html", title="Draft Center")
+
+
+@app.route("/draftboard")
+def draftboard():
+    sleeper_sync_status = None
+    sleeper_sync_error = None
+    try:
+        sleeper_sync_status = sync_sleeper_draft_picks()
+    except Exception as exc:
+        sleeper_sync_error = str(exc)
+        app.logger.warning("Sleeper draft-pick sync failed: %s", exc)
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT
+            p.ranking,
+            p.player_name,
+            p.position,
+            p.nfl_team,
+            COALESCE(d.starred, false),
+            (
+                COALESCE(d.drafted, false)
+                OR EXISTS (
+                    SELECT 1
+                    FROM league_rosters lr
+                    WHERE lr.player_name = p.player_name
+                )
+            ) AS drafted
+        FROM players p
+        LEFT JOIN draft_board d
+            ON p.player_name = d.player_name
+        ORDER BY p.ranking
+        """
+    )
+    players = cur.fetchall()
+
+    cur.execute(
+        """
+        SELECT id, player_name, position, COALESCE(slot, '')
+        FROM my_roster
+        WHERE player_name IS NOT NULL
+          AND BTRIM(player_name) <> ''
+        ORDER BY drafted_at, id
+        """
+    )
+    roster = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    roster_names = {player[1] for player in roster}
+    available_players = [
+        player
+        for player in players
+        if not player[5] and player[1] not in roster_names
+    ]
+
+    scarcity = {}
+
+    for position in ["QB", "RB", "WR", "TE"]:
+
+        remaining = [
+            p
+            for p in available_players
+            if p[2] == position
+        ]
+
+        scarcity[position] = len(remaining)
+
+    scarcity_labels = {}
+
+    for position, count in scarcity.items():
+
+        if count <= 20:
+            scarcity_labels[position] = "HIGH"
+
+        elif count <= 50:
+            scarcity_labels[position] = "MEDIUM"
+
+        else:
+            scarcity_labels[position] = "LOW"
+
+    scarcity_score = {}
+
+    for position, label in scarcity_labels.items():
+        if label == "HIGH":
+            scarcity_score[position] = 100
+        elif label == "MEDIUM":
+            scarcity_score[position] = 50
+        else:
+            scarcity_score[position] = 25
+
+    tier_counts = {}
+    for position in ["QB", "RB", "WR", "TE"]:
+        tier_counts[position] = {
+            tier: sum(
+                1
+                for player in available_players
+                if player[2] == position
+                and get_player_tier(player[0]) == tier
+            )
+            for tier in [1, 2, 3, 4, 5]
+        }
+
+    best_available = available_players[0] if available_players else None
+    position_leaders = {
+        position: next(
+            (player for player in available_players if player[2] == position),
+            None,
+        )
+        for position in ["QB", "RB", "WR", "TE"]
+    }
+    draft_targets = [player for player in available_players if player[4]]
+    drafted_count = sum(1 for player in players if player[5])
+    roster_slots, bench = build_roster_slots(roster)
+
+    position_counts = {position: 0 for position in ROSTER_TARGETS}
+    for roster_player in roster:
+        position = roster_player[2]
+        if position in position_counts:
+            position_counts[position] += 1
+
+    roster_progress = {
+        position: {
+            "current": position_counts[position],
+            "target": target,
+            "missing": max(0, target - position_counts[position]),
+        }
+        for position, target in ROSTER_TARGETS.items()
+    }
+
+    needed_positions = []
+
+    for slot, roster_player in roster_slots.items():
+
+        if roster_player is not None:
+            continue
+
+        if slot == "FLEX":
+
+            for position in ["RB", "WR", "TE"]:
+
+                if position not in needed_positions:
+                    needed_positions.append(position)
+
+        else:
+
+            position = slot.rstrip("12")
+
+            if position not in needed_positions:
+                needed_positions.append(position)
+
+    need_score = {}
+
+    for position, target in ROSTER_TARGETS.items():
+        current = position_counts[position]
+        missing = max(0, target - current)
+        need_score[position] = int((missing / target) * 100) if target else 0
+
+    tier_alert = None
+    tier_alert_position = None
+    tier_alert_tier = None
+    tier_alert_remaining = None
+
+    tier_risks = []
+    for position in needed_positions:
+        leader = next(
+            (player for player in available_players if player[2] == position),
+            None,
+        )
+        if leader:
+            leader_tier = get_player_tier(leader[0])
+            remaining_in_tier = tier_counts[position][leader_tier]
+            if remaining_in_tier <= 3:
+                tier_risks.append(
+                    (remaining_in_tier, leader_tier, position)
+                )
+
+    if tier_risks:
+        (
+            tier_alert_remaining,
+            tier_alert_tier,
+            tier_alert_position,
+        ) = min(tier_risks)
+        tier_alert = (
+            f"Only {tier_alert_remaining} Tier-{tier_alert_tier} "
+            f"{tier_alert_position} players remain."
+        )
+
+    tier_bonus = {position: 0 for position in ROSTER_TARGETS}
+    tier_risk_details = {}
+
+    for position in ROSTER_TARGETS:
+        leader = next(
+            (player for player in available_players if player[2] == position),
+            None,
+        )
+        if not leader:
+            continue
+
+        leader_tier = get_player_tier(leader[0])
+        remaining_in_tier = tier_counts[position][leader_tier]
+        tier_risk_details[position] = {
+            "tier": leader_tier,
+            "remaining": remaining_in_tier,
+        }
+
+        if remaining_in_tier <= 2:
+            tier_bonus[position] = 100
+        elif remaining_in_tier <= 4:
+            tier_bonus[position] = 50
+
+    team_recommendation = next(
+        (
+            player
+            for player in available_players
+            if player[2] in needed_positions
+        ),
+        best_available,
+    )
+
+    rank_score = 0
+    agent_draft_score = 0
+
+    if team_recommendation:
+
+        recommended_position = team_recommendation[2]
+        overall_rank = team_recommendation[0]
+
+        rank_score = max(
+            0,
+            101 - overall_rank
+        )
+
+        agent_draft_score = (
+            rank_score
+            + need_score.get(recommended_position, 0)
+            + scarcity_score.get(recommended_position, 0)
+            + tier_bonus.get(recommended_position, 0)
+        )
+
+    recommendation_reasons = []
+
+    if team_recommendation:
+        recommended_position = team_recommendation[2]
+        target = ROSTER_TARGETS.get(recommended_position, 0)
+        current = position_counts.get(recommended_position, 0)
+
+        if need_score.get(recommended_position, 0) >= 75:
+            recommendation_reasons.append(
+                f"{recommended_position} is a major roster need "
+                f"({current} of {target} target players rostered)."
+            )
+        elif need_score.get(recommended_position, 0) >= 40:
+            recommendation_reasons.append(
+                f"{recommended_position} depth is still below target "
+                f"({current} of {target})."
+            )
+        else:
+            recommendation_reasons.append(
+                f"{recommended_position} is near the strategic roster target "
+                f"({current} of {target})."
+            )
+
+        risk = tier_risk_details.get(recommended_position)
+        if risk and tier_bonus.get(recommended_position, 0) > 0:
+            recommendation_reasons.append(
+                f"Only {risk['remaining']} Tier-{risk['tier']} "
+                f"{recommended_position} players remain."
+            )
+
+        if rank_score >= 75:
+            recommendation_reasons.append(
+                "Elite overall value remains available."
+            )
+        elif rank_score >= 40:
+            recommendation_reasons.append(
+                "The player still offers strong overall value."
+            )
+
+        if scarcity_score.get(recommended_position, 0) >= 50:
+            recommendation_reasons.append(
+                f"Available {recommended_position} depth is shrinking."
+            )
+
+    recommended_tier = (
+        get_player_tier(team_recommendation[0])
+        if team_recommendation
+        else None
+    )
+    recommended_tier_remaining = (
+        tier_counts[team_recommendation[2]][recommended_tier]
+        if team_recommendation and recommended_tier
+        else 0
+    )
+    pick_forecast = build_pick_forecast(available_players, scarcity)
+
+    return render_template(
+        "draftboard.html",
+        title="My Draft Board",
+        players=players,
+        available_players=available_players,
+        best_available=best_available,
+        position_leaders=position_leaders,
+        draft_targets=draft_targets,
+        drafted_count=drafted_count,
+        roster=roster,
+        roster_slots=roster_slots,
+        bench=bench,
+        team_recommendation=team_recommendation,
+        scarcity=scarcity,
+        scarcity_labels=scarcity_labels,
+        scarcity_score=scarcity_score,
+        need_score=need_score,
+        tier_alert=tier_alert,
+        roster_targets=ROSTER_TARGETS,
+        position_counts=position_counts,
+        roster_progress=roster_progress,
+        tier_bonus=tier_bonus,
+        tier_risk_details=tier_risk_details,
+        recommendation_reasons=recommendation_reasons,
+        tier_counts=tier_counts,
+        tier_alert_position=tier_alert_position,
+        tier_alert_tier=tier_alert_tier,
+        tier_alert_remaining=tier_alert_remaining,
+        recommended_tier=recommended_tier,
+        recommended_tier_remaining=recommended_tier_remaining,
+        pick_forecast=pick_forecast,
+        rank_score=rank_score,
+        agent_draft_score=agent_draft_score,
+        sleeper_sync_status=sleeper_sync_status,
+        sleeper_sync_error=sleeper_sync_error,
+    )
+
+
+@app.route("/draftboard/toggle-star", methods=["POST"])
+def toggle_star():
+    player_name = request.form.get("player_name", "").strip()
+    if not player_name:
+        return redirect(url_for("draftboard"))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO draft_board (player_name, starred, drafted)
+        VALUES (%s, true, false)
+        ON CONFLICT (player_name)
+        DO UPDATE SET starred = NOT draft_board.starred
+        """,
+        (player_name,),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for("draftboard"))
+
+
+@app.route("/draftboard/toggle-drafted", methods=["POST"])
+def toggle_drafted():
+    player_name = request.form.get("player_name", "").strip()
+    if not player_name:
+        return redirect(url_for("draftboard"))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO draft_board (player_name, starred, drafted)
+        VALUES (%s, false, true)
+        ON CONFLICT (player_name)
+        DO UPDATE SET drafted = NOT draft_board.drafted
+        """,
+        (player_name,),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for("draftboard"))
+
+
+@app.route("/draftboard/add-to-team", methods=["POST"])
+def add_to_team():
+    player_name = request.form.get("player_name", "").strip()
+    position = request.form.get("position", "").strip().upper()
+
+    if not player_name or not position:
+        return redirect(url_for("draftboard"))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO my_roster (player_name, position)
+        SELECT %s, %s
+        WHERE NOT EXISTS (
+            SELECT 1 FROM my_roster WHERE player_name = %s
+        )
+        """,
+        (player_name, position, player_name),
+    )
+    cur.execute(
+        """
+        INSERT INTO draft_board (player_name, starred, drafted)
+        VALUES (%s, false, true)
+        ON CONFLICT (player_name)
+        DO UPDATE SET drafted = true
+        """,
+        (player_name,),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for("draftboard"))
+
+
+@app.route("/draftboard/remove-from-team", methods=["POST"])
+def remove_from_team():
+    roster_id = request.form.get("roster_id", "").strip()
+    if roster_id.isdigit():
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM my_roster WHERE id = %s", (int(roster_id),))
+        conn.commit()
+        cur.close()
+        conn.close()
+    return redirect(url_for("draftboard"))
+
+
+@app.route("/position/<position>")
+def position_rankings(position):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT ranking, player_name, nfl_team
+        FROM players
+        WHERE position = %s
+        ORDER BY ranking
+        """,
+        (position.upper(),),
+    )
+    players = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "position.html",
+        title=f"{position.upper()} Rankings",
+        players=players,
+    )
+
+
+@app.route("/league")
+def league_manager():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, team_name FROM league_teams ORDER BY id")
+    teams = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("league.html", title="League Manager", teams=teams)
+
+
+@app.route("/league/add-team", methods=["POST"])
+def add_league_team():
+    team_name = request.form.get("team_name", "").strip()
+    if team_name:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO league_teams (team_name) VALUES (%s) ON CONFLICT DO NOTHING",
+            (team_name,),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    return redirect(url_for("league_manager"))
+
+
+@app.route("/league/delete-team", methods=["POST"])
+def delete_league_team():
+    team_id = request.form.get("team_id", "").strip()
+    if team_id.isdigit():
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM league_teams WHERE id = %s", (int(team_id),))
+        conn.commit()
+        cur.close()
+        conn.close()
+    return redirect(url_for("league_manager"))
+
+
+@app.route("/rosters")
+def league_rosters():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, team_name FROM league_teams ORDER BY id")
+    teams = cur.fetchall()
+    cur.execute(
+        """
+        SELECT id, team_name, player_name, position, drafted_at
+        FROM league_rosters
+        ORDER BY drafted_at, id
+        """
+    )
+    roster_rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    rosters_by_team = []
+    for team_id, team_name in teams:
+        rosters_by_team.append(
+            {
+                "team_id": team_id,
+                "team_name": team_name,
+                "players": [row for row in roster_rows if row[1] == team_name],
+            }
+        )
+
+    return render_template(
+        "rosters.html",
+        title="League Rosters",
+        rosters_by_team=rosters_by_team,
+    )
+
+
+@app.route("/trackdraft", methods=["GET", "POST"])
+def track_draft():
+    error = None
+    message = None
+
+    if request.method == "POST":
+        team_name = request.form.get("team_name", "").strip()
+        player_name = request.form.get("player_name", "").strip()
+
+        if not team_name or not player_name:
+            error = "Select both a team and a player."
+        else:
+            conn = get_db_connection()
+            cur = conn.cursor()
+
+            cur.execute(
+                """
+                SELECT position
+                FROM players
+                WHERE player_name = %s
+                LIMIT 1
+                """,
+                (player_name,),
+            )
+            player_row = cur.fetchone()
+
+            cur.execute(
+                "SELECT 1 FROM league_teams WHERE team_name = %s",
+                (team_name,),
+            )
+            team_exists = cur.fetchone() is not None
+
+            cur.execute(
+                "SELECT 1 FROM league_rosters WHERE player_name = %s",
+                (player_name,),
+            )
+            already_drafted = cur.fetchone() is not None
+
+            if player_row is None:
+                error = "The selected player was not found."
+            elif not team_exists:
+                error = "The selected team was not found."
+            elif already_drafted:
+                error = f"{player_name} has already been drafted."
+            else:
+                position = player_row[0]
+                cur.execute(
+                    """
+                    INSERT INTO league_rosters (team_name, player_name, position)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (team_name, player_name, position),
+                )
+                cur.execute(
+                    """
+                    INSERT INTO draft_board (player_name, starred, drafted)
+                    VALUES (%s, false, true)
+                    ON CONFLICT (player_name)
+                    DO UPDATE SET drafted = true
+                    """,
+                    (player_name,),
+                )
+
+                if team_name == "My Team":
+                    cur.execute(
+                        """
+                        INSERT INTO my_roster (player_name, position)
+                        SELECT %s, %s
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM my_roster WHERE player_name = %s
+                        )
+                        """,
+                        (player_name, position, player_name),
+                    )
+
+                conn.commit()
+                message = f"Recorded {player_name} to {team_name}."
+
+            cur.close()
+            conn.close()
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT team_name FROM league_teams ORDER BY id")
+    teams = [row[0] for row in cur.fetchall()]
+    available_players = fetch_available_players(cur)
+    cur.execute(
+        """
+        SELECT id, team_name, player_name, position, drafted_at
+        FROM league_rosters
+        ORDER BY drafted_at DESC, id DESC
+        LIMIT 20
+        """
+    )
+    recent_picks = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return render_template(
+        "trackdraft.html",
+        title="Draft Tracker",
+        teams=teams,
+        available_players=available_players,
+        recent_picks=recent_picks,
+        message=message,
+        error=error,
+    )
+
+
+@app.route("/trackdraft/undo", methods=["POST"])
+def undo_draft_pick():
+    pick_id = request.form.get("pick_id", "").strip()
+
+    if not pick_id.isdigit():
+        return redirect(url_for("track_draft"))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT team_name, player_name FROM league_rosters WHERE id = %s",
+        (int(pick_id),),
+    )
+    pick = cur.fetchone()
+
+    if pick is not None:
+        team_name, player_name = pick
+        cur.execute("DELETE FROM league_rosters WHERE id = %s", (int(pick_id),))
+        cur.execute(
+            "UPDATE draft_board SET drafted = false WHERE player_name = %s",
+            (player_name,),
+        )
+        if team_name == "My Team":
+            cur.execute(
+                "DELETE FROM my_roster WHERE player_name = %s",
+                (player_name,),
+            )
+        conn.commit()
+
+    cur.close()
+    conn.close()
+    return redirect(url_for("track_draft"))
+
+
+@app.route("/test-sleeper")
+def test_sleeper():
+
+    league_id = "1398094330668797952"
+
+    league = get_league(league_id)
+
+    return jsonify(league)
+
+from services.sleeper_service import (
+    get_league,
+    get_users,
+    get_rosters
+)
+
+@app.route("/test-sleeper-users")
+def test_sleeper_users():
+
+    league_id = "1398094330668797952"
+
+    return jsonify(
+        get_users(league_id)
+    )
+
+
+@app.route("/test-sleeper-rosters")
+def test_sleeper_rosters():
+
+    league_id = "1398094330668797952"
+
+    return jsonify(
+        get_rosters(league_id)
+    )
+
+@app.route("/create-sleeper-tables")
+def create_sleeper_tables():
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS sleeper_teams (
+        id SERIAL PRIMARY KEY,
+        sleeper_user_id VARCHAR(50) UNIQUE,
+        display_name VARCHAR(255),
+        team_name VARCHAR(255),
+        avatar VARCHAR(255),
+        league_id VARCHAR(50),
+        is_owner BOOLEAN DEFAULT FALSE
+    )
+    """)
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return "Sleeper tables created successfully!"
+
+@app.route("/sleeper-sync")
+def sleeper_sync():
+
+    league_id = "1398094330668797952"
+
+    users = get_users(league_id)
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    imported = 0
+
+    for user in users:
+
+        metadata = user.get("metadata") or {}
+
+        team_name = metadata.get(
+            "team_name",
+            user["display_name"]
+        )
+
+        cur.execute("""
+        INSERT INTO sleeper_teams (
+            sleeper_user_id,
+            display_name,
+            team_name,
+            avatar,
+            league_id,
+            is_owner
+        )
+        VALUES (%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (sleeper_user_id)
+        DO UPDATE SET
+            display_name = EXCLUDED.display_name,
+            team_name = EXCLUDED.team_name,
+            avatar = EXCLUDED.avatar
+        """, (
+            user["user_id"],
+            user["display_name"],
+            team_name,
+            user.get("avatar"),
+            user["league_id"],
+            user.get("is_owner", False)
+        ))
+
+        imported += 1
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return f"Imported {imported} Sleeper teams successfully!"
+
+@app.route("/sleeper-teams")
+def sleeper_teams():
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            display_name,
+            team_name,
+            is_owner
+        FROM sleeper_teams
+        ORDER BY team_name
+    """)
+
+    teams = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template(
+        "sleeper_teams.html",
+        teams=teams
+    )
+
+@app.route("/test-draft")
+def test_draft():
+
+    draft_id = "1398094331272794112"
+
+    return jsonify(
+        get_draft(draft_id)
+    )
+
+
+@app.route("/sleeper/players/sync", methods=["GET", "POST"])
+def sleeper_player_map_sync():
+    try:
+        return jsonify(sync_sleeper_player_map())
+    except Exception as exc:
+        app.logger.exception("Sleeper player-map sync failed")
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/sleeper/draft-picks/sync", methods=["GET", "POST"])
+def sleeper_draft_picks_sync():
+    try:
+        return jsonify(sync_sleeper_draft_picks())
+    except Exception as exc:
+        app.logger.exception("Sleeper draft-pick sync failed")
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/test-draft-picks")
+def test_draft_picks():
+
+    draft_id = "1398094331272794112"
+
+    return jsonify(
+        get_draft_picks(draft_id)
+    )
+
+@app.route("/create-draft-tables")
+def create_draft_tables():
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS sleeper_drafts (
+        draft_id VARCHAR(50) PRIMARY KEY,
+        league_id VARCHAR(50),
+        season VARCHAR(10),
+        draft_type VARCHAR(25),
+        rounds INTEGER,
+        teams INTEGER,
+        status VARCHAR(25)
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS sleeper_draft_picks (
+        id SERIAL PRIMARY KEY,
+        pick_id VARCHAR(50) UNIQUE,
+        draft_id VARCHAR(50),
+        round_num INTEGER,
+        pick_no INTEGER,
+        roster_id INTEGER,
+        player_id VARCHAR(50),
+        player_name VARCHAR(255)
+    )
+    """)
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return "Draft tables created successfully!"
+
+@app.route("/draft-sync")
+def draft_sync():
+
+    draft = get_draft(
+        "1398094331272794112"
+    )
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+    INSERT INTO sleeper_drafts (
+        draft_id,
+        league_id,
+        season,
+        draft_type,
+        rounds,
+        teams,
+        status
+    )
+    VALUES (%s,%s,%s,%s,%s,%s,%s)
+    ON CONFLICT (draft_id)
+    DO UPDATE SET
+        status = EXCLUDED.status
+    """, (
+        draft["draft_id"],
+        draft["league_id"],
+        draft["season"],
+        draft["type"],
+        draft["settings"]["rounds"],
+        draft["settings"]["teams"],
+        draft["status"]
+    ))
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return "Draft synced successfully!"
+
+@app.route("/create-draft-picks-table")
+def create_draft_picks_table():
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS sleeper_draft_picks (
+        id SERIAL PRIMARY KEY,
+        sleeper_pick_id VARCHAR(50) UNIQUE,
+        draft_id VARCHAR(50),
+        roster_id INTEGER,
+        round_num INTEGER,
+        pick_no INTEGER,
+        player_id VARCHAR(50),
+        player_name VARCHAR(255),
+        synced_at TIMESTAMP DEFAULT NOW()
+    )
+    """)
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return "Draft picks table created!"
+
+@app.route("/agent/recommendation")
+def draft_recommendation():
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    players = fetch_available_players(cur)
+
+    cur.close()
+    conn.close()
+
+    if not players:
+        return {
+            "recommendation": None
+        }
+
+    best = players[0]
+
+    return {
+        "player": best[1],
+        "position": best[2],
+        "rank": best[0]
+    }
+
+
+
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5050, debug=True)
+

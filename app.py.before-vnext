@@ -1150,67 +1150,6 @@ def build_draft_coach_summary(
     return summary
 
 
-def build_post_draft_report(roster, position_counts, roster_targets, active_strategy):
-    """Grade roster construction against strategic targets."""
-    grade_scale = [(95, "A+"), (90, "A"), (85, "A-"), (80, "B+"),
-                   (75, "B"), (70, "B-"), (65, "C+"), (60, "C"),
-                   (55, "C-"), (50, "D"), (0, "F")]
-
-    def letter(score):
-        return next(label for floor, label in grade_scale if score >= floor)
-
-    positions = []
-    strengths = []
-    weaknesses = []
-    weighted_total = 0
-    weight_total = 0
-    weights = {"QB": 1.0, "RB": 1.35, "WR": 1.35, "TE": 1.0}
-
-    for position, target in roster_targets.items():
-        current = position_counts.get(position, 0)
-        completion = min(100, round(current / max(target, 1) * 100))
-        starter_floor = {"QB": 1, "RB": 2, "WR": 2, "TE": 1}.get(position, 1)
-        starter_bonus = 10 if current >= starter_floor else 0
-        score = min(100, completion + starter_bonus)
-        grade = letter(score)
-        remaining = max(0, target - current)
-        positions.append({
-            "position": position,
-            "current": current,
-            "target": target,
-            "remaining": remaining,
-            "score": score,
-            "grade": grade,
-        })
-        weight = weights.get(position, 1.0)
-        weighted_total += score * weight
-        weight_total += weight
-        if score >= 85:
-            strengths.append(f"{position} construction is at or near target.")
-        elif score < 60:
-            weaknesses.append(f"{position} depth is below target ({current} of {target}).")
-
-    overall_score = round(weighted_total / max(weight_total, 1))
-    player_count = len(roster)
-    report_status = "COMPLETE" if player_count >= sum(roster_targets.values()) else "IN PROGRESS"
-    if not strengths:
-        strengths.append("Roster construction is still developing.")
-    if not weaknesses:
-        weaknesses.append("No major positional depth gaps detected.")
-
-    return {
-        "status": report_status,
-        "overall_score": overall_score,
-        "overall_grade": letter(overall_score),
-        "strategy": active_strategy,
-        "player_count": player_count,
-        "target_player_count": sum(roster_targets.values()),
-        "positions": positions,
-        "strengths": strengths,
-        "weaknesses": weaknesses,
-    }
-
-
 def fetch_available_players(cur):
     cur.execute(
         """
@@ -2142,13 +2081,6 @@ def draftboard():
                 f"{needy_opponents} teams still need {recommended_position} depth."
             )
 
-    post_draft_report = build_post_draft_report(
-        roster,
-        position_counts,
-        ROSTER_TARGETS,
-        STRATEGY_PROFILES[active_strategy]["label"],
-    )
-
     draft_coach = build_draft_coach_summary(
         team_recommendation,
         top_recommendations,
@@ -2207,7 +2139,6 @@ def draftboard():
         value_gap_analysis=value_gap_analysis,
         expected_value_analysis=expected_value_analysis,
         draft_coach=draft_coach,
-        post_draft_report=post_draft_report,
         rank_score=rank_score,
         agent_draft_score=agent_draft_score,
         sleeper_sync_status=sleeper_sync_status,

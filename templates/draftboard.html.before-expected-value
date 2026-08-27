@@ -1,13 +1,6 @@
 {% extends "base.html" %}
 
 {% block content %}
-<style id="live-draft-mode-styles">
-.live-draft-bar{position:sticky;top:0;z-index:999;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#172554;color:#fff;padding:10px 14px;margin:0 0 18px;border-radius:10px;box-shadow:0 3px 12px rgba(0,0,0,.18)}.live-draft-left,.live-draft-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.live-dot{width:10px;height:10px;border-radius:50%;background:#9ca3af;display:inline-block}.live-dot.connected{background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.18)}.live-dot.checking{background:#f59e0b}.live-dot.error{background:#ef4444}.live-pill{background:rgba(255,255,255,.12);padding:5px 9px;border-radius:999px;font-size:.82rem}.live-button{background:#fff;color:#172554;border:0;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer}.live-button:hover{background:#e0e7ff}.live-draft-message{font-size:.86rem;color:#dbeafe}@media(max-width:700px){.live-draft-bar{position:static}.live-draft-left,.live-draft-right{width:100%;justify-content:space-between}}
-</style>
-<div id="live-draft-bar" class="live-draft-bar" aria-live="polite">
-<div class="live-draft-left"><span id="live-draft-dot" class="live-dot checking"></span><strong>Live Draft Mode</strong><span id="live-draft-status" class="live-pill">Starting...</span><span id="live-draft-picks" class="live-pill">Sleeper picks: --</span></div>
-<div class="live-draft-right"><span id="live-draft-message" class="live-draft-message">Checking Sleeper</span><span id="live-draft-countdown" class="live-pill">Next check: --</span><button id="live-draft-toggle" class="live-button" type="button">Pause</button><button id="live-draft-refresh" class="live-button" type="button">Check now</button></div>
-</div>
 <style>
 *{box-sizing:border-box}.draft-board-page{color:#222}.draft-board-page h1{margin-top:0}.card{background:#fff;padding:20px;border-radius:10px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.06)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:20px}.grid .card{margin-bottom:0}.highlight{background:#e8f5e9;border-left:6px solid #2e7d32;padding:18px;border-radius:8px}.highlight h2{color:#2e7d32;margin:4px 0 8px}.agent-card{border-top:5px solid #283593}.agent-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}.agent-header h2{margin:4px 0 0}.agent-label{color:#283593;font-size:.75rem;font-weight:bold;letter-spacing:1.2px}.agent-status{background:#d4edda;color:#1b5e20;border-radius:999px;padding:6px 10px;font-size:.75rem;font-weight:bold}.recommendation-label{color:#2e7d32;font-size:.8rem;font-weight:bold;letter-spacing:.8px;text-transform:uppercase}.player-details{margin-bottom:12px}.agent-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}.metric{background:rgba(255,255,255,.72);border-radius:8px;padding:10px}.metric-total{grid-column:1/-1;border:1px solid #c5cae9;background:#f0f1ff}.metric-label{display:block;color:#666;font-size:.72rem;font-weight:bold;letter-spacing:.6px;text-transform:uppercase}.metric-value{display:block;margin-top:4px;font-size:1.05rem;font-weight:bold}.draft-score{color:#283593}.agent-reason{margin:10px 0 0;line-height:1.5}.tier-alert{margin-top:12px;background:#fff3cd;border-left:4px solid #ff9800;padding:10px;border-radius:6px;line-height:1.4}.scarcity-value{font-weight:bold}.scarcity-high{color:#c62828}.scarcity-medium{color:#ef6c00}.scarcity-low{color:#2e7d32}.need{display:inline-block;margin:4px;padding:8px 12px;border-radius:8px;background:#fff3cd}.need.filled{background:#d4edda}.roster-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.slot{padding:12px;background:#eef4ff;border-radius:8px}.empty-slot{color:#777}.target-list{display:flex;flex-wrap:wrap;gap:12px}.target{background:#fff8e1;border:1px solid #ffe082;padding:10px 14px;border-radius:8px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ddd;padding:10px;text-align:left;vertical-align:middle}th{background:#ececec}tbody tr:hover{background:#f7f9fc}tr.drafted{background:#eee;color:#777}form.inline-form{display:inline-block;margin:0 5px 4px 0}button{border:0;border-radius:6px;padding:8px 12px;cursor:pointer;font-weight:bold}.star{background:#fff3cd}.draft{background:#d4edda}.undraft,.remove{background:#f8d7da}.team{background:#e8eaf6;color:#283593}.muted{color:#666;font-style:italic}@media(max-width:700px){.agent-header{align-items:flex-start}.agent-metrics{grid-template-columns:1fr}th,td{padding:8px}}
 </style>
@@ -15,27 +8,6 @@
 <div class="draft-board-page">
 <h1>🏈 My Draft Board</h1>
 <div class="grid">
-<section class="card agent-card" style="grid-column:1/-1">
-<div class="agent-header"><div><span class="agent-label">FANTASY INTELLIGENCE</span><h2>🏆 Fantasy Intelligence Draft Coach</h2></div><span class="agent-status">{{ draft_coach.confidence_label }} CONFIDENCE · {{ draft_coach.confidence }}%</span></div>
-{% if draft_coach.player %}
-<div class="highlight">
-<div class="recommendation-label">{{ draft_coach.decision }}</div>
-<h2>{{ draft_coach.player }}</h2>
-<p><strong>{{ draft_coach.position }}</strong> · Overall Rank #{{ draft_coach.rank }} · Draft Score {{ draft_coach.draft_score }}</p>
-<div class="agent-metrics">
-<div class="metric"><span class="metric-label">Strategy</span><span class="metric-value">{{ strategy_profile.label }}</span></div>
-<div class="metric"><span class="metric-label">Round</span><span class="metric-value">{{ draft_coach.round }}</span></div>
-<div class="metric"><span class="metric-label">Next-Pick Availability</span><span class="metric-value">{% if draft_coach.availability_pct is not none %}{{ draft_coach.availability_pct }}%{% else %}Pending{% endif %}</span></div>
-<div class="metric"><span class="metric-label">Value at Risk</span><span class="metric-value">{{ draft_coach.value_at_risk }}</span></div>
-</div>
-<strong>Coach rationale:</strong><ul>{% for reason in draft_coach.reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
-{% if draft_coach.next_pick %}<p class="muted">Next pick: {{ draft_coach.next_pick }} · Selections before then: {{ draft_coach.picks_until_next }}</p>{% endif %}
-</div>
-{% else %}<p class="muted">No recommendation is currently available.</p>{% endif %}
-<p class="muted">Confidence summarizes internal recommendation signals. It is not a calibrated probability or guarantee of fantasy performance.</p>
-</section>
-
-
 <section class="card"><h2>Draft Board Summary</h2><p><strong>Total Players:</strong> {{ players|length }}</p><p><strong>Available:</strong> {{ available_players|length }}</p><p><strong>Drafted:</strong> {{ drafted_count }}</p><p><strong>On My Team:</strong> {{ roster|length }}</p></section>
 
 <section class="card"><h2>🏆 Best Available</h2>{% if best_available %}<div class="highlight"><h2>{{ best_available[1] }}</h2><p>Overall Rank #{{ best_available[0] }} · {{ best_available[2] }} · {{ best_available[3] or "FA" }}</p></div>{% else %}<p class="muted">No available players.</p>{% endif %}</section>
@@ -111,31 +83,6 @@
 {% for position in ["QB", "RB", "WR", "TE"] %}<tr><td><strong>{{ position }}</strong></td>{% for tier in [1,2,3,4,5] %}<td>{{ tier_counts[position][tier] }}</td>{% endfor %}</tr>{% endfor %}
 </tbody></table></div>
 {% if tier_alert %}<div class="tier-alert">🚨 {{ tier_alert }}</div>{% endif %}
-</section>
-
-<section class="card">
-<h2>📋 Post-Draft Report</h2>
-<div class="agent-header"><div><span class="agent-label">ROSTER CONSTRUCTION</span><h2>{{ post_draft_report.overall_grade }} · {{ post_draft_report.overall_score }}%</h2></div><span class="agent-status">{{ post_draft_report.status }}</span></div>
-<p><strong>Strategy:</strong> {{ post_draft_report.strategy }} · <strong>Players:</strong> {{ post_draft_report.player_count }} / {{ post_draft_report.target_player_count }}</p>
-<div class="table-wrap"><table><thead><tr><th>Position</th><th>Rostered</th><th>Target</th><th>Remaining</th><th>Score</th><th>Grade</th></tr></thead><tbody>
-{% for row in post_draft_report.positions %}<tr><td><strong>{{ row.position }}</strong></td><td>{{ row.current }}</td><td>{{ row.target }}</td><td>{{ row.remaining }}</td><td>{{ row.score }}%</td><td><strong>{{ row.grade }}</strong></td></tr>{% endfor %}
-</tbody></table></div>
-<div class="grid" style="margin-top:16px">
-<div class="slot"><strong>Strengths</strong><ul>{% for item in post_draft_report.strengths %}<li>{{ item }}</li>{% endfor %}</ul></div>
-<div class="slot"><strong>Needs Attention</strong><ul>{% for item in post_draft_report.weaknesses %}<li>{{ item }}</li>{% endfor %}</ul></div>
-</div>
-<p class="muted">Grades measure roster construction against your strategic targets. They are not projections of season results.</p>
-</section>
-<section class="card">
-<h2>📉 Expected Value Analysis</h2>
-<p class="muted">Expected future value blends the chance the player survives to your next pick with the value of the next same-position fallback.</p>
-{% if expected_value_analysis.players %}
-<div class="table-wrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Current Value</th><th>Available Next Pick</th><th>Fallback</th><th>Fallback Value</th><th>Expected Future Value</th><th>Value at Risk</th><th>Action</th></tr></thead><tbody>
-{% for row in expected_value_analysis.players %}<tr{% if loop.first %} style="background:#f8d7da"{% endif %}><td><strong>{{ row.player }}</strong></td><td>{{ row.position }}</td><td>{{ row.current_value }}</td><td>{{ row.availability_pct }}%</td><td>{{ row.fallback_player or "None" }}</td><td>{{ row.fallback_value }}</td><td>{{ row.expected_future_value }}</td><td><strong>{{ row.expected_value_loss }}</strong></td><td><span class="scarcity-{{ row.value_risk|lower }}">{{ row.action }}</span></td></tr>{% endfor %}
-</tbody></table></div>
-{% if expected_value_analysis.highest_value_at_risk %}<div class="tier-alert"><strong>Highest value at risk:</strong> {{ expected_value_analysis.highest_value_at_risk.player }}. Waiting is estimated to put {{ expected_value_analysis.highest_value_at_risk.expected_value_loss }} recommendation points at risk.</div>{% endif %}
-{% else %}<p class="muted">Expected-value status: {{ expected_value_analysis.status }}.</p>{% endif %}
-<p class="muted">Expected value uses recommendation points, not projected fantasy points or monetary value. Results are planning estimates and are not guarantees.</p>
 </section>
 
 <section class="card">
@@ -229,17 +176,4 @@
 </td></tr>{% endfor %}
 </tbody></table></div></section>
 </div>
-<script id="live-draft-mode-script">
-(function(){
-const endpoint="{{ url_for('test_draft_picks') }}",intervalSeconds=10;
-const dot=document.getElementById("live-draft-dot"),status=document.getElementById("live-draft-status"),picksLabel=document.getElementById("live-draft-picks"),message=document.getElementById("live-draft-message"),countdown=document.getElementById("live-draft-countdown"),toggle=document.getElementById("live-draft-toggle"),refresh=document.getElementById("live-draft-refresh");
-let enabled=localStorage.getItem("fiLiveDraftEnabled")!=="false",baseline=null,seconds=intervalSeconds,checking=false;
-function setState(kind,label){dot.className="live-dot "+kind;status.textContent=label;}
-function clock(){return new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"});}
-function updateToggle(){toggle.textContent=enabled?"Pause":"Resume";countdown.textContent=enabled?"Next check: "+seconds+"s":"Paused";}
-async function checkPicks(manual){if(checking||(!enabled&&!manual))return;checking=true;setState("checking","Checking");message.textContent="Contacting Sleeper...";try{const response=await fetch(endpoint,{cache:"no-store",headers:{"Accept":"application/json"}});if(!response.ok)throw new Error("HTTP "+response.status);const data=await response.json(),count=Array.isArray(data)?data.length:0;picksLabel.textContent="Sleeper picks: "+count;setState("connected",enabled?"Connected":"Paused");message.textContent="Last checked "+clock();if(baseline===null){baseline=count;}else if(count!==baseline){message.textContent="New Sleeper pick detected. Updating board...";localStorage.setItem("fiLastPickCount",String(count));window.setTimeout(function(){window.location.reload();},500);return;}baseline=count;seconds=intervalSeconds;}catch(error){setState("error","Connection issue");message.textContent="Sleeper check failed: "+error.message;seconds=intervalSeconds;}finally{checking=false;updateToggle();}}
-toggle.addEventListener("click",function(){enabled=!enabled;localStorage.setItem("fiLiveDraftEnabled",String(enabled));if(enabled){seconds=0;setState("checking","Resuming");}else{setState("connected","Paused");message.textContent="Automatic checks paused";}updateToggle();});
-refresh.addEventListener("click",function(){checkPicks(true);});updateToggle();checkPicks(true);window.setInterval(function(){if(!enabled)return;seconds-=1;if(seconds<=0){seconds=intervalSeconds;checkPicks(false);}updateToggle();},1000);
-})();
-</script>
 {% endblock %}

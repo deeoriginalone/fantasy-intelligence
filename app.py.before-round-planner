@@ -847,370 +847,6 @@ def build_value_gap_analysis(
     return analysis
 
 
-def build_round_plan(
-    active_strategy,
-    current_round,
-    position_counts,
-    roster_targets,
-):
-    """Build an explainable round-by-round plan for the active strategy."""
-    plans = {
-        "BEST_AVAILABLE": [
-            (1, ["RB", "WR"], "Take the strongest elite value."),
-            (2, ["RB", "WR", "TE"], "Preserve value while filling a core starter."),
-            (3, ["RB", "WR"], "Build running back and wide receiver depth."),
-            (4, ["QB", "TE", "RB", "WR"], "Address premium onesie value if available."),
-            (5, ["RB", "WR"], "Continue building flexible depth."),
-            (6, ["QB", "TE", "RB", "WR"], "Fill remaining offensive gaps."),
-        ],
-        "HERO_RB": [
-            (1, ["RB"], "Secure an elite anchor running back."),
-            (2, ["WR"], "Begin building wide receiver depth."),
-            (3, ["WR"], "Add another starting-caliber wide receiver."),
-            (4, ["WR", "TE"], "Continue receiver depth or capture tight end value."),
-            (5, ["QB", "WR"], "Consider quarterback value without forcing it."),
-            (6, ["RB", "WR"], "Add depth behind the hero running back."),
-        ],
-        "ZERO_RB": [
-            (1, ["WR", "TE"], "Open with an elite receiver or premium tight end."),
-            (2, ["WR", "TE"], "Continue building pass-catching advantage."),
-            (3, ["WR"], "Add another high-volume wide receiver."),
-            (4, ["WR", "QB", "TE"], "Capture elite onesie value or receiver depth."),
-            (5, ["RB", "WR"], "Begin considering value running backs."),
-            (6, ["RB"], "Build the first running back wave."),
-        ],
-        "ELITE_TE": [
-            (1, ["TE", "RB", "WR"], "Take an elite tight end if value supports it."),
-            (2, ["TE", "RB", "WR"], "Finish the premium tight end objective or take value."),
-            (3, ["RB", "WR"], "Build core running back and receiver starters."),
-            (4, ["RB", "WR"], "Continue core position depth."),
-            (5, ["QB", "RB", "WR"], "Consider quarterback or best core value."),
-            (6, ["RB", "WR"], "Add flexible offensive depth."),
-        ],
-    }
-
-    selected = plans.get(active_strategy, plans["BEST_AVAILABLE"])
-    rows = []
-    for round_number, preferred_positions, objective in selected:
-        target_met = all(
-            position_counts.get(position, 0)
-            >= min(1, roster_targets.get(position, 1))
-            for position in preferred_positions
-        )
-
-        if round_number < current_round:
-            status = "COMPLETE" if target_met else "MISSED"
-        elif round_number == current_round:
-            status = "ACTIVE"
-        else:
-            status = "UPCOMING"
-
-        rows.append(
-            {
-                "round": round_number,
-                "positions": preferred_positions,
-                "objective": objective,
-                "status": status,
-            }
-        )
-
-    next_objective = next(
-        (row for row in rows if row["round"] >= current_round),
-        None,
-    )
-    target_progress = {
-        position: {
-            "current": position_counts.get(position, 0),
-            "target": target,
-            "remaining": max(0, target - position_counts.get(position, 0)),
-        }
-        for position, target in roster_targets.items()
-    }
-
-    return {
-        "strategy": active_strategy,
-        "current_round": current_round,
-        "rounds": rows,
-        "next_objective": next_objective,
-        "target_progress": target_progress,
-    }
-
-
-def build_expected_value_analysis(
-    top_recommendations,
-    recommendation_candidates,
-    monte_carlo,
-):
-    """Estimate the recommendation value lost by waiting until the next pick."""
-    simulation_by_name = {
-        row["player"]: row
-        for row in (monte_carlo.get("players") or [])
-    }
-    candidates_by_position = {
-        position: [] for position in ROSTER_TARGETS
-    }
-    for candidate in recommendation_candidates:
-        position = candidate["player"][2]
-        if position in candidates_by_position:
-            candidates_by_position[position].append(candidate)
-
-    result = {
-        "players": [],
-        "highest_value_at_risk": None,
-        "status": "READY",
-    }
-    if not top_recommendations:
-        result["status"] = "NO CANDIDATES"
-        return result
-
-    for candidate in top_recommendations:
-        player = candidate["player"]
-        player_name = player[1]
-        position = player[2]
-        current_value = float(candidate["draft_score"])
-        position_options = candidates_by_position.get(position, [])
-
-        option_index = next(
-            (
-                index
-                for index, option in enumerate(position_options)
-                if option["player"][1] == player_name
-            ),
-            None,
-        )
-        fallback = (
-            position_options[option_index + 1]
-            if option_index is not None
-            and option_index + 1 < len(position_options)
-            else None
-        )
-        fallback_name = fallback["player"][1] if fallback else None
-        fallback_value = float(fallback["draft_score"]) if fallback else 0.0
-
-        simulation = simulation_by_name.get(player_name, {})
-        availability_pct = float(simulation.get("availability_pct", 100.0))
-        survival_probability = max(0.0, min(1.0, availability_pct / 100.0))
-
-        expected_future_value = round(
-            survival_probability * current_value
-            + (1.0 - survival_probability) * fallback_value,
-            1,
-        )
-        expected_value_loss = round(
-            max(0.0, current_value - expected_future_value),
-            1,
-        )
-        ev_priority_score = round(current_value + expected_value_loss, 1)
-
-        if expected_value_loss >= 60:
-            value_risk = "HIGH"
-            action = "DRAFT NOW"
-        elif expected_value_loss >= 25:
-            value_risk = "MEDIUM"
-            action = "LEAN DRAFT NOW"
-        else:
-            value_risk = "LOW"
-            action = "WAIT MAY BE SAFE"
-
-        result["players"].append(
-            {
-                "player": player_name,
-                "position": position,
-                "rank": player[0],
-                "current_value": round(current_value, 1),
-                "availability_pct": round(availability_pct, 1),
-                "fallback_player": fallback_name,
-                "fallback_value": round(fallback_value, 1),
-                "expected_future_value": expected_future_value,
-                "expected_value_loss": expected_value_loss,
-                "ev_priority_score": ev_priority_score,
-                "value_risk": value_risk,
-                "action": action,
-            }
-        )
-
-    result["players"].sort(
-        key=lambda row: (
-            -row["expected_value_loss"],
-            -row["ev_priority_score"],
-            row["rank"],
-        )
-    )
-    result["highest_value_at_risk"] = (
-        result["players"][0] if result["players"] else None
-    )
-    return result
-
-
-def build_draft_coach_summary(
-    recommendation,
-    top_recommendations,
-    recommendation_reasons,
-    draft_now_wait,
-    expected_value_analysis,
-    monte_carlo,
-    active_strategy,
-    current_round,
-    pick_forecast,
-):
-    """Create one concise, explainable draft-coach recommendation."""
-    summary = {
-        "player": None,
-        "position": None,
-        "rank": None,
-        "draft_score": 0,
-        "decision": "NO RECOMMENDATION",
-        "confidence": 0,
-        "confidence_label": "UNKNOWN",
-        "strategy": active_strategy,
-        "round": current_round,
-        "next_pick": pick_forecast.get("next_pick"),
-        "picks_until_next": pick_forecast.get("picks_until_next"),
-        "availability_pct": None,
-        "value_at_risk": 0,
-        "reasons": list(recommendation_reasons[:5]),
-    }
-
-    if not recommendation or not top_recommendations:
-        summary["reasons"].append("No available player could be scored.")
-        return summary
-
-    winner = top_recommendations[0]
-    summary.update(
-        player=recommendation[1],
-        position=recommendation[2],
-        rank=recommendation[0],
-        draft_score=winner["draft_score"],
-        decision=draft_now_wait.get("decision", "DRAFT NOW"),
-    )
-
-    simulation = next(
-        (
-            row
-            for row in (monte_carlo.get("players") or [])
-            if row["player"] == recommendation[1]
-        ),
-        None,
-    )
-    if simulation:
-        summary["availability_pct"] = simulation["availability_pct"]
-
-    ev_row = next(
-        (
-            row
-            for row in (expected_value_analysis.get("players") or [])
-            if row["player"] == recommendation[1]
-        ),
-        None,
-    )
-    if ev_row:
-        summary["value_at_risk"] = ev_row["expected_value_loss"]
-
-    score_component = min(35, max(0, winner["draft_score"] / 10))
-    scarcity_component = min(15, winner.get("scarcity_score", 0) * 0.15)
-    tier_component = min(15, winner.get("tier_bonus", 0) * 0.15)
-    value_component = min(20, summary["value_at_risk"] * 0.25)
-
-    availability_component = 0
-    if summary["availability_pct"] is not None:
-        availability_component = min(
-            15,
-            (100 - summary["availability_pct"]) * 0.15,
-        )
-
-    confidence = round(
-        score_component
-        + scarcity_component
-        + tier_component
-        + value_component
-        + availability_component
-    )
-    summary["confidence"] = max(0, min(100, confidence))
-
-    if summary["confidence"] >= 80:
-        summary["confidence_label"] = "HIGH"
-    elif summary["confidence"] >= 60:
-        summary["confidence_label"] = "MEDIUM"
-    else:
-        summary["confidence_label"] = "LOW"
-
-    if summary["availability_pct"] is not None:
-        summary["reasons"].append(
-            f"Estimated next-pick availability: "
-            f"{summary['availability_pct']}%."
-        )
-    if summary["value_at_risk"] >= 25:
-        summary["reasons"].append(
-            f"Waiting puts approximately {summary['value_at_risk']} "
-            "recommendation points at risk."
-        )
-
-    # Preserve order while removing repeated messages.
-    summary["reasons"] = list(dict.fromkeys(summary["reasons"]))[:6]
-    return summary
-
-
-def build_post_draft_report(roster, position_counts, roster_targets, active_strategy):
-    """Grade roster construction against strategic targets."""
-    grade_scale = [(95, "A+"), (90, "A"), (85, "A-"), (80, "B+"),
-                   (75, "B"), (70, "B-"), (65, "C+"), (60, "C"),
-                   (55, "C-"), (50, "D"), (0, "F")]
-
-    def letter(score):
-        return next(label for floor, label in grade_scale if score >= floor)
-
-    positions = []
-    strengths = []
-    weaknesses = []
-    weighted_total = 0
-    weight_total = 0
-    weights = {"QB": 1.0, "RB": 1.35, "WR": 1.35, "TE": 1.0}
-
-    for position, target in roster_targets.items():
-        current = position_counts.get(position, 0)
-        completion = min(100, round(current / max(target, 1) * 100))
-        starter_floor = {"QB": 1, "RB": 2, "WR": 2, "TE": 1}.get(position, 1)
-        starter_bonus = 10 if current >= starter_floor else 0
-        score = min(100, completion + starter_bonus)
-        grade = letter(score)
-        remaining = max(0, target - current)
-        positions.append({
-            "position": position,
-            "current": current,
-            "target": target,
-            "remaining": remaining,
-            "score": score,
-            "grade": grade,
-        })
-        weight = weights.get(position, 1.0)
-        weighted_total += score * weight
-        weight_total += weight
-        if score >= 85:
-            strengths.append(f"{position} construction is at or near target.")
-        elif score < 60:
-            weaknesses.append(f"{position} depth is below target ({current} of {target}).")
-
-    overall_score = round(weighted_total / max(weight_total, 1))
-    player_count = len(roster)
-    report_status = "COMPLETE" if player_count >= sum(roster_targets.values()) else "IN PROGRESS"
-    if not strengths:
-        strengths.append("Roster construction is still developing.")
-    if not weaknesses:
-        weaknesses.append("No major positional depth gaps detected.")
-
-    return {
-        "status": report_status,
-        "overall_score": overall_score,
-        "overall_grade": letter(overall_score),
-        "strategy": active_strategy,
-        "player_count": player_count,
-        "target_player_count": sum(roster_targets.values()),
-        "positions": positions,
-        "strengths": strengths,
-        "weaknesses": weaknesses,
-    }
-
-
 def fetch_available_players(cur):
     cur.execute(
         """
@@ -1860,13 +1496,6 @@ def draftboard():
 
     current_round = (completed_picks // max(league_size, 1)) + 1
 
-    round_plan = build_round_plan(
-        active_strategy,
-        current_round,
-        position_counts,
-        ROSTER_TARGETS,
-    )
-
     recommendation_candidates = []
 
     for player in available_players:
@@ -2050,12 +1679,6 @@ def draftboard():
         league_tendencies,
     )
 
-    expected_value_analysis = build_expected_value_analysis(
-        top_recommendations,
-        recommendation_candidates,
-        monte_carlo,
-    )
-
     value_gap_analysis = build_value_gap_analysis(
         top_recommendations,
         recommendation_candidates,
@@ -2069,22 +1692,6 @@ def draftboard():
         tier_counts,
         need_score,
     )
-
-    if team_recommendation and expected_value_analysis.get("players"):
-        recommended_ev = next(
-            (
-                row
-                for row in expected_value_analysis["players"]
-                if row["player"] == team_recommendation[1]
-            ),
-            None,
-        )
-        if recommended_ev and recommended_ev["expected_value_loss"] >= 25:
-            recommendation_reasons.append(
-                f"Expected-value analysis estimates "
-                f"{recommended_ev['expected_value_loss']} points of value at risk "
-                "if you wait until the next pick."
-            )
 
     if team_recommendation and value_gap_analysis.get("players"):
         recommended_gap = next(
@@ -2142,25 +1749,6 @@ def draftboard():
                 f"{needy_opponents} teams still need {recommended_position} depth."
             )
 
-    post_draft_report = build_post_draft_report(
-        roster,
-        position_counts,
-        ROSTER_TARGETS,
-        STRATEGY_PROFILES[active_strategy]["label"],
-    )
-
-    draft_coach = build_draft_coach_summary(
-        team_recommendation,
-        top_recommendations,
-        recommendation_reasons,
-        draft_now_wait,
-        expected_value_analysis,
-        monte_carlo,
-        active_strategy,
-        current_round,
-        pick_forecast,
-    )
-
     return render_template(
         "draftboard.html",
         title="My Draft Board",
@@ -2179,7 +1767,6 @@ def draftboard():
         active_strategy=active_strategy,
         strategy_profile=STRATEGY_PROFILES[active_strategy],
         current_round=current_round,
-        round_plan=round_plan,
         strategy_bonus_for_pick=strategy_bonus_for_pick,
         recommendation_candidates=recommendation_candidates,
         scarcity=scarcity,
@@ -2205,9 +1792,6 @@ def draftboard():
         draft_now_wait=draft_now_wait,
         monte_carlo=monte_carlo,
         value_gap_analysis=value_gap_analysis,
-        expected_value_analysis=expected_value_analysis,
-        draft_coach=draft_coach,
-        post_draft_report=post_draft_report,
         rank_score=rank_score,
         agent_draft_score=agent_draft_score,
         sleeper_sync_status=sleeper_sync_status,

@@ -14,9 +14,10 @@ def import_rankings(filepath):
 
     cur = conn.cursor()
 
-    with open(filepath, newline="", encoding="utf-8") as f:
+    with open(filepath, newline="", encoding="utf-8-sig") as f:
 
         reader = csv.DictReader(f)
+        print(reader.fieldnames)
 
         for row in reader:
 
