@@ -1150,67 +1150,6 @@ def build_draft_coach_summary(
     return summary
 
 
-def build_post_draft_report(roster, position_counts, roster_targets, active_strategy):
-    """Grade roster construction against strategic targets."""
-    grade_scale = [(95, "A+"), (90, "A"), (85, "A-"), (80, "B+"),
-                   (75, "B"), (70, "B-"), (65, "C+"), (60, "C"),
-                   (55, "C-"), (50, "D"), (0, "F")]
-
-    def letter(score):
-        return next(label for floor, label in grade_scale if score >= floor)
-
-    positions = []
-    strengths = []
-    weaknesses = []
-    weighted_total = 0
-    weight_total = 0
-    weights = {"QB": 1.0, "RB": 1.35, "WR": 1.35, "TE": 1.0}
-
-    for position, target in roster_targets.items():
-        current = position_counts.get(position, 0)
-        completion = min(100, round(current / max(target, 1) * 100))
-        starter_floor = {"QB": 1, "RB": 2, "WR": 2, "TE": 1}.get(position, 1)
-        starter_bonus = 10 if current >= starter_floor else 0
-        score = min(100, completion + starter_bonus)
-        grade = letter(score)
-        remaining = max(0, target - current)
-        positions.append({
-            "position": position,
-            "current": current,
-            "target": target,
-            "remaining": remaining,
-            "score": score,
-            "grade": grade,
-        })
-        weight = weights.get(position, 1.0)
-        weighted_total += score * weight
-        weight_total += weight
-        if score >= 85:
-            strengths.append(f"{position} construction is at or near target.")
-        elif score < 60:
-            weaknesses.append(f"{position} depth is below target ({current} of {target}).")
-
-    overall_score = round(weighted_total / max(weight_total, 1))
-    player_count = len(roster)
-    report_status = "COMPLETE" if player_count >= sum(roster_targets.values()) else "IN PROGRESS"
-    if not strengths:
-        strengths.append("Roster construction is still developing.")
-    if not weaknesses:
-        weaknesses.append("No major positional depth gaps detected.")
-
-    return {
-        "status": report_status,
-        "overall_score": overall_score,
-        "overall_grade": letter(overall_score),
-        "strategy": active_strategy,
-        "player_count": player_count,
-        "target_player_count": sum(roster_targets.values()),
-        "positions": positions,
-        "strengths": strengths,
-        "weaknesses": weaknesses,
-    }
-
-
 def fetch_available_players(cur):
     cur.execute(
         """
@@ -2142,13 +2081,6 @@ def draftboard():
                 f"{needy_opponents} teams still need {recommended_position} depth."
             )
 
-    post_draft_report = build_post_draft_report(
-        roster,
-        position_counts,
-        ROSTER_TARGETS,
-        STRATEGY_PROFILES[active_strategy]["label"],
-    )
-
     draft_coach = build_draft_coach_summary(
         team_recommendation,
         top_recommendations,
@@ -2207,7 +2139,6 @@ def draftboard():
         value_gap_analysis=value_gap_analysis,
         expected_value_analysis=expected_value_analysis,
         draft_coach=draft_coach,
-        post_draft_report=post_draft_report,
         rank_score=rank_score,
         agent_draft_score=agent_draft_score,
         sleeper_sync_status=sleeper_sync_status,
@@ -2856,6 +2787,200 @@ def draft_recommendation():
 
 
 
+
+
+
+def ensure_mock_tables(cur):
+    cur.execute("""CREATE TABLE IF NOT EXISTS mock_drafts (
+        id SERIAL PRIMARY KEY, draft_name VARCHAR(255) NOT NULL,
+        strategy VARCHAR(50) NOT NULL, teams INTEGER NOT NULL DEFAULT 10,
+        rounds INTEGER NOT NULL DEFAULT 14, draft_position INTEGER NOT NULL DEFAULT 1,
+        mode VARCHAR(25) NOT NULL DEFAULT 'quick', automation_mode VARCHAR(25) NOT NULL DEFAULT 'advisory',
+        status VARCHAR(25) NOT NULL DEFAULT 'active', current_pick INTEGER NOT NULL DEFAULT 0,
+        paused BOOLEAN NOT NULL DEFAULT FALSE, overall_grade VARCHAR(5), roster_score NUMERIC(10,2),
+        created_at TIMESTAMP DEFAULT NOW())""")
+    for sql in [
+        "ALTER TABLE mock_drafts ADD COLUMN IF NOT EXISTS mode VARCHAR(25) NOT NULL DEFAULT 'quick'",
+        "ALTER TABLE mock_drafts ADD COLUMN IF NOT EXISTS automation_mode VARCHAR(25) NOT NULL DEFAULT 'advisory'",
+        "ALTER TABLE mock_drafts ADD COLUMN IF NOT EXISTS status VARCHAR(25) NOT NULL DEFAULT 'active'",
+        "ALTER TABLE mock_drafts ADD COLUMN IF NOT EXISTS current_pick INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE mock_drafts ADD COLUMN IF NOT EXISTS paused BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE mock_drafts ADD COLUMN IF NOT EXISTS overall_grade VARCHAR(5)",
+        "ALTER TABLE mock_drafts ADD COLUMN IF NOT EXISTS roster_score NUMERIC(10,2)",
+    ]: cur.execute(sql)
+    cur.execute("""CREATE TABLE IF NOT EXISTS mock_picks (
+        id SERIAL PRIMARY KEY, draft_id INTEGER NOT NULL REFERENCES mock_drafts(id) ON DELETE CASCADE,
+        round_num INTEGER NOT NULL, pick_no INTEGER NOT NULL, draft_slot INTEGER,
+        team_name VARCHAR(255) NOT NULL, player_name VARCHAR(255) NOT NULL,
+        position VARCHAR(20), nfl_team VARCHAR(20), overall_rank INTEGER,
+        draft_score NUMERIC(10,2) DEFAULT 0, strategy_bonus NUMERIC(10,2) DEFAULT 0,
+        source VARCHAR(25) NOT NULL DEFAULT 'ai', created_at TIMESTAMP DEFAULT NOW())""")
+    for sql in [
+        "ALTER TABLE mock_picks ADD COLUMN IF NOT EXISTS draft_slot INTEGER",
+        "ALTER TABLE mock_picks ADD COLUMN IF NOT EXISTS nfl_team VARCHAR(20)",
+        "ALTER TABLE mock_picks ADD COLUMN IF NOT EXISTS overall_rank INTEGER",
+        "ALTER TABLE mock_picks ADD COLUMN IF NOT EXISTS strategy_bonus NUMERIC(10,2) DEFAULT 0",
+        "ALTER TABLE mock_picks ADD COLUMN IF NOT EXISTS source VARCHAR(25) NOT NULL DEFAULT 'ai'",
+        "ALTER TABLE mock_picks ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()",
+    ]: cur.execute(sql)
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS mock_pick_unique ON mock_picks(draft_id,pick_no)")
+
+
+def mock_slot_for_pick(pick_no, teams):
+    round_num=((pick_no-1)//teams)+1; pos=((pick_no-1)%teams)+1
+    return teams-pos+1 if round_num%2==0 else pos
+
+
+def mock_counts(cur,draft_id,slot):
+    counts={p:0 for p in ROSTER_TARGETS}
+    cur.execute("SELECT position,COUNT(*) FROM mock_picks WHERE draft_id=%s AND draft_slot=%s GROUP BY position",(draft_id,slot))
+    for pos,count in cur.fetchall():
+        if pos in counts: counts[pos]=count
+    return counts
+
+
+def mock_pool(cur,draft_id):
+    cur.execute("""SELECT ranking,player_name,position,nfl_team FROM players p
+        WHERE position IN ('QB','RB','WR','TE') AND NOT EXISTS
+        (SELECT 1 FROM mock_picks mp WHERE mp.draft_id=%s AND mp.player_name=p.player_name)
+        ORDER BY ranking""",(draft_id,))
+    return list(cur.fetchall())
+
+
+def mock_score(player,pool,counts,strategy,round_num):
+    rank,name,pos,team=player; target=ROSTER_TARGETS[pos]
+    need=int(max(0,target-counts.get(pos,0))/max(target,1)*100)
+    tier=get_player_tier(rank); remaining=sum(1 for x in pool if x[2]==pos and get_player_tier(x[0])==tier)
+    tier_bonus=100 if remaining<=2 else 50 if remaining<=4 else 0
+    strategy_bonus=get_strategy_bonus(strategy,pos,round_num)
+    starter={"QB":1,"RB":2,"WR":2,"TE":1}
+    starter_bonus=20 if counts.get(pos,0)<starter[pos] else 0
+    total=max(0,101-rank)+need+tier_bonus+strategy_bonus+starter_bonus
+    return {"total":total,"need":need,"tier_bonus":tier_bonus,"strategy_bonus":strategy_bonus}
+
+
+def mock_recommendations(cur,draft,limit=8):
+    draft_id,strategy,teams,rounds,user_slot,current_pick=draft
+    pool=mock_pool(cur,draft_id); counts=mock_counts(cur,draft_id,user_slot)
+    round_num=(current_pick//teams)+1
+    rows=[]
+    for player in pool:
+        score=mock_score(player,pool,counts,strategy,round_num)
+        rows.append({"player":player,"score":score})
+    rows.sort(key=lambda x:(-x["score"]["total"],x["player"][0]))
+    return rows[:limit]
+
+
+def insert_mock_pick(cur,draft_id,pick_no,slot,player,score,source):
+    teams_name="My Mock Team" if source in ('user','autopilot') else f"AI Team {slot}"
+    round_num=None
+    cur.execute("SELECT teams FROM mock_drafts WHERE id=%s",(draft_id,)); teams=cur.fetchone()[0]
+    round_num=((pick_no-1)//teams)+1
+    cur.execute("""INSERT INTO mock_picks(draft_id,round_num,pick_no,draft_slot,team_name,
+        player_name,position,nfl_team,overall_rank,draft_score,strategy_bonus,source)
+        VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(draft_id,pick_no) DO NOTHING""",
+        (draft_id,round_num,pick_no,slot,teams_name,player[1],player[2],player[3],player[0],score["total"],score["strategy_bonus"],source))
+
+
+def advance_mock_ai(cur,draft_id):
+    cur.execute("SELECT strategy,teams,rounds,draft_position,current_pick,paused,automation_mode FROM mock_drafts WHERE id=%s",(draft_id,))
+    row=cur.fetchone()
+    if not row:return
+    strategy,teams,rounds,user_slot,current_pick,paused,automation=row; max_pick=teams*rounds
+    while current_pick<max_pick and not paused:
+        next_pick=current_pick+1; slot=mock_slot_for_pick(next_pick,teams)
+        if slot==user_slot and automation!='autopilot': break
+        pool=mock_pool(cur,draft_id)
+        if not pool: break
+        counts=mock_counts(cur,draft_id,slot); round_num=((next_pick-1)//teams)+1
+        use_strategy=strategy if slot==user_slot else 'BEST_AVAILABLE'
+        candidates=[]
+        for player in pool[:60]: candidates.append((mock_score(player,pool,counts,use_strategy,round_num),player))
+        score,player=max(candidates,key=lambda x:(x[0]["total"],-x[1][0]))
+        insert_mock_pick(cur,draft_id,next_pick,slot,player,score,'autopilot' if slot==user_slot else 'ai')
+        current_pick=next_pick
+        cur.execute("UPDATE mock_drafts SET current_pick=%s WHERE id=%s",(current_pick,draft_id))
+    if current_pick>=max_pick: cur.execute("UPDATE mock_drafts SET status='complete' WHERE id=%s",(draft_id,))
+
+
+def mock_grade_simple(counts):
+    vals=[]; rows=[]
+    for pos,target in ROSTER_TARGETS.items():
+        score=min(100,round(counts.get(pos,0)/max(target,1)*100)); vals.append(score)
+        grade='A' if score>=90 else 'B' if score>=75 else 'C' if score>=60 else 'D' if score>=40 else 'F'
+        rows.append({"position":pos,"count":counts.get(pos,0),"target":target,"score":score,"grade":grade})
+    overall=round(sum(vals)/len(vals)); grade='A' if overall>=90 else 'B' if overall>=80 else 'C' if overall>=70 else 'D' if overall>=60 else 'F'
+    return overall,grade,rows
+
+
+@app.route('/mockdraft')
+def mock_draft_lab():
+    conn=get_db_connection();cur=conn.cursor();ensure_mock_tables(cur);conn.commit()
+    cur.execute("SELECT id,draft_name,strategy,teams,rounds,draft_position,mode,automation_mode,status,current_pick,overall_grade,roster_score,created_at FROM mock_drafts ORDER BY id DESC LIMIT 30")
+    drafts=cur.fetchall();cur.close();conn.close()
+    return render_template('mockdraft.html',title='Mock Draft Lab',drafts=drafts,strategy_profiles=STRATEGY_PROFILES)
+
+
+@app.route('/mockdraft/start',methods=['POST'])
+def start_mock_draft():
+    teams=max(4,min(16,int(request.form.get('teams',10))));rounds=max(4,min(20,int(request.form.get('rounds',14))))
+    slot=max(1,min(teams,int(request.form.get('draft_position',1))));strategy=request.form.get('strategy',DEFAULT_STRATEGY)
+    if strategy not in STRATEGY_PROFILES:strategy=DEFAULT_STRATEGY
+    mode=request.form.get('mode','interactive');automation=request.form.get('automation_mode','advisory')
+    if automation not in ('advisory','approval','autopilot'):automation='advisory'
+    name=request.form.get('draft_name','').strip() or f"{STRATEGY_PROFILES[strategy]['label']} Interactive Mock"
+    conn=get_db_connection();cur=conn.cursor();ensure_mock_tables(cur)
+    cur.execute("INSERT INTO mock_drafts(draft_name,strategy,teams,rounds,draft_position,mode,automation_mode,status,current_pick) VALUES(%s,%s,%s,%s,%s,%s,%s,'active',0) RETURNING id",(name,strategy,teams,rounds,slot,mode,automation));did=cur.fetchone()[0]
+    advance_mock_ai(cur,did);conn.commit();cur.close();conn.close()
+    return redirect(url_for('mock_draft_live',draft_id=did))
+
+
+@app.route('/mockdraft/live/<int:draft_id>')
+def mock_draft_live(draft_id):
+    conn=get_db_connection();cur=conn.cursor();ensure_mock_tables(cur);advance_mock_ai(cur,draft_id);conn.commit()
+    cur.execute("SELECT id,draft_name,strategy,teams,rounds,draft_position,mode,automation_mode,status,current_pick,paused FROM mock_drafts WHERE id=%s",(draft_id,));d=cur.fetchone()
+    if not d:cur.close();conn.close();return 'Mock draft not found',404
+    recs=mock_recommendations(cur,(d[0],d[2],d[3],d[4],d[5],d[9])) if d[8]!='complete' else []
+    cur.execute("SELECT round_num,pick_no,draft_slot,team_name,player_name,position,nfl_team,overall_rank,draft_score,source FROM mock_picks WHERE draft_id=%s ORDER BY pick_no DESC LIMIT 25",(draft_id,));recent=cur.fetchall()
+    counts=mock_counts(cur,draft_id,d[5]);cur.close();conn.close()
+    next_pick=d[9]+1; current_round=((next_pick-1)//d[3])+1; current_slot=mock_slot_for_pick(next_pick,d[3]) if next_pick<=d[3]*d[4] else None
+    return render_template('mockdraft_live.html',title=d[1],draft=d,recommendations=recs,recent_picks=recent,counts=counts,current_round=current_round,current_slot=current_slot,next_pick=next_pick,strategy_profile=STRATEGY_PROFILES.get(d[2],STRATEGY_PROFILES[DEFAULT_STRATEGY]))
+
+
+@app.route('/mockdraft/live/<int:draft_id>/pick',methods=['POST'])
+def mock_draft_pick(draft_id):
+    player_name=request.form.get('player_name','').strip();conn=get_db_connection();cur=conn.cursor();ensure_mock_tables(cur)
+    cur.execute("SELECT strategy,teams,rounds,draft_position,current_pick,paused FROM mock_drafts WHERE id=%s",(draft_id,));d=cur.fetchone()
+    if not d:cur.close();conn.close();return 'Mock draft not found',404
+    strategy,teams,rounds,user_slot,current_pick,paused=d;next_pick=current_pick+1
+    if paused or next_pick>teams*rounds or mock_slot_for_pick(next_pick,teams)!=user_slot:
+        cur.close();conn.close();return redirect(url_for('mock_draft_live',draft_id=draft_id))
+    pool=mock_pool(cur,draft_id);player=next((x for x in pool if x[1]==player_name),None)
+    if player:
+        score=mock_score(player,pool,mock_counts(cur,draft_id,user_slot),strategy,((next_pick-1)//teams)+1)
+        insert_mock_pick(cur,draft_id,next_pick,user_slot,player,score,'user');cur.execute("UPDATE mock_drafts SET current_pick=%s WHERE id=%s",(next_pick,draft_id));advance_mock_ai(cur,draft_id);conn.commit()
+    cur.close();conn.close();return redirect(url_for('mock_draft_live',draft_id=draft_id))
+
+
+@app.route('/mockdraft/live/<int:draft_id>/toggle-pause',methods=['POST'])
+def toggle_mock_pause(draft_id):
+    conn=get_db_connection();cur=conn.cursor();cur.execute("UPDATE mock_drafts SET paused=NOT paused WHERE id=%s",(draft_id,));conn.commit();cur.close();conn.close();return redirect(url_for('mock_draft_live',draft_id=draft_id))
+
+
+@app.route('/mockdraft/<int:draft_id>')
+def mock_draft_result(draft_id):
+    conn=get_db_connection();cur=conn.cursor();ensure_mock_tables(cur)
+    cur.execute("SELECT id,draft_name,strategy,teams,rounds,draft_position,mode,automation_mode,status,current_pick,overall_grade,roster_score,created_at FROM mock_drafts WHERE id=%s",(draft_id,));d=cur.fetchone()
+    if not d:cur.close();conn.close();return 'Mock draft not found',404
+    cur.execute("SELECT round_num,pick_no,draft_slot,team_name,player_name,position,nfl_team,overall_rank,draft_score,strategy_bonus,source FROM mock_picks WHERE draft_id=%s ORDER BY pick_no",(draft_id,));picks=cur.fetchall();mine=[x for x in picks if x[2]==d[5]]
+    counts=mock_counts(cur,draft_id,d[5]);score,grade,position_grades=mock_grade_simple(counts)
+    cur.execute("UPDATE mock_drafts SET overall_grade=%s,roster_score=%s WHERE id=%s",(grade,score,draft_id));conn.commit();cur.close();conn.close()
+    return render_template('mockdraft_result.html',title=d[1],draft=d,picks=picks,user_picks=mine,position_grades=position_grades,roster_score=score,overall_grade=grade,best_pick=max(mine,key=lambda x:float(x[8] or 0),default=None),strategy_profile=STRATEGY_PROFILES.get(d[2],STRATEGY_PROFILES[DEFAULT_STRATEGY]))
+
+
+@app.route('/mockdraft/<int:draft_id>/delete',methods=['POST'])
+def delete_mock_draft(draft_id):
+    conn=get_db_connection();cur=conn.cursor();cur.execute("DELETE FROM mock_drafts WHERE id=%s",(draft_id,));conn.commit();cur.close();conn.close();return redirect(url_for('mock_draft_lab'))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5050, debug=True)

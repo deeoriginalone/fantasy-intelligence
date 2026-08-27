@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block content %}
+<style>.wrap{max-width:1200px;margin:auto}.grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:20px}.card{background:#fff;padding:22px;border-radius:12px;box-shadow:0 2px 10px #0002}.form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.full{grid-column:1/-1}.form label{font-weight:bold}.form input,.form select{width:100%;padding:10px;border:1px solid #bbb;border-radius:7px}.primary{background:#283593;color:#fff;border:0;padding:11px;border-radius:7px;font-weight:bold}.row{padding:12px 0;border-bottom:1px solid #eee}.badge{background:#e8eaf6;color:#283593;padding:4px 8px;border-radius:999px}.muted{color:#666}@media(max-width:800px){.grid{grid-template-columns:1fr}}</style>
+<div class="wrap"><h1>🏈 Mock Draft Lab</h1><p class="muted">Practice in Advisory, Approval, or full Autopilot sandbox mode.</p><div class="grid">
+<section class="card"><h2>Start Interactive Mock</h2><form method="POST" action="{{ url_for('start_mock_draft') }}"><div class="form">
+<div class="full"><label>Mock name</label><input name="draft_name" placeholder="Example: Zero RB from slot 7"></div>
+<div><label>Teams</label><select name="teams"><option>8</option><option selected>10</option><option>12</option><option>14</option></select></div>
+<div><label>Rounds</label><input type="number" name="rounds" value="14" min="4" max="20"></div>
+<div><label>Your slot</label><input type="number" name="draft_position" value="1" min="1" max="14"></div>
+<div><label>Strategy</label><select name="strategy">{% for key,p in strategy_profiles.items() %}<option value="{{ key }}">{{ p.label }}</option>{% endfor %}</select></div>
+<div class="full"><label>Automation sandbox</label><select name="automation_mode"><option value="advisory">Advisory: you choose every pick</option><option value="approval">Approval: coach recommends, you approve or choose another</option><option value="autopilot">Autopilot: app drafts your entire roster</option></select></div>
+<input type="hidden" name="mode" value="interactive"><div class="full"><button class="primary" type="submit">Start Interactive Mock</button></div>
+</div></form></section>
+<section class="card"><h2>Saved Mocks</h2>{% if drafts %}{% for d in drafts %}<div class="row"><a href="{% if d[8]=='complete' %}{{ url_for('mock_draft_result',draft_id=d[0]) }}{% else %}{{ url_for('mock_draft_live',draft_id=d[0]) }}{% endif %}"><strong>{{ d[1] }}</strong></a><br><span class="badge">{{ d[2] }}</span> {{ d[3] }} teams · {{ d[4] }} rounds · Slot {{ d[5] }} · {{ d[7] }} · {{ d[8] }}</div>{% endfor %}{% else %}<p>No mocks yet.</p>{% endif %}</section>
+</div><p><a href="{{ url_for('draftboard') }}">← Back to Draft Board</a></p></div>{% endblock %}

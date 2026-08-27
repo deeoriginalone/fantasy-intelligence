@@ -14,6 +14,7 @@
 
 <div class="draft-board-page">
 <h1>🏈 My Draft Board</h1>
+<p><a href="{{ url_for('mock_draft_lab') }}" style="background:#283593;color:white;padding:9px 13px;border-radius:7px;text-decoration:none">🏈 Open Mock Draft Lab</a></p>
 <div class="grid">
 <section class="card agent-card" style="grid-column:1/-1">
 <div class="agent-header"><div><span class="agent-label">FANTASY INTELLIGENCE</span><h2>🏆 Fantasy Intelligence Draft Coach</h2></div><span class="agent-status">{{ draft_coach.confidence_label }} CONFIDENCE · {{ draft_coach.confidence }}%</span></div>
@@ -113,19 +114,6 @@
 {% if tier_alert %}<div class="tier-alert">🚨 {{ tier_alert }}</div>{% endif %}
 </section>
 
-<section class="card">
-<h2>📋 Post-Draft Report</h2>
-<div class="agent-header"><div><span class="agent-label">ROSTER CONSTRUCTION</span><h2>{{ post_draft_report.overall_grade }} · {{ post_draft_report.overall_score }}%</h2></div><span class="agent-status">{{ post_draft_report.status }}</span></div>
-<p><strong>Strategy:</strong> {{ post_draft_report.strategy }} · <strong>Players:</strong> {{ post_draft_report.player_count }} / {{ post_draft_report.target_player_count }}</p>
-<div class="table-wrap"><table><thead><tr><th>Position</th><th>Rostered</th><th>Target</th><th>Remaining</th><th>Score</th><th>Grade</th></tr></thead><tbody>
-{% for row in post_draft_report.positions %}<tr><td><strong>{{ row.position }}</strong></td><td>{{ row.current }}</td><td>{{ row.target }}</td><td>{{ row.remaining }}</td><td>{{ row.score }}%</td><td><strong>{{ row.grade }}</strong></td></tr>{% endfor %}
-</tbody></table></div>
-<div class="grid" style="margin-top:16px">
-<div class="slot"><strong>Strengths</strong><ul>{% for item in post_draft_report.strengths %}<li>{{ item }}</li>{% endfor %}</ul></div>
-<div class="slot"><strong>Needs Attention</strong><ul>{% for item in post_draft_report.weaknesses %}<li>{{ item }}</li>{% endfor %}</ul></div>
-</div>
-<p class="muted">Grades measure roster construction against your strategic targets. They are not projections of season results.</p>
-</section>
 <section class="card">
 <h2>📉 Expected Value Analysis</h2>
 <p class="muted">Expected future value blends the chance the player survives to your next pick with the value of the next same-position fallback.</p>
