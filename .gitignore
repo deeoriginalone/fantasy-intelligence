@@ -16,3 +16,8 @@ oauth_tokens.json
 *.db
 
 .vscode/
+# Local backups
+echo "" >> .gitignore
+echo "#*Backup files" >> .gitignore
+*cho "*ackups/" >> .gitignore
+echo "*.*efore-*" >> .gitignore**cho "*.*ackup" >> .gitignore
