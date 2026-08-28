@@ -577,3 +577,23 @@ Goals:
 Expected Result:
 
 Ability to validate recommendation quality before live drafts.
+
+Date: Aug 27, 2026
+
+League:
+- 12 Teams
+- Full PPR
+
+Players:
+- 521 total
+- ESPN 2026 Top 300 merged
+
+Results:
+- WR Heavy 75.27
+- Balanced 75.23
+- Zero RB 75.21
+- QB Early 75.21
+- Hero RB 75.12
+
+Status:
+Mock Draft Lab v1 Complete
