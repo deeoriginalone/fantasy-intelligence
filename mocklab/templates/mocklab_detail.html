@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block content %}
+<h1>Mock Draft {{draft.id}}</h1><p>Strategy: {{draft.user_strategy}} · Slot: {{draft.user_draft_slot}} · Grade: {{draft.user_draft_grade}}</p>
+<table><tr><th>Round</th><th>Overall</th><th>Team</th><th>Player</th><th>Pos</th><th>Strategy</th><th>Value</th></tr>
+{% for p in picks %}<tr><td>{{p.round_number}}</td><td>{{p.overall_pick}}</td><td>{{p.team_slot}}</td><td>{{p.player_name}}</td><td>{{p.position}}</td><td>{{p.strategy}}</td><td>{{p.value_score}}</td></tr>{% endfor %}</table>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block content %}
+<h1>Mock Draft Lab</h1><p>{{ league_size }} teams · Snake draft · Half PPR</p>
+<form method="post" action="{{ url_for('mocklab.run') }}">
+<label>Draft slot</label><input type="number" name="slot" min="1" max="{{ league_size }}" value="1" required>
+<label>Strategy</label><select name="strategy">{% for s in strategies %}<option value="{{s}}">{{s|replace('_',' ')|title}}</option>{% endfor %}</select>
+<label>Runs</label><select name="runs"><option>1</option><option>10</option><option>100</option><option>500</option><option>1000</option></select>
+<button type="submit">Run Simulation</button></form>
+<h2>Recent simulations</h2><table><tr><th>ID</th><th>Date</th><th>Teams</th><th>Slot</th><th>Strategy</th><th>Score</th><th>Grade</th></tr>
+{% for d in drafts %}<tr><td><a href="{{url_for('mocklab.detail',draft_id=d.id)}}">{{d.id}}</a></td><td>{{d.created_at}}</td><td>{{d.league_size}}</td><td>{{d.user_draft_slot}}</td><td>{{d.user_strategy}}</td><td>{{d.user_roster_score}}</td><td>{{d.user_draft_grade}}</td></tr>{% endfor %}</table>
+{% endblock %}
