@@ -699,3 +699,33 @@ Planned:
 - Roster Need Tracking
 - Live Draft Recommendations
 - Tier Cliff Detection
+
+## Checkpoint: Draft Intelligence v1.5
+Date: 2026-08-28
+
+Completed:
+- ESPN 2026 rankings imported
+- FantasyPros projections imported
+- ESPN injury data integrated
+- VBD engine implemented
+- Top 200 VBD board generated
+- Top 150 draft board generated
+- Sleepers report generated
+- Injury values report generated
+
+Current Tier 1:
+1. Jahmyr Gibbs
+2. Bijan Robinson
+3. Jaxon Smith-Njigba
+4. Amon-Ra St. Brown
+5. Jonathan Taylor
+
+Current Best Draft Strategy:
+WR Heavy (75.27)
+
+Next Milestone:
+Draft Assistant v2
+- Position scarcity
+- Roster need tracking
+- Live draft recommendations
+- Tier cliff detection
