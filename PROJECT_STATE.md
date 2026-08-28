@@ -652,3 +652,50 @@ Planned Features:
 - Position Scarcity
 - Tier Cliff Detection
 - Pick Simulator
+
+## Draft Intelligence v1.5
+
+Date:
+2026-08-28
+
+### Data Sources
+
+✅ ESPN 2026 PPR Rankings
+✅ FantasyPros Projections
+✅ ESPN Injury Feed
+✅ FantasyPros Consensus ADP
+
+### Generated Assets
+
+✅ master_player_projections.csv
+✅ draft_board.csv
+✅ top200_vbd_draft_board.csv
+✅ top150_vbd.csv
+✅ injury_risk_report.csv
+✅ injury_values.csv
+✅ sleepers.csv
+
+### Tier 1 Players
+
+1. Jahmyr Gibbs
+2. Bijan Robinson
+3. Jaxon Smith-Njigba
+4. Amon-Ra St. Brown
+5. Jonathan Taylor
+
+### Current Draft Recommendation
+
+WR Heavy
+
+Average Grade:
+75.27
+
+### Next Milestone
+
+Draft Assistant v2
+
+Planned:
+- Position Scarcity
+- Roster Need Tracking
+- Live Draft Recommendations
+- Tier Cliff Detection
