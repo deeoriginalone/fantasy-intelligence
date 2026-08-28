@@ -21,3 +21,5 @@ echo "" >> .gitignore
 echo "#*Backup files" >> .gitignore
 *cho "*ackups/" >> .gitignore
 echo "*.*efore-*" >> .gitignore**cho "*.*ackup" >> .gitignore
+
+echo "*.sql" >> .gitignore

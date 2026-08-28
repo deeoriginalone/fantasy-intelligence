@@ -35,3 +35,28 @@ python -m mocklab.simulator --runs 10 --slot 1 --strategy balanced
 
 ## Important
 The simulator reads team count dynamically from `league_info.team_count`, falling back to 12. If the league returns to 10 teams, update that one field. It does not hard-code 12-team logic.
+
+## Mock Draft Lab v1.5
+
+### Added
+
+- ESPN 2026 Full PPR Rankings
+- FantasyPros Consensus ADP
+- ESPN Injury Integration
+- VBD (Value Based Draft)
+- Top 200 Draft Board
+- Top 150 Draft Board
+- Sleepers Report
+- Injury Value Report
+
+### Recommended Strategy
+
+WR Heavy
+
+### Latest Validation
+
+WR Heavy 75.27
+Balanced 75.23
+Zero RB 75.21
+QB Early 75.21
+Hero RB 75.12
