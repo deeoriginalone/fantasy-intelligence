@@ -23,3 +23,9 @@ echo "#*Backup files" >> .gitignore
 echo "*.*efore-*" >> .gitignore**cho "*.*ackup" >> .gitignore
 
 echo "*.sql" >> .gitignore
+
+# Local backup files
+*.before-*
+
+# Backup folders
+backups/

@@ -1503,56 +1503,140 @@ def dashboard():
 
 @app.route("/predraft")
 def predraft():
+    """Render the slot-five Predraft Intelligence Lab."""
     conn = get_db_connection()
     cur = conn.cursor()
+
     cur.execute(
         """
-        SELECT ranking, player_name, position, nfl_team
+        SELECT
+            ranking,
+            player_name,
+            UPPER(position),
+            nfl_team,
+            projected_points,
+            tier,
+            adp,
+            bye_week,
+            injury_status
         FROM players
-        ORDER BY ranking
-        LIMIT 25
+        WHERE UPPER(position) IN ('QB', 'RB', 'WR', 'TE')
+        ORDER BY ranking NULLS LAST, player_name
         """
     )
-    players = cur.fetchall()
+    all_players = cur.fetchall()
 
-    counts = {}
-    tops = {}
-
-    for position in ["QB", "RB", "WR", "TE"]:
-        cur.execute(
-            "SELECT COUNT(*) FROM players WHERE position = %s",
-            (position,),
-        )
-        counts[position] = cur.fetchone()[0]
-
-        cur.execute(
-            """
-            SELECT ranking, player_name
-            FROM players
-            WHERE position = %s
-            ORDER BY ranking
-            LIMIT 10
-            """,
-            (position,),
-        )
-        tops[position] = cur.fetchall()
+    cur.execute(
+        """
+        SELECT
+            COUNT(id),
+            COUNT(projected_points),
+            COUNT(tier)
+        FROM players
+        """
+    )
+    total_players, projection_count, tier_count = cur.fetchone()
 
     cur.close()
     conn.close()
 
+    def player_dict(row):
+        return {
+            "ranking": row[0],
+            "name": row[1],
+            "position": row[2],
+            "team": row[3] or "FA",
+            "projection": float(row[4] or 0),
+            "tier": int(row[5]) if row[5] is not None else None,
+            "adp": float(row[6]) if row[6] is not None else None,
+            "bye_week": row[7],
+            "injury_status": row[8] or "Healthy / Not listed",
+        }
+
+    players = [player_dict(row) for row in all_players]
+    by_position = {
+        position: [player for player in players if player["position"] == position]
+        for position in ["QB", "RB", "WR", "TE"]
+    }
+    top_by_position = {
+        position: position_players[:10]
+        for position, position_players in by_position.items()
+    }
+    tier_one = [
+        player
+        for player in players
+        if player["tier"] == 1
+    ]
+    tier_two = [
+        player
+        for player in players
+        if player["tier"] == 2
+    ]
+
+    draft_slot = 5
+    league_size = 10
+    rounds = 14
+    pick_roadmap = []
+    for round_number in range(1, rounds + 1):
+        slot_in_round = (
+            league_size - draft_slot + 1
+            if round_number % 2 == 0
+            else draft_slot
+        )
+        overall_pick = (round_number - 1) * league_size + slot_in_round
+        pick_roadmap.append(
+            {
+                "round": round_number,
+                "slot": slot_in_round,
+                "overall": overall_pick,
+                "label": f"{round_number}.{slot_in_round:02d}",
+            }
+        )
+
+    first_pick_window = [
+        player
+        for player in players
+        if player["ranking"] is not None and player["ranking"] <= 10
+    ]
+    second_pick_window = [
+        player
+        for player in players
+        if player["ranking"] is not None and 11 <= player["ranking"] <= 22
+    ]
+    third_pick_window = [
+        player
+        for player in players
+        if player["ranking"] is not None and 20 <= player["ranking"] <= 32
+    ]
+
+    readiness = {
+        "total_players": int(total_players or 0),
+        "projection_count": int(projection_count or 0),
+        "tier_count": int(tier_count or 0),
+        "projection_pct": round(
+            (projection_count or 0) / max(total_players or 1, 1) * 100,
+            1,
+        ),
+        "tier_pct": round(
+            (tier_count or 0) / max(total_players or 1, 1) * 100,
+            1,
+        ),
+        "simulations": 30000,
+        "strategy": "WR Heavy",
+        "draft_slot": draft_slot,
+    }
+
     return render_template(
         "predraft.html",
         title="Predraft Intelligence Lab",
-        players=players,
-        qb_count=counts["QB"],
-        rb_count=counts["RB"],
-        wr_count=counts["WR"],
-        te_count=counts["TE"],
-        top_qbs=tops["QB"],
-        top_rbs=tops["RB"],
-        top_wrs=tops["WR"],
-        top_tes=tops["TE"],
-        best_pick=players[0][1] if players else None,
+        readiness=readiness,
+        pick_roadmap=pick_roadmap,
+        tier_one=tier_one,
+        tier_two=tier_two,
+        top_by_position=top_by_position,
+        first_pick_window=first_pick_window,
+        second_pick_window=second_pick_window,
+        third_pick_window=third_pick_window,
     )
 
 
@@ -2104,7 +2188,13 @@ def draftboard():
         else None
     )
     recommended_tier_remaining = (
-        tier_counts[team_recommendation[2]][recommended_tier]
+        tier_counts.get(
+            team_recommendation[2],
+            {},
+        ).get(
+            recommended_tier,
+            0,
+        )
         if team_recommendation and recommended_tier
         else 0
     )

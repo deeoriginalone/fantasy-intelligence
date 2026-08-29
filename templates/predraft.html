@@ -1,202 +1,636 @@
-<!DOCTYPE html>
-<html>
-<head>
 {% extends "base.html" %}
 
 {% block content %}
 
-    <title>Predraft Lab</title>
+<style>
+.predraft-page{
+    max-width:1600px;
+    margin:auto;
+    color:#172033;
+}
 
-    <style>
-        body{
-            font-family:Arial;
-            margin:40px;
-            background:#f5f5f5;
-        }
+.predraft-page h1{
+    margin:0 0 6px;
+}
 
-        .card{
-            background:white;
-            padding:20px;
-            border-radius:10px;
-            margin-bottom:20px;
-        }
+.subtitle,
+.muted{
+    color:#64748b;
+}
 
-        nav a{
-            margin-right:20px;
-            text-decoration:none;
-            font-weight:bold;
-        }
-    </style>
-</head>
-<body>
+.hero{
+    background:linear-gradient(
+        135deg,
+        #172554,
+        #283593
+    );
 
-<h1>Predraft Intelligence Lab</h1>
+    color:white;
 
+    padding:26px;
 
-<div class="card">
+    border-radius:14px;
 
-<div class="card">
+    margin:20px 0;
 
-<h2>Database Summary</h2>
+    box-shadow:
+        0 7px 20px rgba(
+            23,
+            37,
+            84,
+            .2
+        );
+}
 
-<p>Quarterbacks: {{ qb_count }}</p>
-<p>Running Backs: {{ rb_count }}</p>
-<p>Wide Receivers: {{ wr_count }}</p>
-<p>Tight Ends: {{ te_count }}</p>
+.hero-grid{
+    display:grid;
 
+    grid-template-columns:
+        2fr
+        repeat(
+            3,
+            minmax(
+                130px,
+                1fr
+            )
+        );
+
+    gap:18px;
+
+    align-items:center;
+}
+
+.hero-label{
+    color:#bfdbfe;
+
+    font-size:.75rem;
+
+    font-weight:800;
+
+    letter-spacing:1px;
+}
+
+.hero-value{
+    font-size:1.55rem;
+    font-weight:900;
+    margin-top:4px;
+}
+
+.cards{
+    display:grid;
+
+    grid-template-columns:
+        repeat(
+            auto-fit,
+            minmax(
+                250px,
+                1fr
+            )
+        );
+
+    gap:18px;
+
+    margin-bottom:20px;
+}
+
+.card{
+    background:white;
+
+    padding:20px;
+
+    border-radius:12px;
+
+    border:
+        1px
+        solid
+        #e8ebf0;
+
+    box-shadow:
+        0 2px 8px rgba(
+            0,
+            0,
+            0,
+            .06
+        );
+}
+
+.metric{
+    font-size:1.7rem;
+    font-weight:900;
+    color:#283593;
+}
+
+.status-list{
+    list-style:none;
+    padding:0;
+    margin:0;
+}
+
+.status-list li{
+    margin:10px 0;
+}
+
+.good{
+    color:#166534;
+}
+
+.strategy{
+    background:#ecfdf5;
+
+    border-left:
+        6px
+        solid
+        #16a34a;
+}
+
+.warning{
+    background:#fff7ed;
+
+    border-left:
+        6px
+        solid
+        #f97316;
+}
+
+.pick-grid{
+    display:grid;
+
+    grid-template-columns:
+        repeat(
+            auto-fit,
+            minmax(
+                105px,
+                1fr
+            )
+        );
+
+    gap:10px;
+}
+
+.pick{
+    background:#eef4ff;
+
+    color:#172554;
+
+    border-radius:9px;
+
+    padding:12px;
+
+    text-align:center;
+}
+
+.pick strong{
+    display:block;
+
+    font-size:1.2rem;
+}
+
+.table-wrap{
+    overflow-x:auto;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    white-space:nowrap;
+}
+
+th,
+td{
+    padding:10px;
+
+    border-bottom:
+        1px
+        solid
+        #e5e7eb;
+
+    text-align:left;
+}
+
+th{
+    background:#eef2f7;
+}
+
+.pos{
+    display:inline-block;
+
+    min-width:38px;
+
+    text-align:center;
+
+    border-radius:999px;
+
+    padding:4px 8px;
+
+    background:#e8eaf6;
+
+    color:#283593;
+
+    font-weight:800;
+}
+
+.tier-one{
+    background:#fffbeb;
+}
+
+.target-window{
+    display:grid;
+
+    grid-template-columns:
+        repeat(
+            3,
+            minmax(
+                0,
+                1fr
+            )
+        );
+
+    gap:18px;
+}
+
+.window-title{
+    color:#283593;
+}
+
+.player-line{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    padding:8px 0;
+    border-bottom:1px solid #eef1f5;
+}
+
+.player-line:last-child{
+    border-bottom:0;
+}
+
+.links{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+}
+
+.link-button{
+    display:inline-block;
+    background:#283593;
+    color:white;
+    padding:10px 13px;
+    border-radius:8px;
+    text-decoration:none;
+    font-weight:800;
+}
+
+.link-secondary{
+    background:#e8eaf6;
+    color:#283593;
+}
+
+@media(max-width:900px){
+    .hero-grid{
+        grid-template-columns:1fr 1fr;
+    }
+
+    .hero-main{
+        grid-column:1/-1;
+    }
+
+    .target-window{
+        grid-template-columns:1fr;
+    }
+}
+
+@media(max-width:520px){
+    .hero-grid{
+        grid-template-columns:1fr;
+    }
+
+    .pick-grid{
+        grid-template-columns:repeat(2,1fr);
+    }
+}
+</style>
+
+<div class="predraft-page">
+
+<h1>🧠 Predraft Intelligence Lab</h1>
+
+<p class="subtitle">
+Slot-specific planning, VBD tiers, projections, ADP and strategy guidance.
+</p>
+
+<section class="hero">
+
+<div class="hero-grid">
+
+<div class="hero-main">
+<div class="hero-label">
+DRAFT PLAN
 </div>
 
-<div class="card">
-<h2>Top Players By Position</h2>
+<div class="hero-value">
+Pick #5 · WR Heavy
+</div>
 
-<div style="display:flex;gap:40px;flex-wrap:wrap;">
+<p>
+Use WR as the tiebreaker while preserving best-player-available discipline.
+</p>
+</div>
 
 <div>
-<h3>Top QBs</h3>
-<ul>
-{% for p in top_qbs %}
-<li>#{{ p[0] }} - {{ p[1] }}</li>
-{% endfor %}
-</ul>
+<div class="hero-label">
+SIMULATIONS
+</div>
+
+<div class="hero-value">
+30,000
+</div>
 </div>
 
 <div>
-<h3>Top RBs</h3>
-<ul>
-{% for p in top_rbs %}
-<li>#{{ p[0] }} - {{ p[1] }}</li>
-{% endfor %}
-</ul>
+<div class="hero-label">
+LEAGUE
+</div>
+
+<div class="hero-value">
+10 Team PPR
+</div>
 </div>
 
 <div>
-<h3>Top WRs</h3>
-<ul>
-{% for p in top_wrs %}
-<li>#{{ p[0] }} - {{ p[1] }}</li>
-{% endfor %}
+<div class="hero-label">
+STATUS
+</div>
+
+<div class="hero-value">
+READY
+</div>
+</div>
+
+</div>
+
+</section>
+
+<div class="cards">
+
+<section class="card strategy">
+
+<h2>WR Heavy Strategy</h2>
+
+<p>
+WR Heavy finished first across all draft positions.
+</p>
+
+<p>
+Use it as a preference, not a hard rule.
+</p>
+
+<p>
+Do not force WRs over clearly superior value.
+</p>
+
+</section>
+
+<section class="card">
+
+<h2>Draft Readiness</h2>
+
+<ul class="status-list">
+
+<li class="good">
+✅ 30,000 simulations completed
+</li>
+
+<li class="good">
+✅ Draft Slot #5 assigned
+</li>
+
+<li class="good">
+✅ 465 projections loaded
+</li>
+
+<li class="good">
+✅ 401 VBD tiers loaded
+</li>
+
+<li class="good">
+✅ Tier Cliff Engine active
+</li>
+
+<li class="good">
+✅ Monte Carlo active
+</li>
+
 </ul>
-</div>
 
-<div>
-<h3>Top TEs</h3>
-<ul>
-{% for p in top_tes %}
-<li>#{{ p[0] }} - {{ p[1] }}</li>
-{% endfor %}
-</ul>
-</div>
+</section>
 
-</div>
-</div>
+<section class="card warning">
 
-<div class="card">
-<h2>Draft Intelligence</h2>
+<h2>Draft Day Rule</h2>
 
-<p><b>Best RB:</b> {{ top_rbs[0][1] }}</p>
-<p><b>Best WR:</b> {{ top_wrs[0][1] }}</p>
-<p><b>Best QB:</b> {{ top_qbs[0][1] }}</p>
-<p><b>Best TE:</b> {{ top_tes[0][1] }}</p>
+<p>
+Follow value first.
+</p>
 
-</div>
-<div class="card">
+<p>
+WR Heavy should break ties, not override value.
+</p>
 
-<h2>🏆 Draft Recommendation</h2>
-
-<div style="
-background:#e8f5e9;
-padding:20px;
-border-radius:10px;
-text-align:center;
-">
-
-<h1 style="color:green;">
-{{ best_pick }}
-</h1>
-
-<p>Highest ranked player currently available.</p>
+</section>
 
 </div>
 
+<section class="card">
+
+<h2>🎯 Pick Roadmap</h2>
+
+<div class="pick-grid">
+
+<div class="pick">
+Round 1
+<strong>1.05</strong>
 </div>
 
-<div class="card">
-<h2>Position Scarcity</h2>
+<div class="pick">
+Round 2
+<strong>2.06</strong>
+</div>
 
-<p><b>QBs:</b> {{ qb_count }}</p>
-<p><b>RBs:</b> {{ rb_count }}</p>
-<p><b>WRs:</b> {{ wr_count }}</p>
-<p><b>TEs:</b> {{ te_count }}</p>
+<div class="pick">
+Round 3
+<strong>3.05</strong>
+</div>
+
+<div class="pick">
+Round 4
+<strong>4.06</strong>
+</div>
+
+<div class="pick">
+Round 5
+<strong>5.05</strong>
+</div>
+
+<div class="pick">
+Round 6
+<strong>6.06</strong>
+</div>
 
 </div>
 
+</section>
 
-<h2>Top Rankings</h2>
+<section class="card">
 
-<table border="1" cellpadding="8">
+<h2>🏆 Current VBD Tier 1</h2>
+
+<div class="table-wrap">
+
+<table>
+
+<thead>
+<tr>
+<th>Player</th>
+<th>Position</th>
+</tr>
+</thead>
+
+<tbody>
 
 <tr>
-    <th>Rank</th>
-    <th>Player</th>
-    <th>Position</th>
-    <th>Team</th>
+<td>Jahmyr Gibbs</td>
+<td>RB</td>
 </tr>
 
-{% for player in players %}
 <tr>
-    <td>{{ player[0] }}</td>
-    <td>{{ player[1] }}</td>
-    <td>{{ player[2] }}</td>
-    <td>{{ player[3] }}</td>
+<td>Bijan Robinson</td>
+<td>RB</td>
 </tr>
-{% endfor %}
+
+<tr>
+<td>Jaxon Smith-Njigba</td>
+<td>WR</td>
+</tr>
+
+<tr>
+<td>Amon-Ra St. Brown</td>
+<td>WR</td>
+</tr>
+
+<tr>
+<td>Jonathan Taylor</td>
+<td>RB</td>
+</tr>
+
+</tbody>
 
 </table>
 
 </div>
 
-<div class="card">
-    <h2>Draft Strategy</h2>
+</section>
 
-    <ul>
-    <li><b>Hero RB:</b> Elite RB early, load WR depth later.</li>
-    <li><b>Zero RB:</b> Load WRs first, find RB value later.</li>
-    <li><b>BPA:</b> Draft Best Player Available regardless of position.</li>
-    </ul>
+<section class="card">
+
+<h2>📍 Draft Slot #5 Target Windows</h2>
+
+<div class="target-window">
+
+<div>
+
+<h3 class="window-title">
+Round 1 Targets
+</h3>
+
+<div class="player-line">
+<span>Jahmyr Gibbs</span>
+<span>#1</span>
 </div>
 
-<div class="card">
-    <h2>Sleepers & Busts</h2>
-
-    <p>Coming Soon</p>
+<div class="player-line">
+<span>Bijan Robinson</span>
+<span>#2</span>
 </div>
 
-<div class="card">
+<div class="player-line">
+<span>Ja'Marr Chase</span>
+<span>#3</span>
+</div>
 
-<h2>Position Rankings</h2>
+<div class="player-line">
+<span>Puka Nacua</span>
+<span>#4</span>
+</div>
 
-<ul>
-    <li><a href="/position/qb">QB Rankings</a></li>
-    <li><a href="/position/rb">RB Rankings</a></li>
-    <li><a href="/position/wr">WR Rankings</a></li>
-    <li><a href="/position/te">TE Rankings</a></li>
-</ul>
+<div class="player-line">
+<span>Jaxon Smith-Njigba</span>
+<span>#5</span>
+</div>
 
 </div>
 
-<div class="card">
-<h2>My Draft Board</h2>
+<div>
 
-<p>Players Starred: 0</p>
+<h3 class="window-title">
+Round 2 Targets
+</h3>
 
-<p>Drafted Players: 0</p>
+<p class="muted">
+Best WR/RB value available
+</p>
 
-<p>Available Players: {{ players|length }}</p>
+</div>
+
+<div>
+
+<h3 class="window-title">
+Round 3 Targets
+</h3>
+
+<p class="muted">
+Build WR/RB depth. Monitor elite TE value.
+</p>
+
+</div>
+
+</div>
+
+</section>
+
+<section class="card">
+
+<h2>🚀 Continue Draft Preparation</h2>
+
+<div class="links">
+
+<a class="link-button" href="/draftboard">
+Open Draft HQ
+</a>
+
+<a class="link-button" href="/mockdraft">
+Mock Draft Lab
+</a>
+
+<a class="link-button link-secondary" href="/position/qb">
+QB Rankings
+</a>
+
+<a class="link-button link-secondary" href="/position/rb">
+RB Rankings
+</a>
+
+<a class="link-button link-secondary" href="/position/wr">
+WR Rankings
+</a>
+
+<a class="link-button link-secondary" href="/position/te">
+TE Rankings
+</a>
+
+</div>
+
+</section>
 
 </div>
 
 {% endblock %}
-
-
-</body>
-</html>
