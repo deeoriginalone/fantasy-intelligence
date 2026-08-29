@@ -729,3 +729,48 @@ Draft Assistant v2
 - Roster need tracking
 - Live draft recommendations
 - Tier cliff detection
+
+## Draft Position Analysis
+
+Draft Slot:
+#5
+
+Simulation Set:
+DRAFT_SLOT_5
+
+Coverage:
+3,000 simulations
+
+Strategies:
+- WR Heavy
+- Balanced
+- BPA
+- QB Early
+- Zero RB
+- Hero RB
+
+Results:
+
+WR Heavy:
+74.9856
+
+Balanced:
+74.9444
+
+BPA:
+74.9444
+
+QB Early:
+74.9332
+
+Zero RB:
+74.8642
+
+Hero RB:
+74.8626
+
+Conclusion:
+
+WR Heavy remains the preferred strategy.
+
+Use WR Heavy as a tiebreaker rather than a forced drafting rule.

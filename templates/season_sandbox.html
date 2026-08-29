@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.sb-page{max-width:1500px;margin:auto}.sb-page h1{margin:0 0 6px}.muted{color:#64748b}.mode-banner{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;padding:20px;border-radius:14px;margin:20px 0}.mock{background:linear-gradient(135deg,#7c2d12,#c2410c);color:#fff}.live{background:linear-gradient(135deg,#14532d,#15803d);color:#fff}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px;margin-bottom:20px}.card{background:#fff;padding:20px;border-radius:12px;border:1px solid #e8ebf0;box-shadow:0 2px 8px rgba(0,0,0,.06)}.metric{font-size:1.6rem;font-weight:900;color:#283593}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;white-space:nowrap}th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left}th{background:#eef2f7}.button{border:0;padding:9px 12px;border-radius:8px;font-weight:800;cursor:pointer;background:#283593;color:#fff}.button-live{background:#fff;color:#14532d}.active-row{background:#fff7ed}.badge{display:inline-block;border-radius:999px;padding:5px 9px;background:#ffedd5;color:#9a3412;font-weight:800;font-size:.78rem}.notice{background:#eff6ff;color:#1e3a8a;padding:14px;border-left:5px solid #2563eb;border-radius:8px;margin-bottom:18px}
+</style>
+<div class="sb-page">
+<h1>🧪 Season Sandbox</h1>
+<p class="muted">Use a completed Slot #5 mock draft to test My Team, Lineup, Waivers, Trades and GM workflows before the live draft.</p>
+
+<section class="mode-banner {{ 'mock' if context.mode == 'MOCK' else 'live' }}">
+  <div><strong>CURRENT DATA MODE</strong><h2>{{ context.mode }}</h2>{% if active %}<p>{{ active.draft_name }} · Mock #{{ active.id }}</p>{% else %}<p>Real Sleeper league and roster data</p>{% endif %}</div>
+  {% if context.mode == 'MOCK' %}<form method="POST" action="{{ url_for('season_sandbox.exit_sandbox') }}"><button class="button button-live" type="submit">Exit Sandbox and Return to Live</button></form>{% endif %}
+</section>
+
+{% if context.mode == 'MOCK' and active %}
+<div class="cards">
+  <section class="card"><div class="muted">Strategy</div><div class="metric">{{ active.strategy }}</div></section>
+  <section class="card"><div class="muted">Draft Slot</div><div class="metric">#{{ active.draft_position }}</div></section>
+  <section class="card"><div class="muted">Roster Players</div><div class="metric">{{ active.roster_players }}</div></section>
+  <section class="card"><div class="muted">Roster Score</div><div class="metric">{{ active.roster_score or 'N/A' }}</div></section>
+</div>
+<section class="card"><h2>Active Sandbox Roster</h2><div class="table-wrap"><table><thead><tr><th>Round</th><th>Pick</th><th>Player</th><th>Pos</th><th>NFL</th><th>Rank</th><th>Projection</th><th>Tier</th><th>ADP</th></tr></thead><tbody>{% for p in roster %}<tr><td>{{ p.round }}</td><td>{{ p.pick_no }}</td><td><strong>{{ p.player }}</strong></td><td>{{ p.position }}</td><td>{{ p.nfl_team or 'FA' }}</td><td>{{ p.rank or 'N/A' }}</td><td>{{ '%.1f'|format(p.projection) if p.projection else 'N/A' }}</td><td>{{ p.tier or 'Fallback' }}</td><td>{{ '%.1f'|format(p.adp) if p.adp else 'N/A' }}</td></tr>{% endfor %}</tbody></table></div></section>
+{% endif %}
+
+<div class="notice"><strong>Safety:</strong> Sandbox mode never writes transactions to Sleeper. It only changes which saved roster the operations pages analyze.</div>
+
+<section class="card"><h2>Completed Slot #5 Mock Drafts</h2>{% if drafts %}<div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Strategy</th><th>Rounds</th><th>Grade</th><th>Score</th><th>Created</th><th>Action</th></tr></thead><tbody>{% for draft in drafts %}<tr class="{% if active and active.id == draft.id %}active-row{% endif %}"><td>{{ draft.id }}</td><td><strong>{{ draft.draft_name }}</strong>{% if active and active.id == draft.id %} <span class="badge">ACTIVE</span>{% endif %}</td><td>{{ draft.strategy }}</td><td>{{ draft.rounds }}</td><td>{{ draft.overall_grade or 'N/A' }}</td><td>{{ draft.roster_score or 'N/A' }}</td><td>{{ draft.created_at }}</td><td><form method="POST" action="{{ url_for('season_sandbox.activate_sandbox', draft_id=draft.id) }}"><button class="button" type="submit">Use as Season Sandbox</button></form></td></tr>{% endfor %}</tbody></table></div>{% else %}<p>No completed 10-team Slot #5 interactive mocks were found. Complete one in Mock Draft Lab, then return here.</p>{% endif %}</section>
+</div>
+{% endblock %}

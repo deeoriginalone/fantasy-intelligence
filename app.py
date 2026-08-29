@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+from owner_operations import create_owner_operations_blueprint
+from season_sandbox import create_sandbox_blueprint
 from werkzeug.utils import secure_filename
 from services.sleeper_service import (
     get_league,
@@ -3364,6 +3366,10 @@ def mock_draft_result(draft_id):
 @app.route('/mockdraft/<int:draft_id>/delete',methods=['POST'])
 def delete_mock_draft(draft_id):
     conn=get_db_connection();cur=conn.cursor();cur.execute("DELETE FROM mock_drafts WHERE id=%s",(draft_id,));conn.commit();cur.close();conn.close();return redirect(url_for('mock_draft_lab'))
+
+app.register_blueprint(create_sandbox_blueprint(get_db_connection))
+
+app.register_blueprint(create_owner_operations_blueprint(get_db_connection, get_league, get_users, get_rosters, get_all_players, normalize_player_name))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5050, debug=True)

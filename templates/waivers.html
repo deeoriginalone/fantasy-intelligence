@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.ops-page{max-width:1550px;margin:auto}.ops-page h1{margin:0 0 6px}.muted{color:#64748b}.mode{display:inline-block;border-radius:999px;padding:6px 10px;font-weight:900;font-size:.78rem}.mode-mock{background:#ffedd5;color:#9a3412}.mode-live{background:#dcfce7;color:#166534}.hero{background:linear-gradient(135deg,#172554,#283593);color:#fff;padding:22px;border-radius:14px;margin:18px 0}.hero-grid,.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px}.label{color:#bfdbfe;font-size:.75rem;font-weight:800}.value{font-size:1.5rem;font-weight:900}.card{background:#fff;padding:20px;border-radius:12px;border:1px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:18px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;white-space:nowrap}th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left}th{background:#eef2f7}.pos{display:inline-block;min-width:38px;text-align:center;border-radius:999px;padding:4px 8px;background:#e8eaf6;color:#283593;font-weight:800}.vacant{background:#fee2e2;color:#991b1b}.button{display:inline-block;border:0;background:#283593;color:#fff;padding:9px 12px;border-radius:8px;text-decoration:none;font-weight:800;cursor:pointer}.warn{background:#fff7ed;border-left:5px solid #f97316;padding:13px;border-radius:8px}.good{background:#ecfdf5;border-left:5px solid #16a34a;padding:13px;border-radius:8px}.priority-URGENT{color:#b91c1c;font-weight:900}.priority-HIGH{color:#c2410c;font-weight:900}.priority-MEDIUM{color:#1d4ed8;font-weight:900}
+</style>
+<div class="ops-page">
+<p><span class="mode {{ 'mode-mock' if context.mode == 'MOCK' else 'mode-live' }}">{{ context.mode }} DATA</span></p>
+<h1>💰 Waiver and FAAB Center</h1><p class="muted">Transparent recommendations against a ${{ faab_budget }} budget. Sandbox bids are test recommendations only.</p>
+{% if vacancies %}<div class="warn"><strong>Vacant starters:</strong> {{ vacancies|join(', ') }}. K and DEF bids are capped conservatively.</div>{% endif %}
+<section class="card"><h2>Top Available Players</h2><div class="table-wrap"><table><thead><tr><th>Priority</th><th>Player</th><th>Pos</th><th>Rank</th><th>Projection</th><th>Tier</th><th>Need</th><th>Suggested FAAB</th><th>Range</th></tr></thead><tbody>{% for p in recommendations %}<tr><td>{{ p.priority_score }}</td><td><strong>{{ p.player }}</strong></td><td><span class="pos">{{ p.position }}</span></td><td>{{ p.rank or 'N/A' }}</td><td>{{ '%.1f'|format(p.projection) }}</td><td>{{ p.tier or 'N/A' }}</td><td>{{ p.need }}</td><td><strong>${{ p.faab }}</strong></td><td>${{ p.bid_low }}-${{ p.bid_high }}</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="card"><h2>Roster Needs Used by Model</h2><ul>{% for n in needs %}<li>{{ n }}</li>{% endfor %}</ul></section>
+
+</div>
+{% endblock %}
