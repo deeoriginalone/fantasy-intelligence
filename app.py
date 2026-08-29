@@ -44,6 +44,13 @@ STRATEGY_PROFILES = {
         "label": "Zero RB",
         "description": "Prioritize wide receivers and tight end early; delay running back.",
     },
+    "WR_HEAVY": {
+    "label": "WR Heavy",
+    "description": (
+        "Use wide receiver as the preferred early-round tiebreaker "
+        "while preserving best-player-available flexibility."
+        ),
+    },
     "ELITE_TE": {
         "label": "Elite TE",
         "description": "Aggressively target a premium tight end in the first four rounds.",
@@ -53,6 +60,11 @@ DEFAULT_STRATEGY = "BEST_AVAILABLE"
 
 
 def get_strategy_bonus(strategy, position, current_round):
+    if strategy == "WR_HEAVY":
+        if current_round <= 5 and position == "WR":
+            return 18
+        return 0
+
     if strategy == "HERO_RB":
         if current_round <= 3 and position == "RB":
             return 50
@@ -157,6 +169,22 @@ def get_player_tier(overall_rank):
     if overall_rank <= 100:
         return 4
     return 5
+
+def get_actual_player_tier(player):
+    """
+    Prefer imported VBD tier from database.
+    Fallback to rank-based tier if missing.
+    """
+    try:
+        tier = player[7]
+        if tier is not None:
+            tier = int(tier)
+            if 1 <= tier <= 20:
+                return tier
+    except (IndexError, TypeError, ValueError):
+        pass
+
+    return get_player_tier(player[0])
 
 
 def build_pick_forecast(available_players, scarcity):
@@ -559,7 +587,7 @@ def build_draft_now_wait_analysis(
         (pick_forecast.get("teams_needing_position") or {}).get(position, 0)
     )
 
-    tier = get_player_tier(overall_rank)
+    tier = get_actual_player_tier(recommendation)
     tier_remaining = int(tier_counts.get(position, {}).get(tier, 0))
 
     score = 82
@@ -696,12 +724,12 @@ def run_monte_carlo_availability(
                 tendency_weight = league_bonus.get(position, 0)
                 pressure_weight = int(pressure.get(position, 0) / 5)
                 run_weight = projected_gone.get(position, 0) * 5
-                tier = get_player_tier(rank)
+                tier = get_actual_player_tier(player)
                 tier_remaining = sum(
                     1
                     for pool_player in pool
                     if pool_player[2] == position
-                    and get_player_tier(pool_player[0]) == tier
+                    and get_actual_player_tier(pool_player) == tier
                 )
                 tier_weight = 20 if tier_remaining <= 2 else 8 if tier_remaining <= 4 else 0
                 noise = rng.uniform(0.85, 1.15)
@@ -862,6 +890,14 @@ def build_round_plan(
             (4, ["QB", "TE", "RB", "WR"], "Address premium onesie value if available."),
             (5, ["RB", "WR"], "Continue building flexible depth."),
             (6, ["QB", "TE", "RB", "WR"], "Fill remaining offensive gaps."),
+        ],
+        "WR_HEAVY": [
+            (1, ["WR"], "Prefer an elite wide receiver when value is comparable."),
+            (2, ["WR", "RB"], "Add another premium receiver or capture clear RB value."),
+            (3, ["WR", "RB"], "Build pass-catching strength without forcing position."),
+            (4, ["WR", "TE", "QB"], "Use WR as the tiebreaker and monitor premium onesies."),
+            (5, ["WR", "RB"], "Add receiver depth or take the strongest value."),
+            (6, ["RB", "QB", "TE", "WR"], "Fill remaining starter needs and value gaps."),
         ],
         "HERO_RB": [
             (1, ["RB"], "Secure an elite anchor running back."),
@@ -1557,6 +1593,83 @@ def set_draft_strategy():
     return redirect(url_for("draftboard"))
 
 
+def get_draftboard_player_tier(player):
+    """Return stored positional tier, with rank-tier fallback."""
+    return get_actual_player_tier(player)
+
+
+def calculate_draftboard_tier_gap(
+    available_players,
+    position,
+    current_tier,
+):
+    """
+    Calculate the full-season projection drop from the floor of
+    the current positional tier to the ceiling of the next tier.
+
+    Returns None when usable projection or next-tier data is absent.
+    """
+    current_projections = []
+    next_projections = []
+
+    for player in available_players:
+        if player[2] != position:
+            continue
+
+        try:
+            projection = float(player[6] or 0)
+        except (IndexError, TypeError, ValueError):
+            continue
+
+        if projection <= 0:
+            continue
+
+        player_tier = get_draftboard_player_tier(player)
+
+        if player_tier == current_tier:
+            current_projections.append(projection)
+        elif player_tier == current_tier + 1:
+            next_projections.append(projection)
+
+    if not current_projections or not next_projections:
+        return None
+
+    current_tier_floor = min(current_projections)
+    next_tier_ceiling = max(next_projections)
+
+    return round(
+        max(0.0, current_tier_floor - next_tier_ceiling),
+        2,
+    )
+
+
+def calculate_draftboard_tier_bonus(
+    players_left_in_tier,
+    tier_gap,
+):
+    """
+    Weight a tier cliff by both remaining supply and the actual
+    projected-point loss to the next positional tier.
+    """
+    if tier_gap is None:
+        if players_left_in_tier <= 2:
+            return 15
+        if players_left_in_tier <= 4:
+            return 8
+        return 0
+
+    if players_left_in_tier <= 2 and tier_gap >= 50:
+        return 35
+
+    if players_left_in_tier <= 3 and tier_gap >= 25:
+        return 20
+
+    if players_left_in_tier <= 4 and tier_gap >= 10:
+        return 8
+
+    return 0
+
+
 @app.route("/draftboard")
 def draftboard():
     sleeper_sync_status = None
@@ -1585,7 +1698,10 @@ def draftboard():
                     FROM league_rosters lr
                     WHERE lr.player_name = p.player_name
                 )
-            ) AS drafted
+            ) AS drafted,
+            COALESCE(p.projected_points, 0) AS projected_points,
+            p.tier AS stored_tier,
+            COALESCE(p.adp, 999) AS adp
         FROM players p
         LEFT JOIN draft_board d
             ON p.player_name = d.player_name
@@ -1652,14 +1768,20 @@ def draftboard():
 
     tier_counts = {}
     for position in ["QB", "RB", "WR", "TE"]:
+        position_tiers = {
+            get_draftboard_player_tier(player)
+            for player in available_players
+            if player[2] == position
+        }
+
         tier_counts[position] = {
             tier: sum(
                 1
                 for player in available_players
                 if player[2] == position
-                and get_player_tier(player[0]) == tier
+                and get_draftboard_player_tier(player) == tier
             )
-            for tier in [1, 2, 3, 4, 5]
+            for tier in position_tiers
         }
 
     best_available = available_players[0] if available_players else None
@@ -1729,8 +1851,8 @@ def draftboard():
             None,
         )
         if leader:
-            leader_tier = get_player_tier(leader[0])
-            remaining_in_tier = tier_counts[position][leader_tier]
+            leader_tier = get_draftboard_player_tier(leader)
+            remaining_in_tier = tier_counts[position].get(leader_tier, 0)
             if remaining_in_tier <= 3:
                 tier_risks.append(
                     (remaining_in_tier, leader_tier, position)
@@ -1758,17 +1880,23 @@ def draftboard():
         if not leader:
             continue
 
-        leader_tier = get_player_tier(leader[0])
-        remaining_in_tier = tier_counts[position][leader_tier]
+        leader_tier = get_draftboard_player_tier(leader)
+        remaining_in_tier = tier_counts[position].get(leader_tier, 0)
         tier_risk_details[position] = {
             "tier": leader_tier,
             "remaining": remaining_in_tier,
         }
 
-        if remaining_in_tier <= 2:
-            tier_bonus[position] = 100
-        elif remaining_in_tier <= 4:
-            tier_bonus[position] = 50
+        position_tier_gap = calculate_draftboard_tier_gap(
+            available_players,
+            position,
+            leader_tier,
+        )
+        tier_risk_details[position]["gap"] = position_tier_gap
+        tier_bonus[position] = calculate_draftboard_tier_bonus(
+            remaining_in_tier,
+            position_tier_gap,
+        )
 
     # League tendencies must exist before candidate scoring uses league bonuses.
     league_tendencies = build_league_tendencies()
@@ -1816,15 +1944,18 @@ def draftboard():
         player_rank_score = max(0, 101 - player[0])
         player_need_score = need_score.get(position, 0)
         player_scarcity_score = scarcity_score.get(position, 0)
-        player_tier = get_player_tier(player[0])
-        players_left_in_tier = tier_counts[position][player_tier]
+        player_tier = get_draftboard_player_tier(player)
+        players_left_in_tier = tier_counts[position].get(player_tier, 0)
 
-        if players_left_in_tier <= 2:
-            player_tier_bonus = 100
-        elif players_left_in_tier <= 4:
-            player_tier_bonus = 50
-        else:
-            player_tier_bonus = 0
+        player_tier_gap = calculate_draftboard_tier_gap(
+            available_players,
+            position,
+            player_tier,
+        )
+        player_tier_bonus = calculate_draftboard_tier_bonus(
+            players_left_in_tier,
+            player_tier_gap,
+        )
 
         player_strategy_bonus = get_strategy_bonus(
             active_strategy,
@@ -1851,6 +1982,7 @@ def draftboard():
                 "scarcity_score": player_scarcity_score,
                 "tier": player_tier,
                 "tier_remaining": players_left_in_tier,
+                "tier_gap": player_tier_gap,
                 "tier_bonus": player_tier_bonus,
                 "strategy_bonus": player_strategy_bonus,
                 "league_bonus": player_league_bonus,
@@ -1967,7 +2099,7 @@ def draftboard():
             )
 
     recommended_tier = (
-        get_player_tier(team_recommendation[0])
+        get_draftboard_player_tier(team_recommendation)
         if team_recommendation
         else None
     )
@@ -2839,24 +2971,102 @@ def mock_counts(cur,draft_id,slot):
     return counts
 
 
-def mock_pool(cur,draft_id):
-    cur.execute("""SELECT ranking,player_name,position,nfl_team FROM players p
-        WHERE position IN ('QB','RB','WR','TE') AND NOT EXISTS
-        (SELECT 1 FROM mock_picks mp WHERE mp.draft_id=%s AND mp.player_name=p.player_name)
-        ORDER BY ranking""",(draft_id,))
+def mock_pool(cur, draft_id):
+    cur.execute(
+        """
+        SELECT
+            ranking,
+            player_name,
+            position,
+            nfl_team,
+            projected_points,
+            tier,
+            adp
+        FROM players p
+        WHERE position IN ('QB', 'RB', 'WR', 'TE')
+          AND NOT EXISTS (
+              SELECT 1
+              FROM mock_picks mp
+              WHERE mp.draft_id = %s
+                AND mp.player_name = p.player_name
+          )
+        ORDER BY ranking
+        """,
+        (draft_id,),
+    )
     return list(cur.fetchall())
 
 
-def mock_score(player,pool,counts,strategy,round_num):
-    rank,name,pos,team=player; target=ROSTER_TARGETS[pos]
-    need=int(max(0,target-counts.get(pos,0))/max(target,1)*100)
-    tier=get_player_tier(rank); remaining=sum(1 for x in pool if x[2]==pos and get_player_tier(x[0])==tier)
-    tier_bonus=100 if remaining<=2 else 50 if remaining<=4 else 0
-    strategy_bonus=get_strategy_bonus(strategy,pos,round_num)
-    starter={"QB":1,"RB":2,"WR":2,"TE":1}
-    starter_bonus=20 if counts.get(pos,0)<starter[pos] else 0
-    total=max(0,101-rank)+need+tier_bonus+strategy_bonus+starter_bonus
-    return {"total":total,"need":need,"tier_bonus":tier_bonus,"strategy_bonus":strategy_bonus}
+def mock_score(player, pool, counts, strategy, round_num):
+    rank, name, pos, team = player[:4]
+    target = ROSTER_TARGETS[pos]
+
+    need = int(
+        max(0, target - counts.get(pos, 0))
+        / max(target, 1)
+        * 100
+    )
+
+    try:
+        tier = int(player[5]) if player[5] is not None else get_player_tier(rank)
+    except (IndexError, TypeError, ValueError):
+        tier = get_player_tier(rank)
+
+    remaining = 0
+    for pool_player in pool:
+        if pool_player[2] != pos:
+            continue
+
+        try:
+            pool_tier = (
+                int(pool_player[5])
+                if pool_player[5] is not None
+                else get_player_tier(pool_player[0])
+            )
+        except (IndexError, TypeError, ValueError):
+            pool_tier = get_player_tier(pool_player[0])
+
+        if pool_tier == tier:
+            remaining += 1
+
+    tier_bonus = (
+        35 if remaining <= 2
+        else 15 if remaining <= 4
+        else 0
+    )
+
+    strategy_bonus = get_strategy_bonus(
+        strategy,
+        pos,
+        round_num,
+    )
+
+    starter = {
+        "QB": 1,
+        "RB": 2,
+        "WR": 2,
+        "TE": 1,
+    }
+
+    starter_bonus = (
+        20 if counts.get(pos, 0) < starter[pos]
+        else 0
+    )
+
+    total = (
+        max(0, 101 - rank)
+        + need
+        + tier_bonus
+        + strategy_bonus
+        + starter_bonus
+    )
+
+    return {
+        "total": total,
+        "need": need,
+        "tier_bonus": tier_bonus,
+        "strategy_bonus": strategy_bonus,
+    }
 
 
 def mock_recommendations(cur,draft,limit=8):

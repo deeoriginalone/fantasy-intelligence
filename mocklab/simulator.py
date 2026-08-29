@@ -189,7 +189,7 @@ def load_players(conn: psycopg.Connection) -> list[Player]:
 def get_league_size(conn: psycopg.Connection) -> int:
     row = conn.execute(
         """
-        SELECT COALESCE(team_count, teams, 12) AS league_size
+        SELECT COALESCE(team_count, teams, 10) AS league_size
         FROM league_info
         ORDER BY id
         LIMIT 1
@@ -197,9 +197,9 @@ def get_league_size(conn: psycopg.Connection) -> int:
     ).fetchone()
 
     if row is None:
-        return 12
+        return 10
 
-    size = int(row["league_size"] or 12)
+    size = int(row["league_size"] or 10)
     if size < 2 or size > 20:
         raise ValueError(f"Invalid league size in league_info: {size}")
 

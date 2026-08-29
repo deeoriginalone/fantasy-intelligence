@@ -1,9 +1,8 @@
 BEGIN;
 
 ALTER TABLE league_info
-    ADD COLUMN IF NOT EXISTS team_count INTEGER DEFAULT 12;
+    ADD COLUMN IF NOT EXISTS team_count INTEGER DEFAULT 10;
 
-UPDATE league_info SET team_count = 12;
 
 CREATE TABLE IF NOT EXISTS mock_drafts (
     id BIGSERIAL PRIMARY KEY,
