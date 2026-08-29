@@ -1,35 +1,4 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title or "Fantasy Intelligence" }}</title>
-    <style>
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; margin:0; padding:40px; background:#f5f5f5; color:#222; }
-        h1 { margin-top:0; }
-        nav { background:white; padding:15px 20px; border-radius:10px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
-        nav a { display:inline-block; margin-right:20px; padding:6px 0; color:#1565c0; text-decoration:none; font-weight:bold; }
-        nav a:hover { text-decoration:underline; }
-        .card { background:white; padding:20px; border-radius:10px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
-        @media (max-width:800px) { body { padding:18px; } nav a { display:block; margin:0 0 6px; } }
-    </style>
-    {% block head %}{% endblock %}
-</head>
-<body>
-    <h1>{{ title or "Fantasy Intelligence" }}</h1>
-    <nav>
-        <a href="/">Dashboard</a>
-        <a href="/predraft">Predraft Lab</a>
-        <a href="/imports">Imports</a>
-        <a href="/agents">Agents</a>
-        <a href="/draftcenter">Draft Center</a>
-        <a href="/draftboard">My Draft Board</a>
-        <a href="/league">League</a>
-        <a href="/rosters">League Rosters</a>
-        <a href="/trackdraft">Draft Tracker</a>
-        <a href="/sleeper-teams">Sleeper Teams</a>
-    </nav>
-    {% block content %}{% endblock %}
-</body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ title or "Fantasy Intelligence" }}</title>
+<style>:root{--navy:#172554;--blue:#0759c7;--page:#f4f6f9;--text:#172033;--line:#e4e8ef}*{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--text);font-family:Arial,Helvetica,sans-serif}.site-shell{max-width:1700px;margin:auto;padding:0 14px 30px}.topbar{position:sticky;top:0;z-index:1100;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 2px 10px rgba(15,23,42,.06);margin-bottom:18px}.topbar-inner{max-width:1700px;margin:auto;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{font-weight:900;color:var(--navy);text-decoration:none;white-space:nowrap}.nav{display:flex;align-items:center;gap:4px;flex-wrap:wrap}.nav a,.admin summary{color:var(--blue);font-weight:700;text-decoration:none;padding:9px 10px;border-radius:7px;cursor:pointer}.nav a:hover,.admin summary:hover{background:#eef4ff}.admin{position:relative}.admin-menu{display:none;position:absolute;right:0;top:42px;min-width:190px;background:#fff;border:1px solid var(--line);border-radius:9px;box-shadow:0 10px 30px rgba(0,0,0,.12);padding:7px}.admin[open] .admin-menu{display:block}.admin-menu a{display:block}@media(max-width:900px){.topbar{position:static}.topbar-inner{align-items:flex-start;flex-direction:column}.admin-menu{position:static;box-shadow:none}}</style></head>
+<body><header class="topbar"><div class="topbar-inner"><a class="brand" href="{{ url_for('dashboard') }}">🏈 Fantasy Intelligence</a><nav class="nav"><a href="{{ url_for('dashboard') }}">Dashboard</a><a href="{{ url_for('draftboard') }}">Draft HQ</a><a href="{{ url_for('predraft') }}">Predraft Lab</a><a href="{{ url_for('mock_draft_lab') }}">Mock Drafts</a><a href="{{ url_for('league_manager') }}">League Overview</a><a href="{{ url_for('track_draft') }}">Draft Tracker</a><details class="admin"><summary>Admin</summary><div class="admin-menu"><a href="{{ url_for('imports') }}">Imports</a><a href="{{ url_for('agents') }}">Agents</a><a href="{{ url_for('sleeper_teams') }}">Sleeper Cache</a><a href="{{ url_for('draftcenter') }}">Legacy Draft Center</a></div></details></nav></div></header><main class="site-shell">{% block content %}{% endblock %}</main></body></html>

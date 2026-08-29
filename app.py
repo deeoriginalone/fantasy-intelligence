@@ -2395,15 +2395,98 @@ def position_rankings(position):
     )
 
 
+def build_league_overview():
+    """Build a ten-roster league view directly from Sleeper."""
+    league = get_league(SLEEPER_LEAGUE_ID) or {}
+    users = get_users(SLEEPER_LEAGUE_ID) or []
+    rosters = get_rosters(SLEEPER_LEAGUE_ID) or []
+    draft = get_draft(SLEEPER_DRAFT_ID) or {}
+    users_by_id = {str(u.get("user_id")): u for u in users if u.get("user_id")}
+    slot_by_roster = {
+        int(roster_id): int(slot)
+        for slot, roster_id in (draft.get("slot_to_roster_id") or {}).items()
+        if str(roster_id).isdigit() and str(slot).isdigit()
+    }
+    teams = []
+    for roster in sorted(rosters, key=lambda r: int(r.get("roster_id") or 999)):
+        roster_id = int(roster.get("roster_id") or 0)
+        owner_id = str(roster.get("owner_id") or "")
+        user = users_by_id.get(owner_id)
+        metadata = (user or {}).get("metadata") or {}
+        display_name = (user or {}).get("display_name")
+        team_name = metadata.get("team_name") or display_name or f"Roster {roster_id} - Awaiting Manager"
+        settings = roster.get("settings") or {}
+        teams.append({
+            "roster_id": roster_id,
+            "team_name": team_name,
+            "display_name": display_name or "Awaiting Manager",
+            "claimed": user is not None,
+            "is_owner": bool((user or {}).get("is_owner")),
+            "draft_slot": slot_by_roster.get(roster_id),
+            "players": len(roster.get("players") or []),
+            "wins": int(settings.get("wins") or 0),
+            "losses": int(settings.get("losses") or 0),
+            "ties": int(settings.get("ties") or 0),
+        })
+    league_settings = league.get("settings") or {}
+    scoring = league.get("scoring_settings") or {}
+    draft_settings = draft.get("settings") or {}
+    owner_team = next((team for team in teams if team["is_owner"]), None)
+    return {
+        "league_id": league.get("league_id") or SLEEPER_LEAGUE_ID,
+        "league_name": league.get("name") or "Fantasy Intelligence Champions League",
+        "season": league.get("season") or "2026",
+        "status": str(league.get("status") or "pre_draft").replace("_", " ").title(),
+        "sport": str(league.get("sport") or "nfl").upper(),
+        "total_rosters": int(league.get("total_rosters") or league_settings.get("num_teams") or 10),
+        "joined_managers": sum(1 for team in teams if team["claimed"]),
+        "open_rosters": sum(1 for team in teams if not team["claimed"]),
+        "playoff_teams": int(league_settings.get("playoff_teams") or 0),
+        "faab_budget": int(league_settings.get("waiver_budget") or 0),
+        "trade_review_days": int(league_settings.get("trade_review_days") or 0),
+        "reserve_slots": int(league_settings.get("reserve_slots") or 0),
+        "full_ppr": float(scoring.get("rec") or 0) == 1.0,
+        "draft_id": draft.get("draft_id") or SLEEPER_DRAFT_ID,
+        "draft_type": str(draft.get("type") or "snake").title(),
+        "draft_status": str(draft.get("status") or "pre_draft").replace("_", " ").title(),
+        "draft_rounds": int(draft_settings.get("rounds") or league_settings.get("draft_rounds") or 0),
+        "owner_slot": (owner_team or {}).get("draft_slot") or 5,
+        "teams": teams,
+    }
+
+
 @app.route("/league")
+@app.route("/league-overview")
 def league_manager():
+    try:
+        return render_template("league_overview.html", title="League Overview", overview=build_league_overview(), sync_error=None)
+    except Exception as exc:
+        app.logger.exception("Unable to build Sleeper league overview")
+        return render_template("league_overview.html", title="League Overview", overview=None, sync_error=str(exc)), 503
+
+
+@app.route("/league/sync-teams", methods=["POST"])
+def sync_league_teams():
+    overview = build_league_overview()
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT id, team_name FROM league_teams ORDER BY id")
-    teams = cur.fetchall()
-    cur.close()
-    conn.close()
-    return render_template("league.html", title="League Manager", teams=teams)
+    try:
+        cur.execute("""
+            DELETE FROM league_teams
+            WHERE team_name = 'My Team'
+               OR team_name ~ '^Team [0-9]+$'
+               OR team_name ~ '^Roster [0-9]+ - Awaiting Manager$'
+        """)
+        for team in overview["teams"]:
+            cur.execute("INSERT INTO league_teams (team_name) VALUES (%s) ON CONFLICT DO NOTHING", (team["team_name"],))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("league_manager"))
 
 
 @app.route("/league/add-team", methods=["POST"])
