@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+from auth import admin_required, csrf_required, ensure_csrf_token
+from config import Config
 from draft_readiness import build_draft_readiness, validate_runtime
 from draft_health_routes import create_draft_health_blueprint
 from scarcity_model import calculate_dynamic_scarcity, scarcity_distribution
@@ -46,19 +48,30 @@ from survivor_routes import survivor_bp
 
 
 app = Flask(__name__)
+app.config.from_object(Config)
+app.secret_key = Config.SECRET_KEY
+
+@app.context_processor
+def inject_csrf_token():
+    return {"csrf_token": lambda: ensure_csrf_token()}
+
+@app.before_request
+def _ensure_session_csrf():
+    if request.method.upper() in {"POST", "PUT", "PATCH", "DELETE"}:
+        ensure_csrf_token()
+
 app.register_blueprint(pickem_bp)
 app.register_blueprint(market_bp)
 app.register_blueprint(survivor_bp)
 app.register_blueprint(pickem_feed_bp)
 app.register_blueprint(pickem_inputs_bp)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "fantasy-intelligence-dev")
 
-UPLOAD_FOLDER = "uploads"
+UPLOAD_FOLDER = Config.UPLOAD_FOLDER
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-SLEEPER_LEAGUE_ID = "1398094330668797952"
-SLEEPER_DRAFT_ID = "1398094331272794112"
+SLEEPER_LEAGUE_ID = Config.SLEEPER_LEAGUE_ID
+SLEEPER_DRAFT_ID = Config.SLEEPER_DRAFT_ID
 MONTE_CARLO_SIMULATIONS = 500
 
 # Strategic final-roster targets used by the Draft Agent.
@@ -139,13 +152,7 @@ MOCK_ROSTER_TARGETS = {
 }
 
 def get_db_connection():
-    return psycopg2.connect(
-        host="localhost",
-        port=5433,
-        database="fantasy_intelligence",
-        user="fantasy",
-        password="fantasy",
-    )
+    return psycopg2.connect(**Config.db_kwargs())
 
 
 def get_local_league():
@@ -1303,66 +1310,71 @@ def sync_sleeper_player_map():
     sleeper_players = get_all_players() or {}
     conn = get_db_connection()
     cur = conn.cursor()
-    ensure_sleeper_sync_tables(cur)
+    try:
+        ensure_sleeper_sync_tables(cur)
 
-    cur.execute("SELECT player_name FROM players")
-    local_names = [row[0] for row in cur.fetchall()]
-    local_by_normalized = {
-        normalize_player_name(name): name
-        for name in local_names
-    }
+        cur.execute("SELECT player_name FROM players")
+        local_names = [row[0] for row in cur.fetchall()]
+        local_by_normalized = {
+            normalize_player_name(name): name
+            for name in local_names
+        }
 
-    matched = 0
-    for player_id, player in sleeper_players.items():
-        full_name = (
-            player.get("full_name")
-            or " ".join(
-                part
-                for part in [player.get("first_name"), player.get("last_name")]
-                if part
+        matched = 0
+        for player_id, player in sleeper_players.items():
+            full_name = (
+                player.get("full_name")
+                or " ".join(
+                    part
+                    for part in [player.get("first_name"), player.get("last_name")]
+                    if part
+                )
+            ).strip()
+            normalized = normalize_player_name(full_name)
+            local_player_name = local_by_normalized.get(normalized)
+            is_matched = local_player_name is not None
+            matched += int(is_matched)
+
+            cur.execute(
+                """
+                INSERT INTO sleeper_player_map (
+                    sleeper_player_id, sleeper_name, normalized_name,
+                    position, nfl_team, local_player_name, matched, synced_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                ON CONFLICT (sleeper_player_id)
+                DO UPDATE SET
+                    sleeper_name = EXCLUDED.sleeper_name,
+                    normalized_name = EXCLUDED.normalized_name,
+                    position = EXCLUDED.position,
+                    nfl_team = EXCLUDED.nfl_team,
+                    local_player_name = EXCLUDED.local_player_name,
+                    matched = EXCLUDED.matched,
+                    synced_at = NOW()
+                """,
+                (
+                    str(player_id),
+                    full_name,
+                    normalized,
+                    player.get("position"),
+                    player.get("team"),
+                    local_player_name,
+                    is_matched,
+                ),
             )
-        ).strip()
-        normalized = normalize_player_name(full_name)
-        local_player_name = local_by_normalized.get(normalized)
-        is_matched = local_player_name is not None
-        matched += int(is_matched)
 
-        cur.execute(
-            """
-            INSERT INTO sleeper_player_map (
-                sleeper_player_id, sleeper_name, normalized_name,
-                position, nfl_team, local_player_name, matched, synced_at
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
-            ON CONFLICT (sleeper_player_id)
-            DO UPDATE SET
-                sleeper_name = EXCLUDED.sleeper_name,
-                normalized_name = EXCLUDED.normalized_name,
-                position = EXCLUDED.position,
-                nfl_team = EXCLUDED.nfl_team,
-                local_player_name = EXCLUDED.local_player_name,
-                matched = EXCLUDED.matched,
-                synced_at = NOW()
-            """,
-            (
-                str(player_id),
-                full_name,
-                normalized,
-                player.get("position"),
-                player.get("team"),
-                local_player_name,
-                is_matched,
-            ),
-        )
-
-    conn.commit()
-    cur.close()
-    conn.close()
-    return {
-        "sleeper_players": len(sleeper_players),
-        "matched_to_rankings": matched,
-        "unmatched": len(sleeper_players) - matched,
-    }
+        conn.commit()
+        return {
+            "sleeper_players": len(sleeper_players),
+            "matched_to_rankings": matched,
+            "unmatched": len(sleeper_players) - matched,
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
 
 
 def sync_sleeper_draft_picks():
@@ -1386,136 +1398,141 @@ def sync_sleeper_draft_picks():
 
     conn = get_db_connection()
     cur = conn.cursor()
-    ensure_sleeper_sync_tables(cur)
+    try:
+        ensure_sleeper_sync_tables(cur)
 
-    matched = 0
-    my_team_picks = 0
+        matched = 0
+        my_team_picks = 0
 
-    for pick in picks:
-        metadata = pick.get("metadata") or {}
-        player_id = str(pick.get("player_id") or "")
-        roster_id = pick.get("roster_id")
-        pick_no = pick.get("pick_no")
-        round_num = pick.get("round")
+        for pick in picks:
+            metadata = pick.get("metadata") or {}
+            player_id = str(pick.get("player_id") or "")
+            roster_id = pick.get("roster_id")
+            pick_no = pick.get("pick_no")
+            round_num = pick.get("round")
 
-        cur.execute(
-            """
-            SELECT local_player_name, sleeper_name, position
-            FROM sleeper_player_map
-            WHERE sleeper_player_id = %s
-            LIMIT 1
-            """,
-            (player_id,),
-        )
-        mapped_player = cur.fetchone()
-
-        if mapped_player:
-            local_player_name, sleeper_name, mapped_position = mapped_player
-        else:
-            first_name = (metadata.get("first_name") or "").strip()
-            last_name = (metadata.get("last_name") or "").strip()
-            sleeper_name = " ".join(
-                part for part in [first_name, last_name] if part
-            ).strip() or player_id
-            local_player_name = None
-            mapped_position = metadata.get("position")
-
-        if not local_player_name:
-            normalized = normalize_player_name(sleeper_name)
             cur.execute(
                 """
-                SELECT player_name, position
-                FROM players
-                WHERE REGEXP_REPLACE(
-                    LOWER(player_name), '[^a-z0-9]', '', 'g'
-                ) = %s
+                SELECT local_player_name, sleeper_name, position
+                FROM sleeper_player_map
+                WHERE sleeper_player_id = %s
                 LIMIT 1
                 """,
-                (normalized,),
+                (player_id,),
             )
-            local_player = cur.fetchone()
-            if local_player:
-                local_player_name, mapped_position = local_player
+            mapped_player = cur.fetchone()
 
-        stored_name = local_player_name or sleeper_name
-        cur.execute(
-            """
-            INSERT INTO sleeper_draft_picks (
-                draft_id, roster_id, round_num, pick_no,
-                player_id, player_name, synced_at
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, NOW())
-            ON CONFLICT (draft_id, pick_no)
-            DO UPDATE SET
-                roster_id = EXCLUDED.roster_id,
-                round_num = EXCLUDED.round_num,
-                player_id = EXCLUDED.player_id,
-                player_name = EXCLUDED.player_name,
-                synced_at = NOW()
-            """,
-            (
-                SLEEPER_DRAFT_ID, roster_id, round_num, pick_no,
-                player_id, stored_name,
-            ),
-        )
+            if mapped_player:
+                local_player_name, sleeper_name, mapped_position = mapped_player
+            else:
+                first_name = (metadata.get("first_name") or "").strip()
+                last_name = (metadata.get("last_name") or "").strip()
+                sleeper_name = " ".join(
+                    part for part in [first_name, last_name] if part
+                ).strip() or player_id
+                local_player_name = None
+                mapped_position = metadata.get("position")
 
-        if not local_player_name:
-            continue
+            if not local_player_name:
+                normalized = normalize_player_name(sleeper_name)
+                cur.execute(
+                    """
+                    SELECT player_name, position
+                    FROM players
+                    WHERE REGEXP_REPLACE(
+                        LOWER(player_name), '[^a-z0-9]', '', 'g'
+                    ) = %s
+                    LIMIT 1
+                    """,
+                    (normalized,),
+                )
+                local_player = cur.fetchone()
+                if local_player:
+                    local_player_name, mapped_position = local_player
 
-        matched += 1
-        cur.execute(
-            """
-            INSERT INTO draft_board (player_name, starred, drafted)
-            VALUES (%s, false, true)
-            ON CONFLICT (player_name)
-            DO UPDATE SET drafted = true
-            """,
-            (local_player_name,),
-        )
-
-        team_name = team_by_roster_id.get(roster_id, f"Roster {roster_id}")
-        cur.execute(
-            """
-            INSERT INTO league_teams (team_name)
-            VALUES (%s)
-            ON CONFLICT DO NOTHING
-            """,
-            (team_name,),
-        )
-        cur.execute(
-            """
-            INSERT INTO league_rosters (team_name, player_name, position)
-            SELECT %s, %s, %s
-            WHERE NOT EXISTS (
-                SELECT 1 FROM league_rosters WHERE player_name = %s
-            )
-            """,
-            (team_name, local_player_name, mapped_position, local_player_name),
-        )
-
-        if roster_id in my_roster_ids:
-            my_team_picks += 1
+            stored_name = local_player_name or sleeper_name
             cur.execute(
                 """
-                INSERT INTO my_roster (player_name, position)
-                SELECT %s, %s
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM my_roster WHERE player_name = %s
+                INSERT INTO sleeper_draft_picks (
+                    draft_id, roster_id, round_num, pick_no,
+                    player_id, player_name, synced_at
                 )
+                VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                ON CONFLICT (draft_id, pick_no)
+                DO UPDATE SET
+                    roster_id = EXCLUDED.roster_id,
+                    round_num = EXCLUDED.round_num,
+                    player_id = EXCLUDED.player_id,
+                    player_name = EXCLUDED.player_name,
+                    synced_at = NOW()
                 """,
-                (local_player_name, mapped_position, local_player_name),
+                (
+                    SLEEPER_DRAFT_ID, roster_id, round_num, pick_no,
+                    player_id, stored_name,
+                ),
             )
 
-    conn.commit()
-    cur.close()
-    conn.close()
-    return {
-        "draft_id": SLEEPER_DRAFT_ID,
-        "received": len(picks),
-        "stored": len(picks),
-        "matched_to_rankings": matched,
-        "my_team_picks": my_team_picks,
-    }
+            if not local_player_name:
+                continue
+
+            matched += 1
+            cur.execute(
+                """
+                INSERT INTO draft_board (player_name, starred, drafted)
+                VALUES (%s, false, true)
+                ON CONFLICT (player_name)
+                DO UPDATE SET drafted = true
+                """,
+                (local_player_name,),
+            )
+
+            team_name = team_by_roster_id.get(roster_id, f"Roster {roster_id}")
+            cur.execute(
+                """
+                INSERT INTO league_teams (team_name)
+                VALUES (%s)
+                ON CONFLICT DO NOTHING
+                """,
+                (team_name,),
+            )
+            cur.execute(
+                """
+                INSERT INTO league_rosters (team_name, player_name, position)
+                SELECT %s, %s, %s
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM league_rosters WHERE player_name = %s
+                )
+                """,
+                (team_name, local_player_name, mapped_position, local_player_name),
+            )
+
+            if roster_id in my_roster_ids:
+                my_team_picks += 1
+                cur.execute(
+                    """
+                    INSERT INTO my_roster (player_name, position)
+                    SELECT %s, %s
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM my_roster WHERE player_name = %s
+                    )
+                    """,
+                    (local_player_name, mapped_position, local_player_name),
+                )
+
+        conn.commit()
+        return {
+            "draft_id": SLEEPER_DRAFT_ID,
+            "received": len(picks),
+            "stored": len(picks),
+            "matched_to_rankings": matched,
+            "my_team_picks": my_team_picks,
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
 
 
 @app.route("/")
@@ -1681,22 +1698,25 @@ def predraft():
     )
 
 
-@app.route("/imports", methods=["GET", "POST"])
+@app.route("/imports", methods=["GET"])
 def imports():
-    if request.method == "POST":
-        uploaded_file = request.files.get("file")
-
-        if uploaded_file is None or not uploaded_file.filename:
-            return "No file selected", 400
-
-        filename = secure_filename(uploaded_file.filename)
-        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        uploaded_file.save(filepath)
-        import_rankings(filepath)
-
-        return f"Imported: {filename}"
-
     return render_template("imports.html", title="Imports")
+
+
+@app.route("/imports", methods=["POST"])
+@admin_required
+def imports_upload():
+    uploaded_file = request.files.get("file")
+
+    if uploaded_file is None or not uploaded_file.filename:
+        return "No file selected", 400
+
+    filename = secure_filename(uploaded_file.filename)
+    filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    uploaded_file.save(filepath)
+    import_rankings(filepath)
+
+    return f"Imported: {filename}"
 
 
 @app.route("/agents")
@@ -1710,6 +1730,7 @@ def draftcenter():
 
 
 @app.route("/draftboard/strategy", methods=["POST"])
+@admin_required
 def set_draft_strategy():
     strategy = request.form.get("strategy", DEFAULT_STRATEGY)
     if strategy not in STRATEGY_PROFILES:
@@ -2503,6 +2524,7 @@ def draftboard():
 
 
 @app.route("/draftboard/toggle-star", methods=["POST"])
+@admin_required
 def toggle_star():
     player_name = request.form.get("player_name", "").strip()
     if not player_name:
@@ -2526,6 +2548,7 @@ def toggle_star():
 
 
 @app.route("/draftboard/toggle-drafted", methods=["POST"])
+@admin_required
 def toggle_drafted():
     player_name = request.form.get("player_name", "").strip()
     if not player_name:
@@ -2549,6 +2572,7 @@ def toggle_drafted():
 
 
 @app.route("/draftboard/add-to-team", methods=["POST"])
+@admin_required
 def add_to_team():
     player_name = request.form.get("player_name", "").strip()
     position = request.form.get("position", "").strip().upper()
@@ -2584,6 +2608,7 @@ def add_to_team():
 
 
 @app.route("/draftboard/remove-from-team", methods=["POST"])
+@admin_required
 def remove_from_team():
     roster_id = request.form.get("roster_id", "").strip()
     if roster_id.isdigit():
@@ -2690,6 +2715,7 @@ def league_manager():
 
 
 @app.route("/league/sync-teams", methods=["POST"])
+@admin_required
 def sync_league_teams():
     overview = build_league_overview()
     conn = get_db_connection()
@@ -2714,6 +2740,7 @@ def sync_league_teams():
 
 
 @app.route("/league/add-team", methods=["POST"])
+@admin_required
 def add_league_team():
     team_name = request.form.get("team_name", "").strip()
     if team_name:
@@ -2730,6 +2757,7 @@ def add_league_team():
 
 
 @app.route("/league/delete-team", methods=["POST"])
+@admin_required
 def delete_league_team():
     team_id = request.form.get("team_id", "").strip()
     if team_id.isdigit():
@@ -2777,6 +2805,7 @@ def league_rosters():
 
 
 @app.route("/trackdraft", methods=["GET", "POST"])
+@admin_required
 def track_draft():
     error = None
     message = None
@@ -2886,6 +2915,7 @@ def track_draft():
 
 
 @app.route("/trackdraft/undo", methods=["POST"])
+@admin_required
 def undo_draft_pick():
     pick_id = request.form.get("pick_id", "").strip()
 
@@ -2919,36 +2949,40 @@ def undo_draft_pick():
     return redirect(url_for("track_draft"))
 
 
-@app.route("/test-sleeper")
+@app.route("/test-sleeper", methods=["POST"])
+@admin_required
 def test_sleeper():
 
-    league_id = "1398094330668797952"
+    league_id = Config.SLEEPER_LEAGUE_ID
 
     league = get_league(league_id)
 
     return jsonify(league)
 
 
-@app.route("/test-sleeper-users")
+@app.route("/test-sleeper-users", methods=["POST"])
+@admin_required
 def test_sleeper_users():
 
-    league_id = "1398094330668797952"
+    league_id = Config.SLEEPER_LEAGUE_ID
 
     return jsonify(
         get_users(league_id)
     )
 
 
-@app.route("/test-sleeper-rosters")
+@app.route("/test-sleeper-rosters", methods=["POST"])
+@admin_required
 def test_sleeper_rosters():
 
-    league_id = "1398094330668797952"
+    league_id = Config.SLEEPER_LEAGUE_ID
 
     return jsonify(
         get_rosters(league_id)
     )
 
-@app.route("/create-sleeper-tables")
+@app.route("/create-sleeper-tables", methods=["POST"])
+@admin_required
 def create_sleeper_tables():
 
     conn = get_db_connection()
@@ -2973,10 +3007,11 @@ def create_sleeper_tables():
 
     return "Sleeper tables created successfully!"
 
-@app.route("/sleeper-sync")
+@app.route("/sleeper-sync", methods=["POST"])
+@admin_required
 def sleeper_sync():
 
-    league_id = "1398094330668797952"
+    league_id = Config.SLEEPER_LEAGUE_ID
 
     users = get_users(league_id)
 
@@ -3062,34 +3097,38 @@ def test_draft():
     )
 
 
-@app.route("/sleeper/players/sync", methods=["GET", "POST"])
+@app.route("/sleeper/players/sync", methods=["POST"])
+@admin_required
 def sleeper_player_map_sync():
     try:
         return jsonify(sync_sleeper_player_map())
-    except Exception as exc:
+    except Exception:
         app.logger.exception("Sleeper player-map sync failed")
-        return jsonify({"error": str(exc)}), 500
+        return jsonify({"error": "sync failed"}), 500
 
 
-@app.route("/sleeper/draft-picks/sync", methods=["GET", "POST"])
+@app.route("/sleeper/draft-picks/sync", methods=["POST"])
+@admin_required
 def sleeper_draft_picks_sync():
     try:
         return jsonify(sync_sleeper_draft_picks())
-    except Exception as exc:
+    except Exception:
         app.logger.exception("Sleeper draft-pick sync failed")
-        return jsonify({"error": str(exc)}), 500
+        return jsonify({"error": "sync failed"}), 500
 
 
-@app.route("/test-draft-picks")
+@app.route("/test-draft-picks", methods=["POST"])
+@admin_required
 def test_draft_picks():
 
-    draft_id = "1398094331272794112"
+    draft_id = Config.SLEEPER_DRAFT_ID
 
     return jsonify(
         get_draft_picks(draft_id)
     )
 
-@app.route("/create-draft-tables")
+@app.route("/create-draft-tables", methods=["POST"])
+@admin_required
 def create_draft_tables():
 
     conn = get_db_connection()
@@ -3126,11 +3165,12 @@ def create_draft_tables():
 
     return "Draft tables created successfully!"
 
-@app.route("/draft-sync")
+@app.route("/draft-sync", methods=["POST"])
+@admin_required
 def draft_sync():
 
     draft = get_draft(
-        "1398094331272794112"
+        Config.SLEEPER_DRAFT_ID
     )
 
     conn = get_db_connection()
@@ -3167,7 +3207,8 @@ def draft_sync():
 
     return "Draft synced successfully!"
 
-@app.route("/create-draft-picks-table")
+@app.route("/create-draft-picks-table", methods=["POST"])
+@admin_required
 def create_draft_picks_table():
 
     conn = get_db_connection()
@@ -3194,7 +3235,8 @@ def create_draft_picks_table():
 
     return "Draft picks table created!"
 
-@app.route("/agent/recommendation")
+@app.route("/agent/recommendation", methods=["POST"])
+@admin_required
 def draft_recommendation():
 
     conn = get_db_connection()
@@ -3420,6 +3462,7 @@ def mock_draft_lab():
 
 
 @app.route('/mockdraft/start',methods=['POST'])
+@admin_required
 def start_mock_draft():
     teams=max(4,min(16,int(request.form.get('teams',10))));rounds=max(4,min(20,int(request.form.get('rounds',14))))
     slot=max(1,min(teams,int(request.form.get('draft_position',1))));strategy=request.form.get('strategy',DEFAULT_STRATEGY)
@@ -3446,6 +3489,7 @@ def mock_draft_live(draft_id):
 
 
 @app.route('/mockdraft/live/<int:draft_id>/pick',methods=['POST'])
+@admin_required
 def mock_draft_pick(draft_id):
     player_name=request.form.get('player_name','').strip();conn=get_db_connection();cur=conn.cursor();ensure_mock_tables(cur)
     cur.execute("SELECT strategy,teams,rounds,draft_position,current_pick,paused FROM mock_drafts WHERE id=%s",(draft_id,));d=cur.fetchone()
@@ -3461,6 +3505,7 @@ def mock_draft_pick(draft_id):
 
 
 @app.route('/mockdraft/live/<int:draft_id>/toggle-pause',methods=['POST'])
+@admin_required
 def toggle_mock_pause(draft_id):
     conn=get_db_connection();cur=conn.cursor();cur.execute("UPDATE mock_drafts SET paused=NOT paused WHERE id=%s",(draft_id,));conn.commit();cur.close();conn.close();return redirect(url_for('mock_draft_live',draft_id=draft_id))
 
@@ -3477,6 +3522,7 @@ def mock_draft_result(draft_id):
 
 
 @app.route('/mockdraft/<int:draft_id>/delete',methods=['POST'])
+@admin_required
 def delete_mock_draft(draft_id):
     conn=get_db_connection();cur=conn.cursor();cur.execute("DELETE FROM mock_drafts WHERE id=%s",(draft_id,));conn.commit();cur.close();conn.close();return redirect(url_for('mock_draft_lab'))
 

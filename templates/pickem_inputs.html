@@ -19,6 +19,7 @@
   {% endwith %}
 
   <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="season" value="{{ season }}">
     <input type="hidden" name="week" value="{{ week }}">
     <div class="fi-inputs__table-wrap">

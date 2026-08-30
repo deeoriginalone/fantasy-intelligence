@@ -13,6 +13,7 @@
     {% endif %}
 
     <form method="POST" action="/trackdraft">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label for="team_name"><b>Team</b></label><br>
         <select id="team_name" name="team_name" required style="width:100%; max-width:520px; padding:10px; margin:8px 0 18px;">
             <option value="">Select a team</option>
@@ -56,6 +57,7 @@
                         <td style="padding:8px; border-bottom:1px solid #eee;">{{ pick[3] }}</td>
                         <td style="padding:8px; border-bottom:1px solid #eee;">
                             <form method="POST" action="/trackdraft/undo" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="pick_id" value="{{ pick[0] }}">
                                 <button type="submit" style="padding:7px 11px; border:0; border-radius:6px; background:#f8d7da; color:#721c24; font-weight:bold; cursor:pointer;">Undo</button>
                             </form>

@@ -1,6 +1,7 @@
 from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 from flask import Blueprint, flash, redirect, render_template, request, url_for
+from auth import admin_required
 from pickem_pg_store import connect, seed_from_schedule
 
 pickem_inputs_bp = Blueprint('pickem_inputs', __name__)
@@ -65,6 +66,7 @@ def list_week_games(season: int, week: int):
 
 
 @pickem_inputs_bp.route('/pickem/inputs', methods=['GET', 'POST'])
+@admin_required
 def inputs_home():
     season = request.values.get('season', 2026, type=int)
     week = request.values.get('week', type=int) or current_week_from_postgres()
