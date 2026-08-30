@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+from sleeper_hub import create_sleeper_hub_blueprint
+from sleeper_api_routes import create_sleeper_api_blueprint
 from owner_operations import create_owner_operations_blueprint
 from season_sandbox import create_sandbox_blueprint
 from werkzeug.utils import secure_filename
@@ -3365,6 +3367,10 @@ def delete_mock_draft(draft_id):
 app.register_blueprint(create_sandbox_blueprint(get_db_connection))
 
 app.register_blueprint(create_owner_operations_blueprint(get_db_connection, get_league, get_users, get_rosters, get_all_players, normalize_player_name))
+
+app.register_blueprint(create_sleeper_api_blueprint(get_db_connection))
+
+app.register_blueprint(create_sleeper_hub_blueprint(get_db_connection))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5050, debug=True)

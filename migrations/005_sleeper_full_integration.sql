@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS sleeper_api_snapshots (id BIGSERIAL PRIMARY KEY,resource_type VARCHAR(50) NOT NULL,resource_key VARCHAR(150) NOT NULL,season INTEGER NOT NULL DEFAULT 0,week INTEGER NOT NULL DEFAULT 0,payload JSONB NOT NULL,fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),UNIQUE(resource_type,resource_key,season,week));
+CREATE INDEX IF NOT EXISTS idx_sleeper_api_snapshots_lookup ON sleeper_api_snapshots(resource_type,resource_key,season,week,fetched_at DESC);
+CREATE TABLE IF NOT EXISTS sleeper_sync_runs (id BIGSERIAL PRIMARY KEY,league_id VARCHAR(50) NOT NULL,season INTEGER NOT NULL,week INTEGER NOT NULL,status VARCHAR(20) NOT NULL,resources JSONB NOT NULL DEFAULT '{}'::jsonb,error_message TEXT,started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),completed_at TIMESTAMPTZ);
+CREATE INDEX IF NOT EXISTS idx_sleeper_sync_runs_recent ON sleeper_sync_runs(started_at DESC);
