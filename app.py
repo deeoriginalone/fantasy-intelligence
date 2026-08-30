@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+from draft_readiness import build_draft_readiness, validate_runtime
+from draft_health_routes import create_draft_health_blueprint
 from scarcity_model import calculate_dynamic_scarcity, scarcity_distribution
 from candidate_filter import filter_candidate_pool
 from model_calibration import model_health
@@ -36,9 +38,19 @@ import random
 import psycopg2
 
 from services.import_rankings import import_rankings
+from pickem_routes import pickem_bp
+from pickem_inputs_routes import pickem_inputs_bp
+from pickem_feed_routes import pickem_feed_bp
+from market_routes import market_bp
+from survivor_routes import survivor_bp
 
 
 app = Flask(__name__)
+app.register_blueprint(pickem_bp)
+app.register_blueprint(market_bp)
+app.register_blueprint(survivor_bp)
+app.register_blueprint(pickem_feed_bp)
+app.register_blueprint(pickem_inputs_bp)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "fantasy-intelligence-dev")
 
 UPLOAD_FOLDER = "uploads"
@@ -2417,11 +2429,20 @@ def draftboard():
     draft_coach = fuse_decision_plan(draft_coach, draft_decision_plan)
 
     
+    readiness_conn = get_db_connection()
+    readiness_cur = readiness_conn.cursor()
+    draft_readiness = build_draft_readiness(readiness_cur, SLEEPER_LEAGUE_ID, 2026, sleeper_draft_signals, current_model_health)
+    draft_validation = validate_runtime(recommendation_candidates, sleeper_draft_signals, current_model_health)
+    readiness_cur.close()
+    readiness_conn.close()
+
     draft_outcome_status = log_and_resolve(get_db_connection, SLEEPER_LEAGUE_ID, 2026, team_recommendation, sleeper_draft_signals, draft_now_wait, monte_carlo, player_survival, expected_value_analysis, draft_decision_plan)
 
 
     return render_template(
         "draftboard.html",
+        draft_readiness=draft_readiness,
+        draft_validation=draft_validation,
         candidate_pool_audit=candidate_pool_audit,
         model_health=current_model_health,
         draft_outcome_status=draft_outcome_status,
@@ -3469,6 +3490,8 @@ app.register_blueprint(create_sleeper_hub_blueprint(get_db_connection))
 app.register_blueprint(create_sleeper_intelligence_blueprint(get_db_connection))
 
 app.register_blueprint(create_draft_accuracy_blueprint(get_db_connection))
+
+app.register_blueprint(create_draft_health_blueprint(get_db_connection, SLEEPER_LEAGUE_ID, 2026, build_sleeper_draft_signals, model_health))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5050, debug=True)

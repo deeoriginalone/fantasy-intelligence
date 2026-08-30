@@ -35,3 +35,17 @@ inst*ll_*.py
 fix_*.py
 payload/
 README.t*t
+
+archive/**_batch.zip
+
+install_*.py
+fix_*.py*repair_*.py
+move_*.py
+apply_*.py
+
+*_pycache__/
+*.pyc*.zip
+__pycache__/
+.env.market
+.env.pickem
+backups/
