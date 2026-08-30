@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+from draft_outcome_tracker import log_and_resolve
+from draft_accuracy_routes import create_draft_accuracy_blueprint
 from sleeper_opponent_forecast import reconcile_opponent_forecast
 from dynamic_need_model import calculate_dynamic_need
 from balanced_recommendation_score import calculate_balanced_score
@@ -2386,8 +2388,11 @@ def draftboard():
 
     draft_coach = fuse_decision_plan(draft_coach, draft_decision_plan)
 
+    draft_outcome_status = log_and_resolve(get_db_connection, SLEEPER_LEAGUE_ID, 2026, team_recommendation, sleeper_draft_signals, draft_now_wait, monte_carlo, player_survival, expected_value_analysis, draft_decision_plan)
+
     return render_template(
         "draftboard.html",
+        draft_outcome_status=draft_outcome_status,
         draft_decision_plan=draft_decision_plan,
         player_survival=player_survival,
         sleeper_recommendation_overlay=sleeper_recommendation_overlay,
@@ -3430,6 +3435,8 @@ app.register_blueprint(create_owner_operations_blueprint(get_db_connection, get_
 app.register_blueprint(create_sleeper_hub_blueprint(get_db_connection))
 
 app.register_blueprint(create_sleeper_intelligence_blueprint(get_db_connection))
+
+app.register_blueprint(create_draft_accuracy_blueprint(get_db_connection))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5050, debug=True)
