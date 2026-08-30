@@ -1,0 +1,7 @@
+[Unit]
+Description=Refresh weekly NFL market intelligence twice daily
+[Timer]
+OnCalendar=*-*-* 07,19:00:00
+Persistent=true
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="fi-inputs">
+  <header class="fi-inputs__header">
+    <div>
+      <p class="fi-inputs__eyebrow">Yahoo Pick'em Center</p>
+      <h1>Week {{ week }} Input Center</h1>
+      <p>Enter Yahoo crowd percentages and both American moneylines. The dashboard calculates a no-vig home win probability.</p>
+    </div>
+    <form method="get" class="fi-inputs__week">
+      <label>Season <input type="number" name="season" value="{{ season }}" min="2020" max="2100"></label>
+      <label>Week <input type="number" name="week" value="{{ week }}" min="1" max="25"></label>
+      <button type="submit">Load week</button>
+    </form>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}<div class="fi-alert fi-alert--{{ category }}">{{ message }}</div>{% endfor %}
+  {% endwith %}
+
+  <form method="post">
+    <input type="hidden" name="season" value="{{ season }}">
+    <input type="hidden" name="week" value="{{ week }}">
+    <div class="fi-inputs__table-wrap">
+      <table class="fi-inputs__table">
+        <thead><tr><th>Game</th><th>Yahoo Away %</th><th>Yahoo Home %</th><th>Away ML</th><th>Home ML</th><th>Total</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for game in games %}
+          <tr>
+            <td><input type="hidden" name="game_id" value="{{ game.game_id }}"><strong>{{ game.away_team }} @ {{ game.home_team }}</strong><small>{{ game.kickoff or '' }}</small></td>
+            <td><input type="number" step="0.1" min="0" max="100" name="{{ game.game_id }}__yahoo_away_pct" value="{{ '%.1f'|format(game.yahoo_away_pct * 100) if game.yahoo_away_pct is not none else '' }}"></td>
+            <td><input type="number" step="0.1" min="0" max="100" name="{{ game.game_id }}__yahoo_home_pct" value="{{ '%.1f'|format(game.yahoo_home_pct * 100) if game.yahoo_home_pct is not none else '' }}"></td>
+            <td><input type="number" step="1" name="{{ game.game_id }}__away_moneyline" placeholder="+140"></td>
+            <td><input type="number" step="1" name="{{ game.game_id }}__home_moneyline" placeholder="-160"></td>
+            <td><input type="number" step="0.5" min="20" max="100" name="{{ game.game_id }}__projected_total" value="{{ game.projected_total if game.projected_total is not none else '' }}"></td>
+            <td>{% if game.yahoo_away_pct is not none and game.market_home_probability is not none %}<span class="fi-status fi-status--ready">Ready</span>{% else %}<span class="fi-status">Needs data</span>{% endif %}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7">No schedule games were found for this week.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="fi-inputs__actions"><button type="submit">Save week and generate picks</button><a href="{{ url_for('pickem.pickem_page', season=season, week=week) }}">Back to Pick'em Center</a></div>
+  </form>
+</section>
+{% endblock %}

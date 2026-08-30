@@ -1,4 +1,24 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+from draft_readiness import build_draft_readiness, validate_runtime
+from draft_health_routes import create_draft_health_blueprint
+from scarcity_model import calculate_dynamic_scarcity, scarcity_distribution
+from candidate_filter import filter_candidate_pool
+from model_calibration import model_health
+from adaptive_draft_reconciliation import apply_calibrated_reconciliation
+from draft_outcome_tracker import log_and_resolve
+from draft_accuracy_routes import create_draft_accuracy_blueprint
+from sleeper_opponent_forecast import reconcile_opponent_forecast
+from dynamic_need_model import calculate_dynamic_need
+from balanced_recommendation_score import calculate_balanced_score
+from recommendation_engine_audit import audit_recommendation_candidates
+from draft_decision_plan import build_decision_plan, fuse_decision_plan
+from reconciled_draft_decision import reconcile_draft_now_wait
+from draft_coach_sleeper_fusion import fuse_sleeper_context
+from player_survival_probability import estimate_player_survival
+from sleeper_recommendation_overlay import build_recommendation_overlay
+from sleeper_draft_signals import build_sleeper_draft_signals
+from sleeper_intelligence_routes import create_sleeper_intelligence_blueprint
+from sleeper_hub import create_sleeper_hub_blueprint
 from owner_operations import create_owner_operations_blueprint
 from season_sandbox import create_sandbox_blueprint
 from werkzeug.utils import secure_filename
@@ -18,9 +38,19 @@ import random
 import psycopg2
 
 from services.import_rankings import import_rankings
+from pickem_routes import pickem_bp
+from pickem_inputs_routes import pickem_inputs_bp
+from pickem_feed_routes import pickem_feed_bp
+from market_routes import market_bp
+from survivor_routes import survivor_bp
 
 
 app = Flask(__name__)
+app.register_blueprint(pickem_bp)
+app.register_blueprint(market_bp)
+app.register_blueprint(survivor_bp)
+app.register_blueprint(pickem_feed_bp)
+app.register_blueprint(pickem_inputs_bp)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "fantasy-intelligence-dev")
 
 UPLOAD_FOLDER = "uploads"
@@ -1816,6 +1846,11 @@ def draftboard():
     )
     roster = cur.fetchall()
 
+    sleeper_draft_signals = build_sleeper_draft_signals(cur, SLEEPER_LEAGUE_ID, season=2026, user_slot=5)
+
+
+    
+
     cur.close()
     conn.close()
 
@@ -2022,6 +2057,11 @@ def draftboard():
 
     current_round = (completed_picks // max(league_size, 1)) + 1
 
+    recommendation_pool, candidate_pool_audit = filter_candidate_pool(
+        available_players,
+        current_round=current_round,
+    )
+
     round_plan = build_round_plan(
         active_strategy,
         current_round,
@@ -2031,19 +2071,27 @@ def draftboard():
 
     recommendation_candidates = []
 
-    for player in available_players:
+    for player in recommendation_pool:
         position = player[2]
         if position not in ROSTER_TARGETS:
             continue
 
         player_rank_score = max(0, 101 - player[0])
-        player_need_score = need_score.get(position, 0)
-        player_scarcity_score = scarcity_score.get(position, 0)
+        legacy_need_score = need_score.get(position, 0)
+        dynamic_need = calculate_dynamic_need(
+            position, current_round, position_counts, ROSTER_TARGETS, active_strategy,
+        )
+        player_need_score = dynamic_need["score"]
+        legacy_scarcity_score = scarcity_score.get(position, 0)
+        dynamic_scarcity = calculate_dynamic_scarcity(
+            player, recommendation_pool, current_round, sleeper_draft_signals,
+        )
+        player_scarcity_score = dynamic_scarcity["score"]
         player_tier = get_draftboard_player_tier(player)
         players_left_in_tier = tier_counts[position].get(player_tier, 0)
 
         player_tier_gap = calculate_draftboard_tier_gap(
-            available_players,
+            recommendation_pool,
             position,
             player_tier,
         )
@@ -2060,20 +2108,21 @@ def draftboard():
         player_league_bonus = (
             league_tendencies.get("bonus") or {}
         ).get(position, 0)
-        player_draft_score = (
-            player_rank_score
-            + player_need_score
-            + player_scarcity_score
-            + player_tier_bonus
-            + player_strategy_bonus
-            + player_league_bonus
+        balanced_score = calculate_balanced_score(
+            player[0], player_need_score, player_scarcity_score,
+            player_tier_bonus, player_strategy_bonus, player_league_bonus,
         )
+        player_draft_score = balanced_score["total"]
 
         recommendation_candidates.append(
             {
                 "player": player,
                 "rank_score": player_rank_score,
+                "legacy_need_score": legacy_need_score,
+                "need_details": dynamic_need,
                 "need_score": player_need_score,
+                "legacy_scarcity_score": legacy_scarcity_score,
+                "scarcity_details": dynamic_scarcity,
                 "scarcity_score": player_scarcity_score,
                 "tier": player_tier,
                 "tier_remaining": players_left_in_tier,
@@ -2081,6 +2130,7 @@ def draftboard():
                 "tier_bonus": player_tier_bonus,
                 "strategy_bonus": player_strategy_bonus,
                 "league_bonus": player_league_bonus,
+                "weighted_components": balanced_score,
                 "draft_score": player_draft_score,
             }
         )
@@ -2092,6 +2142,27 @@ def draftboard():
         )
     )
     top_recommendations = recommendation_candidates[:5]
+    recommendation_engine_audit = audit_recommendation_candidates(
+        recommendation_candidates
+    )
+    recommendation_engine_audit["candidate_pool"] = candidate_pool_audit
+    recommendation_engine_audit["scarcity_distribution"] = scarcity_distribution(recommendation_candidates)
+    recommendation_engine_audit=audit_recommendation_candidates(
+    recommendation_candidates
+    )
+
+    print("RECOMMENDATION AUDIT")
+    print(recommendation_engine_audit)
+
+    sleeper_recommendation_overlay = build_recommendation_overlay(
+        top_recommendations,
+        sleeper_draft_signals,
+    )
+
+    player_survival = estimate_player_survival(
+        top_recommendations,
+        sleeper_draft_signals,
+    )
     team_recommendation = (
         top_recommendations[0]["player"]
         if top_recommendations
@@ -2210,13 +2281,18 @@ def draftboard():
         else 0
     )
     pick_forecast = build_opponent_forecast(
-        available_players,
+        recommendation_pool,
         scarcity,
         league_tendencies,
     )
 
+    pick_forecast = reconcile_opponent_forecast(
+        pick_forecast,
+        sleeper_draft_signals,
+    )
+
     monte_carlo = run_monte_carlo_availability(
-        available_players,
+        recommendation_pool,
         top_recommendations,
         pick_forecast,
         league_tendencies,
@@ -2240,6 +2316,23 @@ def draftboard():
         pick_forecast,
         tier_counts,
         need_score,
+    )
+
+    draft_now_wait = reconcile_draft_now_wait(
+        draft_now_wait, team_recommendation, monte_carlo,
+        expected_value_analysis, player_survival, sleeper_draft_signals,
+    )
+
+    health_conn = get_db_connection()
+    health_cur = health_conn.cursor()
+    current_model_health = model_health(health_cur)
+    health_cur.close()
+    health_conn.close()
+    draft_now_wait = apply_calibrated_reconciliation(draft_now_wait, current_model_health)
+
+    draft_decision_plan = build_decision_plan(
+        team_recommendation, top_recommendations, expected_value_analysis,
+        monte_carlo, player_survival, sleeper_recommendation_overlay, draft_now_wait,
     )
 
     if team_recommendation and expected_value_analysis.get("players"):
@@ -2326,8 +2419,37 @@ def draftboard():
         pick_forecast,
     )
 
+    draft_coach = fuse_sleeper_context(
+        draft_coach,
+        sleeper_draft_signals,
+        sleeper_recommendation_overlay,
+        player_survival,
+    )
+
+    draft_coach = fuse_decision_plan(draft_coach, draft_decision_plan)
+
+    
+    readiness_conn = get_db_connection()
+    readiness_cur = readiness_conn.cursor()
+    draft_readiness = build_draft_readiness(readiness_cur, SLEEPER_LEAGUE_ID, 2026, sleeper_draft_signals, current_model_health)
+    draft_validation = validate_runtime(recommendation_candidates, sleeper_draft_signals, current_model_health)
+    readiness_cur.close()
+    readiness_conn.close()
+
+    draft_outcome_status = log_and_resolve(get_db_connection, SLEEPER_LEAGUE_ID, 2026, team_recommendation, sleeper_draft_signals, draft_now_wait, monte_carlo, player_survival, expected_value_analysis, draft_decision_plan)
+
+
     return render_template(
         "draftboard.html",
+        draft_readiness=draft_readiness,
+        draft_validation=draft_validation,
+        candidate_pool_audit=candidate_pool_audit,
+        model_health=current_model_health,
+        draft_outcome_status=draft_outcome_status,
+        draft_decision_plan=draft_decision_plan,
+        player_survival=player_survival,
+        sleeper_recommendation_overlay=sleeper_recommendation_overlay,
+        sleeper_draft_signals=sleeper_draft_signals,
         title="My Draft Board",
         players=players,
         available_players=available_players,
@@ -2340,6 +2462,7 @@ def draftboard():
         bench=bench,
         team_recommendation=team_recommendation,
         top_recommendations=top_recommendations,
+        recommendation_engine_audit=recommendation_engine_audit,
         strategy_profiles=STRATEGY_PROFILES,
         active_strategy=active_strategy,
         strategy_profile=STRATEGY_PROFILES[active_strategy],
@@ -2805,11 +2928,6 @@ def test_sleeper():
 
     return jsonify(league)
 
-from services.sleeper_service import (
-    get_league,
-    get_users,
-    get_rosters
-)
 
 @app.route("/test-sleeper-users")
 def test_sleeper_users():
@@ -3365,6 +3483,15 @@ def delete_mock_draft(draft_id):
 app.register_blueprint(create_sandbox_blueprint(get_db_connection))
 
 app.register_blueprint(create_owner_operations_blueprint(get_db_connection, get_league, get_users, get_rosters, get_all_players, normalize_player_name))
+
+
+app.register_blueprint(create_sleeper_hub_blueprint(get_db_connection))
+
+app.register_blueprint(create_sleeper_intelligence_blueprint(get_db_connection))
+
+app.register_blueprint(create_draft_accuracy_blueprint(get_db_connection))
+
+app.register_blueprint(create_draft_health_blueprint(get_db_connection, SLEEPER_LEAGUE_ID, 2026, build_sleeper_draft_signals, model_health))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5050, debug=True)

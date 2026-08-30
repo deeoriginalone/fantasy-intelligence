@@ -1,0 +1,8 @@
+<section class="card" id="player-survival-probability">
+<h2>Next-Pick Player Survival</h2>
+<p class="muted">{{ player_survival.method }}</p>
+{% if player_survival.rows %}
+{% if player_survival.urgent %}<p><strong>Most urgent among current recommendations:</strong> {{player_survival.urgent.name}} · {{player_survival.urgent.position}} · estimated survival {{player_survival.urgent.survival_pct}}% · {{player_survival.urgent.decision}}</p>{% endif %}
+<div class="table-wrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Base Score</th><th>ADP/Rank</th><th>Selections Before</th><th>Live Position Risk</th><th>Estimated Survival</th><th>Decision</th><th>Reason</th></tr></thead><tbody>{% for row in player_survival.rows %}<tr{% if row.decision == 'DRAFT NOW' %} style="background:#fee2e2"{% elif row.decision == 'HIGH RISK' %} style="background:#fff7ed"{% endif %}><td><strong>{{row.name}}</strong></td><td>{{row.position}}</td><td>{{row.base_score}}</td><td>{% if row.adp and row.adp < 999 %}ADP {{row.adp|round(1)}}{% elif row.overall_rank %}Rank {{row.overall_rank|round(1)}}{% else %}N/A{% endif %}</td><td>{{player_survival.picks_before}}</td><td>{{row.risk_pct}}%</td><td><strong>{{row.survival_pct}}%</strong></td><td>{{row.decision}}</td><td>{{row.reasons|join('; ')}}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}<p>No top recommendations are available for survival analysis.</p>{% endif %}
+</section>

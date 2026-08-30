@@ -1,0 +1,3 @@
+PostgreSQL migration applied
+Schedule shells inserted=0
+backup=/home/deeoriginalone/fantasy-intelligence/backups/pickem-postgres-20260830-092442

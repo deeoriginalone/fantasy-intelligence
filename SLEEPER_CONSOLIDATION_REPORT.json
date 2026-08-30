@@ -1,0 +1,13 @@
+{
+  "status": "pass",
+  "backup": "backups/sleeper-consolidation/20260830-025847",
+  "checks": {
+    "legacy_removed": true,
+    "hub_registered": true,
+    "intelligence_registered": true,
+    "migrations": true
+  },
+  "canonical_client": "services/sleeper_service.py",
+  "canonical_sync": "sleeper_hub.py",
+  "canonical_intelligence": "sleeper_intelligence.py"
+}

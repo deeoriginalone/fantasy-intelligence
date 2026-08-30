@@ -1,0 +1,7 @@
+[Unit]
+Description=Refresh Fantasy Intelligence Pickem feeds hourly
+[Timer]
+OnCalendar=hourly
+Persistent=true
+[Install]
+WantedBy=timers.target

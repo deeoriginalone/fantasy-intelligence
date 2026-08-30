@@ -1,0 +1,7 @@
+[Unit]
+Description=Fantasy Intelligence Market Refresh
+[Service]
+Type=oneshot
+WorkingDirectory=/home/deeoriginalone/fantasy-intelligence
+EnvironmentFile=/home/deeoriginalone/fantasy-intelligence/.env.market
+ExecStart=/home/deeoriginalone/fantasy-intelligence/venv/bin/python /home/deeoriginalone/fantasy-intelligence/market_refresh.py

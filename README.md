@@ -60,3 +60,59 @@ Balanced 75.23
 Zero RB 75.21
 QB Early 75.21
 Hero RB 75.12
+
+Fantasy Intelligence Platform
+
+Version 2.0
+
+PostgreSQL-backed NFL decision platform.
+
+CORE SYSTEMS
+
+✅ Draft HQ
+✅ Draft Readiness
+✅ Draft Accuracy
+✅ Sleeper Intelligence
+✅ Weekly Intelligence
+✅ Market Intelligence
+✅ Survivor Intelligence
+
+MARKET INTELLIGENCE
+
+Produces:
+- Lock of Week
+- Confidence Rankings
+- Expected Correct Picks
+- Strong Picks
+- Coin Flip Warnings
+
+SURVIVOR INTELLIGENCE
+
+Produces:
+- Primary Survivor Pick
+- Fallback Recommendations
+- Future Value Analysis
+- Used Team Tracking
+- Survivor History
+
+DATA SOURCES
+
+PostgreSQL
+- nfl_schedule
+- nfl_teams
+- bye_weeks
+- injury_reports
+- application_state
+
+External
+- NFL Market Odds Feed
+
+ARCHITECTURE
+
+NFL Schedule
+      ↓
+Market Intelligence
+      ↓
+Survivor Intelligence
+      ↓
+Weekly Decision Support

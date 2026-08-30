@@ -1,0 +1,7 @@
+[Unit]
+Description=Fantasy Intelligence Pickem Feed Refresh
+[Service]
+Type=oneshot
+WorkingDirectory=/home/deeoriginalone/fantasy-intelligence
+EnvironmentFile=-/home/deeoriginalone/fantasy-intelligence/.env.pickem
+ExecStart=/home/deeoriginalone/fantasy-intelligence/venv/bin/python /home/deeoriginalone/fantasy-intelligence/pickem_auto_feed.py

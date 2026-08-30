@@ -1,78 +1,222 @@
 {% extends "base.html" %}
-
 {% block content %}
-
 <title>Fantasy Intelligence Dashboard</title>
 
 <style>
-    .dashboard-card{
-        background:white;
-        padding:20px;
-        border-radius:12px;
-        margin-bottom:20px;
-        box-shadow:0 2px 6px rgba(0,0,0,.08);
+    .dashboard-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 6px rgba(0,0,0,.08);
     }
 
-    .status-grid{
-        display:grid;
-        grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
-        gap:20px;
-        margin-top:20px;
+    .status-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
     }
 
-    ul{
-        padding-left:20px;
+    ul {
+        padding-left: 20px;
     }
 
-    .ready{
-        color:green;
-        font-weight:bold;
+    .ready {
+        color: green;
+        font-weight: bold;
     }
 
-    .header{
-        margin-bottom:30px;
+    .header {
+        margin-bottom: 30px;
     }
 
-    .header p{
-        color:#555;
+    .header p {
+        color: #555;
+    }
+
+    .league-hero {
+        display: grid;
+        grid-template-columns: minmax(320px, 0.9fr) minmax(360px, 1.1fr);
+        align-items: center;
+        gap: 42px;
+        min-height: 500px;
+        padding: 42px;
+        overflow: hidden;
+        color: white;
+        border: 1px solid rgba(214, 170, 58, .38);
+        border-radius: 16px;
+        margin-bottom: 20px;
+        background:
+            radial-gradient(circle at 18% 22%, rgba(24, 103, 223, .26), transparent 34%),
+            linear-gradient(135deg, #06152f 0%, #071b3d 58%, #0b2b5a 100%);
+        box-shadow: 0 8px 24px rgba(7, 27, 61, .14);
+    }
+
+    .logo-stage {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 410px;
+    }
+
+    .league-logo {
+        display: block;
+        width: min(100%, 520px);
+        max-height: 470px;
+        object-fit: contain;
+        filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .42));
+    }
+
+    .hero-copy h2 {
+        margin: 0 0 14px;
+        color: white;
+        font-size: clamp(2rem, 4vw, 4.25rem);
+        line-height: 1;
+        letter-spacing: -.035em;
+    }
+
+    .eyebrow {
+        margin: 0 0 10px;
+        color: #f1ca63;
+        font-size: .85rem;
+        font-weight: 800;
+        letter-spacing: .16em;
+        text-transform: uppercase;
+    }
+
+    .tagline {
+        margin: 0 0 26px;
+        color: #cbd9ee;
+        font-size: 1.2rem;
+    }
+
+    .league-facts {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin: 0;
+    }
+
+    .league-fact {
+        min-height: 78px;
+        padding: 15px 17px;
+        border: 1px solid rgba(255,255,255,.14);
+        border-radius: 12px;
+        background: rgba(255,255,255,.07);
+    }
+
+    .league-fact dt {
+        margin: 0 0 5px;
+        color: #9fb3ce;
+        font-size: .72rem;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .league-fact dd {
+        margin: 0;
+        color: white;
+        font-weight: 700;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #b9ffd7;
+    }
+
+    .status-pill::before {
+        content: "";
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: #3bd680;
+        box-shadow: 0 0 0 5px rgba(59, 214, 128, .13);
+    }
+
+    @media (max-width: 900px) {
+        .league-hero {
+            grid-template-columns: 1fr;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .logo-stage {
+            min-height: auto;
+        }
+
+        .league-logo {
+            width: min(90vw, 440px);
+        }
+
+        .league-facts {
+            text-align: left;
+        }
+    }
+
+    @media (max-width: 560px) {
+        .league-hero {
+            padding: 24px 18px;
+        }
+
+        .league-facts {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 
 <div class="header">
     <h1>🏈 Fantasy Intelligence Dashboard</h1>
-    <p>
-        Advanced Fantasy Football Analytics & Draft Intelligence
-    </p>
+    <p>Advanced Fantasy Football Analytics &amp; Draft Intelligence</p>
 </div>
 
-<div class="dashboard-card">
-    <h2>{{ league_name }}</h2>
+<section class="league-hero" aria-labelledby="league-title">
+    <div class="logo-stage">
+        <img
+            class="league-logo"
+            src="{{ url_for('static', filename='images/fantasy-intelligence-logo.png') }}"
+            alt="Fantasy Intelligence Champions League logo"
+        >
+    </div>
 
-    <p><strong>Commissioner:</strong> Demond Lash</p>
-    <p><strong>Owner Team:</strong> {{ team_name }}</p>
+    <div class="hero-copy">
+        <p class="eyebrow">Football + Intelligence</p>
+        <h2 id="league-title">{{ league_name }}</h2>
+        <p class="tagline">Where Data Becomes Championships</p>
 
-    <p>
-        <strong>League Format:</strong>
-        {{ teams }} Teams • {{ scoring_type }} • Snake Draft
-    </p>
-
-    <p>
-        <strong>Season:</strong> 2026
-    </p>
-
-    <p>
-        <strong>Draft Date:</strong>
-        September 6, 2026 • 3:00 PM PDT
-    </p>
-
-    <p>
-        <strong>Status:</strong>
-        Pre-Draft
-    </p>
-</div>
+        <dl class="league-facts">
+            <div class="league-fact">
+                <dt>Commissioner</dt>
+                <dd>Demond Lash</dd>
+            </div>
+            <div class="league-fact">
+                <dt>Owner Team</dt>
+                <dd>{{ team_name }}</dd>
+            </div>
+            <div class="league-fact">
+                <dt>League Format</dt>
+                <dd>{{ teams }} Teams • {{ scoring_type }} • Snake Draft</dd>
+            </div>
+            <div class="league-fact">
+                <dt>Season</dt>
+                <dd>2026</dd>
+            </div>
+            <div class="league-fact">
+                <dt>Draft Date</dt>
+                <dd>September 6, 2026 • 3:00 PM PDT</dd>
+            </div>
+            <div class="league-fact">
+                <dt>Status</dt>
+                <dd><span class="status-pill">Pre-Draft</span></dd>
+            </div>
+        </dl>
+    </div>
+</section>
 
 <div class="status-grid">
-
     <div class="dashboard-card">
         <h3>🚀 Draft Intelligence Status</h3>
         <ul>
@@ -96,15 +240,11 @@
             <li>✅ Player Projections Imported</li>
             <li>✅ Tier Intelligence Active</li>
         </ul>
-
-        <p class="ready">
-            READY FOR DRAFT DAY
-        </p>
+        <p class="ready">READY FOR DRAFT DAY</p>
     </div>
 
     <div class="dashboard-card">
         <h3>🏆 League Summary</h3>
-
         <p><strong>League:</strong> Fantasy Intelligence Champions League</p>
         <p><strong>Teams:</strong> 10</p>
         <p><strong>Scoring:</strong> Full PPR</p>
@@ -112,7 +252,7 @@
         <p><strong>Season:</strong> 2026</p>
         <p><strong>Draft ID:</strong> 1398094331272794112</p>
     </div>
-
 </div>
 
+{% include "_pickem_dashboard_card.html" %}
 {% endblock %}

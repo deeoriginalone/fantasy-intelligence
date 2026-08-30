@@ -1,0 +1,13 @@
+yahoo_pickem.py                         Probability engine, confidence ranking, fantasy game-script helper
+pickem_store.py                          SQLite persistence
+pickem_routes.py                         Flask Blueprint and API
+migrations/003_yahoo_pickem.sql          Games, predictions, outcomes, survivor history
+static/pickem.css                        Responsive styling
+templates/_pickem_panel.html             Weekly intelligence panel
+templates/_pickem_dashboard_card.html    Main dashboard summary card
+templates/pickem.html                    Full Pick'em page
+tests/test_yahoo_pickem.py               Engine safety tests
+audit_yahoo_pickem.py                    Installation audit
+install_yahoo_pickem.py                  Backup-first installer
+data/pickem_games.example.json           Synthetic schema example
+README.md                                Install, verify, integration, rollback

@@ -1,0 +1,16 @@
+copied yahoo_pickem.py
+copied pickem_store.py
+copied pickem_routes.py
+copied migrations/003_yahoo_pickem.sql
+copied templates/_pickem_panel.html
+copied templates/_pickem_dashboard_card.html
+copied templates/pickem.html
+copied static/pickem.css
+copied tests/test_yahoo_pickem.py
+copied data/pickem_games.example.json
+copied audit_yahoo_pickem.py
+app.py Blueprint registered
+templates/weekly.html patched before {% endblock %}
+templates/dashboard.html patched before {% endblock %}
+Pick'em CSS linked in base.html
+backup=/home/deeoriginalone/fantasy-intelligence/backups/yahoo-pickem-20260830-083839

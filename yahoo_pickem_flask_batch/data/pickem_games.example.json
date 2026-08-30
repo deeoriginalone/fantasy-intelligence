@@ -1,0 +1,19 @@
+[
+  {
+    "_notice": "SYNTHETIC DEMONSTRATION DATA. Replace with current permitted Yahoo and market inputs.",
+    "game_id": "demo-2026-w1-dal-phi",
+    "season": 2026,
+    "week": 1,
+    "kickoff": "2026-09-10T17:20:00-07:00",
+    "away_team": "DAL",
+    "home_team": "PHI",
+    "yahoo_away_pct": 0.31,
+    "yahoo_home_pct": 0.69,
+    "market_home_probability": 0.64,
+    "away_elo": 1505,
+    "home_elo": 1580,
+    "away_situation_points": -0.5,
+    "home_situation_points": 0.5,
+    "projected_total": 47.5
+  }
+]

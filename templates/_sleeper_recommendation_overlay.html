@@ -1,0 +1,8 @@
+<section class="card" id="sleeper-recommendation-overlay">
+<h2>Sleeper-Aware Recommendation Overlay</h2>
+<p class="muted">{{ sleeper_recommendation_overlay.note }}</p>
+{% if sleeper_recommendation_overlay.rows %}
+{% if sleeper_recommendation_overlay.leader %}<p><strong>Overlay leader:</strong> {{ sleeper_recommendation_overlay.leader.name }} · {{ sleeper_recommendation_overlay.leader.position }} · Base {{ sleeper_recommendation_overlay.leader.base_score }} + Sleeper {{ sleeper_recommendation_overlay.leader.sleeper_bonus }} = {{ sleeper_recommendation_overlay.leader.adjusted_score }}</p>{% endif %}
+<div class="table-wrap"><table><thead><tr><th>Overlay Rank</th><th>Player</th><th>Pos</th><th>Current Rank</th><th>Base Score</th><th>Live Risk</th><th>Sleeper Bonus</th><th>Adjusted</th><th>Reason</th></tr></thead><tbody>{% for row in sleeper_recommendation_overlay.rows %}<tr{% if loop.first %} style="background:#e8f5e9"{% endif %}><td>#{{row.overlay_rank}}{% if row.rank_change > 0 %} ↑{{row.rank_change}}{% elif row.rank_change < 0 %} ↓{{0-row.rank_change}}{% endif %}</td><td><strong>{{row.name}}</strong></td><td>{{row.position}}</td><td>#{{row.original_rank}}</td><td>{{row.base_score}}</td><td>{{row.risk_pct}}%</td><td>+{{row.sleeper_bonus}}</td><td><strong>{{row.adjusted_score}}</strong></td><td>{{row.reasons|join('; ')}}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}<p>No top recommendations are available for the overlay.</p>{% endif %}
+</section>
