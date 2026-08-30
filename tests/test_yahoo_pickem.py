@@ -95,32 +95,52 @@ def test_contrarian_edge_uses_yahoo_pct_for_model_selected_team():
 
 
 @pytest.mark.parametrize(
-    "model_selected_probability, selected_team_crowd_pct, crowd_pick_pct, model_probability_for_crowd_side, expected_signal",
+    "model_selected_probability, selected_team_crowd_pct, crowd_pick_pct, model_probability_for_crowd_side, differs, expected_signal",
     [
-        (0.60, 0.35, 0.65, 0.40, "UPSET VALUE"),
-        (0.72, 0.35, 0.65, 0.40, "STRONG PICK"),
-        (0.85, 0.35, 0.65, 0.40, "ELITE PICK"),
+        (0.599999, 0.65, 0.65, 0.40, False, "COIN FLIP"),
+        (0.600000, 0.65, 0.65, 0.40, False, "LEAN PICK"),
+        (0.719999, 0.65, 0.65, 0.40, False, "LEAN PICK"),
+        (0.720000, 0.65, 0.65, 0.40, False, "STRONG PICK"),
+        (0.720000, 0.65, 0.65, 0.40, True, "STRONG VALUE"),
+        (0.850000, 0.65, 0.65, 0.40, False, "ELITE PICK"),
     ],
 )
-def test_current_contract_upset_value_reachability_and_boundaries(
+def test_current_contract_confidence_band_boundaries(
     model_selected_probability,
     selected_team_crowd_pct,
     crowd_pick_pct,
     model_probability_for_crowd_side,
+    differs,
     expected_signal,
 ):
     public_trap = crowd_pick_pct >= 0.70 and model_probability_for_crowd_side < 0.60
-    upset_value = model_selected_probability >= 0.50 and model_selected_probability < 0.72 and selected_team_crowd_pct <= 0.35 and not public_trap
-    if upset_value:
-        signal = "UPSET VALUE"
+    if public_trap:
+        signal = "PUBLIC TRAP"
     elif model_selected_probability >= 0.85:
         signal = "ELITE PICK"
+    elif model_selected_probability >= 0.72 and differs:
+        signal = "STRONG VALUE"
+    elif selected_team_crowd_pct <= 0.35 and model_selected_probability >= 0.50:
+        signal = "UPSET VALUE"
     elif model_selected_probability >= 0.72:
         signal = "STRONG PICK"
+    elif model_selected_probability >= 0.60:
+        signal = "LEAN PICK"
     else:
         signal = "COIN FLIP"
 
     assert signal == expected_signal
+
+
+def test_current_contract_identical_inputs_are_deterministic():
+    game_input = PickemGame("deterministic", 2026, 1, "2026-09-10T17:20:00-07:00", "DAL", "PHI", 0.35, 0.65, 0.60, 1505, 1580, -.5, .5, 47.5)
+    first = calculate_game(game_input)
+    second = calculate_game(game_input)
+
+    assert first == second
+    assert first["signal"] == second["signal"]
+    assert first["model_selected_probability"] == second["model_selected_probability"]
+    assert first["crowd_percentage"] == second["crowd_percentage"]
 
 
 @pytest.mark.parametrize(

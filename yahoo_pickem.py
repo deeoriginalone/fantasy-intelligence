@@ -87,24 +87,26 @@ def calculate_game(game: PickemGame, settings: PickemSettings = PickemSettings()
     )
     home_selected = home_probability >= 0.5
     model_pick = game.home_team if home_selected else game.away_team
-    pick_probability = home_probability if home_selected else 1 - home_probability
+    model_selected_probability = home_probability if home_selected else 1 - home_probability
     crowd_home = game.yahoo_home_pct >= game.yahoo_away_pct
-    crowd_pick = game.home_team if crowd_home else game.away_team
-    crowd_percentage = game.yahoo_home_pct if home_selected else game.yahoo_away_pct
-    crowd_side_probability = home_probability if crowd_home else 1 - home_probability
-    max_crowd = max(game.yahoo_home_pct, game.yahoo_away_pct)
-    differs = model_pick != crowd_pick
+    crowd_pick_side = game.home_team if crowd_home else game.away_team
+    selected_team_crowd_pct = game.yahoo_home_pct if home_selected else game.yahoo_away_pct
+    model_probability_for_crowd_side = home_probability if crowd_home else 1 - home_probability
+    crowd_pick_pct = max(game.yahoo_home_pct, game.yahoo_away_pct)
+    differs = model_pick != crowd_pick_side
 
-    if max_crowd >= 0.70 and crowd_side_probability < 0.60:
+    if crowd_pick_pct >= 0.70 and model_probability_for_crowd_side < 0.60:
         signal = "PUBLIC TRAP"
-    elif pick_probability >= 0.85:
+    elif model_selected_probability >= 0.85:
         signal = "ELITE PICK"
-    elif pick_probability >= 0.72 and differs:
+    elif model_selected_probability >= 0.72 and differs:
         signal = "STRONG VALUE"
-    elif crowd_percentage <= 0.35 and pick_probability >= 0.50:
+    elif selected_team_crowd_pct <= 0.35 and model_selected_probability >= 0.50:
         signal = "UPSET VALUE"
-    elif pick_probability >= 0.72:
+    elif model_selected_probability >= 0.72:
         signal = "STRONG PICK"
+    elif model_selected_probability >= 0.60:
+        signal = "LEAN PICK"
     else:
         signal = "COIN FLIP"
 
@@ -114,10 +116,15 @@ def calculate_game(game: PickemGame, settings: PickemSettings = PickemSettings()
         "situation_home_probability": situational_home,
         "model_home_probability": home_probability,
         "model_pick": model_pick,
-        "pick_probability": pick_probability,
-        "crowd_pick": crowd_pick,
-        "crowd_percentage": crowd_percentage,
-        "contrarian_edge": pick_probability - crowd_percentage,
+        "model_selected_probability": model_selected_probability,
+        "pick_probability": model_selected_probability,
+        "crowd_pick": crowd_pick_side,
+        "crowd_pick_side": crowd_pick_side,
+        "selected_team_crowd_pct": selected_team_crowd_pct,
+        "crowd_percentage": selected_team_crowd_pct,
+        "model_probability_for_crowd_side": model_probability_for_crowd_side,
+        "crowd_pick_pct": crowd_pick_pct,
+        "contrarian_edge": model_selected_probability - selected_team_crowd_pct,
         "signal": signal,
     }
 
