@@ -1,4 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+from draft_coach_sleeper_fusion import fuse_sleeper_context
+from player_survival_probability import estimate_player_survival
+from sleeper_recommendation_overlay import build_recommendation_overlay
+from sleeper_draft_signals import build_sleeper_draft_signals
 from sleeper_intelligence_routes import create_sleeper_intelligence_blueprint
 from sleeper_hub import create_sleeper_hub_blueprint
 from owner_operations import create_owner_operations_blueprint
@@ -1818,6 +1822,10 @@ def draftboard():
     )
     roster = cur.fetchall()
 
+    sleeper_draft_signals = build_sleeper_draft_signals(cur, SLEEPER_LEAGUE_ID, season=2026, user_slot=5)
+
+    
+
     cur.close()
     conn.close()
 
@@ -2094,6 +2102,16 @@ def draftboard():
         )
     )
     top_recommendations = recommendation_candidates[:5]
+
+    sleeper_recommendation_overlay = build_recommendation_overlay(
+        top_recommendations,
+        sleeper_draft_signals,
+    )
+
+    player_survival = estimate_player_survival(
+        top_recommendations,
+        sleeper_draft_signals,
+    )
     team_recommendation = (
         top_recommendations[0]["player"]
         if top_recommendations
@@ -2328,8 +2346,18 @@ def draftboard():
         pick_forecast,
     )
 
+    draft_coach = fuse_sleeper_context(
+        draft_coach,
+        sleeper_draft_signals,
+        sleeper_recommendation_overlay,
+        player_survival,
+    )
+
     return render_template(
         "draftboard.html",
+        player_survival=player_survival,
+        sleeper_recommendation_overlay=sleeper_recommendation_overlay,
+        sleeper_draft_signals=sleeper_draft_signals,
         title="My Draft Board",
         players=players,
         available_players=available_players,
