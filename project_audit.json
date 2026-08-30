@@ -1,0 +1,568 @@
+{
+  "root": "/home/deeoriginalone/fantasy-intelligence",
+  "summary": {
+    "python_files": 41,
+    "templates": 28,
+    "sql_files": 8,
+    "routes": 60,
+    "syntax_errors": 0
+  },
+  "features": {
+    "Draft Coach": 56,
+    "Draft Now/Wait": 52,
+    "Recommendation Engine": 154,
+    "Tier Engine": 70,
+    "Monte Carlo": 132,
+    "Opponent Model": 107,
+    "League Tendencies": 105,
+    "Predraft Lab": 4,
+    "Draft Board": 44,
+    "Mock Draft Lab": 67,
+    "Owner Operations": 26,
+    "Weekly Intelligence": 19,
+    "Sleeper Hub": 26,
+    "Sleeper Intelligence": 22,
+    "Waivers": 7,
+    "Trades": 7
+  },
+  "syntax_errors": [],
+  "routes": [
+    {
+      "file": "app.py",
+      "function": "dashboard",
+      "decorator": "app.route(\"/\")"
+    },
+    {
+      "file": "app.py",
+      "function": "predraft",
+      "decorator": "app.route(\"/predraft\")"
+    },
+    {
+      "file": "app.py",
+      "function": "imports",
+      "decorator": "app.route(\"/imports\", methods=[\"GET\", \"POST\"])"
+    },
+    {
+      "file": "app.py",
+      "function": "agents",
+      "decorator": "app.route(\"/agents\")"
+    },
+    {
+      "file": "app.py",
+      "function": "draftcenter",
+      "decorator": "app.route(\"/draftcenter\")"
+    },
+    {
+      "file": "app.py",
+      "function": "set_draft_strategy",
+      "decorator": "app.route(\"/draftboard/strategy\", methods=[\"POST\"])"
+    },
+    {
+      "file": "app.py",
+      "function": "draftboard",
+      "decorator": "app.route(\"/draftboard\")"
+    },
+    {
+      "file": "app.py",
+      "function": "toggle_star",
+      "decorator": "app.route(\"/draftboard/toggle-star\", methods=[\"POST\"])"
+    },
+    {
+      "file": "app.py",
+      "function": "toggle_drafted",
+      "decorator": "app.route(\"/draftboard/toggle-drafted\", methods=[\"POST\"])"
+    },
+    {
+      "file": "app.py",
+      "function": "add_to_team",
+      "decorator": "app.route(\"/draftboard/add-to-team\", methods=[\"POST\"])"
+    },
+    {
+      "file": "app.py",
+      "function": "remove_from_team",
+      "decorator": "app.route(\"/draftboard/remove-from-team\", methods=[\"POST\"])"
+    },
+    {
+      "file": "app.py",
+      "function": "position_rankings",
+      "decorator": "app.route(\"/position/<position>\")"
+    },
+    {
+      "file": "app.py",
+      "function": "league_manager",
+      "decorator": "app.route(\"/league\")"
+    },
+    {
+      "file": "app.py",
+      "function": "league_manager",
+      "decorator": "app.route(\"/league-overview\")"
+    },
+    {
+      "file": "app.py",
+      "function": "sync_league_teams",
+      "decorator": "app.route(\"/league/sync-teams\", methods=[\"POST\"])"
+    },
+    {
+      "file": "app.py",
+      "function": "add_league_team",
+      "decorator": "app.route(\"/league/add-team\", methods=[\"POST\"])"
+    },
+    {
+      "file": "app.py",
+      "function": "delete_league_team",
+      "decorator": "app.route(\"/league/delete-team\", methods=[\"POST\"])"
+    },
+    {
+      "file": "app.py",
+      "function": "league_rosters",
+      "decorator": "app.route(\"/rosters\")"
+    },
+    {
+      "file": "app.py",
+      "function": "track_draft",
+      "decorator": "app.route(\"/trackdraft\", methods=[\"GET\", \"POST\"])"
+    },
+    {
+      "file": "app.py",
+      "function": "undo_draft_pick",
+      "decorator": "app.route(\"/trackdraft/undo\", methods=[\"POST\"])"
+    },
+    {
+      "file": "app.py",
+      "function": "test_sleeper",
+      "decorator": "app.route(\"/test-sleeper\")"
+    },
+    {
+      "file": "app.py",
+      "function": "test_sleeper_users",
+      "decorator": "app.route(\"/test-sleeper-users\")"
+    },
+    {
+      "file": "app.py",
+      "function": "test_sleeper_rosters",
+      "decorator": "app.route(\"/test-sleeper-rosters\")"
+    },
+    {
+      "file": "app.py",
+      "function": "create_sleeper_tables",
+      "decorator": "app.route(\"/create-sleeper-tables\")"
+    },
+    {
+      "file": "app.py",
+      "function": "sleeper_sync",
+      "decorator": "app.route(\"/sleeper-sync\")"
+    },
+    {
+      "file": "app.py",
+      "function": "sleeper_teams",
+      "decorator": "app.route(\"/sleeper-teams\")"
+    },
+    {
+      "file": "app.py",
+      "function": "test_draft",
+      "decorator": "app.route(\"/test-draft\")"
+    },
+    {
+      "file": "app.py",
+      "function": "sleeper_player_map_sync",
+      "decorator": "app.route(\"/sleeper/players/sync\", methods=[\"GET\", \"POST\"])"
+    },
+    {
+      "file": "app.py",
+      "function": "sleeper_draft_picks_sync",
+      "decorator": "app.route(\"/sleeper/draft-picks/sync\", methods=[\"GET\", \"POST\"])"
+    },
+    {
+      "file": "app.py",
+      "function": "test_draft_picks",
+      "decorator": "app.route(\"/test-draft-picks\")"
+    },
+    {
+      "file": "app.py",
+      "function": "create_draft_tables",
+      "decorator": "app.route(\"/create-draft-tables\")"
+    },
+    {
+      "file": "app.py",
+      "function": "draft_sync",
+      "decorator": "app.route(\"/draft-sync\")"
+    },
+    {
+      "file": "app.py",
+      "function": "create_draft_picks_table",
+      "decorator": "app.route(\"/create-draft-picks-table\")"
+    },
+    {
+      "file": "app.py",
+      "function": "draft_recommendation",
+      "decorator": "app.route(\"/agent/recommendation\")"
+    },
+    {
+      "file": "app.py",
+      "function": "mock_draft_lab",
+      "decorator": "app.route('/mockdraft')"
+    },
+    {
+      "file": "app.py",
+      "function": "start_mock_draft",
+      "decorator": "app.route('/mockdraft/start',methods=['POST'])"
+    },
+    {
+      "file": "app.py",
+      "function": "mock_draft_live",
+      "decorator": "app.route('/mockdraft/live/<int:draft_id>')"
+    },
+    {
+      "file": "app.py",
+      "function": "mock_draft_pick",
+      "decorator": "app.route('/mockdraft/live/<int:draft_id>/pick',methods=['POST'])"
+    },
+    {
+      "file": "app.py",
+      "function": "toggle_mock_pause",
+      "decorator": "app.route('/mockdraft/live/<int:draft_id>/toggle-pause',methods=['POST'])"
+    },
+    {
+      "file": "app.py",
+      "function": "mock_draft_result",
+      "decorator": "app.route('/mockdraft/<int:draft_id>')"
+    },
+    {
+      "file": "app.py",
+      "function": "delete_mock_draft",
+      "decorator": "app.route('/mockdraft/<int:draft_id>/delete',methods=['POST'])"
+    },
+    {
+      "file": "mocklab/routes.py",
+      "function": "index",
+      "decorator": "mocklab_bp.get(\"/mocklab\")"
+    },
+    {
+      "file": "mocklab/routes.py",
+      "function": "run",
+      "decorator": "mocklab_bp.post(\"/mocklab/run\")"
+    },
+    {
+      "file": "mocklab/routes.py",
+      "function": "detail",
+      "decorator": "mocklab_bp.get(\"/mocklab/<int:draft_id>\")"
+    },
+    {
+      "file": "owner_operations.py",
+      "function": "team_page",
+      "decorator": "bp.route(\"/team\")"
+    },
+    {
+      "file": "owner_operations.py",
+      "function": "lineup_page",
+      "decorator": "bp.route(\"/lineup\")"
+    },
+    {
+      "file": "owner_operations.py",
+      "function": "waivers_page",
+      "decorator": "bp.route(\"/waivers\")"
+    },
+    {
+      "file": "owner_operations.py",
+      "function": "trades_page",
+      "decorator": "bp.route(\"/trades\")"
+    },
+    {
+      "file": "owner_operations.py",
+      "function": "gm_page",
+      "decorator": "bp.route(\"/gm\")"
+    },
+    {
+      "file": "season_sandbox.py",
+      "function": "sandbox_home",
+      "decorator": "bp.route(\"/sandbox\")"
+    },
+    {
+      "file": "season_sandbox.py",
+      "function": "activate_sandbox",
+      "decorator": "bp.route(\"/sandbox/activate/<int:draft_id>\", methods=[\"POST\"])"
+    },
+    {
+      "file": "season_sandbox.py",
+      "function": "exit_sandbox",
+      "decorator": "bp.route(\"/sandbox/live\", methods=[\"POST\"])"
+    },
+    {
+      "file": "sleeper_hub.py",
+      "function": "home",
+      "decorator": "bp.get(\"/\")"
+    },
+    {
+      "file": "sleeper_hub.py",
+      "function": "sync",
+      "decorator": "bp.post(\"/sync\")"
+    },
+    {
+      "file": "sleeper_hub.py",
+      "function": "status",
+      "decorator": "bp.get(\"/status\")"
+    },
+    {
+      "file": "sleeper_hub.py",
+      "function": "latest",
+      "decorator": "bp.get(\"/latest/<resource_type>\")"
+    },
+    {
+      "file": "sleeper_intelligence_routes.py",
+      "function": "home",
+      "decorator": "bp.get(\"/\")"
+    },
+    {
+      "file": "sleeper_intelligence_routes.py",
+      "function": "json_data",
+      "decorator": "bp.get(\"/json\")"
+    },
+    {
+      "file": "weekly_routes.py",
+      "function": "weekly_home",
+      "decorator": "bp.route('/weekly')"
+    },
+    {
+      "file": "weekly_routes.py",
+      "function": "set_week",
+      "decorator": "bp.route('/weekly/set',methods=['POST'])"
+    }
+  ],
+  "duplicate_routes": {
+    "/": [
+      "app.py:dashboard",
+      "sleeper_hub.py:home",
+      "sleeper_intelligence_routes.py:home"
+    ]
+  },
+  "duplicate_functions": {
+    "run": [
+      "audit_fantasy_intelligence.py",
+      "mocklab/routes.py"
+    ],
+    "backup": [
+      "consolidate_sleeper_architecture.py",
+      "patch_owner_operations.py",
+      "patch_package_d.py",
+      "patch_season_sandbox.py"
+    ],
+    "require": [
+      "upgrade_draft_coach.py",
+      "upgrade_draft_now_wait.py",
+      "upgrade_expected_value.py",
+      "upgrade_league_tendencies.py",
+      "upgrade_monte_carlo.py",
+      "upgrade_opponent_model.py",
+      "upgrade_position_targets.py",
+      "upgrade_recommendation_engine.py",
+      "upgrade_round_planner.py",
+      "upgrade_strategy_profiles.py",
+      "upgrade_tier_engine.py",
+      "upgrade_value_gap.py"
+    ],
+    "patch_app": [
+      "upgrade_draft_coach.py",
+      "upgrade_draft_now_wait.py",
+      "upgrade_expected_value.py",
+      "upgrade_league_tendencies.py",
+      "upgrade_monte_carlo.py",
+      "upgrade_opponent_model.py",
+      "upgrade_position_targets.py",
+      "upgrade_recommendation_engine.py",
+      "upgrade_round_planner.py",
+      "upgrade_strategy_profiles.py",
+      "upgrade_tier_engine.py",
+      "upgrade_value_gap.py"
+    ],
+    "patch_template": [
+      "upgrade_draft_coach.py",
+      "upgrade_draft_now_wait.py",
+      "upgrade_expected_value.py",
+      "upgrade_league_tendencies.py",
+      "upgrade_monte_carlo.py",
+      "upgrade_opponent_model.py",
+      "upgrade_position_targets.py",
+      "upgrade_recommendation_engine.py",
+      "upgrade_round_planner.py",
+      "upgrade_strategy_profiles.py",
+      "upgrade_tier_engine.py",
+      "upgrade_value_gap.py"
+    ]
+  },
+  "sleeper_files": [
+    "cache_sleeper_players.py",
+    "consolidate_sleeper_architecture.py",
+    "services/sleeper_service.py",
+    "sleeper_hub.py",
+    "sleeper_intelligence.py",
+    "sleeper_intelligence_routes.py"
+  ],
+  "app_service_imports": [
+    "from sleeper_intelligence_routes import create_sleeper_intelligence_blueprint",
+    "from sleeper_hub import create_sleeper_hub_blueprint",
+    "from owner_operations import create_owner_operations_blueprint",
+    "from services.sleeper_service import (\n    get_league,\n    get_users,\n    get_rosters,\n    get_draft,\n    get_draft_picks,\n    get_all_players,\n)"
+  ],
+  "migrations": [
+    "migrations/001_mock_draft_lab.sql",
+    "migrations/002_season_sandbox.sql",
+    "migrations/003_owner_operations.sql",
+    "migrations/004_weekly_intelligence.sql",
+    "migrations/005_sleeper_full_integration.sql"
+  ],
+  "duplicate_migrations": {},
+  "git_status": {
+    "code": 0,
+    "stdout": "M app.py\n D services/sleeper_full_service.py\n D sleeper_api_routes.py\n D sleeper_sync.py\n M templates/base.html\n?? PROJECT_AUDIT.md\n?? SLEEPER_CONSOLIDATION_REPORT.json\n?? audit_fantasy_intelligence.py\n?? cache_sleeper_players.py\n?? consolidate_sleeper_architecture.py\n?? project_audit.json\n?? sleeper_intelligence.py\n?? sleeper_intelligence_routes.py\n?? templates/sleeper_intelligence.html",
+    "stderr": ""
+  },
+  "compile": {
+    "code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "database": {
+    "connected": true,
+    "tables": [
+      "application_state",
+      "bye_weeks",
+      "defense_matchups",
+      "draft_board",
+      "draft_plans",
+      "drafted_players",
+      "espn_ppr_2026",
+      "fantasypros_adp_2026",
+      "fantasypros_adp_raw",
+      "injury_reports",
+      "league_info",
+      "league_rosters",
+      "league_teams",
+      "mock_drafts",
+      "mock_picks",
+      "my_roster",
+      "nfl_schedule",
+      "nfl_teams",
+      "players",
+      "players_backup_20260827",
+      "recommendation_history",
+      "sleeper_api_snapshots",
+      "sleeper_draft_picks",
+      "sleeper_drafts",
+      "sleeper_player_map",
+      "sleeper_sync_runs",
+      "sleeper_teams",
+      "weekly_intelligence_runs",
+      "weekly_operations_runs"
+    ],
+    "counts": {
+      "bye_weeks": 32,
+      "defense_matchups": 128,
+      "injury_reports": 671,
+      "mock_drafts": 31014,
+      "mock_picks": 4682040,
+      "nfl_schedule": 272,
+      "sleeper_api_snapshots": 14,
+      "sleeper_sync_runs": 1
+    },
+    "snapshots": [
+      {
+        "resource": "draft",
+        "key": "1398094331272794112",
+        "season": 2026,
+        "week": 0,
+        "fetched_at": "2026-08-30 01:52:09.533819+00:00"
+      },
+      {
+        "resource": "draft_picks",
+        "key": "1398094331272794112",
+        "season": 2026,
+        "week": 0,
+        "fetched_at": "2026-08-30 01:52:09.533819+00:00"
+      },
+      {
+        "resource": "drafts",
+        "key": "1398094330668797952",
+        "season": 2026,
+        "week": 0,
+        "fetched_at": "2026-08-30 01:52:09.533819+00:00"
+      },
+      {
+        "resource": "draft_traded_picks",
+        "key": "1398094331272794112",
+        "season": 2026,
+        "week": 0,
+        "fetched_at": "2026-08-30 01:52:09.533819+00:00"
+      },
+      {
+        "resource": "league",
+        "key": "1398094330668797952",
+        "season": 2026,
+        "week": 0,
+        "fetched_at": "2026-08-30 01:52:09.533819+00:00"
+      },
+      {
+        "resource": "matchups",
+        "key": "1398094330668797952",
+        "season": 2026,
+        "week": 1,
+        "fetched_at": "2026-08-30 01:52:09.533819+00:00"
+      },
+      {
+        "resource": "nfl_state",
+        "key": "1398094330668797952",
+        "season": 2026,
+        "week": 0,
+        "fetched_at": "2026-08-30 01:52:09.533819+00:00"
+      },
+      {
+        "resource": "players",
+        "key": "1398094330668797952",
+        "season": 2026,
+        "week": 0,
+        "fetched_at": "2026-08-30 02:38:14.857231+00:00"
+      },
+      {
+        "resource": "rosters",
+        "key": "1398094330668797952",
+        "season": 2026,
+        "week": 0,
+        "fetched_at": "2026-08-30 01:52:09.533819+00:00"
+      },
+      {
+        "resource": "traded_picks",
+        "key": "1398094330668797952",
+        "season": 2026,
+        "week": 0,
+        "fetched_at": "2026-08-30 01:52:09.533819+00:00"
+      },
+      {
+        "resource": "transactions",
+        "key": "1398094330668797952",
+        "season": 2026,
+        "week": 1,
+        "fetched_at": "2026-08-30 01:52:09.533819+00:00"
+      },
+      {
+        "resource": "trending_add",
+        "key": "1398094330668797952",
+        "season": 2026,
+        "week": 0,
+        "fetched_at": "2026-08-30 01:52:09.533819+00:00"
+      },
+      {
+        "resource": "trending_drop",
+        "key": "1398094330668797952",
+        "season": 2026,
+        "week": 0,
+        "fetched_at": "2026-08-30 01:52:09.533819+00:00"
+      },
+      {
+        "resource": "users",
+        "key": "1398094330668797952",
+        "season": 2026,
+        "week": 0,
+        "fetched_at": "2026-08-30 01:52:09.533819+00:00"
+      }
+    ]
+  }
+}
