@@ -1,4 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+from sleeper_opponent_forecast import reconcile_opponent_forecast
+from dynamic_need_model import calculate_dynamic_need
+from balanced_recommendation_score import calculate_balanced_score
+from recommendation_engine_audit import audit_recommendation_candidates
+from draft_decision_plan import build_decision_plan, fuse_decision_plan
+from reconciled_draft_decision import reconcile_draft_now_wait
 from draft_coach_sleeper_fusion import fuse_sleeper_context
 from player_survival_probability import estimate_player_survival
 from sleeper_recommendation_overlay import build_recommendation_overlay
@@ -2047,7 +2053,11 @@ def draftboard():
             continue
 
         player_rank_score = max(0, 101 - player[0])
-        player_need_score = need_score.get(position, 0)
+        legacy_need_score = need_score.get(position, 0)
+        dynamic_need = calculate_dynamic_need(
+            position, current_round, position_counts, ROSTER_TARGETS, active_strategy,
+        )
+        player_need_score = dynamic_need["score"]
         player_scarcity_score = scarcity_score.get(position, 0)
         player_tier = get_draftboard_player_tier(player)
         players_left_in_tier = tier_counts[position].get(player_tier, 0)
@@ -2070,19 +2080,18 @@ def draftboard():
         player_league_bonus = (
             league_tendencies.get("bonus") or {}
         ).get(position, 0)
-        player_draft_score = (
-            player_rank_score
-            + player_need_score
-            + player_scarcity_score
-            + player_tier_bonus
-            + player_strategy_bonus
-            + player_league_bonus
+        balanced_score = calculate_balanced_score(
+            player[0], player_need_score, player_scarcity_score,
+            player_tier_bonus, player_strategy_bonus, player_league_bonus,
         )
+        player_draft_score = balanced_score["total"]
 
         recommendation_candidates.append(
             {
                 "player": player,
                 "rank_score": player_rank_score,
+                "legacy_need_score": legacy_need_score,
+                "need_details": dynamic_need,
                 "need_score": player_need_score,
                 "scarcity_score": player_scarcity_score,
                 "tier": player_tier,
@@ -2091,6 +2100,7 @@ def draftboard():
                 "tier_bonus": player_tier_bonus,
                 "strategy_bonus": player_strategy_bonus,
                 "league_bonus": player_league_bonus,
+                "weighted_components": balanced_score,
                 "draft_score": player_draft_score,
             }
         )
@@ -2102,6 +2112,12 @@ def draftboard():
         )
     )
     top_recommendations = recommendation_candidates[:5]
+    recommendation_engine_audit=audit_recommendation_candidates(
+    recommendation_candidates
+    )
+
+    print("RECOMMENDATION AUDIT")
+    print(recommendation_engine_audit)
 
     sleeper_recommendation_overlay = build_recommendation_overlay(
         top_recommendations,
@@ -2235,6 +2251,11 @@ def draftboard():
         league_tendencies,
     )
 
+    pick_forecast = reconcile_opponent_forecast(
+        pick_forecast,
+        sleeper_draft_signals,
+    )
+
     monte_carlo = run_monte_carlo_availability(
         available_players,
         top_recommendations,
@@ -2260,6 +2281,16 @@ def draftboard():
         pick_forecast,
         tier_counts,
         need_score,
+    )
+
+    draft_now_wait = reconcile_draft_now_wait(
+        draft_now_wait, team_recommendation, monte_carlo,
+        expected_value_analysis, player_survival, sleeper_draft_signals,
+    )
+
+    draft_decision_plan = build_decision_plan(
+        team_recommendation, top_recommendations, expected_value_analysis,
+        monte_carlo, player_survival, sleeper_recommendation_overlay, draft_now_wait,
     )
 
     if team_recommendation and expected_value_analysis.get("players"):
@@ -2353,8 +2384,11 @@ def draftboard():
         player_survival,
     )
 
+    draft_coach = fuse_decision_plan(draft_coach, draft_decision_plan)
+
     return render_template(
         "draftboard.html",
+        draft_decision_plan=draft_decision_plan,
         player_survival=player_survival,
         sleeper_recommendation_overlay=sleeper_recommendation_overlay,
         sleeper_draft_signals=sleeper_draft_signals,
@@ -2370,6 +2404,7 @@ def draftboard():
         bench=bench,
         team_recommendation=team_recommendation,
         top_recommendations=top_recommendations,
+        recommendation_engine_audit=recommendation_engine_audit,
         strategy_profiles=STRATEGY_PROFILES,
         active_strategy=active_strategy,
         strategy_profile=STRATEGY_PROFILES[active_strategy],

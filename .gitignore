@@ -29,3 +29,9 @@ echo "*.sql" >> .gitignore
 
 # Backup folders
 backups/
+
+*_batch.zip
+inst*ll_*.py
+fix_*.py
+payload/
+README.t*t
