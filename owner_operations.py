@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from flask import Blueprint, current_app, render_template, request, session
+from weekly_intelligence import enrich_players, current_week, upcoming_byes
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
@@ -139,6 +140,7 @@ def create_owner_operations_blueprint(
             )
             row = cur.fetchone()
             roster = mock_roster(cur, context["draft_id"], row[2] if row else 5)
+            roster = enrich_players(cur, roster, current_week(cur))
             return context, roster, {
                 "team_name": "My Mock Team",
                 "league_name": "Season Sandbox",
@@ -146,6 +148,7 @@ def create_owner_operations_blueprint(
                 "draft_name": row[0] if row else f"Mock #{context['draft_id']}",
             }
         roster, league = live_roster(cur)
+        roster = enrich_players(cur, roster, current_week(cur))
         return context, roster, {
             "team_name": "DiE-HaRd-9eRs-FaN",
             "league_name": league.get("name") or "Fantasy Intelligence Champions League",
@@ -154,7 +157,7 @@ def create_owner_operations_blueprint(
         }
 
     def optimize_lineup(roster):
-        available = sorted(roster, key=lambda p: (-p["projection"], p["rank"] or 9999))
+        available = sorted(roster, key=lambda p: (-p.get("weekly_score", 0), p.get("rank") or 9999))
         used = set()
         starters = []
 
@@ -279,7 +282,18 @@ def create_owner_operations_blueprint(
             counts, grades, needs, overall, score = roster_analysis(roster, vacancies)
         finally:
             cur.close(); conn.close()
-        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score)
+        weekly_defaults = {
+            "weekly_baseline": 0.0, "matchup_modifier": 0.0,
+            "injury_multiplier": 1.0, "weekly_score": 0.0,
+            "is_bye": False, "bye_week": None, "opponent": None,
+            "home_away": None, "game_time_pacific": None,
+            "matchup_rank": None, "injury_status": "Unknown", "vacant": False,
+        }
+        for player in [*starters, *bench]:
+            for key, value in weekly_defaults.items(): player.setdefault(key, value)
+        weekly_starter_score = sum(float(player.get("weekly_score") or 0) for player in starters)
+
+        return render_template("team.html", weekly_starter_score=weekly_starter_score, title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score)
 
     @bp.route("/lineup")
     def lineup_page():

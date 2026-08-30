@@ -99,6 +99,15 @@ ROSTER_TARGETS = {
 }
 
 
+MOCK_ROSTER_TARGETS = {
+    "QB": 2,
+    "RB": 4,
+    "WR": 4,
+    "TE": 2,
+    "K": 1,
+    "DEF": 1,
+}
+
 def get_db_connection():
     return psycopg2.connect(
         host="localhost",
@@ -3139,7 +3148,7 @@ def mock_slot_for_pick(pick_no, teams):
 
 
 def mock_counts(cur,draft_id,slot):
-    counts={p:0 for p in ROSTER_TARGETS}
+    counts={p:0 for p in MOCK_ROSTER_TARGETS}
     cur.execute("SELECT position,COUNT(*) FROM mock_picks WHERE draft_id=%s AND draft_slot=%s GROUP BY position",(draft_id,slot))
     for pos,count in cur.fetchall():
         if pos in counts: counts[pos]=count
@@ -3149,110 +3158,81 @@ def mock_counts(cur,draft_id,slot):
 def mock_pool(cur, draft_id):
     cur.execute(
         """
-        SELECT
-            ranking,
-            player_name,
-            position,
-            nfl_team,
-            projected_points,
-            tier,
-            adp
+        SELECT ranking, player_name, UPPER(position), nfl_team,
+               projected_points, tier, adp
         FROM players p
-        WHERE position IN ('QB', 'RB', 'WR', 'TE')
+        WHERE UPPER(position) IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')
           AND NOT EXISTS (
-              SELECT 1
-              FROM mock_picks mp
+              SELECT 1 FROM mock_picks mp
               WHERE mp.draft_id = %s
                 AND mp.player_name = p.player_name
           )
-        ORDER BY ranking
+        ORDER BY ranking NULLS LAST, player_name
         """,
         (draft_id,),
     )
     return list(cur.fetchall())
 
 
+def mock_eligible_pool(pool, counts, round_num, rounds):
+    """Exclude K/DEF early and require both in the final two rounds."""
+    offensive = [p for p in pool if p[2] in ("QB", "RB", "WR", "TE")]
+    if round_num <= max(1, rounds - 2):
+        return offensive
+
+    missing_special = [
+        pos for pos in ("K", "DEF")
+        if counts.get(pos, 0) < MOCK_ROSTER_TARGETS[pos]
+    ]
+    rounds_remaining = max(1, rounds - round_num + 1)
+    if missing_special and rounds_remaining <= len(missing_special):
+        required = [p for p in pool if p[2] in missing_special]
+        if required:
+            return required
+
+    late_pool = [p for p in pool if p[2] in MOCK_ROSTER_TARGETS]
+    return late_pool or offensive
+
+
 def mock_score(player, pool, counts, strategy, round_num):
     rank, name, pos, team = player[:4]
-    target = ROSTER_TARGETS[pos]
-
-    need = int(
-        max(0, target - counts.get(pos, 0))
-        / max(target, 1)
-        * 100
-    )
-
+    target = MOCK_ROSTER_TARGETS[pos]
+    need = int(max(0, target - counts.get(pos, 0)) / max(target, 1) * 100)
     try:
-        tier = int(player[5]) if player[5] is not None else get_player_tier(rank)
-    except (IndexError, TypeError, ValueError):
+        tier = int(player[5]) if len(player) > 5 and player[5] is not None else get_player_tier(rank)
+    except (TypeError, ValueError):
         tier = get_player_tier(rank)
 
     remaining = 0
     for pool_player in pool:
         if pool_player[2] != pos:
             continue
-
         try:
-            pool_tier = (
-                int(pool_player[5])
-                if pool_player[5] is not None
-                else get_player_tier(pool_player[0])
-            )
-        except (IndexError, TypeError, ValueError):
+            pool_tier = int(pool_player[5]) if len(pool_player) > 5 and pool_player[5] is not None else get_player_tier(pool_player[0])
+        except (TypeError, ValueError):
             pool_tier = get_player_tier(pool_player[0])
+        remaining += int(pool_tier == tier)
 
-        if pool_tier == tier:
-            remaining += 1
-
-    tier_bonus = (
-        35 if remaining <= 2
-        else 15 if remaining <= 4
-        else 0
-    )
-
-    strategy_bonus = get_strategy_bonus(
-        strategy,
-        pos,
-        round_num,
-    )
-
-    starter = {
-        "QB": 1,
-        "RB": 2,
-        "WR": 2,
-        "TE": 1,
-    }
-
-    starter_bonus = (
-        20 if counts.get(pos, 0) < starter[pos]
-        else 0
-    )
-
-    total = (
-        max(0, 101 - rank)
-        + need
-        + tier_bonus
-        + strategy_bonus
-        + starter_bonus
-    )
-
-    return {
-        "total": total,
-        "need": need,
-        "tier_bonus": tier_bonus,
-        "strategy_bonus": strategy_bonus,
-    }
+    tier_bonus = 35 if remaining <= 2 else 15 if remaining <= 4 else 0
+    strategy_bonus = get_strategy_bonus(strategy, pos, round_num)
+    starter_targets = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1}
+    starter_bonus = 20 if counts.get(pos, 0) < starter_targets[pos] else 0
+    rank_score = max(0, 101 - (rank or 9999))
+    total = rank_score + need + tier_bonus + strategy_bonus + starter_bonus
+    return {"total": total, "need": need, "tier_bonus": tier_bonus, "strategy_bonus": strategy_bonus}
 
 
-def mock_recommendations(cur,draft,limit=8):
-    draft_id,strategy,teams,rounds,user_slot,current_pick=draft
-    pool=mock_pool(cur,draft_id); counts=mock_counts(cur,draft_id,user_slot)
-    round_num=(current_pick//teams)+1
-    rows=[]
-    for player in pool:
-        score=mock_score(player,pool,counts,strategy,round_num)
-        rows.append({"player":player,"score":score})
-    rows.sort(key=lambda x:(-x["score"]["total"],x["player"][0]))
+def mock_recommendations(cur, draft, limit=8):
+    draft_id, strategy, teams, rounds, user_slot, current_pick = draft
+    pool = mock_pool(cur, draft_id)
+    counts = mock_counts(cur, draft_id, user_slot)
+    round_num = (current_pick // teams) + 1
+    eligible = mock_eligible_pool(pool, counts, round_num, rounds)
+    rows = []
+    for player in eligible:
+        score = mock_score(player, pool, counts, strategy, round_num)
+        rows.append({"player": player, "score": score})
+    rows.sort(key=lambda item: (-item["score"]["total"], item["player"][0] or 9999))
     return rows[:limit]
 
 
@@ -3267,35 +3247,50 @@ def insert_mock_pick(cur,draft_id,pick_no,slot,player,score,source):
         (draft_id,round_num,pick_no,slot,teams_name,player[1],player[2],player[3],player[0],score["total"],score["strategy_bonus"],source))
 
 
-def advance_mock_ai(cur,draft_id):
-    cur.execute("SELECT strategy,teams,rounds,draft_position,current_pick,paused,automation_mode FROM mock_drafts WHERE id=%s",(draft_id,))
-    row=cur.fetchone()
-    if not row:return
-    strategy,teams,rounds,user_slot,current_pick,paused,automation=row; max_pick=teams*rounds
-    while current_pick<max_pick and not paused:
-        next_pick=current_pick+1; slot=mock_slot_for_pick(next_pick,teams)
-        if slot==user_slot and automation!='autopilot': break
-        pool=mock_pool(cur,draft_id)
-        if not pool: break
-        counts=mock_counts(cur,draft_id,slot); round_num=((next_pick-1)//teams)+1
-        use_strategy=strategy if slot==user_slot else 'BEST_AVAILABLE'
-        candidates=[]
-        for player in pool[:60]: candidates.append((mock_score(player,pool,counts,use_strategy,round_num),player))
-        score,player=max(candidates,key=lambda x:(x[0]["total"],-x[1][0]))
-        insert_mock_pick(cur,draft_id,next_pick,slot,player,score,'autopilot' if slot==user_slot else 'ai')
-        current_pick=next_pick
-        cur.execute("UPDATE mock_drafts SET current_pick=%s WHERE id=%s",(current_pick,draft_id))
-    if current_pick>=max_pick: cur.execute("UPDATE mock_drafts SET status='complete' WHERE id=%s",(draft_id,))
+def advance_mock_ai(cur, draft_id):
+    cur.execute(
+        "SELECT strategy,teams,rounds,draft_position,current_pick,paused,automation_mode FROM mock_drafts WHERE id=%s",
+        (draft_id,),
+    )
+    row = cur.fetchone()
+    if not row:
+        return
+    strategy, teams, rounds, user_slot, current_pick, paused, automation = row
+    max_pick = teams * rounds
+    while current_pick < max_pick and not paused:
+        next_pick = current_pick + 1
+        slot = mock_slot_for_pick(next_pick, teams)
+        if slot == user_slot and automation != "autopilot":
+            break
+        pool = mock_pool(cur, draft_id)
+        if not pool:
+            break
+        counts = mock_counts(cur, draft_id, slot)
+        round_num = ((next_pick - 1) // teams) + 1
+        use_strategy = strategy if slot == user_slot else "BEST_AVAILABLE"
+        eligible = mock_eligible_pool(pool, counts, round_num, rounds)
+        candidates = [(mock_score(p, pool, counts, use_strategy, round_num), p) for p in eligible[:60]]
+        if not candidates:
+            break
+        score, player = max(candidates, key=lambda item: (item[0]["total"], -(item[1][0] or 9999)))
+        insert_mock_pick(cur, draft_id, next_pick, slot, player, score, "autopilot" if slot == user_slot else "ai")
+        current_pick = next_pick
+        cur.execute("UPDATE mock_drafts SET current_pick=%s WHERE id=%s", (current_pick, draft_id))
+    if current_pick >= max_pick:
+        cur.execute("UPDATE mock_drafts SET status='complete' WHERE id=%s", (draft_id,))
 
 
 def mock_grade_simple(counts):
-    vals=[]; rows=[]
-    for pos,target in ROSTER_TARGETS.items():
-        score=min(100,round(counts.get(pos,0)/max(target,1)*100)); vals.append(score)
-        grade='A' if score>=90 else 'B' if score>=75 else 'C' if score>=60 else 'D' if score>=40 else 'F'
-        rows.append({"position":pos,"count":counts.get(pos,0),"target":target,"score":score,"grade":grade})
-    overall=round(sum(vals)/len(vals)); grade='A' if overall>=90 else 'B' if overall>=80 else 'C' if overall>=70 else 'D' if overall>=60 else 'F'
-    return overall,grade,rows
+    values = []
+    rows = []
+    for pos, target in MOCK_ROSTER_TARGETS.items():
+        score = min(100, round(counts.get(pos, 0) / max(target, 1) * 100))
+        values.append(score)
+        grade = "A" if score >= 90 else "B" if score >= 75 else "C" if score >= 60 else "D" if score >= 40 else "F"
+        rows.append({"position": pos, "count": counts.get(pos, 0), "target": target, "score": score, "grade": grade})
+    overall = round(sum(values) / len(values)) if values else 0
+    grade = "A" if overall >= 90 else "B" if overall >= 80 else "C" if overall >= 70 else "D" if overall >= 60 else "F"
+    return overall, grade, rows
 
 
 @app.route('/mockdraft')
