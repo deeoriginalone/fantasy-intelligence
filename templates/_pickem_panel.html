@@ -1,0 +1,49 @@
+<section class="fi-pickem" aria-labelledby="pickem-title">
+  <div class="fi-pickem__header"><a class="fi-pickem__inputs-link" href="{{ url_for('pickem_inputs.inputs_home', season=pickem_season, week=pickem_week) }}">Update weekly inputs</a>
+    <div>
+      <p class="fi-pickem__eyebrow">Weekly Intelligence</p>
+      <h2 id="pickem-title">Yahoo Pick'em Center</h2>
+      <p>Market, Elo, situational context, and Yahoo crowd leverage.</p>
+    </div>
+    <form method="get" class="fi-pickem__strategy">
+      <input type="hidden" name="season" value="{{ pickem_season }}">
+      <input type="hidden" name="week" value="{{ pickem_week }}">
+      <label for="pickem-strategy">Pool strategy</label>
+      <select id="pickem-strategy" name="strategy" onchange="this.form.submit()">
+        {% for value, label in [('protect-lead','Protect lead'),('balanced','Balanced'),('gain-ground','Gain ground')] %}
+        <option value="{{ value }}" {% if pickem_strategy == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+
+  {% if pickem_recommendations %}
+  <div class="fi-pickem__kpis">
+    <article><span>Lock</span><strong>{{ pickem_summary.lock.model_pick }}</strong><small>{{ '%.1f%%'|format(pickem_summary.lock.pick_probability * 100) }}</small></article>
+    <article><span>Best value</span><strong>{{ pickem_summary.best_value.model_pick }}</strong><small>Edge {{ '%+.1f%%'|format(pickem_summary.best_value.contrarian_edge * 100) }}</small></article>
+    <article><span>Best upset</span><strong>{{ pickem_summary.best_upset.model_pick if pickem_summary.best_upset else 'None' }}</strong><small>{{ '%.1f%%'|format(pickem_summary.best_upset.pick_probability * 100) if pickem_summary.best_upset else 'N/A' }}</small></article>
+    <article><span>Public trap</span><strong>{{ pickem_summary.public_trap.crowd_pick if pickem_summary.public_trap else 'None' }}</strong><small>{{ 'Crowd %.1f%%'|format(pickem_summary.public_trap.crowd_percentage * 100) if pickem_summary.public_trap else 'N/A' }}</small></article>
+    <article><span>Expected correct</span><strong>{{ '%.1f'|format(pickem_summary.expected_correct) }}</strong><small>of {{ pickem_recommendations|length }}</small></article>
+  </div>
+  <div class="fi-pickem__table-wrap">
+    <table class="fi-pickem__table">
+      <thead><tr><th>Pts</th><th>Game</th><th>Pick</th><th>Confidence</th><th>Crowd</th><th>Edge</th><th>Signal</th></tr></thead>
+      <tbody>
+      {% for row in pickem_recommendations %}
+        <tr>
+          <td><strong>{{ row.confidence_points }}</strong></td>
+          <td>{{ row.away_team }} @ {{ row.home_team }}</td>
+          <td>{{ row.model_pick }}</td>
+          <td>{{ '%.1f%%'|format(row.pick_probability * 100) }}</td>
+          <td>{{ row.crowd_pick }} {{ '%.1f%%'|format(row.crowd_percentage * 100) }}</td>
+          <td class="{{ 'positive' if row.contrarian_edge >= 0 else 'negative' }}">{{ '%+.1f%%'|format(row.contrarian_edge * 100) }}</td>
+          <td><span class="fi-signal fi-signal--{{ row.signal|lower|replace(' ','-') }}">{{ row.signal }}</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="fi-pickem__empty">No Pick'em games are loaded for Week {{ pickem_week }}. Add normalized records through <code>POST /api/pickem/games</code>.</div>
+  {% endif %}
+</section>

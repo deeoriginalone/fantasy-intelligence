@@ -98,6 +98,7 @@
   <section class="card"><h2>🎯 Draft Targets</h2>{% if draft_targets %}<div class="target-list">{% for player in draft_targets %}<div class="target">⭐ #{{ player[0] }} {{ player[1] }} ({{ player[2] }} · {{ player[3] or "FA" }})</div>{% endfor %}</div>{% else %}<p class="muted">No available targets.</p>{% endif %}</section>
 
   
+{% include "_draft_readiness.html" %}
 {% include "_draft_model_health.html" %}
 <!-- Draft decision intelligence: keep above the full player board -->
 {% include "_sleeper_draft_signals.html" %}

@@ -821,3 +821,78 @@ Resolved:
 
 Checkpoint:
 - package-d-complete
+
+Fantasy Intelligence
+Version: 2.0
+
+STATUS
+STABLE CHECKPOINT
+
+COMPLETED
+
+✅ Draft HQ
+✅ Draft Readiness
+✅ Draft Accuracy
+✅ Sleeper Intelligence
+✅ Weekly Intelligence
+✅ Owner Operations
+✅ Market Intelligence
+✅ Survivor Intelligence
+✅ PostgreSQL Schedule Integration
+✅ Recommendation Engine
+
+CURRENT OUTPUTS
+
+✅ Lock of Week
+✅ Confidence Rankings
+✅ Expected Correct Picks
+✅ Strong Picks
+✅ Survivor Recommendations
+✅ Fallback Recommendations
+✅ Future Value Analysis
+✅ Used Team Tracking
+
+DATABASE
+
+PostgreSQL
+Database: fantasy_intelligence
+
+CORE TABLES
+
+✅ nfl_schedule
+✅ nfl_teams
+✅ bye_weeks
+✅ injury_reports
+✅ application_state
+✅ market_intelligence_predictions
+✅ survivor_selections
+
+WORKING PAGES
+
+✅ /
+✅ /draftboard
+✅ /weekly
+✅ /market-intelligence
+✅ /survivor
+✅ /sleeper_intelligence
+
+NEXT PRIORITY
+
+1. Weekly Report Generator
+2. Fantasy Correlation Layer
+3. Injury Impact Engine
+4. Weather Intelligence
+5. Playoff Probability Engine
+
+KNOWN ISSUES
+
+- Survivor recommendation history serialization cleanup
+- Future value uses neutral fallback when future predictions unavailable
+
+LAST STABLE CHECKPOINT
+
+Tag:
+v2.0-market-survivor
+
+Date:
+2026-08-30
