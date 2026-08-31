@@ -1,0 +1,1 @@
+Batch 4C engine module, PostgreSQL migration, and deterministic unit tests. The module derives only from supplied actual picks and existing forecast output. Empty pre-draft state remains INSUFFICIENT_DATA.
