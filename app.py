@@ -19,6 +19,7 @@ from adaptive_draft_reconciliation import apply_calibrated_reconciliation
 from draft_outcome_tracker import log_and_resolve
 from draft_accuracy_routes import create_draft_accuracy_blueprint
 from draft_outcome_health import create_outcome_health_blueprint
+from post_draft_transition import create_post_draft_blueprint
 from sleeper_opponent_forecast import reconcile_opponent_forecast
 from dynamic_need_model import calculate_dynamic_need
 from balanced_recommendation_score import calculate_balanced_score
@@ -3446,6 +3447,7 @@ app.register_blueprint(create_sleeper_intelligence_blueprint(get_db_connection))
 
 app.register_blueprint(create_draft_accuracy_blueprint(get_db_connection))
 app.register_blueprint(create_outcome_health_blueprint(get_db_connection))
+app.register_blueprint(create_post_draft_blueprint(get_db_connection, get_draft, SLEEPER_LEAGUE_ID, SLEEPER_DRAFT_ID, 2026))
 
 app.register_blueprint(create_draft_health_blueprint(get_db_connection, SLEEPER_LEAGUE_ID, 2026, build_sleeper_draft_signals, model_health))
 
