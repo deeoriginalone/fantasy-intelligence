@@ -42,14 +42,34 @@ class TheOddsAPI:
                 for market in book.get('markets',[]):
                     if market.get('key')=='h2h':
                         prices={x.get('name'):x.get('price') for x in market.get('outcomes',[])}
-                        if event.get('away_team') in prices: away_prices.append(int(prices[event['away_team']]))
-                        if event.get('home_team') in prices: home_prices.append(int(prices[event['home_team']]))
+                        if event.get('away_team') in prices: away_prices.append(float(prices[event['away_team']]))
+                        if event.get('home_team') in prices: home_prices.append(float(prices[event['home_team']]))
                     elif market.get('key')=='totals':
                         pts=[x.get('point') for x in market.get('outcomes',[]) if x.get('point') is not None]
                         if pts: totals.append(float(pts[0]))
             if not away_prices or not home_prices: continue
-            result.append(MarketGame(away,home,event.get('commence_time',''),_median(away_prices),_median(home_prices),_median(totals) if totals else None,len(event.get('bookmakers',[])),'the-odds-api'))
+            result.append(MarketGame(away,home,event.get('commence_time',''),_consensus_moneyline(away_prices),_consensus_moneyline(home_prices),_median(totals) if totals else None,len(event.get('bookmakers',[])),'the-odds-api'))
         return result
+
+def _implied_probability(moneyline):
+    value = float(moneyline)
+    if abs(value) < 50:
+        raise ValueError(f"Invalid American moneyline: {moneyline}")
+    return 100.0 / (value + 100.0) if value > 0 else (-value) / ((-value) + 100.0)
+
+def _american_from_probability(probability):
+    p = float(probability)
+    if not 0.0 < p < 1.0:
+        raise ValueError(f"Invalid implied probability: {probability}")
+    line = -100.0 * p / (1.0 - p) if p >= 0.5 else 100.0 * (1.0 - p) / p
+    return int(round(line))
+
+def _consensus_moneyline(values):
+    valid = [float(v) for v in values if v is not None and abs(float(v)) >= 50]
+    if not valid:
+        raise ValueError("No valid American moneylines returned")
+    probabilities = [_implied_probability(v) for v in valid]
+    return _american_from_probability(_median(probabilities))
 
 def _median(values):
     values=sorted(values); n=len(values); mid=n//2

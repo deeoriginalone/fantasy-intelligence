@@ -1,55 +1,103 @@
 # Fantasy Intelligence
 
-A Flask-based fantasy football intelligence platform for draft strategy, live Sleeper coordination, weekly intelligence, pick'em validation, and survivor planning.
+A Flask-based fantasy football intelligence platform focused on draft intelligence, live draft-state validation, draft outcome tracking, pick'em intelligence, market ingestion, and operational readiness checks.
 
-## Project overview
+## Current repository status
 
-This repository contains the active runtime for the current project state. It includes the main Flask application, draft intelligence modules, mock-draft tooling, Sleeper integration, pick'em verification, Survivor analysis, weekly intelligence, readiness validation, and the current test suite.
+This branch is currently on `feature/draft-outcome-tracking` and the working tree includes both tracked edits and untracked batch artifacts. The current runtime is code-valid and test-valid, but it is not yet a proven live database-backed release state.
 
-The active runtime is intentionally documented as a working engineering baseline, not as a complete season-ready system. Design artifacts and runtime behavior are separated in this repository state.
+## Verified evidence
 
-## Supported runtime scope
+The latest repo-level verification in this workspace is:
 
-The current repository logically covers:
-- Flask application runtime and route layer
-- Draft recommendation engine and draft tracking
-- Draft board and roster construction helpers
-- Live Sleeper synchronization and caching
-- Mock draft simulation
-- Pick'em validation and signal handling
-- Survivor analysis and spec-gap validation
-- Weekly intelligence and projection-oriented imports
-- Security and database configuration validation
-- Templates and provider-oriented UI surfaces
+```bash
+cd /home/deeoriginalone/fantasy-intelligence
+source venv/bin/activate
+python -m pytest -q
+```
 
-Excluded from the active runtime documentation here:
-- backups
-- archives
-- installers
-- copied package versions
-- generated files
-- virtual environments
+Result from the current repo state:
+- 102 passed
+- 2 xfailed
+- 0 failed
 
-## Current status summary
+The Postgres service was not available during live validation, so database schema and object verification remain blocked until the database is running.
 
-This repository is in a partially validated state. The current evidence shows the project is runnable as a Flask application and the active test suite passes, but some subsystems still depend on source inputs that are not yet connected in production.
+## First-year league note
 
-Latest verified full-suite result:
-- Command: `./venv/bin/python -m pytest -q`
-- Result: 80 passed, 2 xfailed
+This is a first-year fantasy league. Historical owner behavior should not be fabricated or assumed. Historical tables and behavior-modeling structures may exist as forward-compatible infrastructure, but they should be treated as empty or low-signal unless real league data exists.
 
-## Quick-start prerequisites
+## Current scope
 
-Based only on the repository evidence:
-- Python environment with the project dependencies from the repository
-- PostgreSQL-compatible database matching the DB_* environment variables used by [config.py](config.py)
-- Environment variables defined in [config.py](config.py)
-- Access to a local or configured Flask runtime environment
-- The project virtual environment under [venv/](venv/)
+The active runtime includes:
+- draft intelligence and recommendation logic
+- draft-state management and hardening
+- draft outcome tracking and calibration
+- readiness and reconciliation checks
+- pick'em and market intelligence
+- survivor logic and source-gap handling
+- weekly ingestion and reporting helpers
+
+The active runtime does not claim:
+- Post-Draft Ready
+- Week 1 Ready
+- Production Ready
+unless live data, database validation, and source-freshness checks prove that status.
+
+## Batch A review
+
+Batch A is present in the code and validated to some extent in tests.
+
+Verified implementation:
+- draft session identity validation
+- sync audit and quarantine logic
+- draft mutation tracking
+- readiness and publication gating
+- hardening-oriented operational checks
+
+Limitations:
+- live database validation is blocked by missing Postgres service
+- this is operationally useful but not yet live-certified
+
+## Batch B review
+
+Batch B is implemented and validated in code/tests.
+
+Verified implementation:
+- outcome health snapshots
+- resolution tracking for draft decisions
+- calibration metrics and bounded weight logic
+- route-level outcome health reporting
+
+Limitations:
+- it remains source-dependent and should not be described as production-calibrated without real historical outcomes
+
+## Batch C review
+
+Batch C is implemented and validated in code/tests.
+
+Verified implementation:
+- post-draft state evaluation
+- transition checks for complete draft status and count invariants
+- idempotent season activation logic
+- finalization materialization for drafted and available players
+- route wiring for readiness and finalize endpoints
+
+Limitations:
+- live DB state and schema validation remain unproven in this environment
+
+## Current development direction
+
+The next recommended direction is Batch D: Recommendation Publishing.
+
+This is the logical next step because:
+- Batch A/B/C established validation, outcome health, and transition readiness
+- recommendation publication is the most immediate operational gate still left to prove
+- the code already contains readiness and publication checks, but they have not been fully proven in a live environment
 
 ## Required environment variables
 
-The active runtime config requires these names without values:
+The runtime expects environment values without committing secrets:
 - FLASK_SECRET_KEY
 - DB_HOST
 - DB_PORT
@@ -60,109 +108,54 @@ The active runtime config requires these names without values:
 - SLEEPER_LEAGUE_ID
 - SLEEPER_DRAFT_ID
 
-See [config.py](config.py) for the current runtime contract.
+See [config.py](config.py) for the active contract.
 
-## How to run the application
+## Database guidance
 
-No single repository-verified startup command is present in the active runtime. The repository contains a Flask application and a defined environment contract, but the startup command is not documented as a verified, project-wide bootstrap command in the active files.
+The project expects a PostgreSQL database matching the active DB contract. No canonical live migration file has been verified as the single source of truth for the full schema in the active runtime state.
 
-## How to run tests
+This should be treated as a live environment dependency, not as a guaranteed local state.
 
-Verified test command from the repository state:
+## Quick-start
+
+Representative local run pattern:
 
 ```bash
-./venv/bin/python -m pytest -q
+cd /home/deeoriginalone/fantasy-intelligence
+source venv/bin/activate
+python app.py
 ```
 
-## Architecture map
+Use only after the required environment variables are present and Postgres is running.
 
-### Application runtime
-- [app.py](app.py): main Flask runtime, route definitions, draft logic, mock-draft routes, and integration endpoints
-- [auth.py](auth.py): admin authentication and CSRF validation
-- [config.py](config.py): centralized configuration contract and required environment validation
+## Test command
 
-### Draft and recommendation engine
-- [candidate_filter.py](candidate_filter.py)
-- [dynamic_need_model.py](dynamic_need_model.py)
-- [scarcity_model.py](scarcity_model.py)
-- [balanced_recommendation_score.py](balanced_recommendation_score.py)
-- [recommendation_engine_audit.py](recommendation_engine_audit.py)
-- [draft_decision_plan.py](draft_decision_plan.py)
-- [reconciled_draft_decision.py](reconciled_draft_decision.py)
+```bash
+cd /home/deeoriginalone/fantasy-intelligence
+source venv/bin/activate
+python -m pytest -q
+```
 
-### Draft board and tracking
-- [app.py](app.py)
-- [draft_outcome_tracker.py](draft_outcome_tracker.py)
-- [owner_operations.py](owner_operations.py)
-- [season_sandbox.py](season_sandbox.py)
+## Known limitations
 
-### Sleeper integration
-- [services/sleeper_service.py](services/sleeper_service.py)
-- [sleeper_hub.py](sleeper_hub.py)
-- [sleeper_intelligence.py](sleeper_intelligence.py)
-- [sleeper_intelligence_routes.py](sleeper_intelligence_routes.py)
-- [cache_sleeper_players.py](cache_sleeper_players.py)
-
-### Pick'em and Survivor
-- [yahoo_pickem.py](yahoo_pickem.py)
-- [pickem_routes.py](pickem_routes.py)
-- [pickem_inputs_routes.py](pickem_inputs_routes.py)
-- [survivor_intelligence.py](survivor_intelligence.py)
-- [survivor_routes.py](survivor_routes.py)
-
-### Weekly and data import
-- [weekly_intelligence.py](weekly_intelligence.py)
-- [weekly_routes.py](weekly_routes.py)
-- [import_players.py](import_players.py)
-- [import_draft_intelligence.py](import_draft_intelligence.py)
-
-### Readiness and testing
-- [draft_readiness.py](draft_readiness.py)
-- [readiness.py](readiness.py)
-- [tests/](tests/)
-
-## Subsystem status table
-
-| Subsystem | Status |
-|---|---|
-| Flask application | IMPLEMENTED, NEEDS HARDENING |
-| Security/auth/CSRF | VERIFIED |
-| DB configuration | VERIFIED |
-| Draft recommendation engine | PARTIALLY IMPLEMENTED |
-| Draft board | PARTIALLY IMPLEMENTED |
-| Draft tracking | PARTIALLY IMPLEMENTED |
-| Live Sleeper synchronization | PARTIALLY IMPLEMENTED |
-| Roster construction | PARTIALLY IMPLEMENTED |
-| Mock draft | PARTIALLY IMPLEMENTED |
-| Draft outcome tracking | PARTIALLY IMPLEMENTED |
-| Pick'em | VERIFIED |
-| Survivor | BLOCKED BY INPUTS |
-| Weekly intelligence | PARTIALLY IMPLEMENTED |
-| Fantasy projection correlation | PLANNED |
-| Readiness validator | PROTOTYPE, NOT INTEGRATED |
-| Providers | PARTIALLY IMPLEMENTED |
-| Templates/UI | IMPLEMENTED, NEEDS HARDENING |
-| Testing | VERIFIED |
-
-## Important operational limitations
-
-- The active runtime includes draft and Sleeper logic, but the live recommendation and weekly recommendation surfaces are still limited by connected-source availability.
-- The authoritative design document states that live weekly recommendations remain blank until real Yahoo, market, ratings, injury, and weather inputs are connected.
-- The current repository does not treat synthetic or partial recommendations as live outputs.
-- The Survivor design is constrained by missing ownership, QB-status, and weather/injury inputs.
-- The readiness helper exists as a prototype and is not integrated into the active runtime path in the current HEAD state.
+- PostgreSQL connectivity is currently unavailable in this workspace validation session.
+- Live weekly recommendations remain gated by source freshness and real provider connectivity.
+- Survivor intelligence remains blocked by missing ownership, QB-status, and weather/injury inputs.
+- Batch ZIPs and backup directories are operational artifacts and should not be mistaken for active runtime sources.
 
 ## Data safety warning
 
-- Never commit `.env` files or environment files with real secrets.
-- Do not present synthetic, partial, or unconnected recommendations as live data.
-- Keep generated, installer, archive, and copied package content out of the active runtime documentation and version history.
+- never commit .env files or secrets
+- never present partial or synthetic recommendations as authoritative live outputs
+- treat batch outputs and backups as traceability artifacts, not as the canonical application source
 
-## Draft-season priority note
-
-Before the season, the highest-priority work is draft-session identity validation, live Sleeper sync reconciliation, roster invariant enforcement, pick uniqueness validation, and ADP/rank/tier freshness checks. The project should not present live recommendation outputs until their source inputs are valid and fresh.
-
-## Related documents
+## Documentation links
 
 - [PROJECT_STATUS.md](PROJECT_STATUS.md)
 - [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md)
+- [SEASON_READINESS.md](SEASON_READINESS.md)
+- [PROJECT_STATE.md](PROJECT_STATE.md)
+
+## Recommended next milestone
+
+Draft-Day End-to-End Validation remains the highest-priority milestone before broader operational work. After that, the highest-value next direction is recommendation publishing under explicit readiness and freshness gates.

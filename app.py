@@ -51,11 +51,9 @@ import random
 import psycopg2
 
 from services.import_rankings import import_rankings
-from pickem_routes import pickem_bp
-from pickem_inputs_routes import pickem_inputs_bp
-from pickem_feed_routes import pickem_feed_bp
 from market_routes import market_bp
 from survivor_routes import survivor_bp
+from intelligence_operations_routes import create_intelligence_operations_blueprint
 
 
 app = Flask(__name__)
@@ -71,11 +69,8 @@ def _ensure_session_csrf():
     if request.method.upper() in {"POST", "PUT", "PATCH", "DELETE"}:
         ensure_csrf_token()
 
-app.register_blueprint(pickem_bp)
 app.register_blueprint(market_bp)
 app.register_blueprint(survivor_bp)
-app.register_blueprint(pickem_feed_bp)
-app.register_blueprint(pickem_inputs_bp)
 
 UPLOAD_FOLDER = Config.UPLOAD_FOLDER
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
@@ -3447,6 +3442,7 @@ app.register_blueprint(create_sleeper_intelligence_blueprint(get_db_connection))
 
 app.register_blueprint(create_draft_accuracy_blueprint(get_db_connection))
 app.register_blueprint(create_outcome_health_blueprint(get_db_connection))
+app.register_blueprint(create_intelligence_operations_blueprint(get_db_connection))
 app.register_blueprint(create_post_draft_blueprint(get_db_connection, get_draft, SLEEPER_LEAGUE_ID, SLEEPER_DRAFT_ID, 2026))
 
 app.register_blueprint(create_draft_health_blueprint(get_db_connection, SLEEPER_LEAGUE_ID, 2026, build_sleeper_draft_signals, model_health))
