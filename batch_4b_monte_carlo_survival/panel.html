@@ -1,4 +1,0 @@
-
-  {% if monte_carlo.players %}
-  <section class="card" id="survival-curves"><h2>📈 Monte Carlo Survival Curves</h2><p class="muted">{{ monte_carlo.curve_method }} Seed {{ monte_carlo.seed }} · Run ID {{ monte_carlo.run_id }}. Canonical recommendation scores are unchanged.</p><div class="table-wrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Next-Pick Survival</th><th>Curve</th><th>Run Risk</th><th>Urgency</th></tr></thead><tbody>{% for row in monte_carlo.players %}<tr><td><strong>{{ row.player }}</strong></td><td>{{ row.position }}</td><td>{{ row.availability_pct }}%</td><td>{% for point in row.survival_curve %}+{{ point.pick_offset }}: {{ point.survival_pct }}%{% if not loop.last %} · {% endif %}{% endfor %}</td><td>{{ row.run_risk.level }}</td><td><strong>{{ row.urgency }}</strong></td></tr>{% endfor %}</tbody></table></div></section>
-  {% endif %}
