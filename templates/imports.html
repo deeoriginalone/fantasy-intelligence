@@ -37,6 +37,7 @@
 <h2>Upload Rankings CSV</h2>
 
 <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <input
         type="file"

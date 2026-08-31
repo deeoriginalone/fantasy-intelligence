@@ -21,7 +21,14 @@ def run(season,week,strategy='balanced',dry_run=False):
         with conn.cursor() as c:
             for g in games:
                 try:
-                    prob=no_vig_home(g.away_moneyline,g.home_moneyline)
+                    away_ml = float(g.away_moneyline)
+                    home_ml = float(g.home_moneyline)
+                    if abs(away_ml) < 50 or abs(home_ml) < 50:
+                        raise ValueError(
+                            f"Invalid moneyline {g.away_team}@{g.home_team}: "
+                            f"{g.away_moneyline}/{g.home_moneyline}"
+                        )
+                    prob=no_vig_home(away_ml,home_ml)
                     c.execute('''UPDATE yahoo_pickem_games SET away_moneyline=%s,home_moneyline=%s,market_home_probability=%s,projected_total=%s,market_source=%s,market_updated_at=NOW(),source_updated_at=NOW(),updated_at=NOW() WHERE season=%s AND week=%s AND away_team=%s AND home_team=%s''',(g.away_moneyline,g.home_moneyline,prob,g.projected_total,g.source,season,week,g.away_team,g.home_team))
                     if c.rowcount==1: matched+=1
                 except Exception as e: errors.append({'game':f'{g.away_team}@{g.home_team}','error':str(e)})

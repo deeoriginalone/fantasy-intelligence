@@ -1,0 +1,1433 @@
+BATCH 2 DRAFT OPERATIONS DISCOVERY
+READ ONLY: no application files or database rows were modified.
+Secret values are excluded.
+
+===== GIT STATUS =====
+## feature/draft-outcome-tracking
+ M .gitignore
+ M app.py
+?? README.txt
+?? SEASON_READINESS.md
+?? collect_batch2_draft_operations.py
+?? collect_draft_hardening_db_discovery.py
+?? collect_draft_hardening_discovery.py
+?? draft_hardening_db_discovery.txt
+?? draft_hardening_discovery.txt
+?? draft_state_hardening.py
+?? draft_state_hardening_batch_1.zip
+?? draft_state_hardening_batch_1/
+?? fix_dotenv_config_contract.py
+?? fix_pytest_active_scope.py
+?? install_v1_7_draft_day_readiness.py
+?? market_intelligence_package/install_market_intelligence.py
+?? pytest.ini
+?? readiness.py
+?? survivor_intelligence_package/install_survivor_intelligence.py
+?? tests/test_draft_state_hardening.py
+?? tests/test_readiness.py
+?? tools/archive/apply_draft_hq_consistency_fixes.py
+?? tools/archive/move_draft_intelligence_panels.py
+?? yahoo_pickem_auto_feed_batch/install_pickem_auto_feed.py
+?? yahoo_pickem_flask_batch/install_yahoo_pickem.py
+?? yahoo_pickem_input_center_batch/install_pickem_input_center.py
+?? yahoo_pickem_postgres_fix_v2/install_pickem_postgres_fix.py
+?? yahoo_pickem_weekly_bridge_batch/install_pickem_weekly_bridge.py
+
+===== ACTIVE FUNCTION EXTRACTS =====
+
+----- build_pick_forecast app.py:243-319 -----
+def build_pick_forecast(available_players, scarcity):
+    """Estimate availability at the user's next Sleeper pick."""
+    forecast = {
+        "current_pick": 0,
+        "next_pick": None,
+        "picks_until_next": None,
+        "projected_gone": {position: 0 for position in ["QB", "RB", "WR", "TE"]},
+        "projected_remaining": dict(scarcity),
+    }
+
+    try:
+        draft = get_draft(SLEEPER_DRAFT_ID)
+        users = get_users(SLEEPER_LEAGUE_ID) or []
+        rosters = get_rosters(SLEEPER_LEAGUE_ID) or []
+        picks = get_draft_picks(SLEEPER_DRAFT_ID) or []
+        forecast["current_pick"] = len(picks)
+
+        owner_ids = {
+            str(user.get("user_id"))
+            for user in users
+            if user.get("is_owner") is True
+        }
+        my_roster_ids = {
+            roster.get("roster_id")
+            for roster in rosters
+            if str(roster.get("owner_id")) in owner_ids
+        }
+
+        slot_to_roster = draft.get("slot_to_roster_id") or {}
+        my_slot = next(
+            (
+                int(slot)
+                for slot, roster_id in slot_to_roster.items()
+                if roster_id in my_roster_ids
+            ),
+            None,
+        )
+        teams = int((draft.get("settings") or {}).get("teams") or 0)
+        rounds = int((draft.get("settings") or {}).get("rounds") or 0)
+
+        if my_slot and teams and rounds:
+            own_picks = []
+            for round_number in range(1, rounds + 1):
+                if draft.get("type") == "snake" and round_number % 2 == 0:
+                    slot_in_round = teams - my_slot + 1
+                else:
+                    slot_in_round = my_slot
+                own_picks.append((round_number - 1) * teams + slot_in_round)
+
+            next_pick = next(
+                (pick for pick in own_picks if pick > forecast["current_pick"]),
+                None,
+            )
+            forecast["next_pick"] = next_pick
+
+            if next_pick is not None:
+                picks_until_next = max(0, next_pick - forecast["current_pick"] - 1)
+                forecast["picks_until_next"] = picks_until_next
+
+                projected_players = available_players[:picks_until_next]
+                for player in projected_players:
+                    position = player[2]
+                    if position in forecast["projected_gone"]:
+                        forecast["projected_gone"][position] += 1
+
+                forecast["projected_remaining"] = {
+                    position: max(
+                        0,
+                        scarcity.get(position, 0)
+                        - forecast["projected_gone"].get(position, 0),
+                    )
+                    for position in ["QB", "RB", "WR", "TE"]
+                }
+    except Exception as exc:
+        forecast["error"] = str(exc)
+
+    return forecast
+
+----- sync_sleeper_draft_picks app.py:1385-1540 -----
+def sync_sleeper_draft_picks():
+    picks = get_draft_picks(SLEEPER_DRAFT_ID) or []
+    users = get_users(SLEEPER_LEAGUE_ID) or []
+    rosters = get_rosters(SLEEPER_LEAGUE_ID) or []
+
+    users_by_id = {str(user.get("user_id")): user for user in users}
+    team_by_roster_id = {}
+    my_roster_ids = set()
+
+    for sleeper_roster in rosters:
+        roster_id = sleeper_roster.get("roster_id")
+        owner_id = str(sleeper_roster.get("owner_id") or "")
+        user = users_by_id.get(owner_id, {})
+        metadata = user.get("metadata") or {}
+        display_name = user.get("display_name") or f"Roster {roster_id}"
+        team_by_roster_id[roster_id] = metadata.get("team_name") or display_name
+        if user.get("is_owner") is True:
+            my_roster_ids.add(roster_id)
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        ensure_sleeper_sync_tables(cur)
+
+        matched = 0
+        my_team_picks = 0
+
+        for pick in picks:
+            metadata = pick.get("metadata") or {}
+            player_id = str(pick.get("player_id") or "")
+            roster_id = pick.get("roster_id")
+            pick_no = pick.get("pick_no")
+            round_num = pick.get("round")
+
+            cur.execute(
+                """
+                SELECT local_player_name, sleeper_name, position
+                FROM sleeper_player_map
+                WHERE sleeper_player_id = %s
+                LIMIT 1
+                """,
+                (player_id,),
+            )
+            mapped_player = cur.fetchone()
+
+            if mapped_player:
+                local_player_name, sleeper_name, mapped_position = mapped_player
+            else:
+                first_name = (metadata.get("first_name") or "").strip()
+                last_name = (metadata.get("last_name") or "").strip()
+                sleeper_name = " ".join(
+                    part for part in [first_name, last_name] if part
+                ).strip() or player_id
+                local_player_name = None
+                mapped_position = metadata.get("position")
+
+            if not local_player_name:
+                normalized = normalize_player_name(sleeper_name)
+                cur.execute(
+                    """
+                    SELECT player_name, position
+                    FROM players
+                    WHERE REGEXP_REPLACE(
+                        LOWER(player_name), '[^a-z0-9]', '', 'g'
+                    ) = %s
+                    LIMIT 1
+                    """,
+                    (normalized,),
+                )
+                local_player = cur.fetchone()
+                if local_player:
+                    local_player_name, mapped_position = local_player
+
+            stored_name = local_player_name or sleeper_name
+            cur.execute(
+                """
+                INSERT INTO sleeper_draft_picks (
+                    draft_id, roster_id, round_num, pick_no,
+                    player_id, player_name, synced_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                ON CONFLICT (draft_id, pick_no)
+                DO UPDATE SET
+                    roster_id = EXCLUDED.roster_id,
+                    round_num = EXCLUDED.round_num,
+                    player_id = EXCLUDED.player_id,
+                    player_name = EXCLUDED.player_name,
+                    synced_at = NOW()
+                """,
+                (
+                    SLEEPER_DRAFT_ID, roster_id, round_num, pick_no,
+                    player_id, stored_name,
+                ),
+            )
+
+            if not local_player_name:
+                continue
+
+            matched += 1
+            cur.execute(
+                """
+                INSERT INTO draft_board (player_name, starred, drafted)
+                VALUES (%s, false, true)
+                ON CONFLICT (player_name)
+                DO UPDATE SET drafted = true
+                """,
+                (local_player_name,),
+            )
+
+            team_name = team_by_roster_id.get(roster_id, f"Roster {roster_id}")
+            cur.execute(
+                """
+                INSERT INTO league_teams (team_name)
+                VALUES (%s)
+                ON CONFLICT DO NOTHING
+                """,
+                (team_name,),
+            )
+            cur.execute(
+                """
+                INSERT INTO league_rosters (team_name, player_name, position)
+                SELECT %s, %s, %s
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM league_rosters WHERE player_name = %s
+                )
+                """,
+                (team_name, local_player_name, mapped_position, local_player_name),
+            )
+
+            if roster_id in my_roster_ids:
+                my_team_picks += 1
+                cur.execute(
+                    """
+                    INSERT INTO my_roster (player_name, position)
+                    SELECT %s, %s
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM my_roster WHERE player_name = %s
+                    )
+                    """,
+                    (local_player_name, mapped_position, local_player_name),
+                )
+
+        conn.commit()
+        return {
+            "draft_id": SLEEPER_DRAFT_ID,
+            "received": len(picks),
+            "stored": len(picks),
+            "matched_to_rankings": matched,
+            "my_team_picks": my_team_picks,
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
+
+----- draftboard app.py:1825-2528 -----
+def draftboard():
+    sleeper_sync_status = None
+    sleeper_sync_error = None
+    try:
+        sleeper_sync_status = sync_sleeper_draft_picks()
+    except Exception as exc:
+        sleeper_sync_error = str(exc)
+        app.logger.warning("Sleeper draft-pick sync failed: %s", exc)
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT
+            p.ranking,
+            p.player_name,
+            p.position,
+            p.nfl_team,
+            COALESCE(d.starred, false),
+            (
+                COALESCE(d.drafted, false)
+                OR EXISTS (
+                    SELECT 1
+                    FROM league_rosters lr
+                    WHERE lr.player_name = p.player_name
+                )
+            ) AS drafted,
+            COALESCE(p.projected_points, 0) AS projected_points,
+            p.tier AS stored_tier,
+            COALESCE(p.adp, 999) AS adp
+        FROM players p
+        LEFT JOIN draft_board d
+            ON p.player_name = d.player_name
+        ORDER BY p.ranking
+        """
+    )
+    players = cur.fetchall()
+
+    cur.execute(
+        """
+        SELECT id, player_name, position, COALESCE(slot, '')
+        FROM my_roster
+        WHERE player_name IS NOT NULL
+          AND BTRIM(player_name) <> ''
+        ORDER BY drafted_at, id
+        """
+    )
+    roster = cur.fetchall()
+
+    sleeper_draft_signals = build_sleeper_draft_signals(cur, SLEEPER_LEAGUE_ID, season=2026, user_slot=5)
+
+
+    
+
+    cur.close()
+    conn.close()
+
+    roster_names = {player[1] for player in roster}
+    available_players = [
+        player
+        for player in players
+        if not player[5] and player[1] not in roster_names
+    ]
+
+    scarcity = {}
+
+    for position in ["QB", "RB", "WR", "TE"]:
+
+        remaining = [
+            p
+            for p in available_players
+            if p[2] == position
+        ]
+
+        scarcity[position] = len(remaining)
+
+    scarcity_labels = {}
+
+    for position, count in scarcity.items():
+
+        if count <= 20:
+            scarcity_labels[position] = "HIGH"
+
+        elif count <= 50:
+            scarcity_labels[position] = "MEDIUM"
+
+        else:
+            scarcity_labels[position] = "LOW"
+
+    scarcity_score = {}
+
+    for position, label in scarcity_labels.items():
+        if label == "HIGH":
+            scarcity_score[position] = 100
+        elif label == "MEDIUM":
+            scarcity_score[position] = 50
+        else:
+            scarcity_score[position] = 25
+
+    tier_counts = {}
+    for position in ["QB", "RB", "WR", "TE"]:
+        position_tiers = {
+            get_draftboard_player_tier(player)
+            for player in available_players
+            if player[2] == position
+        }
+
+        tier_counts[position] = {
+            tier: sum(
+                1
+                for player in available_players
+                if player[2] == position
+                and get_draftboard_player_tier(player) == tier
+            )
+            for tier in position_tiers
+        }
+
+    best_available = available_players[0] if available_players else None
+    position_leaders = {
+        position: next(
+            (player for player in available_players if player[2] == position),
+            None,
+        )
+        for position in ["QB", "RB", "WR", "TE"]
+    }
+    draft_targets = [player for player in available_players if player[4]]
+    drafted_count = sum(1 for player in players if player[5])
+    roster_slots, bench = build_roster_slots(roster)
+
+    position_counts = {position: 0 for position in ROSTER_TARGETS}
+    for roster_player in roster:
+        position = roster_player[2]
+        if position in position_counts:
+            position_counts[position] += 1
+
+    roster_progress = {
+        position: {
+            "current": position_counts[position],
+            "target": target,
+            "missing": max(0, target - position_counts[position]),
+        }
+        for position, target in ROSTER_TARGETS.items()
+    }
+
+    needed_positions = []
+
+    for slot, roster_player in roster_slots.items():
+
+        if roster_player is not None:
+            continue
+
+        if slot == "FLEX":
+
+            for position in ["RB", "WR", "TE"]:
+
+                if position not in needed_positions:
+                    needed_positions.append(position)
+
+        else:
+
+            position = slot.rstrip("12")
+
+            if position not in needed_positions:
+                needed_positions.append(position)
+
+    need_score = {}
+
+    for position, target in ROSTER_TARGETS.items():
+        current = position_counts[position]
+        missing = max(0, target - current)
+        need_score[position] = int((missing / target) * 100) if target else 0
+
+    tier_alert = None
+    tier_alert_position = None
+    tier_alert_tier = None
+    tier_alert_remaining = None
+
+    tier_risks = []
+    for position in needed_positions:
+        leader = next(
+            (player for player in available_players if player[2] == position),
+            None,
+        )
+        if leader:
+            leader_tier = get_draftboard_player_tier(leader)
+            remaining_in_tier = tier_counts[position].get(leader_tier, 0)
+            if remaining_in_tier <= 3:
+                tier_risks.append(
+                    (remaining_in_tier, leader_tier, position)
+                )
+
+    if tier_risks:
+        (
+            tier_alert_remaining,
+            tier_alert_tier,
+            tier_alert_position,
+        ) = min(tier_risks)
+        tier_alert = (
+            f"Only {tier_alert_remaining} Tier-{tier_alert_tier} "
+            f"{tier_alert_position} players remain."
+        )
+
+    tier_bonus = {position: 0 for position in ROSTER_TARGETS}
+    tier_risk_details = {}
+
+    for position in ROSTER_TARGETS:
+        leader = next(
+            (player for player in available_players if player[2] == position),
+            None,
+        )
+        if not leader:
+            continue
+
+        leader_tier = get_draftboard_player_tier(leader)
+        remaining_in_tier = tier_counts[position].get(leader_tier, 0)
+        tier_risk_details[position] = {
+            "tier": leader_tier,
+            "remaining": remaining_in_tier,
+        }
+
+        position_tier_gap = calculate_draftboard_tier_gap(
+            available_players,
+            position,
+            leader_tier,
+        )
+        tier_risk_details[position]["gap"] = position_tier_gap
+        tier_bonus[position] = calculate_draftboard_tier_bonus(
+            remaining_in_tier,
+            position_tier_gap,
+        )
+
+    # League tendencies must exist before candidate scoring uses league bonuses.
+    league_tendencies = build_league_tendencies()
+
+    active_strategy = session.get(
+        "draft_strategy",
+        DEFAULT_STRATEGY,
+    )
+    if active_strategy not in STRATEGY_PROFILES:
+        active_strategy = DEFAULT_STRATEGY
+
+    completed_picks = 0
+    league_size = 10
+
+    try:
+        current_sleeper_picks = get_draft_picks(SLEEPER_DRAFT_ID) or []
+        completed_picks = len(current_sleeper_picks)
+
+        draft_details = get_draft(SLEEPER_DRAFT_ID)
+        league_size = int(
+            (draft_details.get("settings") or {}).get("teams") or 10
+        )
+    except Exception as exc:
+        app.logger.warning(
+            "Unable to determine Sleeper draft round: %s",
+            exc,
+        )
+
+    current_round = (completed_picks // max(league_size, 1)) + 1
+
+    recommendation_pool, candidate_pool_audit = filter_candidate_pool(
+        available_players,
+        current_round=current_round,
+    )
+
+    round_plan = build_round_plan(
+        active_strategy,
+        current_round,
+        position_counts,
+        ROSTER_TARGETS,
+    )
+
+    recommendation_candidates = []
+
+    for player in recommendation_pool:
+        position = player[2]
+        if position not in ROSTER_TARGETS:
+            continue
+
+        player_rank_score = max(0, 101 - player[0])
+        legacy_need_score = need_score.get(position, 0)
+        dynamic_need = calculate_dynamic_need(
+            position, current_round, position_counts, ROSTER_TARGETS, active_strategy,
+        )
+        player_need_score = dynamic_need["score"]
+        legacy_scarcity_score = scarcity_score.get(position, 0)
+        dynamic_scarcity = calculate_dynamic_scarcity(
+            player, recommendation_pool, current_round, sleeper_draft_signals,
+        )
+        player_scarcity_score = dynamic_scarcity["score"]
+        player_tier = get_draftboard_player_tier(player)
+        players_left_in_tier = tier_counts[position].get(player_tier, 0)
+
+        player_tier_gap = calculate_draftboard_tier_gap(
+            recommendation_pool,
+            position,
+            player_tier,
+        )
+        player_tier_bonus = calculate_draftboard_tier_bonus(
+            players_left_in_tier,
+            player_tier_gap,
+        )
+
+        player_strategy_bonus = get_strategy_bonus(
+            active_strategy,
+            position,
+            current_round,
+        )
+        player_league_bonus = (
+            league_tendencies.get("bonus") or {}
+        ).get(position, 0)
+        balanced_score = calculate_balanced_score(
+            player[0], player_need_score, player_scarcity_score,
+            player_tier_bonus, player_strategy_bonus, player_league_bonus,
+        )
+        player_draft_score = balanced_score["total"]
+
+        recommendation_candidates.append(
+            {
+                "player": player,
+                "rank_score": player_rank_score,
+                "legacy_need_score": legacy_need_score,
+                "need_details": dynamic_need,
+                "need_score": player_need_score,
+                "legacy_scarcity_score": legacy_scarcity_score,
+                "scarcity_details": dynamic_scarcity,
+                "scarcity_score": player_scarcity_score,
+                "tier": player_tier,
+                "tier_remaining": players_left_in_tier,
+                "tier_gap": player_tier_gap,
+                "tier_bonus": player_tier_bonus,
+                "strategy_bonus": player_strategy_bonus,
+                "league_bonus": player_league_bonus,
+                "weighted_components": balanced_score,
+                "draft_score": player_draft_score,
+            }
+        )
+
+    recommendation_candidates.sort(
+        key=lambda candidate: (
+            -candidate["draft_score"],
+            candidate["player"][0],
+        )
+    )
+    top_recommendations = recommendation_candidates[:5]
+    recommendation_engine_audit = audit_recommendation_candidates(
+        recommendation_candidates
+    )
+    recommendation_engine_audit["candidate_pool"] = candidate_pool_audit
+    recommendation_engine_audit["scarcity_distribution"] = scarcity_distribution(recommendation_candidates)
+    recommendation_engine_audit=audit_recommendation_candidates(
+    recommendation_candidates
+    )
+
+    print("RECOMMENDATION AUDIT")
+    print(recommendation_engine_audit)
+
+    sleeper_recommendation_overlay = build_recommendation_overlay(
+        top_recommendations,
+        sleeper_draft_signals,
+    )
+
+    player_survival = estimate_player_survival(
+        top_recommendations,
+        sleeper_draft_signals,
+    )
+    team_recommendation = (
+        top_recommendations[0]["player"]
+        if top_recommendations
+        else best_available
+    )
+
+    rank_score = 0
+    agent_draft_score = 0
+
+    if top_recommendations:
+        rank_score = top_recommendations[0]["rank_score"]
+        agent_draft_score = top_recommendations[0]["draft_score"]
+
+    recommendation_reasons = []
+
+    if team_recommendation:
+        recommended_position = team_recommendation[2]
+        target = ROSTER_TARGETS.get(recommended_position, 0)
+        current = position_counts.get(recommended_position, 0)
+
+        if need_score.get(recommended_position, 0) >= 75:
+            recommendation_reasons.append(
+                f"{recommended_position} is a major roster need "
+                f"({current} of {target} target players rostered)."
+            )
+        elif need_score.get(recommended_position, 0) >= 40:
+            recommendation_reasons.append(
+                f"{recommended_position} depth is still below target "
+                f"({current} of {target})."
+            )
+        else:
+            recommendation_reasons.append(
+                f"{recommended_position} is near the strategic roster target "
+                f"({current} of {target})."
+            )
+
+        risk = tier_risk_details.get(recommended_position)
+        if risk and tier_bonus.get(recommended_position, 0) > 0:
+            recommendation_reasons.append(
+                f"Only {risk['remaining']} Tier-{risk['tier']} "
+                f"{recommended_position} players remain."
+            )
+
+        if rank_score >= 75:
+            recommendation_reasons.append(
+                "Elite overall value remains available."
+            )
+        elif rank_score >= 40:
+            recommendation_reasons.append(
+                "The player still offers strong overall value."
+            )
+
+        if scarcity_score.get(recommended_position, 0) >= 50:
+            recommendation_reasons.append(
+                f"Available {recommended_position} depth is shrinking."
+            )
+
+    strategy_bonus_for_pick = 0
+    if team_recommendation:
+        strategy_bonus_for_pick = get_strategy_bonus(
+            active_strategy,
+            team_recommendation[2],
+            current_round,
+        )
+        if strategy_bonus_for_pick > 0:
+            recommendation_reasons.append(
+                f"{STRATEGY_PROFILES[active_strategy]['label']} strategy adds "
+                f"{strategy_bonus_for_pick} points for "
+                f"{team_recommendation[2]} in round {current_round}."
+            )
+        elif strategy_bonus_for_pick < 0:
+            recommendation_reasons.append(
+                f"{STRATEGY_PROFILES[active_strategy]['label']} strategy applies "
+                f"a {abs(strategy_bonus_for_pick)}-point early-round penalty to "
+                f"{team_recommendation[2]}."
+            )
+
+    league_bonus_for_pick = 0
+    if team_recommendation:
+        recommended_position = team_recommendation[2]
+        league_bonus_for_pick = (
+            league_tendencies.get("bonus") or {}
+        ).get(recommended_position, 0)
+        position_bias = (
+            league_tendencies.get("bias") or {}
+        ).get(recommended_position, "LOW")
+        position_share = (
+            league_tendencies.get("percentages") or {}
+        ).get(recommended_position, 0)
+
+        if position_bias == "HIGH":
+            recommendation_reasons.append(
+                f"This league is drafting {recommended_position} aggressively "
+                f"({position_share}% of completed offensive picks)."
+            )
+        elif position_bias == "MEDIUM":
+            recommendation_reasons.append(
+                f"League demand for {recommended_position} is elevated "
+                f"({position_share}% of completed offensive picks)."
+            )
+
+    recommended_tier = (
+        get_draftboard_player_tier(team_recommendation)
+        if team_recommendation
+        else None
+    )
+    recommended_tier_remaining = (
+        tier_counts.get(
+            team_recommendation[2],
+            {},
+        ).get(
+            recommended_tier,
+            0,
+        )
+        if team_recommendation and recommended_tier
+        else 0
+    )
+    pick_forecast = build_opponent_forecast(
+        recommendation_pool,
+        scarcity,
+        league_tendencies,
+    )
+
+    pick_forecast = reconcile_opponent_forecast(
+        pick_forecast,
+        sleeper_draft_signals,
+    )
+
+    monte_carlo = run_monte_carlo_availability(
+        recommendation_pool,
+        top_recommendations,
+        pick_forecast,
+        league_tendencies,
+    )
+
+    expected_value_analysis = build_expected_value_analysis(
+        top_recommendations,
+        recommendation_candidates,
+        monte_carlo,
+    )
+
+    value_gap_analysis = build_value_gap_analysis(
+        top_recommendations,
+        recommendation_candidates,
+        monte_carlo,
+    )
+
+    draft_now_wait = build_draft_now_wait_analysis(
+        team_recommendation,
+        top_recommendations,
+        pick_forecast,
+        tier_counts,
+        need_score,
+    )
+
+    draft_now_wait = reconcile_draft_now_wait(
+        draft_now_wait, team_recommendation, monte_carlo,
+        expected_value_analysis, player_survival, sleeper_draft_signals,
+    )
+
+    health_conn = get_db_connection()
+    health_cur = health_conn.cursor()
+    current_model_health = model_health(health_cur)
+    health_cur.close()
+    health_conn.close()
+    draft_now_wait = apply_calibrated_reconciliation(draft_now_wait, current_model_health)
+
+    draft_decision_plan = build_decision_plan(
+        team_recommendation, top_recommendations, expected_value_analysis,
+        monte_carlo, player_survival, sleeper_recommendation_overlay, draft_now_wait,
+    )
+
+    if team_recommendation and expected_value_analysis.get("players"):
+        recommended_ev = next(
+            (
+                row
+                for row in expected_value_analysis["players"]
+                if row["player"] == team_recommendation[1]
+            ),
+            None,
+        )
+        if recommended_ev and recommended_ev["expected_value_loss"] >= 25:
+            recommendation_reasons.append(
+                f"Expected-value analysis estimates "
+                f"{recommended_ev['expected_value_loss']} points of value at risk "
+                "if you wait until the next pick."
+            )
+
+    if team_recommendation and value_gap_analysis.get("players"):
+        recommended_gap = next(
+            (
+                row
+                for row in value_gap_analysis["players"]
+                if row["player"] == team_recommendation[1]
+            ),
+            None,
+        )
+        if recommended_gap and recommended_gap["value_gap"] >= 30:
+            recommendation_reasons.append(
+                f"Value-gap analysis shows a {recommended_gap['value_gap']}-point "
+                f"drop to the next {recommended_gap['position']} option."
+            )
+
+    if team_recommendation and monte_carlo.get("players"):
+        recommended_simulation = next(
+            (
+                player
+                for player in monte_carlo["players"]
+                if player["player"] == team_recommendation[1]
+            ),
+            None,
+        )
+        if recommended_simulation:
+            availability_pct = recommended_simulation["availability_pct"]
+            if availability_pct <= 25:
+                recommendation_reasons.append(
+                    f"Monte Carlo estimates only a {availability_pct}% chance "
+                    "the player reaches your next pick."
+                )
+            elif availability_pct >= 70:
+                recommendation_reasons.append(
+                    f"Monte Carlo estimates a {availability_pct}% chance "
+                    "the player remains available at your next pick."
+                )
+
+    if team_recommendation and pick_forecast.get("next_pick"):
+        recommended_position = team_recommendation[2]
+        projected_position_picks = pick_forecast["projected_gone"].get(
+            recommended_position, 0
+        )
+        needy_opponents = pick_forecast["teams_needing_position"].get(
+            recommended_position, 0
+        )
+        if projected_position_picks > 0:
+            recommendation_reasons.append(
+                f"Opponent model projects {projected_position_picks} "
+                f"{recommended_position} selection(s) before your next pick."
+            )
+        if needy_opponents >= 2:
+            recommendation_reasons.append(
+                f"Opponent demand before the next pick is elevated: "
+                f"{needy_opponents} teams still need {recommended_position} depth."
+            )
+
+    draft_coach = build_draft_coach_summary(
+        team_recommendation,
+        top_recommendations,
+        recommendation_reasons,
+        draft_now_wait,
+        expected_value_analysis,
+        monte_carlo,
+        active_strategy,
+        current_round,
+        pick_forecast,
+    )
+
+    draft_coach = fuse_sleeper_context(
+        draft_coach,
+        sleeper_draft_signals,
+        sleeper_recommendation_overlay,
+        player_survival,
+    )
+
+    draft_coach = fuse_decision_plan(draft_coach, draft_decision_plan)
+
+    
+    readiness_conn = get_db_connection()
+    readiness_cur = readiness_conn.cursor()
+    draft_readiness = build_draft_readiness(readiness_cur, SLEEPER_LEAGUE_ID, 2026, sleeper_draft_signals, current_model_health)
+    draft_validation = validate_runtime(recommendation_candidates, sleeper_draft_signals, current_model_health)
+    readiness_cur.close()
+    readiness_conn.close()
+
+    draft_outcome_status = log_and_resolve(get_db_connection, SLEEPER_LEAGUE_ID, 2026, team_recommendation, sleeper_draft_signals, draft_now_wait, monte_carlo, player_survival, expected_value_analysis, draft_decision_plan)
+
+
+    return render_template(
+        "draftboard.html",
+        draft_readiness=draft_readiness,
+        draft_validation=draft_validation,
+        candidate_pool_audit=candidate_pool_audit,
+        model_health=current_model_health,
+        draft_outcome_status=draft_outcome_status,
+        draft_decision_plan=draft_decision_plan,
+        player_survival=player_survival,
+        sleeper_recommendation_overlay=sleeper_recommendation_overlay,
+        sleeper_draft_signals=sleeper_draft_signals,
+        title="My Draft Board",
+        players=players,
+        available_players=available_players,
+        best_available=best_available,
+        position_leaders=position_leaders,
+        draft_targets=draft_targets,
+        drafted_count=drafted_count,
+        roster=roster,
+        roster_slots=roster_slots,
+        bench=bench,
+        team_recommendation=team_recommendation,
+        top_recommendations=top_recommendations,
+        recommendation_engine_audit=recommendation_engine_audit,
+        strategy_profiles=STRATEGY_PROFILES,
+        active_strategy=active_strategy,
+        strategy_profile=STRATEGY_PROFILES[active_strategy],
+        current_round=current_round,
+        round_plan=round_plan,
+        strategy_bonus_for_pick=strategy_bonus_for_pick,
+        recommendation_candidates=recommendation_candidates,
+        scarcity=scarcity,
+        scarcity_labels=scarcity_labels,
+        scarcity_score=scarcity_score,
+        need_score=need_score,
+        tier_alert=tier_alert,
+        roster_targets=ROSTER_TARGETS,
+        position_counts=position_counts,
+        roster_progress=roster_progress,
+        tier_bonus=tier_bonus,
+        tier_risk_details=tier_risk_details,
+        recommendation_reasons=recommendation_reasons,
+        tier_counts=tier_counts,
+        tier_alert_position=tier_alert_position,
+        tier_alert_tier=tier_alert_tier,
+        tier_alert_remaining=tier_alert_remaining,
+        recommended_tier=recommended_tier,
+        recommended_tier_remaining=recommended_tier_remaining,
+        pick_forecast=pick_forecast,
+        league_tendencies=league_tendencies,
+        league_bonus_for_pick=league_bonus_for_pick,
+        draft_now_wait=draft_now_wait,
+        monte_carlo=monte_carlo,
+        value_gap_analysis=value_gap_analysis,
+        expected_value_analysis=expected_value_analysis,
+        draft_coach=draft_coach,
+        rank_score=rank_score,
+        agent_draft_score=agent_draft_score,
+        sleeper_sync_status=sleeper_sync_status,
+        sleeper_sync_error=sleeper_sync_error,
+    )
+
+----- toggle_drafted app.py:2557-2576 -----
+def toggle_drafted():
+    player_name = request.form.get("player_name", "").strip()
+    if not player_name:
+        return redirect(url_for("draftboard"))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO draft_board (player_name, starred, drafted)
+        VALUES (%s, false, true)
+        ON CONFLICT (player_name)
+        DO UPDATE SET drafted = NOT draft_board.drafted
+        """,
+        (player_name,),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for("draftboard"))
+
+----- remove_from_team app.py:2617-2626 -----
+def remove_from_team():
+    roster_id = request.form.get("roster_id", "").strip()
+    if roster_id.isdigit():
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM my_roster WHERE id = %s", (int(roster_id),))
+        conn.commit()
+        cur.close()
+        conn.close()
+    return redirect(url_for("draftboard"))
+
+----- league_rosters app.py:2779-2809 -----
+def league_rosters():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, team_name FROM league_teams ORDER BY id")
+    teams = cur.fetchall()
+    cur.execute(
+        """
+        SELECT id, team_name, player_name, position, drafted_at
+        FROM league_rosters
+        ORDER BY drafted_at, id
+        """
+    )
+    roster_rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    rosters_by_team = []
+    for team_id, team_name in teams:
+        rosters_by_team.append(
+            {
+                "team_id": team_id,
+                "team_name": team_name,
+                "players": [row for row in roster_rows if row[1] == team_name],
+            }
+        )
+
+    return render_template(
+        "rosters.html",
+        title="League Rosters",
+        rosters_by_team=rosters_by_team,
+    )
+
+----- track_draft app.py:2814-2919 -----
+def track_draft():
+    error = None
+    message = None
+
+    if request.method == "POST":
+        team_name = request.form.get("team_name", "").strip()
+        player_name = request.form.get("player_name", "").strip()
+
+        if not team_name or not player_name:
+            error = "Select both a team and a player."
+        else:
+            conn = get_db_connection()
+            cur = conn.cursor()
+
+            cur.execute(
+                """
+                SELECT position
+                FROM players
+                WHERE player_name = %s
+                LIMIT 1
+                """,
+                (player_name,),
+            )
+            player_row = cur.fetchone()
+
+            cur.execute(
+                "SELECT 1 FROM league_teams WHERE team_name = %s",
+                (team_name,),
+            )
+            team_exists = cur.fetchone() is not None
+
+            cur.execute(
+                "SELECT 1 FROM league_rosters WHERE player_name = %s",
+                (player_name,),
+            )
+            already_drafted = cur.fetchone() is not None
+
+            if player_row is None:
+                error = "The selected player was not found."
+            elif not team_exists:
+                error = "The selected team was not found."
+            elif already_drafted:
+                error = f"{player_name} has already been drafted."
+            else:
+                position = player_row[0]
+                cur.execute(
+                    """
+                    INSERT INTO league_rosters (team_name, player_name, position)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (team_name, player_name, position),
+                )
+                cur.execute(
+                    """
+                    INSERT INTO draft_board (player_name, starred, drafted)
+                    VALUES (%s, false, true)
+                    ON CONFLICT (player_name)
+                    DO UPDATE SET drafted = true
+                    """,
+                    (player_name,),
+                )
+
+                if team_name == "My Team":
+                    cur.execute(
+                        """
+                        INSERT INTO my_roster (player_name, position)
+                        SELECT %s, %s
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM my_roster WHERE player_name = %s
+                        )
+                        """,
+                        (player_name, position, player_name),
+                    )
+
+                conn.commit()
+                message = f"Recorded {player_name} to {team_name}."
+
+            cur.close()
+            conn.close()
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT team_name FROM league_teams ORDER BY id")
+    teams = [row[0] for row in cur.fetchall()]
+    available_players = fetch_available_players(cur)
+    cur.execute(
+        """
+        SELECT id, team_name, player_name, position, drafted_at
+        FROM league_rosters
+        ORDER BY drafted_at DESC, id DESC
+        LIMIT 20
+        """
+    )
+    recent_picks = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return render_template(
+        "trackdraft.html",
+        title="Draft Tracker",
+        teams=teams,
+        available_players=available_players,
+        recent_picks=recent_picks,
+        message=message,
+        error=error,
+    )
+
+----- undo_draft_pick app.py:2924-2954 -----
+def undo_draft_pick():
+    pick_id = request.form.get("pick_id", "").strip()
+
+    if not pick_id.isdigit():
+        return redirect(url_for("track_draft"))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT team_name, player_name FROM league_rosters WHERE id = %s",
+        (int(pick_id),),
+    )
+    pick = cur.fetchone()
+
+    if pick is not None:
+        team_name, player_name = pick
+        cur.execute("DELETE FROM league_rosters WHERE id = %s", (int(pick_id),))
+        cur.execute(
+            "UPDATE draft_board SET drafted = false WHERE player_name = %s",
+            (player_name,),
+        )
+        if team_name == "My Team":
+            cur.execute(
+                "DELETE FROM my_roster WHERE player_name = %s",
+                (player_name,),
+            )
+        conn.commit()
+
+    cur.close()
+    conn.close()
+    return redirect(url_for("track_draft"))
+
+----- sleeper_draft_picks_sync app.py:3117-3122 -----
+def sleeper_draft_picks_sync():
+    try:
+        return jsonify(sync_sleeper_draft_picks())
+    except Exception:
+        app.logger.exception("Sleeper draft-pick sync failed")
+        return jsonify({"error": "sync failed"}), 500
+
+----- create_draft_tables app.py:3137-3171 -----
+def create_draft_tables():
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS sleeper_drafts (
+        draft_id VARCHAR(50) PRIMARY KEY,
+        league_id VARCHAR(50),
+        season VARCHAR(10),
+        draft_type VARCHAR(25),
+        rounds INTEGER,
+        teams INTEGER,
+        status VARCHAR(25)
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS sleeper_draft_picks (
+        id SERIAL PRIMARY KEY,
+        pick_id VARCHAR(50) UNIQUE,
+        draft_id VARCHAR(50),
+        round_num INTEGER,
+        pick_no INTEGER,
+        roster_id INTEGER,
+        player_id VARCHAR(50),
+        player_name VARCHAR(255)
+    )
+    """)
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return "Draft tables created successfully!"
+
+----- create_draft_picks_table app.py:3217-3241 -----
+def create_draft_picks_table():
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS sleeper_draft_picks (
+        id SERIAL PRIMARY KEY,
+        sleeper_pick_id VARCHAR(50) UNIQUE,
+        draft_id VARCHAR(50),
+        roster_id INTEGER,
+        round_num INTEGER,
+        pick_no INTEGER,
+        player_id VARCHAR(50),
+        player_name VARCHAR(255),
+        synced_at TIMESTAMP DEFAULT NOW()
+    )
+    """)
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return "Draft picks table created!"
+
+===== ROUTE REGISTRATIONS AROUND DRAFT OPERATIONS =====
+1567: @app.route("/predraft")
+1732: @app.route("/draftcenter")
+1737: @app.route("/draftboard/strategy", methods=["POST"])
+1824: @app.route("/draftboard")
+2531: @app.route("/draftboard/toggle-star", methods=["POST"])
+2555: @app.route("/draftboard/toggle-drafted", methods=["POST"])
+2579: @app.route("/draftboard/add-to-team", methods=["POST"])
+2615: @app.route("/draftboard/remove-from-team", methods=["POST"])
+2778: @app.route("/rosters")
+2812: @app.route("/trackdraft", methods=["GET", "POST"])
+2922: @app.route("/trackdraft/undo", methods=["POST"])
+2979: @app.route("/test-sleeper-rosters", methods=["POST"])
+3095: @app.route("/test-draft")
+3115: @app.route("/sleeper/draft-picks/sync", methods=["POST"])
+3125: @app.route("/test-draft-picks", methods=["POST"])
+3135: @app.route("/create-draft-tables", methods=["POST"])
+3173: @app.route("/draft-sync", methods=["POST"])
+3215: @app.route("/create-draft-picks-table", methods=["POST"])
+3461: @app.route('/mockdraft')
+3469: @app.route('/mockdraft/start',methods=['POST'])
+3484: @app.route('/mockdraft/live/<int:draft_id>')
+3496: @app.route('/mockdraft/live/<int:draft_id>/pick',methods=['POST'])
+3512: @app.route('/mockdraft/live/<int:draft_id>/toggle-pause',methods=['POST'])
+3518: @app.route('/mockdraft/<int:draft_id>')
+3529: @app.route('/mockdraft/<int:draft_id>/delete',methods=['POST'])
+
+===== LIVE DATABASE STRUCTURES =====
+
+----- draft_board -----
+row_count=11
+columns:
+id | integer | NO | nextval('draft_board_id_seq'::regclass)
+player_name | text | YES | 
+drafted | boolean | YES | false
+starred | boolean | YES | false
+constraints:
+draft_board_pkey | p | PRIMARY KEY (id)
+draft_board_player_name_key | u | UNIQUE (player_name)
+
+----- league_rosters -----
+row_count=0
+columns:
+id | integer | NO | nextval('league_rosters_id_seq'::regclass)
+team_name | text | NO | 
+player_name | text | NO | 
+position | text | YES | 
+drafted_at | timestamp without time zone | YES | now()
+constraints:
+league_rosters_pkey | p | PRIMARY KEY (id)
+
+----- league_teams -----
+row_count=10
+columns:
+id | integer | NO | nextval('league_teams_id_seq'::regclass)
+team_name | text | NO | 
+constraints:
+league_teams_pkey | p | PRIMARY KEY (id)
+league_teams_team_name_key | u | UNIQUE (team_name)
+
+----- my_roster -----
+row_count=0
+columns:
+id | integer | NO | nextval('my_roster_id_seq'::regclass)
+player_name | text | YES | 
+position | text | YES | 
+slot | text | YES | 
+drafted_at | timestamp without time zone | YES | now()
+constraints:
+my_roster_pkey | p | PRIMARY KEY (id)
+
+----- sleeper_draft_picks -----
+row_count=0
+columns:
+id | integer | NO | nextval('sleeper_draft_picks_id_seq'::regclass)
+pick_id | character varying | YES | 
+draft_id | character varying | YES | 
+round_num | integer | YES | 
+pick_no | integer | YES | 
+roster_id | integer | YES | 
+player_id | character varying | YES | 
+player_name | character varying | YES | 
+synced_at | timestamp without time zone | YES | now()
+constraints:
+sleeper_draft_picks_pick_id_key | u | UNIQUE (pick_id)
+sleeper_draft_picks_pkey | p | PRIMARY KEY (id)
+
+----- draft_mutation_history -----
+row_count=0
+columns:
+id | bigint | NO | nextval('draft_mutation_history_id_seq'::regclass)
+draft_id | character varying | NO | 
+action | character varying | NO | 
+player_name | text | YES | 
+team_name | text | YES | 
+source | character varying | NO | 
+before_state | jsonb | YES | 
+after_state | jsonb | YES | 
+metadata | jsonb | NO | '{}'::jsonb
+created_at | timestamp with time zone | NO | now()
+constraints:
+draft_mutation_history_pkey | p | PRIMARY KEY (id)
+
+----- draft_sessions -----
+row_count=1
+columns:
+draft_id | character varying | NO | 
+league_id | character varying | NO | 
+season | character varying | YES | 
+status | character varying | YES | 
+authoritative | boolean | NO | false
+last_validated_at | timestamp with time zone | YES | 
+created_at | timestamp with time zone | NO | now()
+updated_at | timestamp with time zone | NO | now()
+constraints:
+draft_sessions_pkey | p | PRIMARY KEY (draft_id)
+
+----- draft_sync_audit -----
+row_count=1
+columns:
+id | bigint | NO | nextval('draft_sync_audit_id_seq'::regclass)
+draft_id | character varying | NO | 
+league_id | character varying | NO | 
+status | character varying | NO | 
+received_count | integer | NO | 0
+stored_count | integer | NO | 0
+matched_count | integer | NO | 0
+quarantined_count | integer | NO | 0
+details | jsonb | NO | '{}'::jsonb
+created_at | timestamp with time zone | NO | now()
+constraints:
+draft_sync_audit_pkey | p | PRIMARY KEY (id)
+
+----- draft_player_quarantine -----
+row_count=0
+columns:
+id | bigint | NO | nextval('draft_player_quarantine_id_seq'::regclass)
+draft_id | character varying | NO | 
+pick_no | integer | YES | 
+player_id | character varying | YES | 
+sleeper_name | text | YES | 
+normalized_name | text | YES | 
+reason | text | NO | 
+payload | jsonb | NO | '{}'::jsonb
+status | character varying | NO | 'OPEN'::character varying
+created_at | timestamp with time zone | NO | now()
+resolved_at | timestamp with time zone | YES | 
+constraints:
+draft_player_quarantine_pkey | p | PRIMARY KEY (id)
+
+----- players -----
+row_count=521
+columns:
+id | integer | NO | nextval('players_id_seq'::regclass)
+player_name | text | YES | 
+position | text | YES | 
+nfl_team | text | YES | 
+projected_points | double precision | YES | 
+ranking | integer | YES | 
+tier | integer | YES | 
+injury_status | text | YES | 
+adp | double precision | YES | 
+bye_week | integer | YES | 
+age | integer | YES | 
+notes | text | YES | 
+constraints:
+players_pkey | p | PRIMARY KEY (id)
+
+===== INVARIANT DIAGNOSTICS =====
+drafted players absent from league_rosters: 0
+league_roster players not marked drafted: 0
+players owned by multiple teams: 0
+my_roster players absent from league_rosters: 0

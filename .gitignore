@@ -1,12 +1,14 @@
 venv/
 __pycache__/
 *.pyc
+*.pyo
 
 uploads/
 *.csv
 
 .env
 .env.*
+!.env.example
 
 instance/
 
@@ -16,13 +18,6 @@ oauth_tokens.json
 *.db
 
 .vscode/
-# Local backups
-echo "" >> .gitignore
-echo "#*Backup files" >> .gitignore
-*cho "*ackups/" >> .gitignore
-echo "*.*efore-*" >> .gitignore**cho "*.*ackup" >> .gitignore
-
-echo "*.sql" >> .gitignore
 
 # Local backup files
 *.before-*
@@ -31,21 +26,30 @@ echo "*.sql" >> .gitignore
 backups/
 
 *_batch.zip
-inst*ll_*.py
-fix_*.py
 payload/
-README.t*t
-
-archive/**_batch.zip
-
-install_*.py
-fix_*.py*repair_*.py
-move_*.py
-apply_*.py
+archive/**
 
 *_pycache__/
 *.pyc*.zip
-__pycache__/
-.env.market
-.env.pickem
-backups/
+
+# Keep example envs tracked, never local secrets
+!.env.example
+
+# Ignore generated batch artifacts
+**/*_batch.zip
+
+echo ".env" >> .gitignore
+
+cat >> .git/info/exclude <<'EOF'
+.batch_*_backup_*/
+.batch_*_test_backup_*/
+Batch_A_*/
+Batch_B_*/
+Batch_C_*/
+Batch_A_*.zip
+Batch_B_*.zip
+Batch_C_*.zip
+batch_*_install_report.json
+batch_*_schema.sql
+batch_*_verified_input.txt
+EOF

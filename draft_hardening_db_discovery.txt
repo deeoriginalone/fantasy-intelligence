@@ -1,0 +1,258 @@
+FANTASY INTELLIGENCE DRAFT-HARDENING DATABASE DISCOVERY
+READ ONLY: no database objects or rows were modified.
+
+===== SERVER =====
+fantasy_intelligence | fantasy | PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+
+===== TABLE: application_state =====
+row_count=1
+-- columns --
+state_key | character varying | NO | 
+state_value | jsonb | NO | 
+updated_at | timestamp without time zone | YES | now()
+-- constraints --
+application_state_pkey | p | PRIMARY KEY (state_key)
+-- indexes --
+application_state_pkey | CREATE UNIQUE INDEX application_state_pkey ON public.application_state USING btree (state_key)
+
+===== TABLE: draft_board =====
+row_count=11
+-- columns --
+id | integer | NO | nextval('draft_board_id_seq'::regclass)
+player_name | text | YES | 
+drafted | boolean | YES | false
+starred | boolean | YES | false
+-- constraints --
+draft_board_pkey | p | PRIMARY KEY (id)
+draft_board_player_name_key | u | UNIQUE (player_name)
+-- indexes --
+draft_board_pkey | CREATE UNIQUE INDEX draft_board_pkey ON public.draft_board USING btree (id)
+draft_board_player_name_key | CREATE UNIQUE INDEX draft_board_player_name_key ON public.draft_board USING btree (player_name)
+
+===== TABLE: draft_decision_outcomes =====
+row_count=2
+-- columns --
+id | bigint | NO | nextval('draft_decision_outcomes_id_seq'::regclass)
+league_id | character varying | NO | 
+draft_id | character varying | NO | 
+decision_pick | integer | NO | 
+next_pick | integer | NO | 
+player_name | text | NO | 
+player_id | character varying | YES | 
+position | character varying | YES | 
+decision | character varying | YES | 
+confidence | numeric | YES | 
+reconciled_pct | numeric | YES | 
+monte_carlo_pct | numeric | YES | 
+opponent_pct | numeric | YES | 
+survival_pct | numeric | YES | 
+expected_value_loss | numeric | YES | 
+actual_available | boolean | YES | 
+resolved_at | timestamp with time zone | YES | 
+created_at | timestamp with time zone | NO | now()
+updated_at | timestamp with time zone | NO | now()
+outcome_status | character varying | NO | 'PENDING'::character varying
+model_version | character varying | YES | 'v1.7'::character varying
+source_freshness | jsonb | YES | 
+-- constraints --
+draft_decision_outcomes_draft_id_decision_pick_player_name_key | u | UNIQUE (draft_id, decision_pick, player_name)
+draft_decision_outcomes_pkey | p | PRIMARY KEY (id)
+-- indexes --
+draft_decision_outcomes_draft_id_decision_pick_player_name_key | CREATE UNIQUE INDEX draft_decision_outcomes_draft_id_decision_pick_player_name_key ON public.draft_decision_outcomes USING btree (draft_id, decision_pick, player_name)
+draft_decision_outcomes_pkey | CREATE UNIQUE INDEX draft_decision_outcomes_pkey ON public.draft_decision_outcomes USING btree (id)
+idx_draft_outcome_status | CREATE INDEX idx_draft_outcome_status ON public.draft_decision_outcomes USING btree (draft_id, outcome_status, next_pick)
+idx_draft_outcomes_pending | CREATE INDEX idx_draft_outcomes_pending ON public.draft_decision_outcomes USING btree (draft_id, next_pick) WHERE (actual_available IS NULL)
+idx_draft_outcomes_recent | CREATE INDEX idx_draft_outcomes_recent ON public.draft_decision_outcomes USING btree (created_at DESC)
+
+===== TABLE: league_info =====
+row_count=1
+-- columns --
+id | integer | NO | nextval('league_info_id_seq'::regclass)
+league_name | text | YES | 
+team_name | text | YES | 
+teams | integer | YES | 
+scoring_type | text | YES | 
+draft_type | text | YES | 
+team_count | integer | YES | 12
+-- constraints --
+league_info_pkey | p | PRIMARY KEY (id)
+-- indexes --
+league_info_pkey | CREATE UNIQUE INDEX league_info_pkey ON public.league_info USING btree (id)
+
+===== TABLE: league_rosters =====
+row_count=0
+-- columns --
+id | integer | NO | nextval('league_rosters_id_seq'::regclass)
+team_name | text | NO | 
+player_name | text | NO | 
+position | text | YES | 
+drafted_at | timestamp without time zone | YES | now()
+-- constraints --
+league_rosters_pkey | p | PRIMARY KEY (id)
+-- indexes --
+league_rosters_pkey | CREATE UNIQUE INDEX league_rosters_pkey ON public.league_rosters USING btree (id)
+league_rosters_player_name_unique | CREATE UNIQUE INDEX league_rosters_player_name_unique ON public.league_rosters USING btree (player_name)
+
+===== TABLE: league_teams =====
+row_count=10
+-- columns --
+id | integer | NO | nextval('league_teams_id_seq'::regclass)
+team_name | text | NO | 
+-- constraints --
+league_teams_pkey | p | PRIMARY KEY (id)
+league_teams_team_name_key | u | UNIQUE (team_name)
+-- indexes --
+league_teams_pkey | CREATE UNIQUE INDEX league_teams_pkey ON public.league_teams USING btree (id)
+league_teams_team_name_key | CREATE UNIQUE INDEX league_teams_team_name_key ON public.league_teams USING btree (team_name)
+
+===== TABLE: my_roster =====
+row_count=0
+-- columns --
+id | integer | NO | nextval('my_roster_id_seq'::regclass)
+player_name | text | YES | 
+position | text | YES | 
+slot | text | YES | 
+drafted_at | timestamp without time zone | YES | now()
+-- constraints --
+my_roster_pkey | p | PRIMARY KEY (id)
+-- indexes --
+my_roster_pkey | CREATE UNIQUE INDEX my_roster_pkey ON public.my_roster USING btree (id)
+
+===== TABLE: players =====
+row_count=521
+-- columns --
+id | integer | NO | nextval('players_id_seq'::regclass)
+player_name | text | YES | 
+position | text | YES | 
+nfl_team | text | YES | 
+projected_points | double precision | YES | 
+ranking | integer | YES | 
+tier | integer | YES | 
+injury_status | text | YES | 
+adp | double precision | YES | 
+bye_week | integer | YES | 
+age | integer | YES | 
+notes | text | YES | 
+-- constraints --
+players_pkey | p | PRIMARY KEY (id)
+-- indexes --
+players_pkey | CREATE UNIQUE INDEX players_pkey ON public.players USING btree (id)
+
+===== TABLE: sleeper_api_snapshots =====
+row_count=14
+-- columns --
+id | bigint | NO | nextval('sleeper_api_snapshots_id_seq'::regclass)
+resource_type | character varying | NO | 
+resource_key | character varying | NO | 
+season | integer | YES | 
+week | integer | YES | 
+payload | jsonb | NO | 
+fetched_at | timestamp with time zone | NO | now()
+-- constraints --
+sleeper_api_snapshots_pkey | p | PRIMARY KEY (id)
+sleeper_api_snapshots_resource_type_resource_key_season_wee_key | u | UNIQUE (resource_type, resource_key, season, week)
+-- indexes --
+idx_sleeper_api_snapshots_lookup | CREATE INDEX idx_sleeper_api_snapshots_lookup ON public.sleeper_api_snapshots USING btree (resource_type, resource_key, season, week, fetched_at DESC)
+idx_sleeper_snapshots_lookup | CREATE INDEX idx_sleeper_snapshots_lookup ON public.sleeper_api_snapshots USING btree (resource_type, resource_key, season, week, fetched_at DESC)
+sleeper_api_snapshots_pkey | CREATE UNIQUE INDEX sleeper_api_snapshots_pkey ON public.sleeper_api_snapshots USING btree (id)
+sleeper_api_snapshots_resource_type_resource_key_season_wee_key | CREATE UNIQUE INDEX sleeper_api_snapshots_resource_type_resource_key_season_wee_key ON public.sleeper_api_snapshots USING btree (resource_type, resource_key, season, week)
+
+===== TABLE: sleeper_draft_picks =====
+row_count=0
+-- columns --
+id | integer | NO | nextval('sleeper_draft_picks_id_seq'::regclass)
+pick_id | character varying | YES | 
+draft_id | character varying | YES | 
+round_num | integer | YES | 
+pick_no | integer | YES | 
+roster_id | integer | YES | 
+player_id | character varying | YES | 
+player_name | character varying | YES | 
+synced_at | timestamp without time zone | YES | now()
+-- constraints --
+sleeper_draft_picks_pick_id_key | u | UNIQUE (pick_id)
+sleeper_draft_picks_pkey | p | PRIMARY KEY (id)
+-- indexes --
+sleeper_draft_pick_number_uidx | CREATE UNIQUE INDEX sleeper_draft_pick_number_uidx ON public.sleeper_draft_picks USING btree (draft_id, pick_no)
+sleeper_draft_picks_pick_id_key | CREATE UNIQUE INDEX sleeper_draft_picks_pick_id_key ON public.sleeper_draft_picks USING btree (pick_id)
+sleeper_draft_picks_pkey | CREATE UNIQUE INDEX sleeper_draft_picks_pkey ON public.sleeper_draft_picks USING btree (id)
+
+===== TABLE: sleeper_drafts =====
+row_count=1
+-- columns --
+draft_id | character varying | NO | 
+league_id | character varying | YES | 
+season | character varying | YES | 
+draft_type | character varying | YES | 
+rounds | integer | YES | 
+teams | integer | YES | 
+status | character varying | YES | 
+-- constraints --
+sleeper_drafts_pkey | p | PRIMARY KEY (draft_id)
+-- indexes --
+sleeper_drafts_pkey | CREATE UNIQUE INDEX sleeper_drafts_pkey ON public.sleeper_drafts USING btree (draft_id)
+
+===== TABLE: sleeper_player_map =====
+row_count=12225
+-- columns --
+sleeper_player_id | character varying | NO | 
+sleeper_name | character varying | YES | 
+normalized_name | character varying | YES | 
+position | character varying | YES | 
+nfl_team | character varying | YES | 
+local_player_name | character varying | YES | 
+matched | boolean | YES | false
+synced_at | timestamp without time zone | YES | now()
+-- constraints --
+sleeper_player_map_pkey | p | PRIMARY KEY (sleeper_player_id)
+-- indexes --
+sleeper_player_map_pkey | CREATE UNIQUE INDEX sleeper_player_map_pkey ON public.sleeper_player_map USING btree (sleeper_player_id)
+
+===== TABLE: sleeper_sync_runs =====
+row_count=3
+-- columns --
+id | bigint | NO | nextval('sleeper_sync_runs_id_seq'::regclass)
+league_id | character varying | YES | 
+season | integer | YES | 
+week | integer | YES | 
+status | character varying | NO | 
+resources | jsonb | NO | '{}'::jsonb
+error_message | text | YES | 
+started_at | timestamp with time zone | NO | now()
+completed_at | timestamp with time zone | YES | 
+-- constraints --
+sleeper_sync_runs_pkey | p | PRIMARY KEY (id)
+-- indexes --
+idx_sleeper_sync_runs_recent | CREATE INDEX idx_sleeper_sync_runs_recent ON public.sleeper_sync_runs USING btree (started_at DESC)
+sleeper_sync_runs_pkey | CREATE UNIQUE INDEX sleeper_sync_runs_pkey ON public.sleeper_sync_runs USING btree (id)
+
+===== DUPLICATE DIAGNOSTICS =====
+-- sleeper_draft_picks draft_id,pick_no --
+<none>
+-- sleeper_draft_picks draft_id,player_id --
+<none>
+-- league_rosters player_name --
+<none>
+-- my_roster player_name --
+<none>
+
+===== SAMPLE STATE, IDS ONLY =====
+-- sleeper_drafts --
+1398094331272794112 | 1398094330668797952 | 2026 | pre_draft
+-- application_state --
+active_sandbox
+-- snapshots --
+draft_traded_picks | 1398094331272794112 | 2026 | 0 | 2026-08-30 03:16:27.046079+00:00
+league | 1398094330668797952 | 2026 | 0 | 2026-08-30 03:16:27.046079+00:00
+users | 1398094330668797952 | 2026 | 0 | 2026-08-30 03:16:27.046079+00:00
+rosters | 1398094330668797952 | 2026 | 0 | 2026-08-30 03:16:27.046079+00:00
+drafts | 1398094330668797952 | 2026 | 0 | 2026-08-30 03:16:27.046079+00:00
+matchups | 1398094330668797952 | 2026 | 1 | 2026-08-30 03:16:27.046079+00:00
+transactions | 1398094330668797952 | 2026 | 1 | 2026-08-30 03:16:27.046079+00:00
+traded_picks | 1398094330668797952 | 2026 | 0 | 2026-08-30 03:16:27.046079+00:00
+nfl_state | 1398094330668797952 | 2026 | 0 | 2026-08-30 03:16:27.046079+00:00
+trending_add | 1398094330668797952 | 2026 | 0 | 2026-08-30 03:16:27.046079+00:00
+trending_drop | 1398094330668797952 | 2026 | 0 | 2026-08-30 03:16:27.046079+00:00
+draft | 1398094331272794112 | 2026 | 0 | 2026-08-30 03:16:27.046079+00:00
+draft_picks | 1398094331272794112 | 2026 | 0 | 2026-08-30 03:16:27.046079+00:00
+players | 1398094330668797952 | 2026 | 0 | 2026-08-30 02:38:14.857231+00:00

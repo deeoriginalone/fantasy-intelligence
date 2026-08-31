@@ -19,6 +19,7 @@
   {% endwith %}
 
   <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="season" value="{{ season }}">
     <input type="hidden" name="week" value="{{ week }}">
     <div class="fi-inputs__table-wrap">
@@ -41,7 +42,7 @@
         </tbody>
       </table>
     </div>
-    <div class="fi-inputs__actions"><button type="submit">Save week and generate picks</button><a href="{{ url_for('pickem.pickem_page', season=season, week=week) }}">Back to Pick'em Center</a></div>
+    <div class="fi-inputs__actions"><button type="submit">Save week and generate picks</button><a href="{{ url_for('market_intelligence.home', season=season, week=week) }}">Back to Pick'em Center</a></div>
   </form>
 </section>
 {% endblock %}

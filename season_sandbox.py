@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from flask import Blueprint, current_app, redirect, render_template, request, session, url_for
 
+from auth import admin_required
+
 
 def create_sandbox_blueprint(get_db_connection):
     bp = Blueprint("season_sandbox", __name__)
@@ -246,6 +248,7 @@ def create_sandbox_blueprint(get_db_connection):
         )
 
     @bp.route("/sandbox/activate/<int:draft_id>", methods=["POST"])
+    @admin_required
     def activate_sandbox(draft_id):
         conn = get_db_connection()
         cur = conn.cursor()
@@ -272,6 +275,7 @@ def create_sandbox_blueprint(get_db_connection):
         return redirect(url_for("season_sandbox.sandbox_home"))
 
     @bp.route("/sandbox/live", methods=["POST"])
+    @admin_required
     def exit_sandbox():
         conn = get_db_connection()
         cur = conn.cursor()

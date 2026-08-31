@@ -1,118 +1,161 @@
-# Mock Draft Lab v1
+# Fantasy Intelligence
 
-Drop-in starter module for the Fantasy Intelligence Flask application.
+A Flask-based fantasy football intelligence platform focused on draft intelligence, live draft-state validation, draft outcome tracking, pick'em intelligence, market ingestion, and operational readiness checks.
 
-## Assumptions
-- PostgreSQL database: `fantasy_intelligence`
-- Existing `players` table includes: id, player_name, position, nfl_team, projected_points, ranking, tier, adp
-- League defaults: 12 teams, snake draft, half PPR
-- Default roster: QB, 2 RB, 2 WR, TE, FLEX, K, DST, 6 bench (15 rounds)
-- User-controlled team defaults to draft slot 1 and Balanced strategy
+## Current repository status
 
-## Install
+This branch is currently on `feature/draft-outcome-tracking` and the working tree includes both tracked edits and untracked batch artifacts. The current runtime is code-valid and test-valid, but it is not yet a proven live database-backed release state.
+
+## Verified evidence
+
+The latest repo-level verification in this workspace is:
+
 ```bash
-pip install -r requirements.txt
-psql fantasy_intelligence < migrations/001_mock_draft_lab.sql
+cd /home/deeoriginalone/fantasy-intelligence
+source venv/bin/activate
+python -m pytest -q
 ```
 
-Copy `mocklab/` into the Flask project. Register the blueprint:
-```python
-from mocklab.routes import mocklab_bp
-app.register_blueprint(mocklab_bp)
-```
+Result from the current repo state:
+- 102 passed
+- 2 xfailed
+- 0 failed
 
-Set environment variable if needed:
+The Postgres service was not available during live validation, so database schema and object verification remain blocked until the database is running.
+
+## First-year league note
+
+This is a first-year fantasy league. Historical owner behavior should not be fabricated or assumed. Historical tables and behavior-modeling structures may exist as forward-compatible infrastructure, but they should be treated as empty or low-signal unless real league data exists.
+
+## Current scope
+
+The active runtime includes:
+- draft intelligence and recommendation logic
+- draft-state management and hardening
+- draft outcome tracking and calibration
+- readiness and reconciliation checks
+- pick'em and market intelligence
+- survivor logic and source-gap handling
+- weekly ingestion and reporting helpers
+
+The active runtime does not claim:
+- Post-Draft Ready
+- Week 1 Ready
+- Production Ready
+unless live data, database validation, and source-freshness checks prove that status.
+
+## Batch A review
+
+Batch A is present in the code and validated to some extent in tests.
+
+Verified implementation:
+- draft session identity validation
+- sync audit and quarantine logic
+- draft mutation tracking
+- readiness and publication gating
+- hardening-oriented operational checks
+
+Limitations:
+- live database validation is blocked by missing Postgres service
+- this is operationally useful but not yet live-certified
+
+## Batch B review
+
+Batch B is implemented and validated in code/tests.
+
+Verified implementation:
+- outcome health snapshots
+- resolution tracking for draft decisions
+- calibration metrics and bounded weight logic
+- route-level outcome health reporting
+
+Limitations:
+- it remains source-dependent and should not be described as production-calibrated without real historical outcomes
+
+## Batch C review
+
+Batch C is implemented and validated in code/tests.
+
+Verified implementation:
+- post-draft state evaluation
+- transition checks for complete draft status and count invariants
+- idempotent season activation logic
+- finalization materialization for drafted and available players
+- route wiring for readiness and finalize endpoints
+
+Limitations:
+- live DB state and schema validation remain unproven in this environment
+
+## Current development direction
+
+The next recommended direction is Batch D: Recommendation Publishing.
+
+This is the logical next step because:
+- Batch A/B/C established validation, outcome health, and transition readiness
+- recommendation publication is the most immediate operational gate still left to prove
+- the code already contains readiness and publication checks, but they have not been fully proven in a live environment
+
+## Required environment variables
+
+The runtime expects environment values without committing secrets:
+- FLASK_SECRET_KEY
+- DB_HOST
+- DB_PORT
+- DB_NAME
+- DB_USER
+- DB_PASSWORD
+- ADMIN_TOKEN
+- SLEEPER_LEAGUE_ID
+- SLEEPER_DRAFT_ID
+
+See [config.py](config.py) for the active contract.
+
+## Database guidance
+
+The project expects a PostgreSQL database matching the active DB contract. No canonical live migration file has been verified as the single source of truth for the full schema in the active runtime state.
+
+This should be treated as a live environment dependency, not as a guaranteed local state.
+
+## Quick-start
+
+Representative local run pattern:
+
 ```bash
-export DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost/fantasy_intelligence
+cd /home/deeoriginalone/fantasy-intelligence
+source venv/bin/activate
+python app.py
 ```
 
-Open: `http://192.168.0.85:5050/mocklab`
+Use only after the required environment variables are present and Postgres is running.
 
-## Smoke test
+## Test command
+
 ```bash
-python -m mocklab.simulator --runs 10 --slot 1 --strategy balanced
+cd /home/deeoriginalone/fantasy-intelligence
+source venv/bin/activate
+python -m pytest -q
 ```
 
-## Important
-The simulator reads team count dynamically from `league_info.team_count`, falling back to 12. If the league returns to 10 teams, update that one field. It does not hard-code 12-team logic.
+## Known limitations
 
-## Mock Draft Lab v1.5
+- PostgreSQL connectivity is currently unavailable in this workspace validation session.
+- Live weekly recommendations remain gated by source freshness and real provider connectivity.
+- Survivor intelligence remains blocked by missing ownership, QB-status, and weather/injury inputs.
+- Batch ZIPs and backup directories are operational artifacts and should not be mistaken for active runtime sources.
 
-### Added
+## Data safety warning
 
-- ESPN 2026 Full PPR Rankings
-- FantasyPros Consensus ADP
-- ESPN Injury Integration
-- VBD (Value Based Draft)
-- Top 200 Draft Board
-- Top 150 Draft Board
-- Sleepers Report
-- Injury Value Report
+- never commit .env files or secrets
+- never present partial or synthetic recommendations as authoritative live outputs
+- treat batch outputs and backups as traceability artifacts, not as the canonical application source
 
-### Recommended Strategy
+## Documentation links
 
-WR Heavy
+- [PROJECT_STATUS.md](PROJECT_STATUS.md)
+- [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md)
+- [SEASON_READINESS.md](SEASON_READINESS.md)
+- [PROJECT_STATE.md](PROJECT_STATE.md)
 
-### Latest Validation
+## Recommended next milestone
 
-WR Heavy 75.27
-Balanced 75.23
-Zero RB 75.21
-QB Early 75.21
-Hero RB 75.12
-
-Fantasy Intelligence Platform
-
-Version 2.0
-
-PostgreSQL-backed NFL decision platform.
-
-CORE SYSTEMS
-
-✅ Draft HQ
-✅ Draft Readiness
-✅ Draft Accuracy
-✅ Sleeper Intelligence
-✅ Weekly Intelligence
-✅ Market Intelligence
-✅ Survivor Intelligence
-
-MARKET INTELLIGENCE
-
-Produces:
-- Lock of Week
-- Confidence Rankings
-- Expected Correct Picks
-- Strong Picks
-- Coin Flip Warnings
-
-SURVIVOR INTELLIGENCE
-
-Produces:
-- Primary Survivor Pick
-- Fallback Recommendations
-- Future Value Analysis
-- Used Team Tracking
-- Survivor History
-
-DATA SOURCES
-
-PostgreSQL
-- nfl_schedule
-- nfl_teams
-- bye_weeks
-- injury_reports
-- application_state
-
-External
-- NFL Market Odds Feed
-
-ARCHITECTURE
-
-NFL Schedule
-      ↓
-Market Intelligence
-      ↓
-Survivor Intelligence
-      ↓
-Weekly Decision Support
+Draft-Day End-to-End Validation remains the highest-priority milestone before broader operational work. After that, the highest-value next direction is recommendation publishing under explicit readiness and freshness gates.

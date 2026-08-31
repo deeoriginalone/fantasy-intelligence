@@ -5,16 +5,12 @@ from pathlib import Path
 import psycopg2
 from psycopg2.extras import RealDictCursor, Json
 
+from config import Config
+
 MIGRATION = Path(__file__).with_name('migrations') / '004_yahoo_pickem_postgres.sql'
 
 def connect():
-    return psycopg2.connect(
-        host=os.getenv('FI_DB_HOST','localhost'),
-        port=int(os.getenv('FI_DB_PORT','5433')),
-        database=os.getenv('FI_DB_NAME','fantasy_intelligence'),
-        user=os.getenv('FI_DB_USER','fantasy'),
-        password=os.getenv('FI_DB_PASSWORD','fantasy'),
-    )
+    return psycopg2.connect(**Config.db_kwargs())
 
 def migrate():
     conn=connect()

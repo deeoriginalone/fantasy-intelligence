@@ -4,5 +4,5 @@
   <p>Lock confidence {{ '%.1f%%'|format(pickem_summary.lock.pick_probability * 100) }}</p>
   <p>Expected correct {{ '%.1f'|format(pickem_summary.expected_correct) }}</p>
   {% else %}<p>Load weekly Yahoo and market inputs.</p>{% endif %}
-  <a href="{{ url_for('pickem.pickem_page') }}">Open Pick'em Center</a>
+  <a href="{{ url_for('market_intelligence.home') }}">Open Pick'em Center</a>
 </section>
