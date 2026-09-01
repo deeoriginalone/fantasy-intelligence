@@ -1,3 +1,4 @@
+from services.draft_recommendation_service import rank_candidates as rank_draft_candidates
 from survival_calibration import build_comparison as build_survival_comparison, create_blueprint as survival_calibration_blueprint, persist as persist_survival_comparison
 from monte_carlo_survival import blueprint as monte_carlo_survival_blueprint, enhance as enhance_monte_carlo_survival, persist as persist_monte_carlo_survival
 from recommendation_explainer import build_explanation, blueprint as recommendation_blueprint, persist as persist_explanation
@@ -54,6 +55,7 @@ from services.import_rankings import import_rankings
 from market_routes import market_bp
 from survivor_routes import survivor_bp
 from intelligence_operations_routes import create_intelligence_operations_blueprint
+from draft_events.runtime import process_runtime_picks
 
 
 app = Flask(__name__)
@@ -1387,6 +1389,15 @@ def sync_sleeper_draft_picks():
     picks = get_draft_picks(SLEEPER_DRAFT_ID) or []
     users = get_users(SLEEPER_LEAGUE_ID) or []
     rosters = get_rosters(SLEEPER_LEAGUE_ID) or []
+
+    # F3-A.2 runtime audit persistence. Existing roster/board sync remains authoritative.
+    f3a2_event_pipeline = process_runtime_picks(
+        get_db_connection,
+        picks,
+        SLEEPER_LEAGUE_ID,
+        SLEEPER_DRAFT_ID,
+        rosters,
+    )
 
     users_by_id = {str(user.get("user_id")): user for user in users}
     team_by_roster_id = {}
@@ -3209,7 +3220,7 @@ def mock_pool(cur, draft_id):
     cur.execute(
         """
         SELECT ranking, player_name, UPPER(position), nfl_team,
-               projected_points, tier, adp
+               projected_points, tier, adp, id
         FROM players p
         WHERE UPPER(position) IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')
           AND NOT EXISTS (
@@ -3277,13 +3288,8 @@ def mock_recommendations(cur, draft, limit=8):
     pool = mock_pool(cur, draft_id)
     counts = mock_counts(cur, draft_id, user_slot)
     round_num = (current_pick // teams) + 1
-    eligible = mock_eligible_pool(pool, counts, round_num, rounds)
-    rows = []
-    for player in eligible:
-        score = mock_score(player, pool, counts, strategy, round_num)
-        rows.append({"player": player, "score": score})
-    rows.sort(key=lambda item: (-item["score"]["total"], item["player"][0] or 9999))
-    return rows[:limit]
+    ranked = rank_draft_candidates(pool, counts, strategy, round_num, rounds, MOCK_ROSTER_TARGETS, get_player_tier, get_strategy_bonus, limit)
+    return [item.as_legacy() for item in ranked]
 
 
 def insert_mock_pick(cur,draft_id,pick_no,slot,player,score,source):

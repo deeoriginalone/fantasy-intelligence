@@ -53,3 +53,37 @@ batch_*_install_report.json
 batch_*_schema.sql
 batch_*_verified_input.txt
 EOF
+
+# backups
+*.before_*
+
+# reports
+*_report.json
+database_validation_report.md
+
+# review artifacts
+current_modules.txt
+current_tests.txt
+
+# packaged batches
+Batch_*.zip
+
+# archives
+archive/
+
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# backups
+*.bak
+*.before_*
+*.before-*
+
+# reports
+*_report.json
+
+# packaged deliveries
+*.zip
+``

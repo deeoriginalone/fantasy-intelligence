@@ -1,0 +1,19 @@
+{
+  "mode": "sandbox",
+  "recommendation": {
+    "target": "examples.synthetic_adapter:recommend",
+    "read_only": true,
+    "synthetic": true
+  },
+  "freshness": {
+    "players": {
+      "required": true,
+      "max_age_hours": 168
+    },
+    "projections": {
+      "required": true,
+      "max_age_hours": 168
+    }
+  },
+  "strategy": "balanced"
+}

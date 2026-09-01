@@ -1,0 +1,5 @@
+./test_import.py:projections = pd.read_csv("data/master_player_projections.csv")
+./test_import.py:injuries = pd.read_csv("data/injury_risk_report.csv")
+./test_import.py:draft_board = pd.read_csv("data/draft_board.csv")
+./imports/import_draft_intelligence.py:proj = pd.read_csv("data/master_player_projections.csv")
+./imports/import_draft_intelligence.py:vbd = pd.read_csv("data/top150_vbd.csv")

@@ -122,3 +122,386 @@ The immediate direction should be:
 4. Batch D Recommendation Publishing
 
 This is the evidence-based next phase. It is intentionally narrower than post-draft readiness, week-one operations, or broader automation work until the trust layer is proven.
+
+
+# Phase F - Draft Day and Season Automation Sandbox
+
+## Objective
+
+Create a fully automated testing environment capable of simulating:
+
+- Draft Day operations
+- Live draft recommendations
+- Post-draft roster management
+- Weekly waiver workflows
+- Start/Sit optimization
+- Survivor workflows
+- Pick'em workflows
+- End-of-season analysis
+
+before live deployment.
+
+This phase builds upon the existing Draft Intelligence, Recommendation Engine, Intelligence Operations, Ingestion Pipeline, Survivor Intelligence, and Pick'em Intelligence systems already implemented in the platform. 【1-853541】
+
+---
+
+# Phase F1 - Draft Day Sandbox
+
+## Goal
+
+Allow complete draft simulations without requiring a live league.
+
+## Components
+
+### Mock Draft Engine
+
+Create:
+
+```text
+simulator/
+├── mock_draft.py
+├── draft_simulator.py
+```
+
+### Responsibilities
+
+- Generate draft picks
+- Simulate opponents
+- Simulate multiple draft strategies
+- Feed picks into the draft board
+- Trigger recommendation updates
+
+---
+
+### Live Recommendation Testing
+
+Draft flow:
+
+```text
+Mock Pick
+      ↓
+Board Update
+      ↓
+Roster Update
+      ↓
+Positional Scarcity Recalculation
+      ↓
+Draft Outcome Tracking
+      ↓
+Recommendation Engine
+      ↓
+UI Dashboard Refresh
+```
+
+### Validate
+
+- Draft board accuracy
+- Recommendation quality
+- Scarcity model behavior
+- Draft outcome tracking
+
+---
+
+### Draft Strategy Testing
+
+Simulate:
+
+- Hero RB
+- Zero RB
+- RB Heavy
+- WR Heavy
+- Elite QB
+- Balanced
+
+### Track
+
+- Roster Strength
+- Projected Points
+- Draft Grade
+- Recommendation Accuracy
+
+---
+
+# Phase F2 - Automation Scheduler
+
+Create:
+
+```text
+scheduler/
+├── draft_day.py
+├── daily.py
+├── weekly.py
+├── seasonal.py
+```
+
+## Purpose
+
+Automate all intelligence workflows.
+
+---
+
+# Phase F3 - Weekly Intelligence Automation
+
+## Daily Workflow
+
+```text
+Refresh Injuries
+Refresh Market Data
+Refresh Weather
+Refresh Projections
+Run Intelligence Pipeline
+Update Dashboard
+Generate Reports
+```
+
+### Validate
+
+- Scheduler reliability
+- Freshness logic
+- Readiness gating
+- Report generation
+
+---
+
+# Phase F4 - Pick'em Automation Sandbox
+
+## Validate Existing Workflow
+
+The documented Pick'em workflow currently follows:
+
+```text
+Schedule
+     ↓
+Crowd Data
+     ↓
+Odds
+     ↓
+No-Vig Probabilities
+     ↓
+Game Model
+     ↓
+Signal Classification
+     ↓
+Confidence Ranking
+     ↓
+Weekly Report
+```
+
+This follows the overall refresh and recommendation pipeline already defined in the project architecture. 【1-853541】
+
+### Test
+
+- Lock identification
+- Best upset detection
+- Public traps
+- Contrarian picks
+- Confidence assignments
+- Weekly intelligence report generation
+
+---
+
+# Phase F5 - Survivor Automation Sandbox
+
+## Simulate
+
+```text
+Week 1
+Week 2
+Week 3
+...
+Week 18
+```
+
+### Validate
+
+- Survivor scoring
+- Future value preservation
+- Ownership leverage
+- Recommendation quality
+- Fallback recommendation generation
+
+---
+
+# Phase F6 - Full Season Simulation
+
+## Create
+
+```text
+simulator/
+└── season_simulator.py
+```
+
+## Run Complete League Lifecycle
+
+```text
+Draft
+   ↓
+Week 1
+   ↓
+Waivers
+   ↓
+Week 2
+   ↓
+Trades
+   ↓
+Week 3
+...
+Week 18
+```
+
+### Track
+
+- Wins
+- Losses
+- Playoff Odds
+- Recommendation Accuracy
+- Waiver Success Rate
+- Trade Success Rate
+- Draft ROI
+
+---
+
+# Draft Day Automation Roadmap
+
+## Future Live Draft Watcher
+
+Create:
+
+```text
+scheduler/
+└── live_draft_watcher.py
+```
+
+### Live Workflow
+
+```text
+Sleeper Draft Event
+        ↓
+Draft Pick Detected
+        ↓
+Draft Board Updated
+        ↓
+Roster Updated
+        ↓
+Scarcity Recalculated
+        ↓
+Recommendation Rebuilt
+        ↓
+Dashboard Refreshed
+```
+
+### Goal
+
+Near real-time draft assistance with minimal manual refreshes.
+
+---
+
+# Season Automation Roadmap
+
+## Nightly Intelligence Pipeline
+
+Create:
+
+```text
+scheduler/
+└── nightly_intelligence.py
+```
+
+### Pipeline
+
+```text
+Refresh Players
+      ↓
+Refresh Injuries
+      ↓
+Refresh Market Data
+      ↓
+Refresh Weather Data
+      ↓
+Update Projections
+      ↓
+Run Intelligence Engine
+      ↓
+Generate Reports
+      ↓
+Update Dashboard
+```
+
+---
+
+# Success Criteria
+
+Sandbox environment can successfully execute:
+
+## Draft Day
+
+- ✅ Complete 15-round mock draft
+- ✅ Update recommendations in real time
+- ✅ Track draft outcomes
+- ✅ Validate scarcity logic
+- ✅ Generate draft grades
+- ✅ Compare draft strategies
+
+---
+
+## Weekly Operations
+
+- ✅ Generate waiver recommendations
+- ✅ Generate start/sit recommendations
+- ✅ Generate Pick'em recommendations
+- ✅ Generate survivor recommendations
+- ✅ Generate intelligence reports
+- ✅ Validate readiness gates
+
+---
+
+## Season Simulation
+
+- ✅ Complete full season replay
+- ✅ Evaluate recommendation accuracy
+- ✅ Measure draft strategy performance
+- ✅ Produce end-of-season report
+- ✅ Measure waiver performance
+- ✅ Measure survivor performance
+- ✅ Measure Pick'em performance
+
+---
+
+# Future Vision
+
+## Personal Fantasy Operations Center
+
+Long-term target:
+
+```text
+Draft Starts
+      ↓
+Draft Watcher
+      ↓
+Recommendation Engine
+      ↓
+Roster Intelligence
+      ↓
+Waiver Intelligence
+      ↓
+Pick'em Intelligence
+      ↓
+Survivor Intelligence
+      ↓
+Weekly Reports
+      ↓
+Season Analysis
+```
+
+with minimal manual intervention while preserving the recommendation, reporting, validation, explainability, intelligence, and refresh workflows already defined throughout the platform. 【1-853541】
+
+---
+
+# Immediate Next Steps
+
+## Phase F1 MVP
+
+Priority implementation order:
+
+1. Create `simulator/mock_draft.py`
+2. Create 
