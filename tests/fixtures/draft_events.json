@@ -1,0 +1,19 @@
+[
+  {
+    "event_id": "fixture-event-1",
+    "league_id": "fixture-league",
+    "draft_id": "fixture-draft",
+    "pick_number": 1,
+    "round": 1,
+    "round_pick": 1,
+    "roster_id": "fixture-roster",
+    "owner_id": "fixture-owner",
+    "player_id": "fixture-player",
+    "event_type": "selection",
+    "occurred_at": "2026-08-31T18:00:00+00:00",
+    "source": "fixture",
+    "raw_payload": {
+      "fixture": true
+    }
+  }
+]
