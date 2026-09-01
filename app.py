@@ -55,6 +55,7 @@ from services.import_rankings import import_rankings
 from market_routes import market_bp
 from survivor_routes import survivor_bp
 from intelligence_operations_routes import create_intelligence_operations_blueprint
+from draft_events.runtime import process_runtime_picks
 
 
 app = Flask(__name__)
@@ -1388,6 +1389,15 @@ def sync_sleeper_draft_picks():
     picks = get_draft_picks(SLEEPER_DRAFT_ID) or []
     users = get_users(SLEEPER_LEAGUE_ID) or []
     rosters = get_rosters(SLEEPER_LEAGUE_ID) or []
+
+    # F3-A.2 runtime audit persistence. Existing roster/board sync remains authoritative.
+    f3a2_event_pipeline = process_runtime_picks(
+        get_db_connection,
+        picks,
+        SLEEPER_LEAGUE_ID,
+        SLEEPER_DRAFT_ID,
+        rosters,
+    )
 
     users_by_id = {str(user.get("user_id")): user for user in users}
     team_by_roster_id = {}
