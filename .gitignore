@@ -70,3 +70,20 @@ Batch_*.zip
 
 # archives
 archive/
+
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# backups
+*.bak
+*.before_*
+*.before-*
+
+# reports
+*_report.json
+
+# packaged deliveries
+*.zip
+``
