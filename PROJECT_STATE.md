@@ -1,526 +1,64 @@
-# Fantasy Intelligence Dashboard - Project State
+# Project State
 
-## Project Overview
+## Checkpoint
 
-Building a fully autonomous fantasy football management platform.
+- Date: 2026-09-03
+- Branch: feature/draft-outcome-tracking
+- HEAD: 7ff86c633b8a2f5c5c7b5b34667344d2fa14440b
+- Scope reviewed: code, tests, docs, audit output, and repository state for the F3-A through F3-D.4 session
 
-League:
-Fantasy Intelligence Champions
+## Current state
 
-Team:
-DiE-HaRd-9eRs-FaN (Dee)
+The implementation is in a validated, code-level working state for the trust, publication, and waiver layers. The repository has strong local unit and integration evidence, but it is not production-proven because live route validation and PostgreSQL parity were not established in this review.
 
-League Size:
-12 Teams
+## Completed phases
 
-Scoring:
-Half PPR
+- F3-A: draft event pipeline
+- F3-A.1: repository integration
+- F3-A.2: runtime integration
+- F3-B.1: replay validation
+- F3-B.2: reconciliation foundation
+- F3-B.3: live Sleeper reconciliation
+- F3-B.4: centralized readiness gates
+- F3-C.1: publication readiness integration
+- F3-C.2: draft recommendation publication integration
+- F3-D.1: Sleeper waiver intelligence
+- F3-D.2: FAAB intelligence
+- F3-D.3: waiver action plans
+- F3-D.4: waiver action plan integration
 
-Draft Type:
-Snake Draft
+## Validation summary
 
-Draft Date:
-September 8, 2026
+- fast script: 44 passed in 0.11s
+- waiver and F3-D.4 tests: 30 passed in 0.08s
+- dedicated F3-D.4 verifier: 30 passed in 0.08s
+- live route validation: not proven
+- PostgreSQL parity: not proven and explicitly incomplete
 
----
+## Known boundaries
 
-# Infrastructure
+- No claim of PostgreSQL parity is made
+- No claim of a live production route is made
+- No automated waiver submission is implemented
+- No verified remaining-FAAB source is claimed
+- No UI rendering has been proven for waiver action plans
 
-## Server
+## Next milestone
 
-Ubuntu 26.04 LTS
+- F3-D.5 Waiver Action Publication and UI
+- Prerequisites: route contract, readiness gating, authoritative FAAB field, and UI tests
 
-CPU:
-Intel Core i5-3230M
-2 Cores / 4 Threads
+## Technical debt
 
-Memory:
-7.1 GB RAM
+- Readiness source may be stale or missing
+- local_roster_context relies on a generic manager label rather than authoritative ownership data
+- PostgresDraftEventStore still has parity gaps
+- untracked audit and discovery artifacts should remain out of canonical source control scope
 
-IP Address:
-192.168.0.85
+## Repository position
 
----
+This repo reflects implemented and validated local work for the F3 trust, publication, and waiver stack, but it does not yet meet the standards for live-route validation or PostgreSQL parity. The next milestone is F3-D.5, with explicit prerequisites and stop conditions, not a new feature batch.
 
-## Docker Containers
-
-Running:
-
-fantasy-postgres
-fantasy-ollama
-
-### PostgreSQL
-
-Database:
-fantasy_intelligence
-
-### Ollama
-
-Installed Model:
-qwen3:4b
-
-Purpose:
-- Draft Analysis
-- Trade Evaluation
-- Agent Reports
-- Draft Strategy Generation
-
----
-
-# Flask Application
-
-Running:
-http://192.168.0.85:5050
-
----
-
-# Pages
-
-## Dashboard
-
-Route:
-/
-
-Status:
-WORKING
-
-Features:
-- League Information
-- Navigation
-- Database Connectivity
-
----
-
-## Predraft Lab
-
-Route:
-/predraft
-
-Status:
-WORKING
-
-Features:
-- Database Summary
-- Position Counts
-- Top Rankings Table
-- Dynamic PostgreSQL Data
-
-Current Counts:
-QB: 1
-RB: 3
-WR: 5
-TE: 1
-
----
-
-## Imports
-
-Route:
-/imports
-
-Status:
-WORKING
-
-Features:
-- CSV Upload Form
-- File Uploads
-- Database Import Pipeline
-
----
-
-## Agent Center
-
-Route:
-/agents
-
-Status:
-WORKING
-
-Displays:
-- Predraft Agent
-- Draft Agent
-- Scout Agent
-- Waiver Agent
-- Lineup Agent
-- Trade Agent
-- GM Agent
-
----
-
-## Draft Center
-
-Route:
-/draftcenter
-
-Status:
-WORKING
-
-Purpose:
-- Draft Day Command Center
-- Future Draft Agent Dashboard
-
----
-
-## Position Rankings
-
-Routes:
-
-/position/qb
-/position/rb
-/position/wr
-/position/te
-
-Status:
-WORKING
-
-Features:
-- Position-Specific Rankings
-- PostgreSQL Driven
-
----
-
-# Database
-
-## Tables
-
-### league_info
-
-Purpose:
-League Configuration
-
-Contains:
-- League Name
-- Team Name
-- Team Count
-- Scoring Type
-- Draft Type
-
----
-
-### players
-
-Purpose:
-Fantasy Player Repository
-
-Columns:
-- id
-- player_name
-- position
-- nfl_team
-- projected_points
-- ranking
-- tier
-- injury_status
-- adp
-- bye_week
-- age
-- notes
-
----
-
-### draft_plans
-
-Purpose:
-Future Draft Strategy System
-
-Status:
-Created
-Not Yet Used
-
----
-
-# CSV Upload System
-
-Status:
-WORKING
-
-Flow:
-
-CSV
-↓
-Flask Upload Route
-↓
-import_rankings.py
-↓
-PostgreSQL
-↓
-players Table
-
----
-
-# Current Imported Players
-
-1  Ja'Marr Chase
-2  Bijan Robinson
-3  Saquon Barkley
-4  Justin Jefferson
-5  CeeDee Lamb
-6  Josh Allen
-7  A.J. Brown
-8  Puka Nacua
-9  Jahmyr Gibbs
-10 Brock Bowers
-
-Players Loaded:
-10
-
----
-
-# Services
-
-## import_rankings.py
-
-Status:
-WORKING
-
-Purpose:
-Imports CSV rankings into PostgreSQL
-
-Expected CSV Format:
-
-player_name,position,nfl_team,ranking
-
----
-
-# Agents
-
-## Predraft Agent
-
-Status:
-PLANNED
-
-Purpose:
-Draft Preparation
-
-Future Features:
-- Top 300 Rankings
-- Draft Tiers
-- Sleepers
-- Busts
-- Draft Plans
-- Position Scarcity
-
----
-
-## Draft Agent
-
-Status:
-PLANNED
-
-Purpose:
-Live Draft Assistant
-
-Future Features:
-- Best Pick
-- Best Value
-- Draft Recommendations
-- Roster Construction
-- Position Scarcity
-- Tier Break Alerts
-
----
-
-## Scout Agent
-
-Status:
-PLANNED
-
-Purpose:
-Player Monitoring
-
-Future Features:
-- Injuries
-- Snap Counts
-- Breakout Candidates
-- Rookies
-- Depth Charts
-
----
-
-## Waiver Agent
-
-Status:
-PLANNED
-
-Purpose:
-Waiver Analysis
-
-Future Features:
-- Pickups
-- Drops
-- Trending Players
-- Injury Replacements
-
----
-
-## Lineup Agent
-
-Status:
-PLANNED
-
-Purpose:
-Weekly Optimization
-
-Future Features:
-- Start/Sit Decisions
-- Boom Candidates
-- Bust Candidates
-- Projected Scores
-
----
-
-## Trade Agent
-
-Status:
-PLANNED
-
-Purpose:
-Trade Evaluation
-
-Future Features:
-- Fairness Score
-- Buy Low
-- Sell High
-- Team Weakness Analysis
-
----
-
-## GM Agent
-
-Status:
-PLANNED
-
-Purpose:
-Final Decision Engine
-
-Future Features:
-- Draft Decisions
-- Waiver Decisions
-- Trade Decisions
-- Lineup Decisions
-
----
-
-# Current Priorities
-
-Priority 1:
-Import Real Rankings Dataset
-
-Goal:
-300+ Players Loaded
-
-Sources:
-- FantasyPros
-- Yahoo
-- Custom Rankings
-
----
-
-Priority 2:
-Predraft Intelligence Engine
-
-Features:
-- Top 10 QB
-- Top 10 RB
-- Top 10 WR
-- Top 10 TE
-- Draft Tiers
-- Sleepers
-- Busts
-
----
-
-Priority 3:
-Draft Strategy Engine
-
-Strategies:
-- Hero RB
-- Zero RB
-- Balanced
-- Best Player Available
-
----
-
-Priority 4:
-Mock Draft Simulator
-
-Goals:
-- 100 Simulations
-- 500 Simulations
-- 1000 Simulations
-
----
-
-Priority 5:
-Draft Agent Version 1
-
-Features:
-- Live Draft Recommendations
-- Tier Drop Detection
-- Position Scarcity Analysis
-- Best Pick Selection
-
----
-
-# Long-Term Vision
-
-Fantasy Intelligence Champions
-Autonomous Fantasy Football Operations Center
-
-Yahoo Data
-↓
-Player Database
-↓
-Predraft Agent
-↓
-Draft Agent
-↓
-Scout Agent
-↓
-Waiver Agent
-↓
-Lineup Agent
-↓
-Trade Agent
-↓
-GM Agent
-↓
-Championship Odds
-
-Goal:
-Fully Autonomous Fantasy Team Management
-
-Minimal Human Intervention
-
----
-
-# Last Known Stable State
-
-WORKING:
-
-✅ Dashboard
-
-✅ Predraft Lab
-
-✅ Imports
-
-✅ Agent Center
-
-✅ Draft Center
-
-✅ Position Rankings
-
-✅ PostgreSQL
-
-✅ Ollama
-
-✅ CSV Upload Pipeline
-
-✅ Player Database
-
-✅ Rankings Table
-
-✅ Database Summary
 
 # Fantasy Intelligence
 

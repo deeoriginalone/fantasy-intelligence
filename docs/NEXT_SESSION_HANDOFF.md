@@ -1,80 +1,132 @@
-# Next Session Handoff
+# Session Handoff
 
-Date: 2026-09-01
+## Checkpoint
 
-## Where we left off
+- Date: 2026-09-03
+- Branch: feature/draft-outcome-tracking
+- HEAD: 7ff86c633b8a2f5c5c7b5b34667344d2fa14440b
+- Working-tree status: repo reflects a review state with modified documentation and untracked audit/discovery files; no production code was changed during this documentation review
+- Staged status: none
 
-The repository is in a verified working state for implementation, but it is waiting for live draft picks. The draft event pipeline is implemented, migration 007 is present, and the runtime sync is executing, but the configured draft is still in `pre_draft` and contains zero picks.
+## Completed tonight
 
-The final verified state is:
+- Reviewed repository branch, HEAD, and recent history
+- Verified the actual F3-A through F3-D.4 implementation status against source and tests
+- Reconciled the project documents to the repository’s current evidence
+- Confirmed that PostgreSQL parity remains incomplete and live route validation is not proven
+- Identified F3-D.5 as the next evidence-based milestone
 
-- Draft Event Pipeline: implemented and validated
-- Migration 007: present
-- `draft_events` table: exists, row count = 0
-- `draft_selections` table: exists, row count = 0
-- Live draft status: `pre_draft`
-- Live picks count: 0
-- `sync_sleeper_draft_picks()` result: `{'received': 0, 'stored': 0, 'matched_to_rankings': 0, 'my_team_picks': 0, 'identity_valid': True, 'quarantined': 0}`
+## Current verified milestone state
 
-## What was verified
+- F3-A: implemented and tested
+- F3-A.1: implemented and tested
+- F3-A.2: implemented and tested
+- F3-B.1: implemented and tested
+- F3-B.2: implemented and tested
+- F3-B.3: implemented and tested
+- F3-B.4: implemented and tested
+- F3-C.1: implemented and tested
+- F3-C.2: implemented and tested
+- F3-D.1: implemented and tested
+- F3-D.2: implemented and tested
+- F3-D.3: implemented and tested
+- F3-D.4: implemented and tested
 
-Only the following facts are verified:
+## Known limitations
 
-- F3-A implemented and tests pass
-- F3-A.1 implemented and tests pass
-- F3-A.2 runtime integration performed and tests pass
-- `draft_events` table exists
-- `draft_selections` table exists
-- Sleeper connectivity works
-- Sleeper league and draft IDs are valid
-- Draft status is currently `pre_draft`
-- Picks endpoint returns zero picks
-- No draft selections are present yet
+- PostgreSQL parity is incomplete and not production-proven
+- live route validation is not proven
+- route and UI publication gating for waiver outputs is still pending
+- authoritative FAAB budget source remains unverified
+- stale or blocked readiness sources must fail closed, not open
 
-## Open issues
+## Next milestone
 
-Only verified blockers:
+F3-D.5 Waiver Action Publication and UI
 
-- No draft picks exist because the draft is not live
-- Downstream F3-B work is not ready to run until picks are available
-- Documentation still contains stale claims from earlier repository phases that do not match the current verified live state
+Why it is next:
+- the waiver intelligence stack is already validated in the repo
+- the remaining gap is publication gating and UI presentation, not core waiver logic
+- route validation and authoritative budget semantics must be proven before claiming completion
 
-## Do this first next session
-
-Run these exact commands first:
-
-```bash
-cd /home/deeoriginalone/fantasy-intelligence
-set -a && . ./.env && set +a
-python - <<'PY'
-import json, urllib.request
-url = 'https://api.sleeper.app/v1/draft/1398094331272794112'
-with urllib.request.urlopen(url, timeout=20) as r:
-    data = json.load(r)
-print(data.get('status'))
-print(data.get('draft_id'))
-PY
-```
+## First command next session
 
 ```bash
-cd /home/deeoriginalone/fantasy-intelligence
-set -a && . ./.env && set +a
-python - <<'PY'
-from app import sync_sleeper_draft_picks
-print(sync_sleeper_draft_picks())
-PY
+cd /home/deeoriginalone/fantasy-intelligence \
+&& source venv/bin/activate \
+&& git status --short --branch
 ```
+
+## Stop conditions
+
+Stop instead of guessing when:
+- the authoritative remaining-FAAB source is missing
+- the database is unavailable for isolated parity validation
+- the route response contract differs from the expected behavior
+- starter/bench identity cannot be proven
+- readiness inputs are stale, missing, or invalid
+- publication would fail open instead of closed
+
+
+# Exact Next Milestone
+
+## F3-D.5 Waiver Action Publication and UI
+
+### Why this is next
+
+F3-D.1 through F3-D.4 have passing repository validation.
+
+Completed:
+
+- F3-D.1 Sleeper Waiver Intelligence
+- F3-D.2 FAAB Intelligence
+- F3-D.3 Waiver Action Plans
+- F3-D.4 Sleeper Integration
+
+The remaining gap is no longer core waiver computation.
+
+The remaining work is:
+
+- publication gating
+- route-level validation
+- UI rendering
+- operational presentation
+
+The repository still lacks:
+
+- verified live-route behavior
+- publication gating on waiver outputs
+- a proven FAAB-source contract
+
+### Definition of Done
+
+Render waiver candidates and waiver action plans on the Sleeper Intelligence page.
+
+Display:
+
+- Add player
+- Drop player
+- Urgency
+- FAAB percentage
+- FAAB unit bid (when an authoritative budget source exists)
+- Explanation / reason
+
+Requirements:
+
+- Preserve existing JSON contract compatibility
+- Preserve existing Sleeper Intelligence route structure
+- Fail closed when readiness, freshness, or source requirements are not satisfied
+- Add route and template tests
+- Do not submit waiver transactions
+- Do not infer FAAB budget from unverified sources
+- Do not recommend dropping starters
+
+### Validation Requirements
+
+Code validation:
 
 ```bash
-cd /home/deeoriginalone/fantasy-intelligence
-set -a && . ./.env && set +a
-python -m pytest -q
-```
-
-## Expected next task
-
-The single highest-priority next work item is:
-
-Wait for the configured Sleeper draft to leave `pre_draft` and then verify that live picks start flowing into `draft_events` and `draft_selections` before moving to F3-B downstream logic.
-
-This is the highest-value task because the system is currently operational but empty, and any downstream work before pick data appears would be based on empty state rather than valid runtime data.
+python -m py_compile \
+  app.py \
+  sleeper_intelligence.py \
+  sleeper_intelligence_routes.py

@@ -1,433 +1,94 @@
 # Development Roadmap
 
-## Context
-
-This roadmap reflects the current repository state, not aspirational future status. The runtime is code-valid and test-valid, but it is not yet proven as a live database-backed production system. The next direction is therefore pragmatic and evidence-based: validate the recommendation publication gate and then move to the next operational layer.
-
-## Status legend
-
-- VERIFIED
-- IMPLEMENTED, NEEDS HARDENING
-- PARTIALLY IMPLEMENTED
-- PROTOTYPE, NOT INTEGRATED
-- BLOCKED BY INPUTS
-- PLANNED
-
-## Current direction: Batch D Recommendation Publishing
-
-### 1. Recommendation publication gate
-- Objective: ensure that recommendation output is only published when readiness, source freshness, and data validity checks pass
-- Evidence: [draft_readiness.py](draft_readiness.py) contains readiness scoring and a publication gate, and [draft_health_routes.py](draft_health_routes.py) exposes health checks
-- Completion criteria: publication is blocked when source data is missing, stale, or invalid
-- Risk if skipped: output can look authoritative without proving source quality
-- Status: PARTIALLY IMPLEMENTED
-- Suggested next milestone: Batch D
-
-### 2. Recommendation source traceability
-- Objective: attach source timestamps and traceability to recommendation output
-- Evidence: the project documents the need for source freshness and quality gating, but live traceability is not yet proven in the active runtime
-- Completion criteria: each surfaced recommendation can be tied back to its source and freshness window
-- Risk if skipped: recommendations cannot be defended or audited
-- Status: PLANNED
-
-### 3. Recommendation explainability payloads
-- Objective: keep recommendation decisions explainable and reviewable
-- Evidence: the repo includes explainability-oriented modules and tests, but this remains a supporting layer rather than a proven production contract
-- Completion criteria: recommendation output includes rank, scarcity, need, and source-context metadata
-- Risk if skipped: confidence becomes opaque and hard to trust
-- Status: PARTIALLY IMPLEMENTED
-
-## Immediate next steps (before the next milestone)
-
-### 1. Database validation
-- Objective: bring PostgreSQL online and validate the live schema and object set
-- Evidence: live DB checks are blocked right now because the service is unavailable
-- Completion criteria: the critical tables and state objects are confirmed in the active environment
-- Risk if skipped: code/test success does not equal runtime validity
-- Status: BLOCKED
+## Checkpoint
 
-### 2. Draft-day end-to-end validation
-- Objective: validate identity, uniqueness, reconciliation, and roster invariants in a live draft flow
-- Evidence: Batch A/B/C show the logic is present and passing tests, but not DB-proven
-- Completion criteria: no mismatches, duplicate picks, or orphan roster states remain
-- Risk if skipped: local and live state can drift
-- Status: PARTIALLY IMPLEMENTED
+- Date: 2026-09-03
+- Branch: feature/draft-outcome-tracking
+- HEAD: 7ff86c633b8a2f5c5c7b5b34667344d2fa14440b
+- Working tree: review state includes modified [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) and untracked audit/discovery files. No production code changes were introduced during this review.
 
-### 3. Recommendation publication enforcement
-- Objective: gate release of recommendation surfaces behind readiness and freshness checks
-- Evidence: readiness logic exists in [draft_readiness.py](draft_readiness.py)
-- Completion criteria: readiness state is explicit and publication happens only in READY or validated states
-- Risk if skipped: users can interpret incomplete outputs as live intelligence
-- Status: PARTIALLY IMPLEMENTED
+## Verified repository state
 
-## Short-term (next sprint)
+The repository is currently validated for implementation and unit/integration testing, but it is not live-route validated and not PostgreSQL-proven.
 
-### 1. Finalize recommendation trust layer
-- Add explicit readiness labels and source-freshness windows
-- keep stale or synthetic data from being presented as live intelligence
+## Phase status
 
-### 2. Harden Draft HQ state transitions
-- confirm the transition from draft to season-active state remains idempotent and safe
-- ensure no duplicate-player or stale-state conditions survive initialization
+### F3-A through F3-D.4
 
-### 3. Improve batch hygiene and release boundaries
-- distinguish traceability artifacts from canonical runtime files
-- keep backup and archive output outside the core runtime path unless intentionally tracked
+- F3-A: Complete; code and tests validated
+- F3-A.1: Complete; repository integration validated
+- F3-A.2: Complete; runtime integration validated
+- F3-B.1: Complete; replay validation evidence exists
+- F3-B.2: Complete; reconciliation logic validated
+- F3-B.3: Complete; live reconciliation logic validated unit-wise
+- F3-B.4: Complete; readiness gate tests pass
+- F3-C.1: Complete; publication gate tested
+- F3-C.2: Complete; draft recommendation publication tested
+- F3-D.1: Complete; waiver intelligence tested
+- F3-D.2: Complete; FAAB intelligence tested
+- F3-D.3: Complete; waiver action plan tested
+- F3-D.4: Complete; dedicated integration verification passed (30 passed)
 
-## Medium-term
+### PostgreSQL parity
 
-### 1. Historical outcome calibration
-- compare forecast outputs with resolved draft outcomes once real data exists
-- calibrate reliability estimates against evidence instead of assumptions
+- Incomplete
+- Known issues documented in the repo: raw tuple state from PostgresDraftEventStore.ordered_state(), missing cleanup_test_draft(), and skipped Postgres parity tests
 
-### 2. Survivor input contract
-- define explicit ownership, QB-status, injury, and weather source contracts
-- keep Survivor outputs blocked until the required inputs are verified
+## Evidence and verification tiers
 
-### 3. Market and weekly ingestion maturity
-- validate no-vig calculations, confidence scoring, and provider data quality under real schedules
-- define ingestion failure and repair procedures
+### Unit-tested
+- ./scripts/test_fast.sh => 44 passed in 0.11s
+- python -m pytest -q tests/test_f3_d1_sleeper_waiver_intelligence.py tests/test_f3_d2_faab_intelligence.py tests/test_f3_d3_waiver_action_plan.py tests/test_f3_d4_waiver_action_integration.py => 30 passed in 0.08s
+- python scripts/verify_f3_d4_integration.py => 30 passed in 0.08s
 
-## Long-term
+### Integration-tested
+- F3-D.4 waiver-action integration is passing in the repository test harness.
+- F3-B.4, F3-C.1, and F3-C.2 are verified by targeted tests.
 
-### 1. Multi-season and multi-session support
-- support multiple drafts and multiple years without cross-session drift
-- isolate historical behavior tables from active season state
+### Live-route tested
+- Not proven in this review. The app was checked for availability and the ports were not accepting the expected Flask service, so no live route validation is claimed.
 
-### 2. Provider abstraction layer
-- normalize provider inputs behind a common interface for ratings, injuries, weather, and market data
-- reduce provider-specific coupling and fragile adapters
+### PostgreSQL-proven
+- Not proven. The repo documents parity checks as skipped on the PostgreSQL side and prohibits claiming PostgreSQL parity.
 
-### 3. Operational observability
-- add consistent metrics and diagnostics for ingestion, reconciliation, and publication state
-- make release gates observable and explainable to operators
+## Test-tier usage
 
-## Completion criteria for season-readiness
+- fast: ./scripts/test_fast.sh
+- draft-layer: ./scripts/test_draft_layer.sh (configurable with F3_TEST_BATCH_SIZE, default 25)
+- full regression: ./scripts/test_full_regression.sh (configurable with F3_TEST_BATCH_SIZE, default 1000)
 
-The repo should only be treated as season-ready when all of the following are true:
-- draft session identity is enforced and authoritative
-- pick uniqueness and unresolved-player quarantine are active
-- roster invariants are enforced and recoverable
-- recommendation publication is gated by readiness and source freshness
-- live database validation is complete
-- Survivor and weekly intelligence inputs are real and validated
-- no synthetic output is presented as live data
+## Known risks and technical debt
 
-## Current recommendation
+- The live application route /sleeper-intelligence/json was not validated because the application server was unavailable.
+- Remaining FAAB budget source is not proven authoritative in the repo; do not guess from waiver_budget_used without verifying semantics.
+- Publication gating for waiver outputs is still not implemented as a release gate.
+- UI rendering for waiver action plans has not been runtime-verified.
+- Local roster context currently labels the owner as "My Team" instead of an authoritative ownership record.
+- Postgres parity remains incomplete and should be treated as blocked until isolated DB validation runs.
 
-The immediate direction should be:
-1. database validation
-2. draft-day end-to-end validation
-3. recommendation publication gate enforcement
-4. Batch D Recommendation Publishing
+## Next milestone
 
-This is the evidence-based next phase. It is intentionally narrower than post-draft readiness, week-one operations, or broader automation work until the trust layer is proven.
+- F3-D.5 Waiver Action Publication and UI
+- Why next: it is the next evidence-based layer after F3-D.4 integration and the waiver intelligence stack were validated.
+- Definition of done:
+  - render waiver candidates and action plans in the Sleeper Intelligence page
+  - include add player, drop player, urgency, FAAB percentage, unit bid when known, and explanation
+  - preserve JSON output contract
+  - fail closed when source data is stale, blocked, or missing
+  - add route/template tests
+  - do not submit transactions
 
+## Stop conditions
 
-# Phase F - Draft Day and Season Automation Sandbox
+- Missing authoritative FAAB field or semantics
+- Database unavailable for isolation testing
+- Route response differs from expected contract
+- Starter/bench identity cannot be proven
+- Readiness source is stale or missing
+- Any publication path is allowed to fail open
 
-## Objective
+This roadmap reflects the actual repository state and intentionally excludes the stale narrative from earlier pre-F3 phases.
 
-Create a fully automated testing environment capable of simulating:
-
-- Draft Day operations
-- Live draft recommendations
-- Post-draft roster management
-- Weekly waiver workflows
-- Start/Sit optimization
-- Survivor workflows
-- Pick'em workflows
-- End-of-season analysis
-
-before live deployment.
-
-This phase builds upon the existing Draft Intelligence, Recommendation Engine, Intelligence Operations, Ingestion Pipeline, Survivor Intelligence, and Pick'em Intelligence systems already implemented in the platform. 【1-853541】
-
----
-
-# Phase F1 - Draft Day Sandbox
-
-## Goal
-
-Allow complete draft simulations without requiring a live league.
-
-## Components
-
-### Mock Draft Engine
-
-Create:
-
-```text
-simulator/
-├── mock_draft.py
-├── draft_simulator.py
-```
-
-### Responsibilities
-
-- Generate draft picks
-- Simulate opponents
-- Simulate multiple draft strategies
-- Feed picks into the draft board
-- Trigger recommendation updates
-
----
-
-### Live Recommendation Testing
-
-Draft flow:
-
-```text
-Mock Pick
-      ↓
-Board Update
-      ↓
-Roster Update
-      ↓
-Positional Scarcity Recalculation
-      ↓
-Draft Outcome Tracking
-      ↓
-Recommendation Engine
-      ↓
-UI Dashboard Refresh
-```
-
-### Validate
-
-- Draft board accuracy
-- Recommendation quality
-- Scarcity model behavior
-- Draft outcome tracking
-
----
-
-### Draft Strategy Testing
-
-Simulate:
-
-- Hero RB
-- Zero RB
-- RB Heavy
-- WR Heavy
-- Elite QB
-- Balanced
-
-### Track
-
-- Roster Strength
-- Projected Points
-- Draft Grade
-- Recommendation Accuracy
-
----
-
-# Phase F2 - Automation Scheduler
-
-Create:
-
-```text
-scheduler/
-├── draft_day.py
-├── daily.py
-├── weekly.py
-├── seasonal.py
-```
-
-## Purpose
-
-Automate all intelligence workflows.
-
----
-
-# Phase F3 - Weekly Intelligence Automation
-
-## Daily Workflow
-
-```text
-Refresh Injuries
-Refresh Market Data
-Refresh Weather
-Refresh Projections
-Run Intelligence Pipeline
-Update Dashboard
-Generate Reports
-```
-
-### Validate
-
-- Scheduler reliability
-- Freshness logic
-- Readiness gating
-- Report generation
-
----
-
-# Phase F4 - Pick'em Automation Sandbox
-
-## Validate Existing Workflow
-
-The documented Pick'em workflow currently follows:
-
-```text
-Schedule
-     ↓
-Crowd Data
-     ↓
-Odds
-     ↓
-No-Vig Probabilities
-     ↓
-Game Model
-     ↓
-Signal Classification
-     ↓
-Confidence Ranking
-     ↓
-Weekly Report
-```
-
-This follows the overall refresh and recommendation pipeline already defined in the project architecture. 【1-853541】
-
-### Test
-
-- Lock identification
-- Best upset detection
-- Public traps
-- Contrarian picks
-- Confidence assignments
-- Weekly intelligence report generation
-
----
-
-# Phase F5 - Survivor Automation Sandbox
-
-## Simulate
-
-```text
-Week 1
-Week 2
-Week 3
-...
-Week 18
-```
-
-### Validate
-
-- Survivor scoring
-- Future value preservation
-- Ownership leverage
-- Recommendation quality
-- Fallback recommendation generation
-
----
-
-# Phase F6 - Full Season Simulation
-
-## Create
-
-```text
-simulator/
-└── season_simulator.py
-```
-
-## Run Complete League Lifecycle
-
-```text
-Draft
-   ↓
-Week 1
-   ↓
-Waivers
-   ↓
-Week 2
-   ↓
-Trades
-   ↓
-Week 3
-...
-Week 18
-```
-
-### Track
-
-- Wins
-- Losses
-- Playoff Odds
-- Recommendation Accuracy
-- Waiver Success Rate
-- Trade Success Rate
-- Draft ROI
-
----
-
-# Draft Day Automation Roadmap
-
-## Future Live Draft Watcher
-
-Create:
-
-```text
-scheduler/
-└── live_draft_watcher.py
-```
-
-### Live Workflow
-
-```text
-Sleeper Draft Event
-        ↓
-Draft Pick Detected
-        ↓
-Draft Board Updated
-        ↓
-Roster Updated
-        ↓
-Scarcity Recalculated
-        ↓
-Recommendation Rebuilt
-        ↓
-Dashboard Refreshed
-```
-
-### Goal
-
-Near real-time draft assistance with minimal manual refreshes.
-
----
-
-# Season Automation Roadmap
-
-## Nightly Intelligence Pipeline
-
-Create:
-
-```text
-scheduler/
-└── nightly_intelligence.py
-```
-
-### Pipeline
-
-```text
-Refresh Players
-      ↓
-Refresh Injuries
-      ↓
-Refresh Market Data
-      ↓
-Refresh Weather Data
-      ↓
-Update Projections
-      ↓
-Run Intelligence Engine
-      ↓
-Generate Reports
-      ↓
-Update Dashboard
-```
-
----
 
 # Success Criteria
 
@@ -505,3 +166,58 @@ Priority implementation order:
 
 1. Create `simulator/mock_draft.py`
 2. Create 
+
+# F3-B.1 COMPLETE
+
+Evidence:
+- 8 passed
+- 10 subtests passed
+
+Validated:
+- Baseline large-batch import
+- Replay idempotency
+- Multi-replay stability
+- Partial replay recovery
+- Conflict rejection
+- Failed-event replay
+- Audit evidence generation
+
+Scope:
+DraftEventProcessor
+InMemoryDraftEventStore
+
+Next:
+F3-B.2 Reconciliation Engine
+
+Objectives:
+- Compare Sleeper picks vs draft_events
+- Compare Sleeper picks vs draft_selections
+- Detect drift
+- Produce reconciliation status and audit output
+
+# F3-B.2 COMPLETE
+
+Evidence:
+- 11 passed
+- Reconciliation engine verified
+
+Validated:
+- Count reconciliation
+- Missing pick detection
+- Extra pick detection
+- Player drift detection
+- Roster drift detection
+- Event drift detection
+- Status drift detection
+- Duplicate source detection
+- Foreign draft detection
+- JSON reporting
+
+Scope:
+DraftReconciler
+InMemoryDraftEventStore
+
+Remaining:
+- Live Sleeper adapter integration
+- PostgreSQL parity validation
+- Publication readiness integration
