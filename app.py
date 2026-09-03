@@ -30,6 +30,8 @@ from reconciled_draft_decision import reconcile_draft_now_wait
 from draft_coach_sleeper_fusion import fuse_sleeper_context
 from player_survival_probability import estimate_player_survival
 from sleeper_recommendation_overlay import build_recommendation_overlay
+from services.draft_recommendation_publication import DraftRecommendationPublicationService
+from services.readiness_report_io import load_readiness_report
 from sleeper_draft_signals import build_sleeper_draft_signals
 from sleeper_intelligence_routes import create_sleeper_intelligence_blueprint
 from sleeper_hub import create_sleeper_hub_blueprint
@@ -3377,11 +3379,32 @@ def mock_draft_live(draft_id):
     conn=get_db_connection();cur=conn.cursor();ensure_mock_tables(cur);advance_mock_ai(cur,draft_id);conn.commit()
     cur.execute("SELECT id,draft_name,strategy,teams,rounds,draft_position,mode,automation_mode,status,current_pick,paused FROM mock_drafts WHERE id=%s",(draft_id,));d=cur.fetchone()
     if not d:cur.close();conn.close();return 'Mock draft not found',404
-    recs=mock_recommendations(cur,(d[0],d[2],d[3],d[4],d[5],d[9])) if d[8]!='complete' else []
+    raw_recs=mock_recommendations(cur,(d[0],d[2],d[3],d[4],d[5],d[9])) if d[8]!='complete' else []
+    readiness_path=os.environ.get('F3_READINESS_REPORT_PATH','').strip()
+    recommendation_publication=None
+    if readiness_path:
+        try:
+            readiness_report=load_readiness_report(readiness_path)
+            recommendation_publication=DraftRecommendationPublicationService().guard(
+                raw_recs, readiness_report,
+                metadata={'draft_id':draft_id,'current_pick':d[9]},
+            )
+            recs=list(recommendation_publication.recommendations)
+        except Exception as exc:
+            app.logger.exception('Unable to enforce draft recommendation publication gate')
+            recs=[]
+            recommendation_publication={
+                'publish_allowed':False,
+                'status':'BLOCKED',
+                'blockers':['READINESS_GATE_ERROR'],
+                'error':str(exc),
+            }
+    else:
+        recs=raw_recs
     cur.execute("SELECT round_num,pick_no,draft_slot,team_name,player_name,position,nfl_team,overall_rank,draft_score,source FROM mock_picks WHERE draft_id=%s ORDER BY pick_no DESC LIMIT 25",(draft_id,));recent=cur.fetchall()
     counts=mock_counts(cur,draft_id,d[5]);cur.close();conn.close()
     next_pick=d[9]+1; current_round=((next_pick-1)//d[3])+1; current_slot=mock_slot_for_pick(next_pick,d[3]) if next_pick<=d[3]*d[4] else None
-    return render_template('mockdraft_live.html',title=d[1],draft=d,recommendations=recs,recent_picks=recent,counts=counts,current_round=current_round,current_slot=current_slot,next_pick=next_pick,strategy_profile=STRATEGY_PROFILES.get(d[2],STRATEGY_PROFILES[DEFAULT_STRATEGY]))
+    return render_template('mockdraft_live.html',title=d[1],draft=d,recommendations=recs,recommendation_publication=recommendation_publication,recent_picks=recent,counts=counts,current_round=current_round,current_slot=current_slot,next_pick=next_pick,strategy_profile=STRATEGY_PROFILES.get(d[2],STRATEGY_PROFILES[DEFAULT_STRATEGY]))
 
 
 @app.route('/mockdraft/live/<int:draft_id>/pick',methods=['POST'])
