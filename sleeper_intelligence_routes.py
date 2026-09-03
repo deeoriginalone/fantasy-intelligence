@@ -8,7 +8,12 @@ def create_sleeper_intelligence_blueprint(db):
         league=str(request.args.get("league_id") or current_app.config.get("SLEEPER_LEAGUE_ID") or os.getenv("SLEEPER_LEAGUE_ID") or "")
         season=int(request.args.get("season") or os.getenv("FANTASY_SEASON",2026));week=int(request.args.get("week") or 1)
         if not league:return None
-        conn=db();cur=conn.cursor();data=build(cur,league,week,season);cur.close();conn.close();return league,data
+        conn=db();cur=conn.cursor()
+        try:
+            data=build(cur,league,week,season)
+            return league,data
+        finally:
+            cur.close();conn.close()
     @bp.get("/")
     def home():
         loaded=load()

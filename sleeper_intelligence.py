@@ -1,5 +1,6 @@
 """Sleeper intelligence derived from cached league, player, roster, and draft data."""
 from collections import Counter, defaultdict
+from services.roster_slots import build_roster_slots
 
 CORE=("QB","RB","WR","TE")
 DEPTH_TARGETS={"QB":1,"RB":4,"WR":5,"TE":2}
@@ -106,8 +107,63 @@ def waiver_candidates(trending_available,my_team,position_pressure,limit=10,rema
         rows.append({**item,"position":pos,"trend_count":trend,"need_score":need,"pressure_score":pressure_score,"primary_need_match":primary_match,"primary_need_bonus":primary_need_bonus,"waiver_score":waiver_score,"reason":"; ".join(reasons) or "Available Sleeper trending player",**faab})
     return sorted(rows,key=lambda x:(x["waiver_score"],x["trend_count"],x["name"]),reverse=True)[:limit]
 
+def _bench_player(row):
+    """Normalize app.py my_roster rows: id, player_name, position, slot."""
+    if not isinstance(row,(list,tuple)) or len(row)<3: return None
+    return {"roster_id":row[0],"player_name":row[1],"position":str(row[2] or "").upper(),"slot":row[3] if len(row)>3 else ""}
+
+
+def identify_drop_candidates(bench,position_counts,need_scores,limit=10):
+    """Rank only supplied bench rows; starters are never inferred."""
+    counts=position_counts or {};needs=need_scores or {};rows=[]
+    for raw in bench or []:
+        player=_bench_player(raw)
+        if not player or not player["player_name"] or player["position"] not in CORE: continue
+        pos=player["position"];count=int(counts.get(pos) or 0);need=int(needs.get(pos) or 0);target=int(DEPTH_TARGETS.get(pos) or 0);surplus=max(0,count-target)
+        score=surplus*40+(50 if need==0 else 0)-need
+        reasons=["bench player"]
+        if surplus: reasons.append(f"{pos} is {surplus} above depth target")
+        if need==0: reasons.append(f"{pos} has no current roster need")
+        else: reasons.append(f"{pos} need score {need} reduces drop priority")
+        rows.append({**player,"surplus_depth":surplus,"need_score":need,"drop_score":score,"reason":"; ".join(reasons)})
+    return sorted(rows,key=lambda x:(x["drop_score"],x["surplus_depth"],x["player_name"]),reverse=True)[:limit]
+
+
+def build_waiver_action_plans(waiver_candidates,bench,position_counts,need_scores,limit=5):
+    """Pair ranked adds with distinct ranked bench drops."""
+    adds=[dict(x) for x in (waiver_candidates or [])]
+    if not adds: return []
+    drops=identify_drop_candidates(bench,position_counts,need_scores,limit=max(limit,len(adds)));plans=[]
+    for i,add in enumerate(adds[:limit]):
+        drop=drops[i] if i<len(drops) else None;action="ADD_DROP" if drop else "ADD_ONLY";summary=f"Add {add.get('name') or add.get('player_id')}"
+        if drop: summary+=f" and drop {drop['player_name']}"
+        plans.append({"priority":i+1,"action":action,"add":add,"drop":drop,"recommended_bid_pct":add.get("recommended_bid_pct"),"recommended_bid":add.get("recommended_bid"),"urgency":add.get("urgency"),"summary":summary})
+    return plans
+
+
+def build_local_roster_context(roster):
+    """Build bench, counts, and need scores from authoritative local roster rows."""
+    rows=list(roster or [])
+    slots,bench=build_roster_slots(rows)
+    counts={position:0 for position in CORE}
+    for row in rows:
+        if isinstance(row,(list,tuple)) and len(row)>=3:
+            position=str(row[2] or "").upper()
+            if position in counts: counts[position]+=1
+    need_scores={}
+    needs={}
+    for position,target in DEPTH_TARGETS.items():
+        missing=max(0,target-counts[position]);needs[position]=missing
+        need_scores[position]=int((missing/target)*100) if target else 0
+    primary=max(CORE,key=lambda position:(need_scores[position],STARTER_TARGETS[position]-counts[position]))
+    return {"slots":slots,"bench":bench,"position_counts":counts,"need_scores":need_scores,
+        "team":{"manager":"My Team","counts":counts,"needs":needs,"primary_need":primary,"players":len(rows)}}
+
+
 def build(cur,league_id,week,season=2026):
     users,_,_=_latest(cur,"users",league_id,season=season);rosters,_,_=_latest(cur,"rosters",league_id,season=season);players=_players(cur,league_id,season)
+    cur.execute("SELECT id,player_name,position,COALESCE(slot,'') FROM my_roster WHERE player_name IS NOT NULL AND BTRIM(player_name)<>'' ORDER BY drafted_at,id")
+    local_roster=cur.fetchall();local_context=build_local_roster_context(local_roster)
     drafts,_,_=_latest(cur,"drafts",league_id,season=season);draft=(drafts or [{}])[0] if isinstance(drafts,list) else (drafts or {})
     draft_id=str(draft.get("draft_id") or "");picks,_,_=_latest(cur,"draft_picks",draft_id if draft_id else None,season=season)
     trends,_,_=_latest(cur,"trending_add",league_id,season=season);transactions,_,_=_latest(cur,"transactions",league_id,week=week,season=season);matchups,_,_=_latest(cur,"matchups",league_id,week=week,season=season);nfl_state,_,_=_latest(cur,"nfl_state",league_id,season=season)
@@ -118,5 +174,7 @@ def build(cur,league_id,week,season=2026):
     source="draft_picks" if active is draft_teams else "rosters"
     tx_types=Counter(x.get("type","unknown") for x in (transactions or []));games=defaultdict(list)
     for x in matchups or []:games[x.get("matchup_id")].append({"roster_id":x.get("roster_id"),"points":x.get("points",0)})
-    pressure_map=pressure(active);trending_available=available_trending(trends or [],rosters or [],players);my_team=next((team for team in roster_teams if team.get("manager")=="My Team"),None)
-    return {"season":season,"week":week,"source":source,"draft_id":draft_id,"draft_status":draft.get("status"),"players_cached":bool(players),"pick_count":len(picks or []),"teams":active,"position_pressure":pressure_map,"recent_picks":recent,"position_run_counts":run_counts,"trending_available":trending_available,"waiver_candidates":waiver_candidates(trending_available,my_team,pressure_map),"transactions":dict(tx_types),"matchups":dict(games),"nfl_state":nfl_state or {}}
+    pressure_map=pressure(active);trending_available=available_trending(trends or [],rosters or [],players)
+    candidate_rows=waiver_candidates(trending_available,local_context["team"],pressure_map)
+    action_plans=build_waiver_action_plans(candidate_rows,local_context["bench"],local_context["position_counts"],local_context["need_scores"])
+    return {"season":season,"week":week,"source":source,"draft_id":draft_id,"draft_status":draft.get("status"),"players_cached":bool(players),"pick_count":len(picks or []),"teams":active,"position_pressure":pressure_map,"recent_picks":recent,"position_run_counts":run_counts,"trending_available":trending_available,"waiver_candidates":candidate_rows,"waiver_action_plans":action_plans,"local_roster_context":{"position_counts":local_context["position_counts"],"need_scores":local_context["need_scores"],"bench_count":len(local_context["bench"])},"transactions":dict(tx_types),"matchups":dict(games),"nfl_state":nfl_state or {}}

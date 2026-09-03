@@ -30,6 +30,7 @@ from reconciled_draft_decision import reconcile_draft_now_wait
 from draft_coach_sleeper_fusion import fuse_sleeper_context
 from player_survival_probability import estimate_player_survival
 from sleeper_recommendation_overlay import build_recommendation_overlay
+from services.roster_slots import build_roster_slots
 from services.draft_recommendation_publication import DraftRecommendationPublicationService
 from services.readiness_report_io import load_readiness_report
 from sleeper_draft_signals import build_sleeper_draft_signals
@@ -179,41 +180,6 @@ def get_local_league():
     cur.close()
     conn.close()
     return row
-
-
-def build_roster_slots(roster):
-    slots = {
-        "QB": None,
-        "RB1": None,
-        "RB2": None,
-        "WR1": None,
-        "WR2": None,
-        "TE": None,
-        "FLEX": None,
-    }
-    bench = []
-
-    for player in roster:
-        position = player[2]
-
-        if position == "QB" and slots["QB"] is None:
-            slots["QB"] = player
-        elif position == "RB" and slots["RB1"] is None:
-            slots["RB1"] = player
-        elif position == "RB" and slots["RB2"] is None:
-            slots["RB2"] = player
-        elif position == "WR" and slots["WR1"] is None:
-            slots["WR1"] = player
-        elif position == "WR" and slots["WR2"] is None:
-            slots["WR2"] = player
-        elif position == "TE" and slots["TE"] is None:
-            slots["TE"] = player
-        elif position in {"RB", "WR", "TE"} and slots["FLEX"] is None:
-            slots["FLEX"] = player
-        else:
-            bench.append(player)
-
-    return slots, bench
 
 
 def get_player_tier(overall_rank):
