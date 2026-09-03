@@ -71,7 +71,23 @@ def available_trending(trends,rosters,players,limit=15):
         out.append({"player_id":pid,"name":p.get("full_name") or pid,"position":p.get("position"),"team":p.get("team"),"count":item.get("count",0)})
     return sorted(out,key=lambda x:x["count"],reverse=True)[:limit]
 
-def waiver_candidates(trending_available,my_team,position_pressure,limit=10):
+def estimate_faab(waiver_score,trend_count,primary_need_match,pressure_score,remaining_budget=None):
+    """Return bounded decision-support FAAB guidance; never submits a claim."""
+    score=float(waiver_score or 0)
+    if score>=375: urgency,base,spread="CRITICAL",17,5
+    elif score>=275: urgency,base,spread="HIGH",12,4
+    elif score>=175: urgency,base,spread="MEDIUM",7,3
+    elif score>=90: urgency,base,spread="LOW",3,2
+    else: urgency,base,spread="WATCH",1,1
+    recommended=min(25,base+(3 if primary_need_match else 0));low=max(0,recommended-spread);high=min(30,recommended+spread)
+    if remaining_budget is None: budget=bid=bid_low=bid_high=None
+    else:
+        budget=int(remaining_budget)
+        if budget<0: raise ValueError("remaining_budget must be non-negative")
+        bid=round(budget*recommended/100);bid_low=round(budget*low/100);bid_high=round(budget*high/100)
+    return {"urgency":urgency,"recommended_bid_pct":recommended,"bid_range_low_pct":low,"bid_range_high_pct":high,"remaining_budget":budget,"recommended_bid":bid,"bid_range_low":bid_low,"bid_range_high":bid_high,"faab_reason":f"{urgency} priority from waiver score {round(score,2)}"}
+
+def waiver_candidates(trending_available,my_team,position_pressure,limit=10,remaining_budget=None):
     """Rank unowned Sleeper trending adds with existing need and pressure signals."""
     if not trending_available: return []
     team=my_team or {};needs=team.get("needs") or {};primary=str(team.get("primary_need") or "").upper();press=position_pressure or {};rows=[]
@@ -85,7 +101,9 @@ def waiver_candidates(trending_available,my_team,position_pressure,limit=10):
         elif need: reasons.append(f"{pos} depth is {need} below target")
         if trend: reasons.append(f"{trend} recent trending adds")
         if pressure_score: reasons.append(f"league pressure score {pressure_score}")
-        rows.append({**item,"position":pos,"trend_count":trend,"need_score":need,"pressure_score":pressure_score,"primary_need_match":primary_match,"primary_need_bonus":primary_need_bonus,"waiver_score":trend+need*25+pressure_score*5+primary_need_bonus,"reason":"; ".join(reasons) or "Available Sleeper trending player"})
+        waiver_score=trend+need*25+pressure_score*5+primary_need_bonus
+        faab=estimate_faab(waiver_score,trend,primary_match,pressure_score,remaining_budget)
+        rows.append({**item,"position":pos,"trend_count":trend,"need_score":need,"pressure_score":pressure_score,"primary_need_match":primary_match,"primary_need_bonus":primary_need_bonus,"waiver_score":waiver_score,"reason":"; ".join(reasons) or "Available Sleeper trending player",**faab})
     return sorted(rows,key=lambda x:(x["waiver_score"],x["trend_count"],x["name"]),reverse=True)[:limit]
 
 def build(cur,league_id,week,season=2026):
