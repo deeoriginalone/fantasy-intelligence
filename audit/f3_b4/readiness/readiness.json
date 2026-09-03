@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-09-03T09:07:33.778947+00:00",
+  "overall_status": "READY",
+  "publish_allowed": true,
+  "components": {
+    "draft_state": {
+      "name": "draft_state",
+      "level": "READY",
+      "ready": true,
+      "summary": "Draft state healthy",
+      "observed_at": "2026-09-03T09:00:00+00:00",
+      "metadata": {},
+      "issues": []
+    },
+    "recommendations": {
+      "name": "recommendations",
+      "level": "READY",
+      "ready": true,
+      "summary": "Recommendation engine healthy",
+      "observed_at": "2026-09-03T09:00:00+00:00",
+      "metadata": {},
+      "issues": []
+    },
+    "reconciliation": {
+      "name": "reconciliation",
+      "level": "READY",
+      "ready": true,
+      "summary": "Reconciliation passed",
+      "observed_at": "2026-09-03T09:00:00+00:00",
+      "metadata": {},
+      "issues": []
+    },
+    "sleeper": {
+      "name": "sleeper",
+      "level": "READY",
+      "ready": true,
+      "summary": "Sleeper source available",
+      "observed_at": "2026-09-03T09:00:00+00:00",
+      "metadata": {},
+      "issues": []
+    }
+  },
+  "issues": [],
+  "policy": {
+    "required_components": [
+      "sleeper",
+      "draft_state",
+      "reconciliation",
+      "recommendations"
+    ],
+    "warning_allows_publish": false,
+    "maximum_age_seconds": {}
+  }
+}
