@@ -1,5 +1,35 @@
 # Session Handoff
 
+## Current Review Checkpoint
+
+- Date: 2026-09-04
+- Branch: `feature/draft-outcome-tracking`
+- HEAD: `116b908c62926307cdbb75e1b05f22164ac3941e`
+- Upstream: no tracking branch; six commits ahead of `origin/feature/draft-outcome-tracking`
+- Working tree: four canonical documents and regenerated F3-D.4 verification JSON are modified; nothing is staged; 42 untracked audit/discovery/source-capture/backup/test artifacts remain intentionally unstaged
+- F3-D.5: complete in `6e791be`; dedicated suite `38 passed`; syntax and fast tier passed; full suite `268 passed, 9 skipped, 2 xfailed, 20 subtests passed`; PostgreSQL parity `9 passed, 9 skipped, 10 subtests passed`
+- Draft day: **READY WITH BLOCKERS** as supervised copilot; live Sleeper/database/runtime rehearsal is missing
+- Post-draft: **READY WITH BLOCKERS** in the tested harness; live state and schema proof are missing
+- Regular season: **NOT READY** for operational use; runtime, freshness, recovery, and Week 1 evidence are incomplete
+- Sandbox: code-level MOCK/LIVE and CSRF behavior exists, but end-to-end route validation was not performed
+- PostgreSQL: **not parity-proven**; explicit parity factory is absent, `ordered_state()` tuple compatibility remains unresolved, and cleanup hook is missing
+- FAAB: percentage-only guidance is proven; authoritative remaining budget is unknown
+- Execution boundary: recommendation/manual assistance only; no automatic external transactions are proven
+
+## Next Milestone
+
+Draft-day operational readiness rehearsal. Verify configuration, owner/slot identity, active team/round settings, fresh Sleeper reads, isolated database schema, readiness/reconciliation, Draft HQ refresh behavior, and blocked-error handling. Record route and runtime evidence without submitting picks or season transactions.
+
+## Required First Validation Commands
+
+```bash
+cd /home/deeoriginalone/fantasy-intelligence \
+&& source venv/bin/activate \
+&& git status --short --branch
+```
+
+Then run the existing syntax, fast, F3-D.5, and isolated PostgreSQL parity checks. Do not stage the existing untracked artifacts.
+
 ## Checkpoint
 
 - Date: 2026-09-03
@@ -14,7 +44,7 @@
 - Verified the actual F3-A through F3-D.4 implementation status against source and tests
 - Reconciled the project documents to the repository’s current evidence
 - Confirmed that PostgreSQL parity remains incomplete and live route validation is not proven
-- Identified F3-D.5 as the next evidence-based milestone
+- Identified draft-day operational readiness rehearsal as the next evidence-based milestone
 
 ## Current verified milestone state
 
@@ -36,18 +66,18 @@
 
 - PostgreSQL parity is incomplete and not production-proven
 - live route validation is not proven
-- route and UI publication gating for waiver outputs is still pending
+- waiver publication gating is implemented and tested, but live route/UI rendering is not proven
 - authoritative FAAB budget source remains unverified
 - stale or blocked readiness sources must fail closed, not open
 
 ## Next milestone
 
-F3-D.5 Waiver Action Publication and UI
+Draft-day operational readiness rehearsal.
 
 Why it is next:
-- the waiver intelligence stack is already validated in the repo
-- the remaining gap is publication gating and UI presentation, not core waiver logic
-- route validation and authoritative budget semantics must be proven before claiming completion
+- F3-D.5 is complete in code and dedicated tests
+- live Sleeper, database, configured identity, and Draft HQ route behavior remain unproven
+- the rehearsal establishes operational evidence without submitting external transactions
 
 ## First command next session
 
@@ -70,7 +100,7 @@ Stop instead of guessing when:
 
 # Exact Next Milestone
 
-## F3-D.5 Waiver Action Publication and UI
+## Historical F3-D.5 Waiver Action Publication and UI
 
 ### Why this is next
 

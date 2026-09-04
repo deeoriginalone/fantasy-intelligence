@@ -1,5 +1,28 @@
 # Project State
 
+## Current Review Checkpoint
+
+- Date: 2026-09-04
+- Branch: `feature/draft-outcome-tracking`
+- HEAD: `116b908c62926307cdbb75e1b05f22164ac3941e`
+- Repository state: four canonical documents and regenerated F3-D.4 verification JSON are modified; nothing is staged; 42 untracked artifacts remain and were not staged
+- Tests: syntax check passed; `./scripts/test_fast.sh` = `44 passed in 0.11s`; requested F3-D.1 through F3-D.5 suite = `38 passed in 0.26s`; F3-D.4 verifier = `30 passed`; full suite = `268 passed, 9 skipped, 2 xfailed, 20 subtests passed in 934.74s`; PostgreSQL parity = `9 passed, 9 skipped, 10 subtests passed`
+- F3-D.5: complete in code and dedicated tests via `6e791be`; live route and production behavior remain unproven
+
+## Current Readiness Position
+
+- Draft-day supervised copilot: **READY WITH BLOCKERS**. The code calculates slot-aware snake picks from active draft settings and has read-only reconciliation/readiness gates, but no live rehearsal was completed.
+- Post-draft transition: **READY WITH BLOCKERS**. Code tests cover completion gating, count/invariant checks, rollback, materialization, and idempotency; live DB/Sleeper validation is missing.
+- Regular-season operations: **NOT READY**. Weekly, lineup, waiver, trade, Pick'em, Survivor, reporting, and recovery code is not equivalent to live operational proof.
+- Sandbox: local code supports MOCK/LIVE session and persisted-state switching, admin protection, CSRF form token on exit, and no Sleeper writes. Required end-to-end route smoke tests were not run.
+- PostgreSQL: not parity-proven. The parity tests require an explicit isolated store factory and are skipped otherwise; raw tuple `ordered_state()` and missing cleanup hook remain documented gaps.
+- FAAB: percentage guidance is tested; remaining budget and unit bids are only permitted with explicit input and are not authoritative-source proven.
+- External execution: no proven automatic draft, waiver, lineup, or trade submission path.
+
+## Next Milestone
+
+Draft-day operational readiness rehearsal, with live-read validation and isolated database proof as entry criteria. This is a verification milestone, not a new feature phase.
+
 ## Checkpoint
 
 - Date: 2026-09-03
@@ -41,12 +64,11 @@ The implementation is in a validated, code-level working state for the trust, pu
 - No claim of a live production route is made
 - No automated waiver submission is implemented
 - No verified remaining-FAAB source is claimed
-- No UI rendering has been proven for waiver action plans
+- UI rendering has unit/template coverage but has not been runtime-verified
 
 ## Next milestone
 
-- F3-D.5 Waiver Action Publication and UI
-- Prerequisites: route contract, readiness gating, authoritative FAAB field, and UI tests
+Draft-day operational readiness rehearsal. Prerequisites: configured environment, isolated database, active Sleeper read access, and a reproducible no-write runtime checklist.
 
 ## Technical debt
 
@@ -57,7 +79,7 @@ The implementation is in a validated, code-level working state for the trust, pu
 
 ## Repository position
 
-This repo reflects implemented and validated local work for the F3 trust, publication, and waiver stack, but it does not yet meet the standards for live-route validation or PostgreSQL parity. The next milestone is F3-D.5, with explicit prerequisites and stop conditions, not a new feature batch.
+This repo reflects implemented and validated local work for the F3 trust, publication, and waiver stack, but it does not yet meet the standards for live-route validation or PostgreSQL parity. The next milestone is an operational readiness rehearsal, with explicit prerequisites and stop conditions, not a new feature batch.
 
 
 # Fantasy Intelligence
@@ -335,7 +357,7 @@ Database initialized with:
 POSTGRES_USER=fantasy
 POSTGRES_PASSWORD=fantasy
 
-Package D is production ready.
+Historical Package D checkpoint; current review evidence does not establish production readiness.
 
 ## Package D - Weekly Intelligence
 Status: COMPLETE ✅

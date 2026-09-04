@@ -1,5 +1,34 @@
 # Development Roadmap
 
+## Current Review Checkpoint
+
+- Date: 2026-09-04
+- Branch: `feature/draft-outcome-tracking`
+- HEAD: `116b908c62926307cdbb75e1b05f22164ac3941e`
+- Upstream: no tracking branch; six commits ahead of `origin/feature/draft-outcome-tracking`
+- Working tree: four canonical documents and regenerated F3-D.4 verification JSON are modified; nothing is staged; 42 untracked audit/discovery/source-capture/backup/test artifacts remain intentionally unstaged
+- Validation: syntax passed; fast tier `44 passed in 0.11s`; F3-D.1 through F3-D.5 suite `38 passed in 0.26s`; F3-D.4 verifier `30 passed`; full suite `268 passed, 9 skipped, 2 xfailed, 20 subtests passed`; PostgreSQL parity `9 passed, 9 skipped, 10 subtests passed`
+- F3-D.5: **COMPLETE** at repository level in `6e791be`; no live route or production claim
+
+## Current Readiness Verdicts
+
+- Draft day: **READY WITH BLOCKERS** as a supervised copilot. Live Sleeper, live database, fresh-data, and full Draft HQ rehearsal evidence is missing.
+- Post-draft: **READY WITH BLOCKERS** in the unit/integration harness. Live completion detection, schema, roster reconciliation, and restart/retry rehearsal remain unproven.
+- Regular season: **NOT READY** for Week 1 operations. Code exists across several workflows, but operational integration, freshness, recovery, and runtime evidence are incomplete.
+- PostgreSQL: **CODE PRESENT, PARITY NOT PROVEN**. The isolated parity suite is environment-gated; `PostgresDraftEventStore.ordered_state()` returns tuples and no `cleanup_test_draft()` hook is present.
+- Authoritative FAAB: **NOT PROVEN**. Do not infer remaining balance from usage fields or publish unit bids without an explicit verified budget.
+- Automatic execution: **NOT IMPLEMENTED/PROVEN**. Treat all draft and season actions as recommendation or manual-assistance workflows.
+
+## Exact Next Milestone: Draft-Day Operational Readiness Rehearsal
+
+Definition of done: configure and verify the active league/draft/season/settings; prove owner and slot mapping; exercise fresh Sleeper reads and refresh after picks; validate readiness and reconciliation against the isolated database; open Draft HQ and confirm visible recommendations, next-pick forecast, roster needs, freshness, and blocked-error states; record HTTP responses and logs; perform no external writes.
+
+Implementation/evidence surfaces: `app.py`, `config.py`, `services/sleeper_service.py`, `sleeper_draft_signals.py`, `draft_readiness.py`, `draft_events/live_reconciliation.py`, `draft_events/readiness.py`, and the Draft HQ templates.
+
+Tests: existing draft readiness, live reconciliation, slot/owner, publication, and F3-D.5 suites; add route/runtime smoke coverage for the configured environment and run isolated PostgreSQL parity tests.
+
+Stop conditions: missing or conflicting identity, stale/missing readiness source, database/schema failure, reconciliation drift, unavailable Sleeper reads, or any unexpected external write path.
+
 ## Checkpoint
 
 - Date: 2026-09-03
@@ -61,22 +90,21 @@ The repository is currently validated for implementation and unit/integration te
 
 - The live application route /sleeper-intelligence/json was not validated because the application server was unavailable.
 - Remaining FAAB budget source is not proven authoritative in the repo; do not guess from waiver_budget_used without verifying semantics.
-- Publication gating for waiver outputs is still not implemented as a release gate.
-- UI rendering for waiver action plans has not been runtime-verified.
+- Waiver publication gating is implemented and unit/route/template tested, but runtime rendering has not been verified.
 - Local roster context currently labels the owner as "My Team" instead of an authoritative ownership record.
 - Postgres parity remains incomplete and should be treated as blocked until isolated DB validation runs.
 
 ## Next milestone
 
-- F3-D.5 Waiver Action Publication and UI
-- Why next: it is the next evidence-based layer after F3-D.4 integration and the waiver intelligence stack were validated.
+Draft-day operational readiness rehearsal.
+
+- Why next: F3-D.5 is complete in code and dedicated tests; live configured-league, database, and route behavior remain the highest operational risks.
 - Definition of done:
-  - render waiver candidates and action plans in the Sleeper Intelligence page
-  - include add player, drop player, urgency, FAAB percentage, unit bid when known, and explanation
-  - preserve JSON output contract
-  - fail closed when source data is stale, blocked, or missing
-  - add route/template tests
-  - do not submit transactions
+      - verify active league, draft, season, team count, rounds, and owner slot from live configuration/data
+      - exercise fresh Sleeper reads, pick refresh, readiness, reconciliation, and Draft HQ error states
+      - validate the configured database against the required schema in an isolated environment
+      - capture route responses, logs, and a no-write rehearsal record
+      - do not submit picks or season transactions
 
 ## Stop conditions
 

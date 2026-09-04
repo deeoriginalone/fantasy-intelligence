@@ -1,5 +1,33 @@
 # Project Status
 
+## Current Review Checkpoint
+
+- Review date: 2026-09-04
+- Branch: `feature/draft-outcome-tracking`
+- HEAD: `116b908c62926307cdbb75e1b05f22164ac3941e`
+- Upstream: no tracking branch configured; `HEAD` is 6 commits ahead of `origin/feature/draft-outcome-tracking`
+- Working tree: four canonical documents and regenerated `audit/f3_d4/verification/verification.json` are modified; nothing is staged; 42 untracked audit, discovery, source-capture, backup, and test artifacts remain
+- `git diff --check`: passed; cached diff is empty
+- Validation: syntax passed; fast tier `44 passed in 0.11s`; waiver/publication suite `38 passed in 0.26s`; F3-D.4 verifier `30 passed`; full suite `268 passed, 9 skipped, 2 xfailed, 20 subtests passed in 934.74s`; PostgreSQL parity file `9 passed, 9 skipped, 10 subtests passed`
+- Relevant commits: `116b908` Sandbox CSRF fix; `6e791be` F3-D.5 waiver publication; `cabcc73` documentation checkpoint; `7ff86c6` waiver integration; `256aa8e` FAAB intelligence
+
+## Readiness Review Verdicts
+
+- Draft day: **READY WITH BLOCKERS** as a supervised copilot. Recommendation and read-only reconciliation code is present and tested, but live Sleeper/database/runtime rehearsal is not proven.
+- Post-draft: **READY WITH BLOCKERS** in the tested transition harness. The transition is fail-closed, authenticated, transactional, and idempotent by code/tests, but live schema, live Sleeper completion, and operational rehearsal are unknown.
+- Regular season: **NOT READY** as an operational release. Subsystems have code and unit coverage, but live data freshness, database state, route behavior, recovery, and Week 1 workflows are not proven.
+- PostgreSQL: **CODE PRESENT; PARITY NOT PROVEN**. The explicit parity suite is skipped without `F3_POSTGRES_STORE_FACTORY`; `ordered_state()` returns raw tuples and `cleanup_test_draft()` is absent from the current store.
+- Authoritative FAAB: **NOT PROVEN**. Percent guidance exists; unit bids are omitted unless an explicit budget is supplied. No authoritative remaining-balance source is established.
+- Execution boundary: recommendation/manual-assistance only. No automatic draft pick, waiver claim, lineup submission, or trade execution is proven by source and tests.
+
+## F3-D.5 Status
+
+**Complete at repository level.** Commit `6e791be` contains the publication service, route wiring, template, and dedicated tests. The requested suite passed: `38 passed` including the three F3-D.5 tests. The route fails closed for missing or invalid readiness reports, preserves `/sleeper-intelligence/json`, renders waiver plans, protects starters, and submits no transaction. A live route has not been exercised.
+
+## Exact Next Milestone
+
+**Draft-day operational readiness rehearsal.** Before adding features, prove the configured league identity, owner slot, snake-pick calculations, fresh Sleeper reads, database schema, readiness report, refresh behavior, and supervised Draft HQ workflow in an isolated runtime. Stop on any identity mismatch, stale/missing source, reconciliation drift, unavailable database, or unverified external state.
+
 ## Checkpoint date
 
 - 2026-09-03
@@ -106,9 +134,9 @@ Result: 30 passed in 0.08s
 - verify the Sleeper app and route responses against a live runtime
 
 ### P1
+- prove live Sleeper and isolated PostgreSQL runtime behavior
+- complete post-draft transition rehearsal and recovery checks
 - confirm the authoritative remaining-budget FAAB source and semantics
-- add publication gating for waiver action plans
-- render waiver action plans in a UI if required for the next milestone
 
 ### P2
 - keep audit and discovery artifacts separate from source control scope
@@ -116,13 +144,12 @@ Result: 30 passed in 0.08s
 
 ## Recommended next direction
 
-The strongest next milestone is F3-D.5 Waiver Action Publication and UI.
+The strongest next milestone is draft-day operational readiness rehearsal.
 
 Reasoning:
-- F3-D.4 is validated and integrated
-- the waiver intelligence stack is proven in tests
-- the next missing operational layer is publication gating and user-visible rendering
-- that direction is more evidence-based than guessing at remaining FAAB semantics or broad Postgres parity work without a live DB
+- F3-D.5 is implemented and its dedicated suite passes
+- the highest operational risk is unproven configured-league, live-Sleeper, database, and Draft HQ behavior
+- the rehearsal can establish evidence without adding speculative features or external writes
 
 ## Commit readiness
 
