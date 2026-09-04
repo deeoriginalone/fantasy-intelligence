@@ -9,11 +9,25 @@
 - Tests: syntax check passed; `./scripts/test_fast.sh` = `44 passed in 0.11s`; requested F3-D.1 through F3-D.5 suite = `38 passed in 0.26s`; F3-D.4 verifier = `30 passed`; full suite = `268 passed, 9 skipped, 2 xfailed, 20 subtests passed in 934.74s`; PostgreSQL parity = `9 passed, 9 skipped, 10 subtests passed`
 - F3-D.5: complete in code and dedicated tests via `6e791be`; live route and production behavior remain unproven
 
+## Local Runtime Validation
+
+- Port 5050 verified listening.
+- `/sandbox` returned HTTP 200.
+- `/sleeper-intelligence/` returned HTTP 200.
+- `/sleeper-intelligence/json` returned HTTP 200.
+- Local Flask runtime: VERIFIED
+- Local application routes: VERIFIED
+- Sandbox route availability: VERIFIED
+- Sleeper Intelligence route availability: VERIFIED
+- JSON endpoint availability: VERIFIED
+
+Limitations: Live Sleeper read verification not proven. External transaction execution not proven. PostgreSQL parity not proven. Production deployment not proven.
+
 ## Current Readiness Position
 
-- Draft-day supervised copilot: **READY WITH BLOCKERS**. The code calculates slot-aware snake picks from active draft settings and has read-only reconciliation/readiness gates, but no live rehearsal was completed.
+- Draft-day supervised copilot: **READY WITH BLOCKERS**. The code calculates slot-aware snake picks from active draft settings and has read-only reconciliation/readiness gates; local runtime is verified, but no live rehearsal was completed.
 - Post-draft transition: **READY WITH BLOCKERS**. Code tests cover completion gating, count/invariant checks, rollback, materialization, and idempotency; live DB/Sleeper validation is missing.
-- Regular-season operations: **NOT READY**. Weekly, lineup, waiver, trade, Pick'em, Survivor, reporting, and recovery code is not equivalent to live operational proof.
+- Regular-season operations: **NOT READY**. Local routes are verified, but weekly, lineup, waiver, trade, Pick'em, Survivor, reporting, and recovery code is not equivalent to live operational proof.
 - Sandbox: local code supports MOCK/LIVE session and persisted-state switching, admin protection, CSRF form token on exit, and no Sleeper writes. Required end-to-end route smoke tests were not run.
 - PostgreSQL: not parity-proven. The parity tests require an explicit isolated store factory and are skipped otherwise; raw tuple `ordered_state()` and missing cleanup hook remain documented gaps.
 - FAAB: percentage guidance is tested; remaining budget and unit bids are only permitted with explicit input and are not authoritative-source proven.

@@ -11,11 +11,25 @@
 - Validation: syntax passed; fast tier `44 passed in 0.11s`; waiver/publication suite `38 passed in 0.26s`; F3-D.4 verifier `30 passed`; full suite `268 passed, 9 skipped, 2 xfailed, 20 subtests passed in 934.74s`; PostgreSQL parity file `9 passed, 9 skipped, 10 subtests passed`
 - Relevant commits: `116b908` Sandbox CSRF fix; `6e791be` F3-D.5 waiver publication; `cabcc73` documentation checkpoint; `7ff86c6` waiver integration; `256aa8e` FAAB intelligence
 
+## Local Runtime Validation
+
+- Port 5050 verified listening.
+- `/sandbox` returned HTTP 200.
+- `/sleeper-intelligence/` returned HTTP 200.
+- `/sleeper-intelligence/json` returned HTTP 200.
+- Local Flask runtime: VERIFIED
+- Local application routes: VERIFIED
+- Sandbox route availability: VERIFIED
+- Sleeper Intelligence route availability: VERIFIED
+- JSON endpoint availability: VERIFIED
+
+Limitations: Live Sleeper read verification not proven. External transaction execution not proven. PostgreSQL parity not proven. Production deployment not proven.
+
 ## Readiness Review Verdicts
 
-- Draft day: **READY WITH BLOCKERS** as a supervised copilot. Recommendation and read-only reconciliation code is present and tested, but live Sleeper/database/runtime rehearsal is not proven.
+- Draft day: **READY WITH BLOCKERS** as a supervised copilot. Recommendation and read-only reconciliation code is present and tested; local runtime is verified, but live Sleeper/database rehearsal is not proven.
 - Post-draft: **READY WITH BLOCKERS** in the tested transition harness. The transition is fail-closed, authenticated, transactional, and idempotent by code/tests, but live schema, live Sleeper completion, and operational rehearsal are unknown.
-- Regular season: **NOT READY** as an operational release. Subsystems have code and unit coverage, but live data freshness, database state, route behavior, recovery, and Week 1 workflows are not proven.
+- Regular season: **NOT READY** as an operational release. Local route availability is verified, but live data freshness, database state, recovery, and Week 1 workflows are not proven.
 - PostgreSQL: **CODE PRESENT; PARITY NOT PROVEN**. The explicit parity suite is skipped without `F3_POSTGRES_STORE_FACTORY`; `ordered_state()` returns raw tuples and `cleanup_test_draft()` is absent from the current store.
 - Authoritative FAAB: **NOT PROVEN**. Percent guidance exists; unit bids are omitted unless an explicit budget is supplied. No authoritative remaining-balance source is established.
 - Execution boundary: recommendation/manual-assistance only. No automatic draft pick, waiver claim, lineup submission, or trade execution is proven by source and tests.
@@ -156,7 +170,7 @@ Reasoning:
 Status: NO
 
 Evidence:
-- live route validation is not proven
+- local route validation is verified on port 5050; live Sleeper route validation is not proven
 - PostgreSQL parity is not complete
 - untracked audit/discovery artifacts remain in the working tree and should not be committed
 - the docs have been reconciled to the actual repository state, but this is not a clean canonical release bundle

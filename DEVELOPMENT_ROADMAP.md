@@ -10,11 +10,25 @@
 - Validation: syntax passed; fast tier `44 passed in 0.11s`; F3-D.1 through F3-D.5 suite `38 passed in 0.26s`; F3-D.4 verifier `30 passed`; full suite `268 passed, 9 skipped, 2 xfailed, 20 subtests passed`; PostgreSQL parity `9 passed, 9 skipped, 10 subtests passed`
 - F3-D.5: **COMPLETE** at repository level in `6e791be`; no live route or production claim
 
+## Local Runtime Validation
+
+- Port 5050 verified listening.
+- `/sandbox` returned HTTP 200.
+- `/sleeper-intelligence/` returned HTTP 200.
+- `/sleeper-intelligence/json` returned HTTP 200.
+- Local Flask runtime: VERIFIED
+- Local application routes: VERIFIED
+- Sandbox route availability: VERIFIED
+- Sleeper Intelligence route availability: VERIFIED
+- JSON endpoint availability: VERIFIED
+
+Limitations: Live Sleeper read verification not proven. External transaction execution not proven. PostgreSQL parity not proven. Production deployment not proven.
+
 ## Current Readiness Verdicts
 
-- Draft day: **READY WITH BLOCKERS** as a supervised copilot. Live Sleeper, live database, fresh-data, and full Draft HQ rehearsal evidence is missing.
+- Draft day: **READY WITH BLOCKERS** as a supervised copilot. Local routes are verified, but live Sleeper, live database, fresh-data, and full Draft HQ rehearsal evidence is missing.
 - Post-draft: **READY WITH BLOCKERS** in the unit/integration harness. Live completion detection, schema, roster reconciliation, and restart/retry rehearsal remain unproven.
-- Regular season: **NOT READY** for Week 1 operations. Code exists across several workflows, but operational integration, freshness, recovery, and runtime evidence are incomplete.
+- Regular season: **NOT READY** for Week 1 operations. Local route availability is verified, but operational integration, freshness, recovery, and live evidence are incomplete.
 - PostgreSQL: **CODE PRESENT, PARITY NOT PROVEN**. The isolated parity suite is environment-gated; `PostgresDraftEventStore.ordered_state()` returns tuples and no `cleanup_test_draft()` hook is present.
 - Authoritative FAAB: **NOT PROVEN**. Do not infer remaining balance from usage fields or publish unit bids without an explicit verified budget.
 - Automatic execution: **NOT IMPLEMENTED/PROVEN**. Treat all draft and season actions as recommendation or manual-assistance workflows.
@@ -75,7 +89,7 @@ The repository is currently validated for implementation and unit/integration te
 - F3-B.4, F3-C.1, and F3-C.2 are verified by targeted tests.
 
 ### Live-route tested
-- Not proven in this review. The app was checked for availability and the ports were not accepting the expected Flask service, so no live route validation is claimed.
+- Local Flask route availability is verified on port 5050 for `/sandbox`, `/sleeper-intelligence/`, and `/sleeper-intelligence/json`. Live Sleeper read validation and production route validation remain unproven.
 
 ### PostgreSQL-proven
 - Not proven. The repo documents parity checks as skipped on the PostgreSQL side and prohibits claiming PostgreSQL parity.
@@ -88,7 +102,7 @@ The repository is currently validated for implementation and unit/integration te
 
 ## Known risks and technical debt
 
-- The live application route /sleeper-intelligence/json was not validated because the application server was unavailable.
+- The local application routes were validated on port 5050; live Sleeper reads and production behavior remain unproven.
 - Remaining FAAB budget source is not proven authoritative in the repo; do not guess from waiver_budget_used without verifying semantics.
 - Waiver publication gating is implemented and unit/route/template tested, but runtime rendering has not been verified.
 - Local roster context currently labels the owner as "My Team" instead of an authoritative ownership record.
