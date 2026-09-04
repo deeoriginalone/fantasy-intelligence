@@ -4,9 +4,9 @@
 
 - Date: 2026-09-04
 - Branch: `feature/draft-outcome-tracking`
-- HEAD: `116b908c62926307cdbb75e1b05f22164ac3941e`
-- Upstream: no tracking branch; six commits ahead of `origin/feature/draft-outcome-tracking`
-- Working tree: four canonical documents and regenerated F3-D.4 verification JSON are modified; nothing is staged; 42 untracked audit/discovery/source-capture/backup/test artifacts remain intentionally unstaged
+- HEAD: `cc888df5cc3de7ab20ff574b4725b432ba8240de`
+- Upstream: no tracking branch; eight commits ahead of `origin/feature/draft-outcome-tracking`
+- Working tree: uncommitted `templates/draftboard.html` and regenerated F3-D.4 verification JSON are modified; nothing is staged; untracked audit, discovery, rehearsal, documentation, script, source-capture, and test artifacts remain intentionally unstaged
 - F3-D.5: complete in `6e791be`; dedicated suite `38 passed`; syntax and fast tier passed; full suite `268 passed, 9 skipped, 2 xfailed, 20 subtests passed`; PostgreSQL parity `9 passed, 9 skipped, 10 subtests passed`
 - Draft day: **READY WITH BLOCKERS** as supervised copilot; local runtime is verified, but live Sleeper/database rehearsal is missing
 - Post-draft: **READY WITH BLOCKERS** in the tested harness; live state and schema proof are missing
@@ -15,6 +15,23 @@
 - PostgreSQL: **not parity-proven**; explicit parity factory is absent, `ordered_state()` tuple compatibility remains unresolved, and cleanup hook is missing
 - FAAB: percentage-only guidance is proven; authoritative remaining budget is unknown
 - Execution boundary: recommendation/manual assistance only; no automatic external transactions are proven
+
+## Draft HQ Polling Correction
+
+- Uncommitted file: `templates/draftboard.html`.
+- Behavior: renders the session CSRF token with `tojson`; POSTs to `/test-draft-picks`; sends `Accept: application/json` and `X-CSRF-Token`; retains 10-second polling, manual refresh, overlap protection, empty-array handling, count-change reload, and recoverable error state.
+- Classification: **IMPLEMENTED, LIVE-ROUTE VERIFIED, REGRESSION TEST MISSING**.
+- Runtime evidence: GET `/test-draft-picks` `405`; anonymous POST `401`; session-cookie plus rendered-CSRF POST `200` with JSON `[]` twice; `/draftboard` `200` with rendered CSRF token.
+- Security: no admin token is rendered; `admin_required` continues to reject requests without valid session CSRF or admin authorization.
+
+## Local Runtime and External-Read Evidence
+
+- Port 5050 was listening during the current validation.
+- Captured routes `/sandbox`, `/sleeper-intelligence/`, and `/sleeper-intelligence/json` returned `200`; `/draftboard` returned `200` in the current session flow.
+- The `/test-draft-picks` route successfully exercised only `get_draft_picks(configured draft ID)`, returning an empty pre-draft array. This does not prove all Sleeper reads, non-empty pick retrieval, database parity, or production behavior.
+- Existing rehearsal evidence includes session/CSRF material in route captures; keep it untracked and redact before any future sharing or commit consideration.
+
+Remaining Draft HQ rehearsal gaps: focused polling regression coverage, real pick-count change behavior, blocked/error-state rehearsal, broader Sleeper endpoint coverage, reconciliation/database proof, isolated PostgreSQL parity, and production-like validation.
 
 ## Local Runtime Validation
 
@@ -28,7 +45,7 @@
 - Sleeper Intelligence route availability: VERIFIED
 - JSON endpoint availability: VERIFIED
 
-Limitations: Live Sleeper read verification not proven. External transaction execution not proven. PostgreSQL parity not proven. Production deployment not proven.
+The configured Sleeper draft-picks read was locally exercised and returned a successful empty array. Broader Sleeper endpoint coverage, non-empty pick retrieval, Sleeper writes, and production behavior remain unproven. External transaction execution, PostgreSQL parity, and production deployment remain unproven.
 
 ## Next Milestone
 
@@ -44,7 +61,7 @@ cd /home/deeoriginalone/fantasy-intelligence \
 
 Then run the existing syntax, fast, F3-D.5, and isolated PostgreSQL parity checks. Do not stage the existing untracked artifacts.
 
-## Checkpoint
+## Historical checkpoint, superseded by the current review checkpoint above
 
 - Date: 2026-09-03
 - Branch: feature/draft-outcome-tracking
@@ -57,10 +74,10 @@ Then run the existing syntax, fast, F3-D.5, and isolated PostgreSQL parity check
 - Reviewed repository branch, HEAD, and recent history
 - Verified the actual F3-A through F3-D.4 implementation status against source and tests
 - Reconciled the project documents to the repository’s current evidence
-- Confirmed that PostgreSQL parity remains incomplete; local route validation is verified, but live Sleeper validation is not proven
+- Confirmed that PostgreSQL parity remains incomplete; the historical review did not include the current Draft HQ polling evidence
 - Identified draft-day operational readiness rehearsal as the next evidence-based milestone
 
-## Current verified milestone state
+## Historical verified milestone state
 
 - F3-A: implemented and tested
 - F3-A.1: implemented and tested
@@ -76,21 +93,21 @@ Then run the existing syntax, fast, F3-D.5, and isolated PostgreSQL parity check
 - F3-D.3: implemented and tested
 - F3-D.4: implemented and tested
 
-## Known limitations
+## Historical known limitations
 
 - PostgreSQL parity is incomplete and not production-proven
-- local route validation is verified on port 5050; live Sleeper route validation is not proven
+- local route validation and Draft HQ polling are verified on port 5050; broader live Sleeper route validation is not proven
 - waiver publication gating is implemented and tested, but live route/UI rendering is not proven
 - authoritative FAAB budget source remains unverified
 - stale or blocked readiness sources must fail closed, not open
 
-## Next milestone
+## Historical next milestone record
 
 Draft-day operational readiness rehearsal.
 
-Why it is next:
+Why it was next at that historical checkpoint:
 - F3-D.5 is complete in code and dedicated tests
-- live Sleeper, database, configured identity, and Draft HQ route behavior remain unproven
+- live Sleeper, database, configured identity, and Draft HQ route behavior remained unproven at that historical checkpoint; current Draft HQ polling evidence is recorded above
 - the rehearsal establishes operational evidence without submitting external transactions
 
 ## First command next session
@@ -116,7 +133,7 @@ Stop instead of guessing when:
 
 ## Historical F3-D.5 Waiver Action Publication and UI
 
-### Why this is next
+### Why this was next at that historical checkpoint
 
 F3-D.1 through F3-D.4 have passing repository validation.
 
@@ -136,7 +153,7 @@ The remaining work is:
 - UI rendering
 - operational presentation
 
-The repository still lacks:
+At that historical checkpoint the repository lacked:
 
 - verified live-route behavior
 - publication gating on waiver outputs

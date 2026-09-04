@@ -4,11 +4,20 @@
 
 - Date: 2026-09-04
 - Branch: `feature/draft-outcome-tracking`
-- HEAD: `116b908c62926307cdbb75e1b05f22164ac3941e`
-- Upstream: no tracking branch; six commits ahead of `origin/feature/draft-outcome-tracking`
-- Working tree: four canonical documents and regenerated F3-D.4 verification JSON are modified; nothing is staged; 42 untracked audit/discovery/source-capture/backup/test artifacts remain intentionally unstaged
+- HEAD: `cc888df5cc3de7ab20ff574b4725b432ba8240de`
+- Upstream: no tracking branch; eight commits ahead of `origin/feature/draft-outcome-tracking`
+- Working tree: uncommitted `templates/draftboard.html` and regenerated F3-D.4 verification JSON are modified; nothing is staged; untracked audit, discovery, rehearsal, documentation, script, source-capture, and test artifacts remain intentionally unstaged
 - Validation: syntax passed; fast tier `44 passed in 0.11s`; F3-D.1 through F3-D.5 suite `38 passed in 0.26s`; F3-D.4 verifier `30 passed`; full suite `268 passed, 9 skipped, 2 xfailed, 20 subtests passed`; PostgreSQL parity `9 passed, 9 skipped, 10 subtests passed`
-- F3-D.5: **COMPLETE** at repository level in `6e791be`; no live route or production claim
+- F3-D.5: **COMPLETE** at repository level in `6e791be`; local route evidence exists, but no production claim
+
+## Draft HQ Polling Status
+
+- `templates/draftboard.html` is an uncommitted source change. It renders the session CSRF token with `tojson`, uses POST `/test-draft-picks`, sends `X-CSRF-Token`, and preserves polling/manual-refresh behavior.
+- Classification: **IMPLEMENTED, LIVE-ROUTE VERIFIED, REGRESSION TEST MISSING**.
+- Evidence: GET route `405`; anonymous POST `401`; two session-CSRF POSTs `200` with JSON array `[]`; `/draftboard` rendered with the CSRF token. No admin token was exposed.
+- The route performs a read through `get_draft_picks`; this is a narrow configured-draft read proof, not proof of all Sleeper reads or production readiness.
+
+Remaining Draft HQ rehearsal gaps: focused polling regression coverage, real pick-count change behavior, blocked/error-state rehearsal, broader Sleeper endpoint coverage, reconciliation/database proof, isolated PostgreSQL parity, and production-like validation.
 
 ## Local Runtime Validation
 
@@ -22,11 +31,11 @@
 - Sleeper Intelligence route availability: VERIFIED
 - JSON endpoint availability: VERIFIED
 
-Limitations: Live Sleeper read verification not proven. External transaction execution not proven. PostgreSQL parity not proven. Production deployment not proven.
+The configured Sleeper draft-picks read was locally exercised and returned a successful empty array. Broader Sleeper endpoint coverage, non-empty pick retrieval, Sleeper writes, and production behavior remain unproven. External transaction execution, PostgreSQL parity, and production deployment remain unproven.
 
 ## Current Readiness Verdicts
 
-- Draft day: **READY WITH BLOCKERS** as a supervised copilot. Local routes are verified, but live Sleeper, live database, fresh-data, and full Draft HQ rehearsal evidence is missing.
+- Draft day: **READY WITH BLOCKERS** as a supervised copilot. Draft HQ polling is locally exercised, but live Sleeper breadth, live database, fresh-data, and full rehearsal evidence is missing.
 - Post-draft: **READY WITH BLOCKERS** in the unit/integration harness. Live completion detection, schema, roster reconciliation, and restart/retry rehearsal remain unproven.
 - Regular season: **NOT READY** for Week 1 operations. Local route availability is verified, but operational integration, freshness, recovery, and live evidence are incomplete.
 - PostgreSQL: **CODE PRESENT, PARITY NOT PROVEN**. The isolated parity suite is environment-gated; `PostgresDraftEventStore.ordered_state()` returns tuples and no `cleanup_test_draft()` hook is present.
@@ -43,16 +52,16 @@ Tests: existing draft readiness, live reconciliation, slot/owner, publication, a
 
 Stop conditions: missing or conflicting identity, stale/missing readiness source, database/schema failure, reconciliation drift, unavailable Sleeper reads, or any unexpected external write path.
 
-## Checkpoint
+## Historical checkpoint, superseded by the current review checkpoint above
 
 - Date: 2026-09-03
 - Branch: feature/draft-outcome-tracking
 - HEAD: 7ff86c633b8a2f5c5c7b5b34667344d2fa14440b
-- Working tree: review state includes modified [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) and untracked audit/discovery files. No production code changes were introduced during this review.
+- Working tree: review state included modified documentation and untracked audit/discovery files. No production code changes were introduced during that historical review.
 
-## Verified repository state
+## Historical verified repository state
 
-The repository is currently validated for implementation and unit/integration testing, but it is not live-route validated and not PostgreSQL-proven.
+The repository was validated for implementation and unit/integration testing at that historical checkpoint. Its current local route evidence is recorded above; PostgreSQL parity is still not proven.
 
 ## Phase status
 
@@ -89,7 +98,7 @@ The repository is currently validated for implementation and unit/integration te
 - F3-B.4, F3-C.1, and F3-C.2 are verified by targeted tests.
 
 ### Live-route tested
-- Local Flask route availability is verified on port 5050 for `/sandbox`, `/sleeper-intelligence/`, and `/sleeper-intelligence/json`. Live Sleeper read validation and production route validation remain unproven.
+- Local Flask route availability is verified on port 5050 for `/sandbox`, `/sleeper-intelligence/`, `/sleeper-intelligence/json`, and `/draftboard`; the POST-only `/test-draft-picks` contract was also exercised. Live Sleeper read validation beyond the configured draft-picks read and production route validation remain unproven.
 
 ### PostgreSQL-proven
 - Not proven. The repo documents parity checks as skipped on the PostgreSQL side and prohibits claiming PostgreSQL parity.
@@ -102,17 +111,17 @@ The repository is currently validated for implementation and unit/integration te
 
 ## Known risks and technical debt
 
-- The local application routes were validated on port 5050; live Sleeper reads and production behavior remain unproven.
+- The local application routes and Draft HQ polling contract were validated on port 5050; only the configured draft-picks read was externally exercised, while other live Sleeper reads and production behavior remain unproven.
 - Remaining FAAB budget source is not proven authoritative in the repo; do not guess from waiver_budget_used without verifying semantics.
 - Waiver publication gating is implemented and unit/route/template tested, but runtime rendering has not been verified.
 - Local roster context currently labels the owner as "My Team" instead of an authoritative ownership record.
 - Postgres parity remains incomplete and should be treated as blocked until isolated DB validation runs.
 
-## Next milestone
+## Historical next milestone record
 
 Draft-day operational readiness rehearsal.
 
-- Why next: F3-D.5 is complete in code and dedicated tests; live configured-league, database, and route behavior remain the highest operational risks.
+- Why it was next: F3-D.5 was complete in code and dedicated tests; live configured-league, database, and route behavior were the highest operational risks at that checkpoint. Current Draft HQ polling evidence narrows, but does not eliminate, those risks.
 - Definition of done:
       - verify active league, draft, season, team count, rounds, and owner slot from live configuration/data
       - exercise fresh Sleeper reads, pick refresh, readiness, reconciliation, and Draft HQ error states
