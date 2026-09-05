@@ -2,20 +2,21 @@
 
 ## Remediation Checkpoint (2026-09-05)
 
-- Branch/HEAD: `feature/draft-outcome-tracking` / `dea778c30d0dac457670fa094405656c0a450bce`; 0 ahead and 10 behind upstream; no staged changes; 20 modified tracked paths, 52 untracked paths, 0 deleted, 0 renamed.
+- Branch/HEAD: `feature/draft-outcome-tracking` / `bbf6295f1694285fc4e1d420fcf42f09ee61a65e`; 0 ahead and 11 behind upstream; no staged changes; 16 modified tracked paths, 52 untracked paths, 0 deleted, 0 renamed.
 - Corrections: forward migration 010 for existing schemas; authoritative PostgreSQL `ordered_state()` metadata; migration, polling, and verifier tests; fail-closed parity verifier.
-- Current validation: migration contracts `2 passed`; polling/verifier/remediation tests `8 passed`; reduced isolated PostgreSQL parity `18 passed, 0 skipped, 4 subtests in 12.23s`. The full verifier was correctly blocked because the shell still had reduced-gate settings (`25` batch size and `2` replay passes); existing blocked full-verifier evidence was preserved.
-- An isolated test/parity PostgreSQL environment is configured and reachable. The reduced 25-event/2-replay parity gate passed with 18 tests, zero skips, and 4 subtests. Full parity, migration execution proof, cleanup proof, and production PostgreSQL behavior remain unproven.
-- Next database milestone: execute clean-install migration validation; execute the old-schema-to-migration-010 upgrade path; verify existing rows survive; verify `draft_selections` constraints remain intact; verify migration 010 is safely repeatable; verify cleanup leaves zero `f3b31-` fixture rows; run the full 1000-event/10-replay verifier only when full audit evidence is required; reconcile documentation again after those results.
+- Current validation: migration contracts `2 passed`; polling/verifier/remediation tests `8 passed`; reduced isolated PostgreSQL parity `18 passed, 0 skipped, 4 subtests in 12.23s`. Clean-install migration validation, upgrade validation, row and constraint preservation, migration repeatability, and guarded cleanup passed in isolated databases. The full verifier remains pending.
+- An isolated test/parity PostgreSQL environment is configured and reachable. The reduced 25-event/2-replay parity gate passed with 18 tests, zero skips, and 4 subtests. Clean-install migration execution, upgrade execution, row preservation, constraint preservation, migration repeatability, and guarded cleanup all passed in isolated databases. Full parity and production PostgreSQL behavior remain unproven.
+- Next database milestone: run the full 1000-event/10-replay verifier when full audit evidence is required; add failure-injection/rollback validation; reconcile documentation again after those results.
 
 ## Current Evidence-Based Roadmap (2026-09-05)
 
-- Checkpoint: `feature/draft-outcome-tracking` at `dea778c30d0dac457670fa094405656c0a450bce`; 10 commits behind upstream, no staged changes, 20 modified tracked files, 52 untracked files, no deletes/renames. Current readiness is **READY WITH BLOCKERS** for supervised draft work and **NOT READY** for production operations.
+- Checkpoint: `feature/draft-outcome-tracking` at `bbf6295f1694285fc4e1d420fcf42f09ee61a65e`; 11 commits behind upstream, no staged changes, 16 modified tracked files, 52 untracked files, no deletes/renames. Current readiness is **READY WITH BLOCKERS** for supervised draft work and **NOT READY** for production operations.
 - Cumulative phase map: F3-A/A.1/A.2 event pipeline and runtime; F3-B.1/B.2 replay and reconciliation; F3-B.3 live-read reconciliation; F3-B.4 readiness; F3-C.1/C.2 publication; F3-D.1-D.5 waiver intelligence, action plans, integration, and gated UI. All are implemented and focused-tested; tiers do not imply production proof.
-- PostgreSQL: source implementation, migration 010, metadata fidelity, and fixture cleanup are present and source-contract tested. Reduced isolated parity **PASSED** with 18 tests and zero skips. Full parity and actual fresh-from-migration behavior are **VERIFICATION PENDING**; production PostgreSQL remains **NOT PROVEN**.
+- PostgreSQL: source implementation, migration 010, metadata fidelity, and fixture cleanup are present and source-contract tested. Reduced isolated parity **PASSED** with 18 tests and zero skips. Clean-install and upgrade execution, row/constraint preservation, repeatability, and guarded cleanup also **PASSED** in isolated databases. Full parity and rollback proof are **VERIFICATION PENDING**; production PostgreSQL remains **NOT PROVEN**.
 - Live routes: local `/sandbox`, `/sleeper-intelligence/`, `/sleeper-intelligence/json`, `/draftboard`, and the authenticated draft-picks read were exercised; broader external reads and production routes remain unproven.
 - Security: CSRF and authorization boundaries are present; external writes are not proven and must remain disabled/manual. Rehearsal captures may contain sensitive session material and stay excluded.
-- Exact next milestone: no-write draft-day operational rehearsal plus clean-install/upgrade PostgreSQL validation.
+- Immediate database milestone: run the full 1000-event/10-replay verifier when full audit evidence is required, then perform failure-injection/rollback validation.
+- Next operational milestone: no-write draft-day operational readiness rehearsal.
 - Definition of done: no skipped configured parity tests, cleanup zero rows, executed clean-install and upgrade proof, fresh route evidence, and synchronized documentation. Focused polling regression coverage is already present.
 
 ## Cumulative Capabilities
@@ -24,7 +25,7 @@ Rankings/player intelligence, identity bridge, draft board/tier/VBD/scarcity, st
 
 ## Commit Gate
 
-Do not treat the current tree as one commit. Partition implementation, tests/docs, evidence, and excluded captures separately. Migration 010 provides the forward upgrade path; isolated clean-install and upgrade execution remains required before release readiness.
+Do not treat the current tree as one commit. Partition implementation, tests/docs, evidence, and excluded captures separately. Migration 010 provides the forward upgrade path; clean-install and upgrade execution have passed in isolated databases. Rollback and full parity remain required before release readiness.
 
 ## Historical Checkpoint (superseded)
 
@@ -64,7 +65,7 @@ The configured Sleeper draft-picks read was locally exercised and returned a suc
 - Draft day: **READY WITH BLOCKERS** as a supervised copilot. Draft HQ polling is locally exercised, but live Sleeper breadth, live database, fresh-data, and full rehearsal evidence is missing.
 - Post-draft: **READY WITH BLOCKERS** in the unit/integration harness. Live completion detection, schema, roster reconciliation, and restart/retry rehearsal remain unproven.
 - Regular season: **NOT READY** for Week 1 operations. Local route availability is verified, but operational integration, freshness, recovery, and live evidence are incomplete.
-- PostgreSQL: **REDUCED GATE PASSED, FULL VERIFICATION PENDING**. An isolated test/parity PostgreSQL environment is configured and reachable. `ordered_state()` returns authoritative `DraftEvent` metadata and `cleanup_test_draft()` is restricted to `f3b31-` fixtures. Production PostgreSQL behavior remains unproven.
+- PostgreSQL: **REDUCED GATE PASSED, MIGRATION VALIDATION PASSED, FULL VERIFICATION PENDING**. An isolated test/parity PostgreSQL environment is configured and reachable. `ordered_state()` returns authoritative `DraftEvent` metadata and `cleanup_test_draft()` is restricted to `f3b31-` fixtures. Rollback and production PostgreSQL behavior remain unproven.
 - Authoritative FAAB: **NOT PROVEN**. Do not infer remaining balance from usage fields or publish unit bids without an explicit verified budget.
 - Automatic execution: **NOT IMPLEMENTED/PROVEN**. Treat all draft and season actions as recommendation or manual-assistance workflows.
 
@@ -126,8 +127,10 @@ The repository was validated for implementation and unit/integration testing at 
 ### Live-route tested
 - Local Flask route availability is verified on port 5050 for `/sandbox`, `/sleeper-intelligence/`, `/sleeper-intelligence/json`, and `/draftboard`; the POST-only `/test-draft-picks` contract was also exercised. Live Sleeper read validation beyond the configured draft-picks read and production route validation remain unproven.
 
-### PostgreSQL-proven
-- Not proven. The repo documents parity checks as skipped on the PostgreSQL side and prohibits claiming PostgreSQL parity.
+### PostgreSQL validation
+- Reduced isolated parity passed with 18 tests, zero skips, and 4 subtests.
+- Clean-install and upgrade migration validation, row and constraint preservation, repeatability, and guarded cleanup passed in isolated databases.
+- Full 1000-event/10-replay verification and failure-injection/rollback proof remain pending; production PostgreSQL behavior is not proven.
 
 ## Test-tier usage
 
@@ -141,7 +144,7 @@ The repository was validated for implementation and unit/integration testing at 
 - Remaining FAAB budget source is not proven authoritative in the repo; do not guess from waiver_budget_used without verifying semantics.
 - Waiver publication gating is implemented and unit/route/template tested, but runtime rendering has not been verified.
 - Local roster context currently labels the owner as "My Team" instead of an authoritative ownership record.
-- Postgres parity remains incomplete and should be treated as blocked until isolated DB validation runs.
+- Reduced PostgreSQL parity and migration validation have passed in isolated databases; full parity and failure-injection/rollback proof remain pending.
 
 ## Historical next milestone record
 

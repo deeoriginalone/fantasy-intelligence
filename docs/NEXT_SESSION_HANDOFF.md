@@ -2,11 +2,11 @@
 
 ## Remediation Checkpoint (2026-09-05)
 
-- Branch: `feature/draft-outcome-tracking`; HEAD `dea778c30d0dac457670fa094405656c0a450bce`; upstream divergence is 0 ahead and 10 behind. Nothing is staged; 20 tracked files are modified, 52 paths are untracked, and there are no deletes or renames.
+- Branch: `feature/draft-outcome-tracking`; HEAD `bbf6295f1694285fc4e1d420fcf42f09ee61a65e`; upstream divergence is 0 ahead and 11 behind. Nothing is staged; 16 tracked files are modified, 52 paths are untracked, and there are no deletes or renames.
 - Remediated: added `migrations/010_draft_event_pipeline_upgrade.sql`, restored PostgreSQL event metadata through the applied-state join, added migration-contract tests, added Draft HQ polling tests, and hardened the parity verifier to fail closed.
 - Validation: migration contract `2 passed`; polling/verifier/remediation tests `8 passed`; reduced isolated PostgreSQL parity `18 passed, 0 skipped, 4 subtests in 12.23s`. The full verifier was correctly blocked because the shell still had reduced-gate settings (`25` batch size and `2` replay passes), and existing blocked full-verifier evidence was preserved.
 - PostgreSQL status: an isolated test/parity PostgreSQL environment is configured and reachable. The reduced 25-event/2-replay parity gate passed with 18 tests, zero skips, and 4 subtests. Full 1000-event/10-replay parity remains verification pending; production PostgreSQL behavior remains unproven.
-- Migration status: forward migration 010 exists and is source-contract tested; actual clean-install and upgrade execution against an isolated PostgreSQL database remains pending.
+- Migration status: migration 007 clean-install execution passed in `fantasy_intelligence_clean_migration_test`. Migration 010 upgrade execution, existing-row preservation, `draft_selections` constraint preservation, repeatability, and guarded cleanup passed in `fantasy_intelligence_upgrade_migration_test`; final cleanup counts were zero in both tables.
 - PostgreSQL metadata status: fidelity is resolved in source through the `draft_selections`-to-`draft_events` join. `ordered_state()` returns authoritative `DraftEvent` metadata, and `cleanup_test_draft()` is restricted to `f3b31-` fixture IDs.
 - Draft HQ status: POST/CSRF polling has focused deterministic regression coverage; local route evidence exists; production Draft HQ behavior remains unproven.
 
@@ -14,14 +14,9 @@
 
 Next database milestone:
 
-1. Execute clean-install migration validation against isolated PostgreSQL.
-2. Execute the old-schema-to-migration-010 upgrade path.
-3. Verify existing rows survive.
-4. Verify `draft_selections` constraints remain intact.
-5. Verify migration 010 is safely repeatable.
-6. Verify cleanup leaves zero `f3b31-` fixture rows.
-7. Run the full 1000-event/10-replay verifier only when full audit evidence is required.
-8. Reconcile documentation again after those results.
+1. Run the full 1000-event/10-replay verifier when full audit evidence is required.
+2. Add failure-injection/rollback validation.
+3. Reconcile documentation again after those results.
 
 ## Historical Review Checkpoint (superseded)
 
@@ -38,8 +33,8 @@ Next database milestone:
 
 ## Findings and Boundaries
 
-- **HIGH:** the upgrade migration gap is resolved in source by migration 010; isolated clean-install and upgrade execution remains pending.
-- **MEDIUM:** PostgreSQL metadata fidelity is resolved in source through the applied-state join; isolated database verification remains pending.
+- **HIGH:** the upgrade migration gap is resolved and validated in isolated PostgreSQL by migration 010; failure-injection/rollback proof remains pending.
+- **MEDIUM:** PostgreSQL metadata fidelity is resolved in source and covered by the reduced isolated parity gate; full parity remains pending.
 - **MEDIUM:** the untracked factory, parity evidence, F3-D.3 tests, and related docs are not reproducible from the committed tree alone.
 - **MEDIUM:** Draft HQ polling has focused deterministic regression coverage; production behavior remains unproven.
 - **MEDIUM:** remaining FAAB is not authoritative; `waiver_budget_used` must not be presented as remaining balance.
@@ -51,11 +46,11 @@ Next database milestone:
 - Intended tests/docs: `draft_events/postgres_test_factory.py`, `tests/test_f3_d3_waiver_action_plan.py`, `docs/F3_D3_BATCH_11_RUNBOOK.md`, `docs/F3_D3_WAIVER_ACTION_PLAN_SPEC.md`, `docs/PHASE_F2_RUNBOOK.md`.
 - Evidence: `audit/f3_b2`, `audit/f3_b3`, `audit/f3_b4`, `audit/f3_d3`, `audit/f3_d4`, and `audit/f3_b31` require provenance review before commit.
 - Exclude: `audit/f3_b1/source_capture/`, `audit/phase_f/`, `rehearsal_evidence/`, `rehearsal_sleeper_json.json`, patch scripts, `fix_final_doc_cleanup.py`, the ZIP checksum, and all generated installers/captures. Treat `apply_f3_b31_postgres_parity_patch_v2.py` as an installer, not implementation.
-- Proposed commits: (1) PostgreSQL implementation plus an upgrade migration and tests; (2) F3-D.3 implementation/tests/docs; (3) Draft HQ polling plus regression coverage; (4) evidence only after rerunning with configured isolated PostgreSQL; (5) documentation reconciliation. Do not stage or commit until the HIGH migration issue and current parity skip are resolved.
+- Proposed commits: (1) PostgreSQL implementation plus migration validation and tests; (2) F3-D.3 implementation/tests/docs; (3) Draft HQ polling plus regression coverage; (4) evidence only after full 1000-event/10-replay audit evidence; (5) documentation reconciliation. The migration issue is resolved; Release Manager partitioning is required before another commit.
 
 ## Definition of Done and Stop Conditions
 
-Done means clean-install and upgrade migration tests pass, configured isolated PostgreSQL runs 18 tests with no skips and cleanup leaves zero fixture rows, focused polling tests pass, route evidence is no-write and current, and the four canonical documents agree on the same checkpoint. Stop on missing isolated DB, unsafe DSN, stale identity/readiness data, unexpected external write, unexplained evidence mismatch, or any claim that would elevate local proof to production proof.
+Done means the full 1000-event/10-replay verifier passes with no skips, failure-injection/rollback validation is recorded, route evidence is no-write and current, and the four canonical documents agree on the same checkpoint. Clean-install and upgrade migration validation, row and constraint preservation, repeatability, and guarded cleanup are already passed in isolated databases. Stop on missing isolated DB, unsafe DSN, stale identity/readiness data, unexpected external write, unexplained evidence mismatch, or any claim that would elevate local proof to production proof.
 
 First command next session:
 
@@ -110,7 +105,7 @@ Remaining Draft HQ rehearsal gaps: focused polling regression coverage, real pic
 
 The configured Sleeper draft-picks read was locally exercised and returned a successful empty array. Broader Sleeper endpoint coverage, non-empty pick retrieval, Sleeper writes, and production behavior remain unproven. External transaction execution, PostgreSQL parity, and production deployment remain unproven.
 
-## Next Milestone
+## Next Operational Milestone
 
 Draft-day operational readiness rehearsal. Verify configuration, owner/slot identity, active team/round settings, fresh Sleeper reads, isolated database schema, readiness/reconciliation, Draft HQ refresh behavior, and blocked-error handling. Record route and runtime evidence without submitting picks or season transactions.
 

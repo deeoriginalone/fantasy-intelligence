@@ -2,20 +2,25 @@
 
 ## Remediation Checkpoint (2026-09-05)
 
-- Repository is `feature/draft-outcome-tracking` at `dea778c30d0dac457670fa094405656c0a450bce`, 0 ahead/10 behind upstream, with no staged changes.
+- Repository is `feature/draft-outcome-tracking` at `bbf6295f1694285fc4e1d420fcf42f09ee61a65e`, 0 ahead/11 behind upstream, with no staged changes; 16 tracked files are modified and 52 paths are untracked, with no deletes or renames.
 - Migration 010 now upgrades existing draft-event schemas; PostgreSQL ordered state preserves event metadata; Draft HQ polling and verifier regression tests are present.
 - Current tests: migration contracts `2 passed`; polling/verifier/remediation tests `8 passed`; reduced isolated PostgreSQL parity `18 passed, 0 skipped, 4 subtests in 12.23s`. The full verifier was correctly blocked by reduced-gate settings and existing blocked full-verifier evidence was preserved.
-- Database state: migration 010 exists and is source-contract tested; actual clean-install and upgrade execution against isolated PostgreSQL is pending, and production database behavior is unproven.
-- Current next database initiative: execute clean-install migration validation; execute the old-schema-to-migration-010 upgrade path; verify existing rows survive; verify `draft_selections` constraints remain intact; verify migration 010 is safely repeatable; verify cleanup leaves zero `f3b31-` fixture rows; run the full 1000-event/10-replay verifier only when full audit evidence is required; reconcile documentation again after those results.
+- Database state: migration 007 clean-install execution passed in `fantasy_intelligence_clean_migration_test`. Migration 010 upgrade execution, existing-row preservation, `draft_selections` constraint preservation, repeatability, and guarded cleanup passed in `fantasy_intelligence_upgrade_migration_test`; final cleanup counts were zero in both tables. Production database behavior and rollback proof remain unproven.
+- Current next database initiative: run the full 1000-event/10-replay verifier when full audit evidence is required; add failure-injection/rollback validation; reconcile documentation again after those results.
 
 ## Current State (2026-09-05)
 
-- Repository: `feature/draft-outcome-tracking`, HEAD `dea778c30d0dac457670fa094405656c0a450bce`, 10 commits behind `origin/feature/draft-outcome-tracking`; no staged files; 20 modified tracked and 52 untracked paths; no deletes/renames.
+- Repository: `feature/draft-outcome-tracking`, HEAD `bbf6295f1694285fc4e1d420fcf42f09ee61a65e`, 11 commits behind `origin/feature/draft-outcome-tracking`; no staged files; 16 modified tracked and 52 untracked paths; no deletes/renames.
 - Operational position: supervised draft copilot **READY WITH BLOCKERS**; regular-season and production operation **NOT READY**.
 - Current tests: syntax passed; fast 44 passed; draft stack 83 passed plus 10 subtests; waiver 30 passed; D.3 9 passed; D.4 30 passed. Reduced isolated PostgreSQL parity passed with 18 tests, zero skips, and 4 subtests. Full 1000-event/10-replay verification remains pending.
-- Database: schema source contains event-log conflict tolerance and applied-state uniqueness. Migration 010 provides the forward upgrade path and is source-contract tested; actual isolated execution and production database behavior are unproven. The explicit factory and `f3b31-`-guarded cleanup hook exist.
+- Database: schema source contains event-log conflict tolerance and applied-state uniqueness. Migration 010 provides the forward upgrade path and passed isolated upgrade execution, repeatability, row preservation, constraint preservation, and guarded cleanup. Production database behavior and rollback proof are unproven. The explicit factory and `f3b31-`-guarded cleanup hook exist.
 - External integration: local route and one configured Sleeper draft-picks read are verified. Broader reads, writes, and production deployment are unproven. CSRF/auth boundaries remain enforced.
-- Next initiative: clean-install/upgrade PostgreSQL proof followed by a no-write draft-day operational rehearsal.
+- Immediate database milestone:
+1. Full 1000-event/10-replay PostgreSQL verification when full audit evidence is required.
+2. Failure-injection/rollback validation.
+
+Next operational milestone:
+3. No-write draft-day operational readiness rehearsal.
 
 ## Current Capabilities by Subsystem
 
@@ -23,7 +28,7 @@ Rankings/player intelligence; identity mapping; draft boards, tiers, VBD/scarcit
 
 ## Technical Debt and Stop Conditions
 
-The no-skip PostgreSQL run, isolated clean-install/upgrade execution, authoritative FAAB balance source, broader live-read coverage, and redacted rehearsal evidence remain open. Migration upgrade source, event metadata fidelity, and polling regression coverage are resolved in source. Stop rather than guess when the isolated database is unavailable, the database name is not test/parity scoped, identity/readiness is stale, any external write appears, or evidence cannot be tied to a command/configuration/timestamp.
+The full no-skip PostgreSQL run, failure-injection/rollback proof, authoritative FAAB balance source, broader live-read coverage, and redacted rehearsal evidence remain open. Migration upgrade execution, row/constraint preservation, repeatability, guarded cleanup, event metadata fidelity, and polling regression coverage are resolved and validated at their current tiers. Stop rather than guess when the isolated database is unavailable, the database name is not test/parity scoped, identity/readiness is stale, any external write appears, or evidence cannot be tied to a command/configuration/timestamp.
 
 ## Historical Checkpoint (superseded)
 
@@ -68,11 +73,11 @@ The configured Sleeper draft-picks read was locally exercised and returned a suc
 - Post-draft transition: **READY WITH BLOCKERS**. Code tests cover completion gating, count/invariant checks, rollback, materialization, and idempotency; live DB/Sleeper validation is missing.
 - Regular-season operations: **NOT READY**. Local routes are verified, but weekly, lineup, waiver, trade, Pick'em, Survivor, reporting, and recovery code is not equivalent to live operational proof.
 - Sandbox: local code supports MOCK/LIVE session and persisted-state switching, admin protection, CSRF form token on exit, and no Sleeper writes. Required end-to-end route smoke tests were not run.
-- PostgreSQL: implementation is present and the reduced isolated parity gate passed with 18 tests, zero skips, and 4 subtests. Full 1000-event/10-replay verification remains pending; `ordered_state()` returns authoritative `DraftEvent` metadata and `cleanup_test_draft()` is restricted to `f3b31-` fixtures. Production proof is unproven.
+- PostgreSQL: implementation is present and the reduced isolated parity gate passed with 18 tests, zero skips, and 4 subtests. Clean-install, upgrade, preservation, repeatability, and guarded cleanup checks passed in isolated databases. Full 1000-event/10-replay verification, rollback proof, and production proof remain pending; `ordered_state()` returns authoritative `DraftEvent` metadata and `cleanup_test_draft()` is restricted to `f3b31-` fixtures.
 - FAAB: percentage guidance is tested; remaining budget and unit bids are only permitted with explicit input and are not authoritative-source proven.
 - External execution: no proven automatic draft, waiver, lineup, or trade submission path.
 
-## Next Milestone
+## Next Operational Milestone
 
 Draft-day operational readiness rehearsal, with live-read validation and isolated database proof as entry criteria. This is a verification milestone, not a new feature phase.
 
