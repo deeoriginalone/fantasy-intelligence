@@ -1,6 +1,31 @@
 # Project State
 
-## Current Review Checkpoint
+## Remediation Checkpoint (2026-09-05)
+
+- Repository is `feature/draft-outcome-tracking` at `dea778c30d0dac457670fa094405656c0a450bce`, 0 ahead/10 behind upstream, with no staged changes.
+- Migration 010 now upgrades existing draft-event schemas; PostgreSQL ordered state preserves event metadata; Draft HQ polling and verifier regression tests are present.
+- Current tests: migration contracts `2 passed`; polling/verifier/remediation tests `8 passed`; reduced isolated PostgreSQL parity `18 passed, 0 skipped, 4 subtests in 12.23s`. The full verifier was correctly blocked by reduced-gate settings and existing blocked full-verifier evidence was preserved.
+- Database state: migration 010 exists and is source-contract tested; actual clean-install and upgrade execution against isolated PostgreSQL is pending, and production database behavior is unproven.
+- Current next database initiative: execute clean-install migration validation; execute the old-schema-to-migration-010 upgrade path; verify existing rows survive; verify `draft_selections` constraints remain intact; verify migration 010 is safely repeatable; verify cleanup leaves zero `f3b31-` fixture rows; run the full 1000-event/10-replay verifier only when full audit evidence is required; reconcile documentation again after those results.
+
+## Current State (2026-09-05)
+
+- Repository: `feature/draft-outcome-tracking`, HEAD `dea778c30d0dac457670fa094405656c0a450bce`, 10 commits behind `origin/feature/draft-outcome-tracking`; no staged files; 20 modified tracked and 52 untracked paths; no deletes/renames.
+- Operational position: supervised draft copilot **READY WITH BLOCKERS**; regular-season and production operation **NOT READY**.
+- Current tests: syntax passed; fast 44 passed; draft stack 83 passed plus 10 subtests; waiver 30 passed; D.3 9 passed; D.4 30 passed. Reduced isolated PostgreSQL parity passed with 18 tests, zero skips, and 4 subtests. Full 1000-event/10-replay verification remains pending.
+- Database: schema source contains event-log conflict tolerance and applied-state uniqueness. Migration 010 provides the forward upgrade path and is source-contract tested; actual isolated execution and production database behavior are unproven. The explicit factory and `f3b31-`-guarded cleanup hook exist.
+- External integration: local route and one configured Sleeper draft-picks read are verified. Broader reads, writes, and production deployment are unproven. CSRF/auth boundaries remain enforced.
+- Next initiative: clean-install/upgrade PostgreSQL proof followed by a no-write draft-day operational rehearsal.
+
+## Current Capabilities by Subsystem
+
+Rankings/player intelligence; identity mapping; draft boards, tiers, VBD/scarcity; strategy and mock-draft simulation; recommendations; draft-event capture, replay/idempotency, reconciliation, readiness, and publication; Draft HQ polling; post-draft transition; Sleeper and waiver intelligence; percentage FAAB guidance; add/drop plans; gated waiver UI; weekly, lineup, market, Pick'em, Survivor, and reporting workflows; sandbox MOCK/LIVE controls; PostgreSQL stores/migrations; and audit infrastructure are implemented with focused local validation. Validation varies by subsystem and does not establish production readiness.
+
+## Technical Debt and Stop Conditions
+
+The no-skip PostgreSQL run, isolated clean-install/upgrade execution, authoritative FAAB balance source, broader live-read coverage, and redacted rehearsal evidence remain open. Migration upgrade source, event metadata fidelity, and polling regression coverage are resolved in source. Stop rather than guess when the isolated database is unavailable, the database name is not test/parity scoped, identity/readiness is stale, any external write appears, or evidence cannot be tied to a command/configuration/timestamp.
+
+## Historical Checkpoint (superseded)
 
 - Date: 2026-09-04
 - Branch: `feature/draft-outcome-tracking`
@@ -14,7 +39,7 @@
 - The uncommitted template change sends POST `/test-draft-picks` with the rendered session CSRF token in `X-CSRF-Token`.
 - Local route flow: GET `405`, anonymous POST `401`, session-cookie plus CSRF POST `200` with JSON array `[]` on two attempts.
 - Polling interval remains 10 seconds; `checking` prevents overlap; manual refresh remains enabled; count changes trigger reload; errors recover on the next interval.
-- Classification: **IMPLEMENTED, LIVE-ROUTE VERIFIED, REGRESSION TEST MISSING**.
+- Classification: **IMPLEMENTED, LIVE-ROUTE VERIFIED, SOURCE-CONTRACT AND DETERMINISTIC REGRESSION TESTED**.
 
 ## Runtime and External-Read Scope
 
@@ -43,7 +68,7 @@ The configured Sleeper draft-picks read was locally exercised and returned a suc
 - Post-draft transition: **READY WITH BLOCKERS**. Code tests cover completion gating, count/invariant checks, rollback, materialization, and idempotency; live DB/Sleeper validation is missing.
 - Regular-season operations: **NOT READY**. Local routes are verified, but weekly, lineup, waiver, trade, Pick'em, Survivor, reporting, and recovery code is not equivalent to live operational proof.
 - Sandbox: local code supports MOCK/LIVE session and persisted-state switching, admin protection, CSRF form token on exit, and no Sleeper writes. Required end-to-end route smoke tests were not run.
-- PostgreSQL: not parity-proven. The parity tests require an explicit isolated store factory and are skipped otherwise; raw tuple `ordered_state()` and missing cleanup hook remain documented gaps.
+- PostgreSQL: implementation is present and the reduced isolated parity gate passed with 18 tests, zero skips, and 4 subtests. Full 1000-event/10-replay verification remains pending; `ordered_state()` returns authoritative `DraftEvent` metadata and `cleanup_test_draft()` is restricted to `f3b31-` fixtures. Production proof is unproven.
 - FAAB: percentage guidance is tested; remaining budget and unit bids are only permitted with explicit input and are not authoritative-source proven.
 - External execution: no proven automatic draft, waiver, lineup, or trade submission path.
 
@@ -156,7 +181,7 @@ Draft Coach v1
 
 ✅ Draft Coach
 
-## Next Major Initiative
+## Historical Next Major Initiative (superseded)
 
 Mock Draft Lab
 
