@@ -110,7 +110,67 @@ class PostgresDraftEventStore:
             for r in rows]
 
     def ordered_state(self, draft_id):
+        """Return DraftEvent objects, matching the reference-store behavior."""
         with self._connection_scope() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT * FROM draft_selections WHERE draft_id=%s ORDER BY pick_number", (draft_id,))
-                return cur.fetchall()
+                cur.execute(
+                    """SELECT
+                           e.event_id,
+                           e.league_id,
+                           e.draft_id,
+                           e.pick_number,
+                           e.round,
+                           e.round_pick,
+                           e.roster_id,
+                           e.owner_id,
+                           e.player_id,
+                           e.event_type,
+                           e.occurred_at,
+                           e.received_at,
+                           e.source,
+                           e.raw_payload
+                       FROM draft_selections AS s
+                       JOIN draft_events AS e
+                         ON e.event_id = s.source_event_id
+                       WHERE s.draft_id=%s
+                       ORDER BY s.pick_number, e.event_id""",
+                    (draft_id,),
+                )
+                rows = cur.fetchall()
+        return [
+            DraftEvent(
+                event_id=row[0],
+                league_id=row[1],
+                draft_id=row[2],
+                pick_number=row[3],
+                round=row[4],
+                round_pick=row[5],
+                roster_id=row[6],
+                owner_id=row[7],
+                player_id=row[8],
+                event_type=row[9],
+                occurred_at=row[10],
+                received_at=row[11],
+                source=row[12],
+                raw_payload=row[13] or {},
+            )
+            for row in rows
+        ]
+
+    def cleanup_test_draft(self, draft_id):
+        """Delete only isolated F3-B.3.1 parity fixtures."""
+        draft_id = str(draft_id)
+        if not draft_id.startswith("f3b31-"):
+            raise ValueError(
+                "cleanup_test_draft only permits draft IDs beginning with 'f3b31-'"
+            )
+        with self._connection_scope() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM draft_selections WHERE draft_id=%s",
+                    (draft_id,),
+                )
+                cur.execute(
+                    "DELETE FROM draft_events WHERE draft_id=%s",
+                    (draft_id,),
+                )

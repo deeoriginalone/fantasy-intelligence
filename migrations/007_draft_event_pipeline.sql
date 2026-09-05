@@ -19,9 +19,7 @@ CREATE TABLE IF NOT EXISTS draft_events (
         CHECK (processing_status IN ('RECEIVED','VALIDATED','APPLIED','FAILED')),
     validation_error TEXT,
     processed_at TIMESTAMPTZ,
-    CHECK (roster_id IS NOT NULL OR owner_id IS NOT NULL),
-    UNIQUE (draft_id, pick_number),
-    UNIQUE (draft_id, player_id)
+    CHECK (roster_id IS NOT NULL OR owner_id IS NOT NULL)
 );
 
 CREATE TABLE IF NOT EXISTS draft_selections (

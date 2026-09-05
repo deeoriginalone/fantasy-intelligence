@@ -94,6 +94,22 @@ def snapshot(store, draft_id):
     )
 
 
+def assert_event_metadata(test_case, actual, expected):
+    test_case.assertEqual(actual.event_id, expected.event_id)
+    test_case.assertEqual(actual.league_id, expected.league_id)
+    test_case.assertEqual(actual.draft_id, expected.draft_id)
+    test_case.assertEqual(actual.pick_number, expected.pick_number)
+    test_case.assertEqual(actual.round, expected.round)
+    test_case.assertEqual(actual.round_pick, expected.round_pick)
+    test_case.assertEqual(actual.roster_id, expected.roster_id)
+    test_case.assertEqual(actual.owner_id, expected.owner_id)
+    test_case.assertEqual(actual.player_id, expected.player_id)
+    test_case.assertEqual(actual.event_type, expected.event_type)
+    test_case.assertEqual(actual.occurred_at, expected.occurred_at)
+    test_case.assertEqual(actual.source, expected.source)
+    test_case.assertEqual(actual.raw_payload, expected.raw_payload)
+
+
 def cleanup_store(store, draft_id):
     """Use an explicit test cleanup hook; never guess SQL or delete methods."""
     cleanup = getattr(store, "cleanup_test_draft", None)
@@ -132,7 +148,9 @@ class StoreContractMixin:
     def test_002_baseline_large_batch_import(self):
         metrics = process_batch(self.processor, self.batch)
         self.assertEqual(metrics, {"applied": BATCH_SIZE, "duplicates": 0, "failed": 0})
-        self.assertEqual(len(self.store.ordered_state(self.draft_id)), BATCH_SIZE)
+        ordered = self.store.ordered_state(self.draft_id)
+        self.assertEqual(len(ordered), BATCH_SIZE)
+        assert_event_metadata(self, ordered[0], self.batch[0])
 
     def test_003_identical_replay_is_idempotent(self):
         process_batch(self.processor, self.batch)
