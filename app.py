@@ -3,7 +3,14 @@ from survival_calibration import build_comparison as build_survival_comparison, 
 from monte_carlo_survival import blueprint as monte_carlo_survival_blueprint, enhance as enhance_monte_carlo_survival, persist as persist_monte_carlo_survival
 from recommendation_explainer import build_explanation, blueprint as recommendation_blueprint, persist as persist_explanation
 from draft_operations_hardening import blueprint,track,undo
-from draft_state_hardening import build_hardened_sync, create_blueprint
+from draft_state_hardening import (
+    build_hardened_sync,
+    create_blueprint,
+    ensure_schema,
+    session_status,
+    current_rotation_mode,
+    _derived_state_counts,
+)
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,7 +18,13 @@ load_dotenv()
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 from auth import admin_required, csrf_required, ensure_csrf_token
 from config import Config
-from draft_readiness import build_draft_readiness, validate_runtime
+from draft_readiness import (
+    build_draft_readiness,
+    ensure_reconciliation_table,
+    record_reconciliation,
+    validate_runtime,
+)
+from draft_hq_integrity import build_draft_hq_integrity
 from draft_health_routes import create_draft_health_blueprint
 from scarcity_model import calculate_dynamic_scarcity, scarcity_distribution
 from candidate_filter import filter_candidate_pool
@@ -1353,17 +1366,54 @@ def sync_sleeper_player_map():
         conn.close()
 
 
-def sync_sleeper_draft_picks():
-    picks = get_draft_picks(SLEEPER_DRAFT_ID) or []
+def enrich_sleeper_draft_picks(picks, draft, rosters=None):
+    slot_to_roster_id = draft.get("slot_to_roster_id") or {}
+    owner_to_roster_id = {
+        str(roster.get("owner_id")): roster.get("roster_id")
+        for roster in rosters or []
+        if roster.get("owner_id") is not None
+    }
+    enriched = []
+    for pick in picks or []:
+        normalized = dict(pick)
+        if normalized.get("roster_id") is None:
+            roster_id = owner_to_roster_id.get(str(normalized.get("picked_by")))
+            if roster_id is None:
+                draft_slot = normalized.get("draft_slot")
+                slot_keys = [draft_slot, str(draft_slot)]
+                if isinstance(draft_slot, str) and draft_slot.isdigit():
+                    slot_keys.append(int(draft_slot))
+                roster_id = next(
+                    (
+                        slot_to_roster_id.get(slot_key)
+                        for slot_key in slot_keys
+                        if slot_to_roster_id.get(slot_key) is not None
+                    ),
+                    None,
+                )
+            if roster_id is not None:
+                normalized["roster_id"] = roster_id
+        enriched.append(normalized)
+    return enriched
+
+
+def sync_sleeper_draft_picks(draft_id=None):
+    draft_id = draft_id or SLEEPER_DRAFT_ID
+    draft = get_draft(draft_id) or {}
     users = get_users(SLEEPER_LEAGUE_ID) or []
     rosters = get_rosters(SLEEPER_LEAGUE_ID) or []
+    picks = enrich_sleeper_draft_picks(
+        get_draft_picks(draft_id),
+        draft,
+        rosters,
+    )
 
     # F3-A.2 runtime audit persistence. Existing roster/board sync remains authoritative.
     f3a2_event_pipeline = process_runtime_picks(
         get_db_connection,
         picks,
         SLEEPER_LEAGUE_ID,
-        SLEEPER_DRAFT_ID,
+        draft_id,
         rosters,
     )
 
@@ -1425,8 +1475,11 @@ def sync_sleeper_draft_picks():
                     SELECT player_name, position
                     FROM players
                     WHERE REGEXP_REPLACE(
-                        LOWER(player_name), '[^a-z0-9]', '', 'g'
-                    ) = %s
+                        REGEXP_REPLACE(
+                            LOWER(player_name), '[^a-z0-9]', '', 'g'
+                        ),
+                        '(jr|sr|ii|iii|iv)$', '', 'g'
+                    ) = REGEXP_REPLACE(%s, '(jr|sr|ii|iii|iv)$', '', 'g')
                     LIMIT 1
                     """,
                     (normalized,),
@@ -1452,7 +1505,7 @@ def sync_sleeper_draft_picks():
                     synced_at = NOW()
                 """,
                 (
-                    SLEEPER_DRAFT_ID, roster_id, round_num, pick_no,
+                    draft_id, roster_id, round_num, pick_no,
                     player_id, stored_name,
                 ),
             )
@@ -1506,7 +1559,7 @@ def sync_sleeper_draft_picks():
 
         conn.commit()
         return {
-            "draft_id": SLEEPER_DRAFT_ID,
+            "draft_id": draft_id,
             "received": len(picks),
             "stored": len(picks),
             "matched_to_rankings": matched,
@@ -1805,14 +1858,17 @@ def calculate_draftboard_tier_bonus(
 def draftboard():
     sleeper_sync_status = None
     sleeper_sync_error = None
-    try:
-        sleeper_sync_status = sync_sleeper_draft_picks()
-    except Exception as exc:
-        sleeper_sync_error = str(exc)
-        app.logger.warning("Sleeper draft-pick sync failed: %s", exc)
 
     conn = get_db_connection()
     cur = conn.cursor()
+    ensure_schema(cur)
+    draft_session = session_status(
+        cur,
+        league_id=SLEEPER_LEAGUE_ID,
+        configured_draft_id=SLEEPER_DRAFT_ID,
+        remote=get_draft(SLEEPER_DRAFT_ID) or {},
+        allow_mock=current_rotation_mode(cur, SLEEPER_DRAFT_ID) == "MOCK",
+    )
 
     cur.execute(
         """
@@ -1852,7 +1908,34 @@ def draftboard():
     )
     roster = cur.fetchall()
 
-    sleeper_draft_signals = build_sleeper_draft_signals(cur, SLEEPER_LEAGUE_ID, season=2026, user_slot=5)
+    if not draft_session["valid"]:
+        players = [
+            tuple(value if index != 5 else False for index, value in enumerate(player))
+            for player in players
+        ]
+        roster = []
+
+    active_draft = get_draft(SLEEPER_DRAFT_ID) or {}
+    active_picks = get_draft_picks(SLEEPER_DRAFT_ID) or []
+    sleeper_draft_signals = build_sleeper_draft_signals(
+        cur,
+        SLEEPER_LEAGUE_ID,
+        season=2026,
+        user_slot=5,
+        active_draft=active_draft,
+        active_picks=active_picks,
+    )
+    cur.execute(
+        "SELECT count(*) FROM sleeper_draft_picks WHERE draft_id=%s",
+        (SLEEPER_DRAFT_ID,),
+    )
+    persisted_pick_count = int(cur.fetchone()[0])
+    cur.execute(
+        """SELECT processing_status, count(*)
+           FROM draft_events WHERE draft_id=%s GROUP BY processing_status""",
+        (SLEEPER_DRAFT_ID,),
+    )
+    event_counts = {status: int(count) for status, count in cur.fetchall()}
 
 
     
@@ -1930,6 +2013,22 @@ def draftboard():
     }
     draft_targets = [player for player in available_players if player[4]]
     drafted_count = sum(1 for player in players if player[5])
+    draft_integrity = build_draft_hq_integrity(
+        draft_id=SLEEPER_DRAFT_ID,
+        remote_pick_count=len(active_picks),
+        persisted_pick_count=persisted_pick_count,
+        applied_event_count=event_counts.get("APPLIED", 0),
+        failed_event_count=event_counts.get("FAILED", 0),
+        total_players=len(players),
+        drafted_player_count=drafted_count,
+        owner_pick_count=sum(
+            1 for pick in active_picks
+            if str(pick.get("picked_by") or "") == str(
+                next((user.get("user_id") for user in get_users(SLEEPER_LEAGUE_ID)
+                     if user.get("is_owner") is True), "")
+            )
+        ),
+    )
     roster_slots, bench = build_roster_slots(roster)
 
     position_counts = {position: 0 for position in ROSTER_TARGETS}
@@ -2445,25 +2544,47 @@ def draftboard():
     draft_validation = validate_runtime(recommendation_candidates, sleeper_draft_signals, current_model_health)
     readiness_cur.close()
     readiness_conn.close()
+    draft_intelligence_blocked = (
+        not draft_integrity["recommendations_allowed"]
+        or not draft_session["valid"]
+    )
+    if draft_intelligence_blocked:
+        draft_readiness["status"] = "NOT READY"
+        draft_readiness["mode"] = "UNAVAILABLE"
+        draft_readiness["publication_allowed"] = False
+        draft_readiness["deductions"].extend(
+            {"check": reason, "points": 0}
+            for reason in draft_integrity["reasons"]
+        )
+        draft_validation["passed"] = False
+        draft_validation["errors"].extend(draft_integrity["reasons"])
+        draft_validation["errors"].extend(draft_session["errors"])
 
-    # === Recommendation explainability batch 4A ===
-    recommendation_explanation = build_explanation(top_recommendations, player_survival, expected_value_analysis, draft_decision_plan)
-    # === Survival calibration batch 4B.1 ===
-    survival_comparison = build_survival_comparison(recommendation_explanation, monte_carlo, player_survival)
-    survival_comparison["comparison_id"] = persist_survival_comparison(get_db_connection, SLEEPER_DRAFT_ID, sleeper_draft_signals.get("pick_count", 0), survival_comparison)
-    if survival_comparison.get("available"):
-        recommendation_explanation["survival_comparison"] = survival_comparison
-        if survival_comparison.get("severity") == "HIGH":
-            recommendation_explanation.setdefault("warnings", []).append(survival_comparison["message"])
-    recommendation_explanation["audit_id"] = persist_explanation(get_db_connection, SLEEPER_DRAFT_ID, sleeper_draft_signals.get("pick_count", 0), recommendation_explanation)
+    recommendation_explanation = {"available": False, "audit_id": None}
+    survival_comparison = {"available": False}
+    draft_outcome_status = None
+    if not draft_intelligence_blocked:
+        # === Recommendation explainability batch 4A ===
+        recommendation_explanation = build_explanation(top_recommendations, player_survival, expected_value_analysis, draft_decision_plan)
+        # === Survival calibration batch 4B.1 ===
+        survival_comparison = build_survival_comparison(recommendation_explanation, monte_carlo, player_survival)
+        survival_comparison["comparison_id"] = persist_survival_comparison(get_db_connection, SLEEPER_DRAFT_ID, sleeper_draft_signals.get("pick_count", 0), survival_comparison)
+        if survival_comparison.get("available"):
+            recommendation_explanation["survival_comparison"] = survival_comparison
+            if survival_comparison.get("severity") == "HIGH":
+                recommendation_explanation.setdefault("warnings", []).append(survival_comparison["message"])
+        recommendation_explanation["audit_id"] = persist_explanation(get_db_connection, SLEEPER_DRAFT_ID, sleeper_draft_signals.get("pick_count", 0), recommendation_explanation)
 
-    draft_outcome_status = log_and_resolve(get_db_connection, SLEEPER_LEAGUE_ID, 2026, team_recommendation, sleeper_draft_signals, draft_now_wait, monte_carlo, player_survival, expected_value_analysis, draft_decision_plan)
+        draft_outcome_status = log_and_resolve(get_db_connection, SLEEPER_LEAGUE_ID, 2026, team_recommendation, sleeper_draft_signals, draft_now_wait, monte_carlo, player_survival, expected_value_analysis, draft_decision_plan)
 
 
     return render_template(
         "draftboard.html",
         draft_readiness=draft_readiness,
-        draft_validation=draft_validation,
+          draft_validation=draft_validation,
+          draft_integrity=draft_integrity,
+          draft_session=draft_session,
+          draft_intelligence_blocked=draft_intelligence_blocked,
         candidate_pool_audit=candidate_pool_audit,
         model_health=current_model_health,
         draft_outcome_status=draft_outcome_status,
@@ -2992,6 +3113,23 @@ def test_draft_picks():
 
     draft_id = Config.SLEEPER_DRAFT_ID
 
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        ensure_schema(cur)
+        state = session_status(
+            cur,
+            league_id=SLEEPER_LEAGUE_ID,
+            configured_draft_id=draft_id,
+            remote=get_draft(draft_id) or {},
+            allow_mock=current_rotation_mode(cur, draft_id) == "MOCK",
+        )
+        if not state["valid"]:
+            return jsonify(error="draft session identity mismatch", details=state), 409
+    finally:
+        cur.close()
+        conn.close()
+
     return jsonify(
         get_draft_picks(draft_id)
     )
@@ -3414,7 +3552,86 @@ def delete_mock_draft(draft_id):
 # === Draft state hardening batch 1 ===
 _original_sync_sleeper_draft_picks = sync_sleeper_draft_picks
 sync_sleeper_draft_picks = build_hardened_sync(_original_sync_sleeper_draft_picks, get_db_connection, get_draft, get_draft_picks, SLEEPER_LEAGUE_ID, SLEEPER_DRAFT_ID)
-app.register_blueprint(create_blueprint(get_db_connection, get_draft, SLEEPER_LEAGUE_ID, SLEEPER_DRAFT_ID))
+
+
+def build_live_sleeper_draft_signals(cur, league_id, season=2026, user_slot=5):
+    return build_sleeper_draft_signals(
+        cur,
+        league_id,
+        season=season,
+        user_slot=user_slot,
+        active_draft=get_draft(SLEEPER_DRAFT_ID) or {},
+        active_picks=get_draft_picks(SLEEPER_DRAFT_ID) or [],
+    )
+
+
+def refresh_active_draft_health():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        signals = build_live_sleeper_draft_signals(
+            cur,
+            SLEEPER_LEAGUE_ID,
+            season=2026,
+            user_slot=5,
+        )
+        health = model_health(cur)
+        readiness = build_draft_readiness(
+            cur,
+            SLEEPER_LEAGUE_ID,
+            2026,
+            signals,
+            health,
+        )
+        ensure_reconciliation_table(cur)
+        record_reconciliation(
+            cur,
+            SLEEPER_LEAGUE_ID,
+            signals.get("draft_id"),
+            signals.get("draft_status"),
+            readiness["draft_day"],
+        )
+        conn.commit()
+        return {
+            "draft_id": signals.get("draft_id"),
+            "readiness": readiness,
+            "reconciliation": readiness["draft_day"],
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
+
+
+def build_destination_sync(draft_id, allow_mock):
+    def run():
+        return build_hardened_sync(
+            lambda: _original_sync_sleeper_draft_picks(draft_id),
+            get_db_connection,
+            get_draft,
+            get_draft_picks,
+            SLEEPER_LEAGUE_ID,
+            draft_id,
+            allow_mock=allow_mock,
+        )()
+
+    return run
+
+
+app.register_blueprint(
+    create_blueprint(
+        get_db_connection,
+        get_draft,
+        get_draft_picks,
+        SLEEPER_LEAGUE_ID,
+        SLEEPER_DRAFT_ID,
+        synchronize=sync_sleeper_draft_picks,
+        synchronize_factory=build_destination_sync,
+        refresh_health=refresh_active_draft_health,
+    )
+)
 # === End draft state hardening batch 1 ===
 
 # === Draft operations hardening batch 2 ===
@@ -3440,7 +3657,7 @@ app.register_blueprint(create_outcome_health_blueprint(get_db_connection))
 app.register_blueprint(create_intelligence_operations_blueprint(get_db_connection))
 app.register_blueprint(create_post_draft_blueprint(get_db_connection, get_draft, SLEEPER_LEAGUE_ID, SLEEPER_DRAFT_ID, 2026))
 
-app.register_blueprint(create_draft_health_blueprint(get_db_connection, SLEEPER_LEAGUE_ID, 2026, build_sleeper_draft_signals, model_health))
+app.register_blueprint(create_draft_health_blueprint(get_db_connection, SLEEPER_LEAGUE_ID, 2026, build_live_sleeper_draft_signals, model_health))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5050, debug=True)

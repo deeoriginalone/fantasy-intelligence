@@ -33,6 +33,7 @@
       <div class="slot-picks"><span class="pick-pill">1.05</span><span class="pick-pill">2.06</span><span class="pick-pill">3.05</span><span class="pick-pill">4.06</span><span class="pick-pill">5.05</span><span class="pick-pill">6.06</span></div>
     </section>
 
+    {% if draft_intelligence_blocked %}<section class="card"><h2>DRAFT INTELLIGENCE BLOCKED</h2>{% for reason in draft_integrity.reasons %}<p>{{ reason }}</p>{% endfor %}<p class="muted">Raw draft status and player state remain visible; recommendations are suppressed until the current snapshot reconciles.</p></section>{% else %}
     <section class="card">
       <h2>Draft Board Summary</h2>
       <p><strong>Total Players:</strong> {{ players|length }}</p><p><strong>Available:</strong> {{ available_players|length }}</p><p><strong>Drafted:</strong> {{ drafted_count }}</p><p><strong>On My Team:</strong> {{ roster|length }}</p>
@@ -49,7 +50,7 @@
     {% if draft_coach.player %}
     {% set winner = top_recommendations[0] if top_recommendations else none %}
     {% set winner_player = winner.player if winner else none %}
-    <div class="highlight"><div class="recommendation-label">{{ draft_coach.decision }}</div><h2>{{ draft_coach.player }}</h2><p><strong>{{ draft_coach.position }}</strong> · Overall #{{ draft_coach.rank }} · Draft Score {{ draft_coach.draft_score }}</p>
+      <div class="highlight"><div class="recommendation-label">{{ draft_coach.decision }}</div><h2>{{ draft_coach.player }}</h2><p><strong>{{ draft_coach.position }}</strong> · Overall #{{ draft_coach.rank }} · Draft Score {{ draft_coach.draft_score }}</p>
       {% if winner_player %}<div class="agent-metrics">
         <div class="metric"><span class="metric-label">Projection</span><span class="metric-value">{{ '%.1f'|format(winner_player[6]) if winner_player[6] else 'N/A' }}</span></div>
         <div class="metric"><span class="metric-label">VBD Tier</span><span class="metric-value">{{ winner.tier }}</span></div>
@@ -65,6 +66,7 @@
     </div>{% else %}<p class="muted">No recommendation is currently available.</p>{% endif %}
     <p class="muted">Confidence summarizes internal recommendation signals. It is not a calibrated probability or guarantee.</p>
   </section>
+  <section class="card"><h2>🏆 Best Available</h2>
 
   <div class="grid">
     <section class="card"><h2>🧭 Draft Strategy Profile</h2><form method="POST" action="{{ url_for('set_draft_strategy') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="strategy"><strong>Active strategy:</strong></label><select id="strategy" name="strategy" style="padding:8px;margin:0 8px;border-radius:6px">{% for key, profile in strategy_profiles.items() %}<option value="{{ key }}"{% if key == active_strategy %} selected{% endif %}>{{ profile.label }}</option>{% endfor %}</select><button class="team" type="submit">Apply Strategy</button></form><p><strong>Current round:</strong> {{ current_round }}</p><p class="muted">{{ strategy_profile.description }}</p></section>
@@ -110,6 +112,7 @@
   <section class="card"><h2>🎯 Draft Targets</h2>{% if draft_targets %}<div class="target-list">{% for player in draft_targets %}<div class="target">⭐ #{{ player[0] }} {{ player[1] }} ({{ player[2] }} · {{ player[3] or "FA" }})</div>{% endfor %}</div>{% else %}<p class="muted">No available targets.</p>{% endif %}</section>
 
   
+  {% endif %}
 {% include "_draft_readiness.html" %}
 {% include "_draft_model_health.html" %}
 <!-- Draft decision intelligence: keep above the full player board -->
@@ -124,14 +127,14 @@
 
 <script>
 (function(){
-const endpoint="{{ url_for('test_draft_picks') }}",intervalSeconds=10;
+const endpoint="{{ url_for('test_draft_picks') }}",sessionEndpoint="{{ url_for('draft_state_hardening.session_status_route') }}",intervalSeconds=10;
 const dot=document.getElementById("live-draft-dot"),status=document.getElementById("live-draft-status"),picksLabel=document.getElementById("live-draft-picks"),message=document.getElementById("live-draft-message"),countdown=document.getElementById("live-draft-countdown"),toggle=document.getElementById("live-draft-toggle"),refresh=document.getElementById("live-draft-refresh");
 const csrfToken={{ csrf_token() | tojson }};
 let enabled=localStorage.getItem("fiLiveDraftEnabled")!=="false",baseline=null,seconds=intervalSeconds,checking=false;
 function setState(kind,label){dot.className="live-dot "+kind;status.textContent=label;}
 function clock(){return new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"});}
 function updateToggle(){toggle.textContent=enabled?"Pause":"Resume";countdown.textContent=enabled?"Next check: "+seconds+"s":"Paused";}
-async function checkPicks(manual){if(checking||(!enabled&&!manual))return;checking=true;setState("checking","Checking");message.textContent="Contacting Sleeper...";try{const response=await fetch(endpoint,{method:"POST",cache:"no-store",headers:{"Accept":"application/json","X-CSRF-Token":csrfToken}});if(!response.ok)throw new Error("HTTP "+response.status);const data=await response.json(),count=Array.isArray(data)?data.length:0;picksLabel.textContent="Sleeper picks: "+count;setState("connected",enabled?"Connected":"Paused");message.textContent="Last checked "+clock();if(baseline===null){baseline=count;}else if(count!==baseline){message.textContent="New Sleeper pick detected. Updating board...";localStorage.setItem("fiLastPickCount",String(count));window.setTimeout(function(){window.location.reload();},500);return;}baseline=count;seconds=intervalSeconds;}catch(error){setState("error","Connection issue");message.textContent="Sleeper check failed: "+error.message;seconds=intervalSeconds;}finally{checking=false;updateToggle();}}
+async function checkPicks(manual){if(checking||(!enabled&&!manual))return;checking=true;setState("checking","Checking");message.textContent="Contacting Sleeper...";try{const sessionResponse=await fetch(sessionEndpoint,{cache:"no-store",headers:{"Accept":"application/json"}}),sessionState=await sessionResponse.json();if(!sessionResponse.ok||!sessionState.valid){enabled=false;setState("error","Draft session blocked");message.textContent=(sessionState.errors||["Draft session identity validation failed."]).join(" ");updateToggle();return;}const response=await fetch(endpoint,{method:"POST",cache:"no-store",headers:{"Accept":"application/json","X-CSRF-Token":csrfToken}});if(!response.ok)throw new Error("HTTP "+response.status);const data=await response.json(),count=Array.isArray(data)?data.length:0;picksLabel.textContent="Sleeper picks: "+count;setState("connected",enabled?"Connected":"Paused");message.textContent="Last checked "+clock();if(baseline===null){baseline=count;}else if(count!==baseline){message.textContent="New Sleeper pick detected. Updating board...";localStorage.setItem("fiLastPickCount",String(count));window.setTimeout(function(){window.location.reload();},500);return;}baseline=count;seconds=intervalSeconds;}catch(error){setState("error","Connection issue");message.textContent="Sleeper check failed: "+error.message;seconds=intervalSeconds;}finally{checking=false;updateToggle();}}
 toggle.addEventListener("click",function(){enabled=!enabled;localStorage.setItem("fiLiveDraftEnabled",String(enabled));if(enabled){seconds=0;setState("checking","Resuming");}else{setState("connected","Paused");message.textContent="Automatic checks paused";}updateToggle();});
 refresh.addEventListener("click",function(){checkPicks(true);});updateToggle();checkPicks(true);window.setInterval(function(){if(!enabled)return;seconds-=1;if(seconds<=0){seconds=intervalSeconds;checkPicks(false);}updateToggle();},1000);
 })();
