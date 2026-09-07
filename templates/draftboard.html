@@ -74,7 +74,7 @@
   </div>
 
   <section class="card">
-    
+
   {% if recommendation_explanation and recommendation_explanation.available %}
   <section class="card" id="recommendation-explanation"><div class="agent-header"><div><span class="agent-label">DECISION TRACE</span><h2>Why {{ recommendation_explanation.player }}?</h2></div><span class="agent-status">{{ recommendation_explanation.confidence_label }} · {{ recommendation_explanation.confidence }}%</span></div><p><strong>Primary reason:</strong> {{ recommendation_explanation.primary_reason }}</p><p><strong>Risk:</strong> {{ recommendation_explanation.risk }} · <strong>Canonical score:</strong> {{ recommendation_explanation.draft_score }}</p><div class="agent-metrics">{% for factor in recommendation_explanation.factors %}<div class="metric"><span class="metric-label">{{ factor.label }}</span><span class="metric-value">{% if factor.value > 0 %}+{% endif %}{{ factor.value }}</span></div>{% endfor %}</div>{% if recommendation_explanation.alternatives %}<h3>Closest alternatives</h3><ul>{% for alt in recommendation_explanation.alternatives %}<li>{{ alt.player }} ({{ alt.position }}) trails by {{ alt.score_gap }} score points.</li>{% endfor %}</ul>{% endif %}{% if recommendation_explanation.warnings %}<h3>Warnings</h3><ul>{% for warning in recommendation_explanation.warnings %}<li>{{ warning }}</li>{% endfor %}</ul>{% endif %}<p class="muted">Audit ID: {{ recommendation_explanation.audit_id }}. Existing canonical components are explained without changing the recommendation score.</p></section>
   {% endif %}
@@ -111,7 +111,7 @@
 
   <section class="card"><h2>🎯 Draft Targets</h2>{% if draft_targets %}<div class="target-list">{% for player in draft_targets %}<div class="target">⭐ #{{ player[0] }} {{ player[1] }} ({{ player[2] }} · {{ player[3] or "FA" }})</div>{% endfor %}</div>{% else %}<p class="muted">No available targets.</p>{% endif %}</section>
 
-  
+
   {% endif %}
 {% include "_draft_readiness.html" %}
 {% include "_draft_model_health.html" %}
@@ -127,14 +127,55 @@
 
 <script>
 (function(){
-const endpoint="{{ url_for('test_draft_picks') }}",sessionEndpoint="{{ url_for('draft_state_hardening.session_status_route') }}",intervalSeconds=10;
+const endpoint="{{ url_for('test_draft_picks') }}",sessionEndpoint="{{ url_for('draft_state_hardening.session_status_route') }}",intervalSeconds=2;
 const dot=document.getElementById("live-draft-dot"),status=document.getElementById("live-draft-status"),picksLabel=document.getElementById("live-draft-picks"),message=document.getElementById("live-draft-message"),countdown=document.getElementById("live-draft-countdown"),toggle=document.getElementById("live-draft-toggle"),refresh=document.getElementById("live-draft-refresh");
 const csrfToken={{ csrf_token() | tojson }};
 let enabled=localStorage.getItem("fiLiveDraftEnabled")!=="false",baseline=null,seconds=intervalSeconds,checking=false;
 function setState(kind,label){dot.className="live-dot "+kind;status.textContent=label;}
 function clock(){return new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"});}
+console.log("FI_DEBUG PAGE LOAD", new Date().toLocaleTimeString());
+
 function updateToggle(){toggle.textContent=enabled?"Pause":"Resume";countdown.textContent=enabled?"Next check: "+seconds+"s":"Paused";}
-async function checkPicks(manual){if(checking||(!enabled&&!manual))return;checking=true;setState("checking","Checking");message.textContent="Contacting Sleeper...";try{const sessionResponse=await fetch(sessionEndpoint,{cache:"no-store",headers:{"Accept":"application/json"}}),sessionState=await sessionResponse.json();if(!sessionResponse.ok||!sessionState.valid){enabled=false;setState("error","Draft session blocked");message.textContent=(sessionState.errors||["Draft session identity validation failed."]).join(" ");updateToggle();return;}const response=await fetch(endpoint,{method:"POST",cache:"no-store",headers:{"Accept":"application/json","X-CSRF-Token":csrfToken}});if(!response.ok)throw new Error("HTTP "+response.status);const data=await response.json(),count=Array.isArray(data)?data.length:0;picksLabel.textContent="Sleeper picks: "+count;setState("connected",enabled?"Connected":"Paused");message.textContent="Last checked "+clock();if(baseline===null){baseline=count;}else if(count!==baseline){message.textContent="New Sleeper pick detected. Updating board...";localStorage.setItem("fiLastPickCount",String(count));window.setTimeout(function(){window.location.reload();},500);return;}baseline=count;seconds=intervalSeconds;}catch(error){setState("error","Connection issue");message.textContent="Sleeper check failed: "+error.message;seconds=intervalSeconds;}finally{checking=false;updateToggle();}}
+async function checkPicks(manual){
+
+if(window.__fiReloading){
+    return;
+}
+
+if(checking||(!enabled&&!manual))return;checking=true;setState("checking","Checking");message.textContent="Contacting Sleeper...";try{const sessionResponse=await fetch(sessionEndpoint,{cache:"no-store",headers:{"Accept":"application/json"}}),sessionState=await sessionResponse.json();if(!sessionResponse.ok||!sessionState.valid){enabled=false;setState("error","Draft session blocked");message.textContent=(sessionState.errors||["Draft session identity validation failed."]).join(" ");updateToggle();return;}const response=await fetch(endpoint,{method:"POST",cache:"no-store",headers:{"Accept":"application/json","X-CSRF-Token":csrfToken}});if(!response.ok)throw new Error("HTTP "+response.status);const data=await response.json(),count=Array.isArray(data)?data.length:0;
+
+console.log(
+  "FI_DEBUG",
+  new Date().toLocaleTimeString(),
+  "count=", count,
+  "baseline=", baseline
+);
+
+picksLabel.textContent="Sleeper picks: "+count;
+setState("connected",enabled?"Connected":"Paused");message.textContent="Last checked "+clock();if(baseline===null){baseline=count;}else if(count!==baseline){
+
+baseline=count;
+window.__fiReloading=true;
+
+message.textContent="New Sleeper pick detected. Updating board...";
+localStorage.setItem("fiLastPickCount",String(count));
+
+console.log("FI_DEBUG: reload triggered, count changed");
+
+window.setTimeout(function(){
+
+    console.log("FI_DEBUG: executing reload");
+
+    window.location.assign(
+        window.location.pathname +
+        "?refresh_ts=" +
+        Date.now()
+    );
+
+},100);
+
+return;
+}baseline=count;seconds=intervalSeconds;}catch(error){setState("error","Connection issue");message.textContent="Sleeper check failed: "+error.message;seconds=intervalSeconds;}finally{checking=false;updateToggle();}}
 toggle.addEventListener("click",function(){enabled=!enabled;localStorage.setItem("fiLiveDraftEnabled",String(enabled));if(enabled){seconds=0;setState("checking","Resuming");}else{setState("connected","Paused");message.textContent="Automatic checks paused";}updateToggle();});
 refresh.addEventListener("click",function(){checkPicks(true);});updateToggle();checkPicks(true);window.setInterval(function(){if(!enabled)return;seconds-=1;if(seconds<=0){seconds=intervalSeconds;checkPicks(false);}updateToggle();},1000);
 })();

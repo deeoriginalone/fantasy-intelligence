@@ -188,6 +188,58 @@ def test_matching_live_rotation_succeeds_and_syncs_destination():
     assert len(database.rotation_history) == 1
 
 
+def test_rotation_reports_degraded_success_when_health_refresh_fails():
+    database = RotationDatabase()
+
+    def failing_health():
+        raise RuntimeError('relation "draft_decision_outcomes" does not exist')
+
+    result = rotate_draft_environment(
+        database.connect,
+        lambda draft_id: live_remote(draft_id),
+        lambda draft_id: [{"pick_no": 1}],
+        "mock-a",
+        "live-draft",
+        "league",
+        "LIVE",
+        refresh_health=failing_health,
+        protected_live_draft_id="protected-live-draft",
+    )
+
+    assert result["degraded"] is True
+    assert any(w["step"] == "health" for w in result["warnings"])
+    assert "health" not in result or result.get("health") is None
+    # Authority must remain committed even though health refresh failed.
+    assert database.authoritative[0] == "live-draft"
+    assert any(
+        params[2] == "ROTATION_HEALTH_DEGRADED"
+        for params in database.rotation_audits
+    )
+
+
+def test_rotation_reports_degraded_success_when_synchronize_fails():
+    database = RotationDatabase()
+
+    def failing_sync():
+        raise RuntimeError("sync unavailable")
+
+    result = rotate_draft_environment(
+        database.connect,
+        lambda draft_id: live_remote(draft_id),
+        lambda draft_id: [{"pick_no": 1}],
+        "mock-a",
+        "live-draft",
+        "league",
+        "LIVE",
+        synchronize=failing_sync,
+        protected_live_draft_id="protected-live-draft",
+    )
+
+    assert result["degraded"] is True
+    assert any(w["step"] == "synchronization" for w in result["warnings"])
+    assert database.authoritative[0] == "live-draft"
+
+
 def test_mock_a_to_mock_b_rotation_preserves_history_and_clears_active_state():
     database = RotationDatabase()
     database.rotation_history.append(("historical-event",))

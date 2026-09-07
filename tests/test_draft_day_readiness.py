@@ -1,8 +1,12 @@
 from draft_readiness import build_reconciliation
 class C:
- def __init__(self,one,counts):self.one=list(one);self.counts=list(counts)
- def execute(self,*a):pass
+ def __init__(self,one,counts):self.one=list(one);self.counts=list(counts);self.pending=None
+ def execute(self,statement,*a):
+  self.pending=True if 'to_regclass' in statement.lower() else None
  def fetchone(self):
+  if self.pending is not None:
+   pending,self.pending=self.pending,None
+   return (pending,)
   if self.one:return self.one.pop(0)
   return (self.counts.pop(0),)
 def test_predraft_empty_ready():
