@@ -1,50 +1,58 @@
 # Fantasy Intelligence Session Handoff
 
-## Current Checkpoint
-- Date: 2026-09-06
-- Branch: feature/draft-outcome-tracking
-- HEAD: 18e3322944ed6ac99f5e1817b604574f8e928ccd
-- League ID: 1398094330668797952
-- Protected real draft ID: 1398094331272794112
-- Rehearsal mock draft ID: 1402134346244100096
-
 ## Operational Verdict
 
-**READY FOR SUPERVISED REAL DRAFT USE WITH BLOCKERS**
+**F3-D.4 and F3-D.5 are complete and repository-test validated. The next milestone is full PostgreSQL parity and failure-injection recovery validation.**
 
-Production readiness is not proven.
+## Checkpoint
+- Date: 2026-09-07
+- Branch: `post-draft-recovery-20260906`
+- HEAD: `101fcb5d211d458ac9b9d2f8c9107bb2ae2ca061`
+- Upstream: unavailable
+- League ID: `1398094330668797952`
+- Completed real draft ID: `1398094331272794112`
 
-## Final Live Identity
-- Real draft `1398094331272794112` is uniquely authoritative.
-- Active state is clean: `draft_board=0`, `league_rosters=0`, `my_roster=0`.
+## Work Verified in This Session
+- F3-D.4 authoritative roster-truth hardening remained validated.
+- The F3-D.5 publication module imports successfully from the activated repository environment.
+- The focused F3-D.5 publication test file passed: `4 passed in 0.06s`.
+- The combined F3-D.5 publication, template, and route suite passed: `8 passed in 0.21s`.
+- The earlier bare `pytest` collection error was avoided by running tests with the activated interpreter via `python -m pytest`.
 
-## Populated Mock Rehearsal
-- Mock draft `1402134346244100096` was validated in explicit MOCK mode.
-- Sleeper pick count reached 29.
-- Protected rotation synchronized 29 picks.
-- Protected LIVE restoration cleared active state and restored the real draft.
-- Mock readiness was blocked by stale snapshot freshness.
-- Mock reconciliation required attention because two player records were quarantined.
+## F3-D.5 Verified Contract
+- Publication is gated by readiness through `PublicationGate`.
+- Blocked readiness returns no candidates or action plans.
+- Invalid publication contracts fail closed.
+- Explicit starter drops are rejected.
+- Unknown unit bids are omitted.
+- The template renders add, drop, urgency, FAAB percentage, optional unit bid, and explanation.
+- The JSON route contract remains unchanged in the focused route test.
+- No transaction is submitted.
 
 ## Validation Results
-- Python compilation: passed
-- Rotation and synchronization suite: 21 passed
-- Affected readiness and reconciliation suite: 70 passed
-- Fast tier: 44 passed
-- `git diff --check`: passed
+- F3-D.4 targeted waiver suite: `30 passed in 0.11s`.
+- F3-D.5 publication-only run: `4 passed in 0.06s`.
+- F3-D.5 publication, template, and route suite: `8 passed in 0.21s`.
+- Syntax validation passed for `app.py`, `sleeper_intelligence.py`, `sleeper_intelligence_routes.py`, and `services/roster_slots.py`.
+- Full repository suite: `316 passed, 9 skipped, 2 xfailed, 20 subtests passed in 934.30s (0:15:34)`.
+- The 9 skipped tests are not counted as passing PostgreSQL parity validation.
+- The 2 expected failures remain expected failures, not passes.
 
-## Remaining Blockers
-- Local supervised Flask route rehearsal: verified.
-- Populated MOCK rotation and protected LIVE restoration: verified locally.
-- Production deployment and recovery: not proven.
-- Full PostgreSQL 1000-event/10-replay parity: pending.
-- Legacy `/sleeper/draft-picks/sync` remains live-only for the league-less mock.
-- Two mock player quarantine records require investigation.
-- Historical `ROTATION_FAILED` audit rows remain preserved.
-- No automatic external draft, waiver, lineup, trade, or season transaction is proven.
-- Remaining FAAB budget source is not proven authoritative.
+## Known Boundaries and Technical Debt
+- Production deployment and production recovery are not proven.
+- Full PostgreSQL parity remains incomplete because 9 tests were skipped in the full suite.
+- F3-D.5 has repository-level publication, template, and Flask route test coverage, but a supervised live-server HTML route rehearsal is not recorded here.
+- The broader My Team and post-draft route sweep remain separate validation work.
+- No automatic waiver, lineup, trade, draft, or season transaction submission is enabled.
+- Generated audits, SQL dumps, patches, backups, source captures, and rehearsal evidence must not be broadly committed.
 
-## Current Next Milestone
+## Working-Tree Guidance
+- Preserve unrelated user changes.
+- Do not use `git add .` or `git add -A`.
+- Keep generated evidence, source captures, backups, archives, SQL dumps, and recovery patches outside broad commit scope.
+- Review canonical documentation and audit evidence as separate logical groups.
+
+## Exact Next Milestone
 
 **Full PostgreSQL 1000-event/10-replay verification and failure-injection recovery testing**
 
@@ -55,19 +63,15 @@ Production readiness is not proven.
 - Preserve the no-external-write boundary.
 - Reconcile all four canonical documents after the evidence is complete.
 
-## Working-Tree Guidance
-- Preserve unrelated user changes.
-- Avoid `git add .` and `git add -A`.
-- Use exact file lists and coherent commit groups.
-- Keep sensitive and generated evidence out of commit scope unless redacted and intentionally reviewed.
-
 ## First Command for the Next Session
+
 ```bash
-cd /home/deeoriginalone/fantasy-intelligence && source venv/bin/activate && git status --short --branch
+cd /home/deeoriginalone/fantasy-intelligence \
+  && source venv/bin/activate \
+  && git status --short --branch
 ```
 
 ## Stop Conditions
-Stop rather than guess on identity conflict, stale or missing readiness data, reconciliation drift, unsafe database scope, unexpected external writes, or evidence that cannot be tied to a command and configuration.
 
-## Historical Notes
-Earlier draft-day rehearsal, F3-D.5, Mock Draft Lab, and Draft Assistant v2 milestones are superseded historical checkpoints. They do not override the current next milestone above.
+Stop rather than guess if database isolation, cleanup safety, reconciliation state, readiness freshness, external-write boundaries, or test evidence cannot be proven.
+

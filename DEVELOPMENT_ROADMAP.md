@@ -1,43 +1,49 @@
 # Development Roadmap
 
 ## Current Checkpoint
-- Date: 2026-09-06
-- Branch: feature/draft-outcome-tracking
-- HEAD: 18e3322944ed6ac99f5e1817b604574f8e928ccd
-- League ID: 1398094330668797952
-- Protected real draft ID: 1398094331272794112
-- Rehearsal mock draft ID: 1402134346244100096
+- Date: 2026-09-07
+- Branch: `post-draft-recovery-20260906`
+- HEAD: `101fcb5d211d458ac9b9d2f8c9107bb2ae2ca061`
+- Upstream: unavailable
+- League ID: `1398094330668797952`
+- Completed real draft ID: `1398094331272794112`
 
-## Current Operational Position
+## Current Milestone Position
+- F3-D.1: **COMPLETE AND VERIFIED**
+- F3-D.2: **COMPLETE AND VERIFIED**
+- F3-D.3: **COMPLETE AND VERIFIED**
+- F3-D.4: **COMPLETE AND VERIFIED**
+- F3-D.5: **COMPLETE AND VERIFIED AT THE REPOSITORY-TEST BOUNDARY**
 
-The repository is validated for implementation, unit testing, integration testing, and the documented local supervised route rehearsal. Local evidence includes protected MOCK rotation, populated pick refresh, protected LIVE restoration, Draft HQ, polling, readiness, and reconciliation. Production deployment, production recovery behavior, and full PostgreSQL parity remain unproven and are not claimed.
+## F3-D.5 Delivered Scope
+- Readiness-controlled waiver publication.
+- Fail-closed contract validation.
+- Starter-drop rejection.
+- Unknown-unit-bid suppression.
+- Waiver candidate and action-plan HTML rendering.
+- Add, drop, urgency, FAAB percentage, optional unit bid, and explanation display.
+- Existing JSON contract preservation.
+- Publication, template, and Flask route tests.
+- No transaction submission.
 
-## Verified Draft Rotation Evidence
-- The rehearsal mock reached 29 Sleeper picks.
-- Active mock state reached 29 drafted board rows, 29 league-roster rows, and 6 user-roster rows.
-- Protected LIVE restoration cleared active mock state.
-- The real draft is uniquely authoritative.
-- Final active counts: `draft_board=0`, `league_rosters=0`, `my_roster=0`.
+## Validation Evidence
+- F3-D.4 targeted waiver suite: `30 passed in 0.11s`.
+- F3-D.5 publication-only run: `4 passed in 0.06s`.
+- F3-D.5 publication, template, and route suite: `8 passed in 0.21s`.
+- Syntax validation passed for `app.py`, `sleeper_intelligence.py`, `sleeper_intelligence_routes.py`, and `services/roster_slots.py`.
+- Full repository suite: `316 passed, 9 skipped, 2 xfailed, 20 subtests passed in 934.30s (0:15:34)`.
+- The 9 skipped tests are not counted as passing PostgreSQL parity validation.
+- The 2 expected failures remain expected failures, not passes.
 
-## Validation Results
-- Python compilation: passed
-- Rotation and synchronization suite: 21 passed
-- Affected readiness and reconciliation suite: 70 passed
-- Fast tier: 44 passed
-- `git diff --check`: passed
+## Known Boundaries
+- Production deployment and production recovery are not proven.
+- Full PostgreSQL parity remains incomplete because 9 tests were skipped in the full suite.
+- F3-D.5 has repository-level publication, template, and Flask route test coverage, but a supervised live-server HTML route rehearsal is not recorded here.
+- The broader My Team and post-draft route sweep remain separate validation work.
+- No automatic waiver, lineup, trade, draft, or season transaction submission is enabled.
+- Generated audits, SQL dumps, patches, backups, source captures, and rehearsal evidence must not be broadly committed.
 
-## Remaining Blockers
-- Local supervised Flask route rehearsal: verified.
-- Populated MOCK rotation and protected LIVE restoration: verified locally.
-- Production deployment and recovery: not proven.
-- Full PostgreSQL 1000-event/10-replay parity: pending.
-- Legacy `/sleeper/draft-picks/sync` remains live-only for the league-less mock.
-- Two mock player quarantine records require investigation.
-- Historical `ROTATION_FAILED` audit rows remain preserved.
-- No automatic external draft, waiver, lineup, trade, or season transaction is proven.
-- Remaining FAAB budget source is not proven authoritative.
-
-## Current Next Milestone
+## Exact Next Milestone
 
 **Full PostgreSQL 1000-event/10-replay verification and failure-injection recovery testing**
 
@@ -48,16 +54,19 @@ The repository is validated for implementation, unit testing, integration testin
 - Preserve the no-external-write boundary.
 - Reconcile all four canonical documents after the evidence is complete.
 
-## Stop Conditions
-- Identity conflict.
-- Stale or missing readiness data.
-- Reconciliation drift.
-- Unsafe database scope.
-- Unexpected external write.
-- Evidence that cannot be tied to a command and configuration.
+## First Command for the Next Session
 
-## Historical Roadmap Notes
-- Mock Draft Lab: completed historical initiative.
-- Draft Assistant v2: completed historical planning checkpoint.
-- F3-D.5 Waiver Action Publication and UI: historical milestone with source implementation and focused tests.
-- Personal Fantasy Operations Center remains the long-term vision.
+```bash
+cd /home/deeoriginalone/fantasy-intelligence \
+  && source venv/bin/activate \
+  && git status --short --branch
+```
+
+## Stop Conditions
+
+Stop rather than guess if database isolation, cleanup safety, reconciliation state, readiness freshness, external-write boundaries, or test evidence cannot be proven.
+
+
+## Long-Term Direction
+
+The Personal Fantasy Operations Center remains the long-term product vision. Future milestones must continue to separate repository-test validation, live-route validation, database proof, production proof, and external-write authorization.
