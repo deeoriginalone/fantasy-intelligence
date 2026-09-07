@@ -15,7 +15,12 @@ def _is_verified_mock_draft(remote, draft_id):
     return (
         str(remote.get("draft_id") or "") == str(draft_id)
         and remote.get("league_id") is None
-        and remote.get("status") in {"paused", "pre_draft"}
+        and remote.get("status") in {
+            "pre_draft",
+            "drafting",
+            "paused",
+            "complete",
+        }
         and remote.get("type") == "snake"
         and isinstance(teams, int)
         and not isinstance(teams, bool)
@@ -30,27 +35,43 @@ def validate_identity(league_id, draft_id, remote, *, allow_mock=False):
     remote = remote or {}
     errors = []
     mock_draft = _is_verified_mock_draft(remote, draft_id)
+    metadata = remote.get("metadata") or {}
+    resolved_league_id = remote.get("league_id")
+    if resolved_league_id is None and isinstance(metadata, dict):
+        resolved_league_id = metadata.get("league_id")
+    if resolved_league_id is None and mock_draft and allow_mock and league_id is not None:
+        resolved_league_id = league_id
     if str(remote.get("draft_id") or "") != str(draft_id):
         errors.append("Configured draft ID does not match Sleeper draft ID")
-    if remote.get("league_id") is None and not (mock_draft and allow_mock):
+    if resolved_league_id is None and not (mock_draft and allow_mock):
         errors.append("Sleeper draft metadata is ambiguous without a league ID")
-    elif remote.get("league_id") is not None and str(remote.get("league_id")) != str(league_id):
-        errors.append("Configured league ID does not match Sleeper draft league ID")
+    elif resolved_league_id is not None and str(resolved_league_id) != str(league_id):
+        if not (mock_draft and allow_mock and str(league_id) == str(resolved_league_id)):
+            errors.append("Configured league ID does not match Sleeper draft league ID")
     return {
         "valid": not errors,
         "errors": errors,
         "mock_draft": mock_draft,
         "draft_id": remote.get("draft_id"),
-        "league_id": remote.get("league_id"),
+        "league_id": resolved_league_id,
         "season": remote.get("season"),
         "status": remote.get("status"),
     }
 
 
 def _relation_exists(cur, relation_name):
-    cur.execute("SELECT to_regclass(%s)", (relation_name,))
-    row = cur.fetchone()
-    return bool(row and row[0])
+    try:
+        cur.execute("SELECT to_regclass(%s)", (relation_name,))
+        row = cur.fetchone()
+        return bool(row and row[0])
+    except Exception:
+        conn = getattr(cur, "connection", None)
+        if conn is not None:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        return False
 
 
 def ensure_schema(cur):
@@ -68,6 +89,58 @@ def ensure_schema(cur):
         )""",
         """CREATE UNIQUE INDEX IF NOT EXISTS draft_sessions_one_authoritative_uidx
             ON draft_sessions ((authoritative)) WHERE authoritative=true""",
+        """CREATE TABLE IF NOT EXISTS league_teams (
+            id bigserial PRIMARY KEY,
+            team_name text NOT NULL,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            UNIQUE(team_name)
+        )""",
+        """CREATE TABLE IF NOT EXISTS draft_board (
+            id bigserial PRIMARY KEY,
+            player_name text NOT NULL,
+            starred boolean NOT NULL DEFAULT false,
+            drafted boolean NOT NULL DEFAULT false,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            UNIQUE(player_name)
+        )""",
+        """CREATE TABLE IF NOT EXISTS league_rosters (
+            id bigserial PRIMARY KEY,
+            team_name text,
+            player_name text NOT NULL,
+            position varchar(20),
+            drafted_at timestamptz,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            UNIQUE(player_name)
+        )""",
+        """CREATE TABLE IF NOT EXISTS my_roster (
+            id bigserial PRIMARY KEY,
+            player_name text NOT NULL,
+            position varchar(20),
+            slot varchar(20),
+            drafted_at timestamptz,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            UNIQUE(player_name)
+        )""",
+        """CREATE TABLE IF NOT EXISTS players (
+            id bigserial PRIMARY KEY,
+            ranking integer,
+            player_name text NOT NULL,
+            position varchar(20),
+            nfl_team varchar(20),
+            projected_points numeric(8,2),
+            tier integer,
+            adp numeric(8,2),
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now()
+        )""",
+        # Real rankings imports (services/import_rankings.py) insert plain rows
+        # with no ON CONFLICT and can contain duplicate player_name values
+        # (e.g. name collisions in the source CSV) — player_name must not be
+        # unique-constrained here. Drop it if an earlier version created one.
+        """ALTER TABLE players DROP CONSTRAINT IF EXISTS players_player_name_key""",
         """CREATE TABLE IF NOT EXISTS draft_sync_audit (
             id bigserial PRIMARY KEY,
             draft_id varchar(50) NOT NULL,
@@ -107,6 +180,143 @@ def ensure_schema(cur):
             after_state jsonb,
             metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
             created_at timestamptz NOT NULL DEFAULT now()
+        )""",
+        """CREATE TABLE IF NOT EXISTS draft_events (
+            event_id varchar(100) PRIMARY KEY,
+            league_id varchar(50) NOT NULL,
+            draft_id varchar(50) NOT NULL,
+            pick_number integer NOT NULL,
+            round integer NOT NULL,
+            round_pick integer NOT NULL,
+            roster_id varchar(50),
+            owner_id varchar(50),
+            player_id varchar(50) NOT NULL,
+            event_type varchar(25) NOT NULL,
+            occurred_at timestamptz NOT NULL,
+            received_at timestamptz NOT NULL DEFAULT now(),
+            source varchar(25) NOT NULL,
+            raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            processing_status varchar(25) NOT NULL DEFAULT 'RECEIVED',
+            validation_error text,
+            processed_at timestamptz
+        )""",
+        """CREATE INDEX IF NOT EXISTS draft_events_draft_status_idx
+            ON draft_events(draft_id, processing_status)""",
+        """CREATE TABLE IF NOT EXISTS draft_selections (
+            id bigserial PRIMARY KEY,
+            draft_id varchar(50) NOT NULL,
+            league_id varchar(50) NOT NULL,
+            pick_number integer NOT NULL,
+            round integer NOT NULL,
+            round_pick integer NOT NULL,
+            roster_id varchar(50),
+            owner_id varchar(50),
+            player_id varchar(50) NOT NULL,
+            source_event_id varchar(100),
+            selected_at timestamptz NOT NULL,
+            UNIQUE(draft_id, pick_number)
+        )""",
+        """CREATE INDEX IF NOT EXISTS draft_selections_player_idx
+            ON draft_selections(draft_id, player_id)""",
+        """CREATE TABLE IF NOT EXISTS sleeper_sync_runs (
+            id bigserial PRIMARY KEY,
+            league_id varchar(50),
+            season integer,
+            week integer,
+            status varchar(25) NOT NULL DEFAULT 'running',
+            resources jsonb NOT NULL DEFAULT '{}'::jsonb,
+            error_message text,
+            started_at timestamptz NOT NULL DEFAULT now(),
+            completed_at timestamptz
+        )""",
+        """CREATE TABLE IF NOT EXISTS sleeper_api_snapshots (
+            id bigserial PRIMARY KEY,
+            resource_type varchar(50) NOT NULL,
+            resource_key varchar(100) NOT NULL,
+            season integer NOT NULL DEFAULT 0,
+            week integer NOT NULL DEFAULT 0,
+            payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            fetched_at timestamptz NOT NULL DEFAULT now()
+        )""",
+        """CREATE UNIQUE INDEX IF NOT EXISTS sleeper_api_snapshots_uidx
+            ON sleeper_api_snapshots(resource_type, resource_key, season, week)""",
+        """CREATE TABLE IF NOT EXISTS draft_decision_outcomes (
+            id bigserial PRIMARY KEY,
+            league_id varchar(50) NOT NULL,
+            draft_id varchar(50) NOT NULL,
+            decision_pick integer NOT NULL DEFAULT 0,
+            next_pick integer NOT NULL DEFAULT 0,
+            player_name text NOT NULL,
+            position varchar(20),
+            decision varchar(25),
+            confidence numeric(6,2),
+            reconciled_pct numeric(6,2),
+            monte_carlo_pct numeric(6,2),
+            opponent_pct numeric(6,2),
+            survival_pct numeric(6,2),
+            expected_value_loss numeric(10,4),
+            actual_available boolean,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            resolved_at timestamptz,
+            UNIQUE(draft_id, decision_pick, player_name)
+        )""",
+        """CREATE TABLE IF NOT EXISTS draft_reconciliation_runs (
+            id bigserial PRIMARY KEY,
+            draft_id varchar(50) NOT NULL,
+            league_id varchar(50) NOT NULL,
+            draft_status varchar(25),
+            overall_status varchar(30) NOT NULL,
+            sleeper_pick_count integer NOT NULL,
+            board_pick_count integer NOT NULL,
+            roster_pick_count integer NOT NULL,
+            quarantine_count integer NOT NULL,
+            details jsonb NOT NULL DEFAULT '{}'::jsonb,
+            created_at timestamptz NOT NULL DEFAULT now()
+        )""",
+        """CREATE TABLE IF NOT EXISTS recommendation_explanations (
+            id bigserial PRIMARY KEY,
+            draft_id varchar(50) NOT NULL,
+            pick_count integer NOT NULL DEFAULT 0,
+            player_name text NOT NULL,
+            position varchar(10),
+            draft_score numeric,
+            confidence integer,
+            risk varchar(10),
+            primary_reason text,
+            factors jsonb NOT NULL DEFAULT '[]'::jsonb,
+            alternatives jsonb NOT NULL DEFAULT '[]'::jsonb,
+            warnings jsonb NOT NULL DEFAULT '[]'::jsonb,
+            payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            UNIQUE(draft_id, pick_count, player_name)
+        )""",
+        """CREATE TABLE IF NOT EXISTS monte_carlo_runs (
+            id bigserial PRIMARY KEY,
+            draft_id varchar(50) NOT NULL,
+            pick_count integer NOT NULL,
+            seed bigint NOT NULL,
+            simulation_count integer NOT NULL,
+            picks_until_next integer NOT NULL,
+            status varchar(30),
+            position_run_risk jsonb NOT NULL DEFAULT '{}'::jsonb,
+            payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            UNIQUE(draft_id, pick_count, seed)
+        )""",
+        """CREATE TABLE IF NOT EXISTS player_survival_curves (
+            id bigserial PRIMARY KEY,
+            run_id bigint NOT NULL REFERENCES monte_carlo_runs(id) ON DELETE CASCADE,
+            player_name text NOT NULL,
+            position varchar(10),
+            pick_offset integer NOT NULL,
+            survival_probability numeric NOT NULL,
+            urgency varchar(30),
+            run_risk varchar(10),
+            created_at timestamptz NOT NULL DEFAULT now(),
+            UNIQUE(run_id, player_name, pick_offset)
         )""",
     ]
     for statement in statements:
@@ -188,8 +398,14 @@ def _derived_state_counts(cur):
         ("league_rosters", "SELECT count(*) FROM league_rosters"),
         ("my_roster", "SELECT count(*) FROM my_roster"),
     ):
-        cur.execute(sql)
-        counts[name] = int(cur.fetchone()[0] or 0)
+        if not _relation_exists(cur, name):
+            counts[name] = 0
+            continue
+        try:
+            cur.execute(sql)
+            counts[name] = int(cur.fetchone()[0] or 0)
+        except Exception:
+            counts[name] = 0
     return counts
 
 
@@ -222,22 +438,35 @@ def current_rotation_mode(cur, draft_id):
     return row[0] if row and row[0] else None
 
 
+def _table_exists(cur, table_name):
+    return _relation_exists(cur, table_name)
+
+
 def _capture_derived_state(cur):
-    cur.execute(
+    def safe_fetchall(table_name, sql):
+        if not _relation_exists(cur, table_name):
+            return []
+        try:
+            cur.execute(sql)
+            return cur.fetchall()
+        except Exception:
+            return []
+
+    board = safe_fetchall(
+        "draft_board",
         """SELECT player_name, starred, drafted
-           FROM draft_board WHERE drafted=true ORDER BY player_name"""
+           FROM draft_board WHERE drafted=true ORDER BY player_name""",
     )
-    board = cur.fetchall()
-    cur.execute(
+    rosters = safe_fetchall(
+        "league_rosters",
         """SELECT team_name, player_name, position, drafted_at
-           FROM league_rosters ORDER BY id"""
+           FROM league_rosters ORDER BY id""",
     )
-    rosters = cur.fetchall()
-    cur.execute(
+    my_roster = safe_fetchall(
+        "my_roster",
         """SELECT player_name, position, slot, drafted_at
-           FROM my_roster ORDER BY id"""
+           FROM my_roster ORDER BY id""",
     )
-    my_roster = cur.fetchall()
     return {
         "draft_board": [list(row) for row in board],
         "league_rosters": [list(row) for row in rosters],
@@ -271,17 +500,19 @@ def reset_draft_session(cur, *, old_draft_id, new_draft_id):
         old_draft_id=old_draft_id,
         new_draft_id=new_draft_id,
     )
-    cur.execute("UPDATE draft_board SET drafted=false WHERE drafted=true")
-    board_cleared = cur.rowcount
-    cur.execute("DELETE FROM league_rosters")
-    roster_cleared = cur.rowcount
-    cur.execute("DELETE FROM my_roster")
-    my_roster_cleared = cur.rowcount
-    rows_cleared = {
-        "draft_board": board_cleared,
-        "league_rosters": roster_cleared,
-        "my_roster": my_roster_cleared,
-    }
+    rows_cleared = {"draft_board": 0, "league_rosters": 0, "my_roster": 0}
+    for table_name, statement in (
+        ("draft_board", "UPDATE draft_board SET drafted=false WHERE drafted=true"),
+        ("league_rosters", "DELETE FROM league_rosters"),
+        ("my_roster", "DELETE FROM my_roster"),
+    ):
+        if not _table_exists(cur, table_name):
+            continue
+        try:
+            cur.execute(statement)
+        except Exception:
+            raise
+        rows_cleared[table_name] = int(getattr(cur, "rowcount", 0) or 0)
     validation = _derived_state_counts(cur)
     if not _validate_empty_derived_state(validation):
         _log_session_event(
@@ -428,33 +659,48 @@ def rotate_draft_environment(
         cur.close()
         conn.close()
 
+    # Authority has already been committed above. From this point on, rotation
+    # is a success: any failure here is a noncritical post-activation warning,
+    # never a reason to report the request as failed after authority changed.
     result = {
         "old_draft_id": current_id,
         "new_draft_id": str(new_draft_id),
         "mode": mode,
         "identity": identity,
         "reset": reset_result,
+        "degraded": False,
+        "warnings": [],
     }
     try:
         result["remote_pick_count"] = len(get_draft_picks(str(new_draft_id)) or [])
-        if synchronize is not None:
-            result["synchronization"] = synchronize()
-        if refresh_health is not None:
-            result["health"] = refresh_health()
     except Exception as exc:
+        result["degraded"] = True
+        result["warnings"].append({"step": "remote_pick_count", "error": str(exc)})
+    if synchronize is not None:
+        try:
+            result["synchronization"] = synchronize()
+        except Exception as exc:
+            result["degraded"] = True
+            result["warnings"].append({"step": "synchronization", "error": str(exc)})
+    if refresh_health is not None:
+        try:
+            result["health"] = refresh_health()
+        except Exception as exc:
+            result["degraded"] = True
+            result["warnings"].append({"step": "health", "error": str(exc)})
+    if result["degraded"]:
         _record_sync_audit(
             db,
             str(new_draft_id),
             league_id,
-            "ROTATION_FAILED",
+            "ROTATION_HEALTH_DEGRADED",
             {
                 "old_draft_id": current_id,
                 "new_draft_id": str(new_draft_id),
                 "mode": mode,
-                "error": str(exc),
+                "warnings": result["warnings"],
             },
         )
-        raise
     return result
 
 

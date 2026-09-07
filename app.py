@@ -99,7 +99,7 @@ SLEEPER_DRAFT_ID = Config.SLEEPER_DRAFT_ID
 MONTE_CARLO_SIMULATIONS = 500
 
 # Strategic final-roster targets used by the Draft Agent.
-# K and DEF remain outside this offensive recommendation model.
+# K and DST are included through controlled late-round roster completion.
 STRATEGY_PROFILES = {
     "BEST_AVAILABLE": {
         "label": "Best Available",
@@ -163,6 +163,8 @@ ROSTER_TARGETS = {
     "RB": 5,
     "WR": 5,
     "TE": 2,
+    "K": 1,
+    "DST": 1,
 }
 
 
@@ -172,27 +174,37 @@ MOCK_ROSTER_TARGETS = {
     "WR": 4,
     "TE": 2,
     "K": 1,
-    "DEF": 1,
+    "DST": 1,
 }
 
 def get_db_connection():
     return psycopg2.connect(**Config.db_kwargs())
 
 
+
 def get_local_league():
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT league_name, team_name, teams, scoring_type
-        FROM league_info
-        LIMIT 1
-        """
-    )
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-    return row
+
+    try:
+        cur.execute(
+            """
+            SELECT league_name, team_name, teams, scoring_type
+            FROM league_info
+            LIMIT 1
+            """
+        )
+        return cur.fetchone()
+    except Exception:
+        return (
+            "Fantasy League",
+            "My Team",
+            10,
+            "PPR",
+        )
+    finally:
+        cur.close()
+        conn.close()
 
 
 def get_player_tier(overall_rank):
@@ -230,7 +242,7 @@ def build_pick_forecast(available_players, scarcity):
         "current_pick": 0,
         "next_pick": None,
         "picks_until_next": None,
-        "projected_gone": {position: 0 for position in ["QB", "RB", "WR", "TE"]},
+        "projected_gone": {position: 0 for position in list(ROSTER_TARGETS)},
         "projected_remaining": dict(scarcity),
     }
 
@@ -295,7 +307,7 @@ def build_pick_forecast(available_players, scarcity):
                         scarcity.get(position, 0)
                         - forecast["projected_gone"].get(position, 0),
                     )
-                    for position in ["QB", "RB", "WR", "TE"]
+                    for position in list(ROSTER_TARGETS)
                 }
     except Exception as exc:
         forecast["error"] = str(exc)
@@ -305,7 +317,7 @@ def build_pick_forecast(available_players, scarcity):
 
 def build_league_tendencies():
     """Summarize positional behavior from completed Sleeper draft picks."""
-    positions = ["QB", "RB", "WR", "TE"]
+    positions = list(ROSTER_TARGETS)
     result = {
         "counts": {position: 0 for position in positions},
         "percentages": {position: 0.0 for position in positions},
@@ -373,13 +385,13 @@ def build_opponent_forecast(available_players, scarcity, league_tendencies=None)
         "picks_until_next": None,
         "teams_before_next_pick": [],
         "position_pressure": {
-            position: 0 for position in ["QB", "RB", "WR", "TE"]
+            position: 0 for position in list(ROSTER_TARGETS)
         },
         "teams_needing_position": {
-            position: 0 for position in ["QB", "RB", "WR", "TE"]
+            position: 0 for position in list(ROSTER_TARGETS)
         },
         "projected_gone": {
-            position: 0 for position in ["QB", "RB", "WR", "TE"]
+            position: 0 for position in list(ROSTER_TARGETS)
         },
         "projected_remaining": dict(scarcity),
         "projected_picks": [],
@@ -453,7 +465,7 @@ def build_opponent_forecast(available_players, scarcity, league_tendencies=None)
 
         roster_counts = {
             roster_id: {
-                position: 0 for position in ["QB", "RB", "WR", "TE"]
+                position: 0 for position in list(ROSTER_TARGETS)
             }
             for roster_id in roster_to_slot
         }
@@ -555,7 +567,7 @@ def build_opponent_forecast(available_players, scarcity, league_tendencies=None)
                 scarcity.get(position, 0)
                 - result["projected_gone"].get(position, 0),
             )
-            for position in ["QB", "RB", "WR", "TE"]
+            for position in list(ROSTER_TARGETS)
         }
 
         for position in result["position_pressure"]:
@@ -1421,6 +1433,30 @@ def sync_sleeper_draft_picks(draft_id=None):
     team_by_roster_id = {}
     my_roster_ids = set()
 
+    owner_user_ids = {
+        str(user.get("user_id"))
+        for user in users
+        if user.get("is_owner") is True
+    }
+
+    # Draft ownership must follow the active draft's identity mapping.
+    # In mock drafts, a user's league roster_id can differ from the
+    # roster_id assigned to that user's draft slot.
+    draft_order = draft.get("draft_order") or {}
+    slot_to_roster_id = draft.get("slot_to_roster_id") or {}
+
+    for owner_user_id in owner_user_ids:
+        owner_slot = draft_order.get(owner_user_id)
+        if owner_slot is None:
+            continue
+
+        draft_roster_id = (
+            slot_to_roster_id.get(str(owner_slot))
+            or slot_to_roster_id.get(owner_slot)
+        )
+        if draft_roster_id is not None:
+            my_roster_ids.add(draft_roster_id)
+
     for sleeper_roster in rosters:
         roster_id = sleeper_roster.get("roster_id")
         owner_id = str(sleeper_roster.get("owner_id") or "")
@@ -1428,8 +1464,15 @@ def sync_sleeper_draft_picks(draft_id=None):
         metadata = user.get("metadata") or {}
         display_name = user.get("display_name") or f"Roster {roster_id}"
         team_by_roster_id[roster_id] = metadata.get("team_name") or display_name
-        if user.get("is_owner") is True:
-            my_roster_ids.add(roster_id)
+
+    # Compatibility fallback for drafts that do not expose draft_order
+    # or slot_to_roster_id.
+    if not my_roster_ids:
+        for sleeper_roster in rosters:
+            roster_id = sleeper_roster.get("roster_id")
+            owner_id = str(sleeper_roster.get("owner_id") or "")
+            if owner_id in owner_user_ids:
+                my_roster_ids.add(roster_id)
 
     conn = get_db_connection()
     cur = conn.cursor()
@@ -1544,7 +1587,26 @@ def sync_sleeper_draft_picks(draft_id=None):
                 (team_name, local_player_name, mapped_position, local_player_name),
             )
 
-            if roster_id in my_roster_ids:
+            # Determine ownership from the authoritative draft pick.
+            # Mock draft slots can differ from the owner's league roster_id.
+            pick_owner_id = str(pick.get("picked_by") or "")
+            pick_draft_slot = pick.get("draft_slot")
+
+            owner_draft_slots = {
+                int(slot)
+                for user_id, slot in (draft.get("draft_order") or {}).items()
+                if str(user_id) in owner_user_ids and slot is not None
+            }
+
+            is_my_pick = (
+                pick_owner_id in owner_user_ids
+                or (
+                    pick_draft_slot is not None
+                    and int(pick_draft_slot) in owner_draft_slots
+                )
+            )
+
+            if is_my_pick:
                 my_team_picks += 1
                 cur.execute(
                     """
@@ -1556,6 +1618,28 @@ def sync_sleeper_draft_picks(draft_id=None):
                     """,
                     (local_player_name, mapped_position, local_player_name),
                 )
+
+        # Publish freshness using the same actual picks successfully
+        # persisted by this transaction. Failed syncs never reach this point.
+        import json as _json
+        cur.execute(
+            """
+            INSERT INTO sleeper_api_snapshots(
+                resource_type,
+                resource_key,
+                season,
+                week,
+                payload,
+                fetched_at
+            )
+            VALUES('draft_picks', %s, %s, 0, %s::jsonb, NOW())
+            ON CONFLICT(resource_type, resource_key, season, week)
+            DO UPDATE SET
+                payload = EXCLUDED.payload,
+                fetched_at = NOW()
+            """,
+            (str(draft_id), 2026, _json.dumps(picks)),
+        )
 
         conn.commit()
         return {
@@ -1616,7 +1700,7 @@ def predraft():
             bye_week,
             injury_status
         FROM players
-        WHERE UPPER(position) IN ('QB', 'RB', 'WR', 'TE')
+        WHERE UPPER(position) IN ('QB', 'RB', 'WR', 'TE', 'K', 'DST')
         ORDER BY ranking NULLS LAST, player_name
         """
     )
@@ -1652,7 +1736,7 @@ def predraft():
     players = [player_dict(row) for row in all_players]
     by_position = {
         position: [player for player in players if player["position"] == position]
-        for position in ["QB", "RB", "WR", "TE"]
+        for position in list(ROSTER_TARGETS)
     }
     top_by_position = {
         position: position_players[:10]
@@ -1856,19 +1940,105 @@ def calculate_draftboard_tier_bonus(
 
 @app.route("/draftboard")
 def draftboard():
+    import time
+    _draftboard_start = time.time()
+
     sleeper_sync_status = None
     sleeper_sync_error = None
 
     conn = get_db_connection()
     cur = conn.cursor()
-    ensure_schema(cur)
+    # ensure_schema(cur)  # disabled - causes DraftBoard hangs
+
+    # One authoritative Sleeper read per Draft Board request.
+    # Reuse these values throughout the route instead of repeatedly
+    # contacting Sleeper while building the same page.
+    active_draft = get_draft(SLEEPER_DRAFT_ID) or {}
+    active_picks = get_draft_picks(SLEEPER_DRAFT_ID) or []
+
     draft_session = session_status(
         cur,
         league_id=SLEEPER_LEAGUE_ID,
         configured_draft_id=SLEEPER_DRAFT_ID,
-        remote=get_draft(SLEEPER_DRAFT_ID) or {},
+        remote=active_draft,
         allow_mock=current_rotation_mode(cur, SLEEPER_DRAFT_ID) == "MOCK",
     )
+
+    # Reconcile before calculating Draft HQ integrity. Without this gate,
+    # the page can render after Sleeper exposes a pick but before polling has
+    # persisted and applied it, producing a temporary false blocked state.
+    if draft_session["valid"]:
+        cur.execute(
+            """
+            SELECT COUNT(*)
+            FROM sleeper_draft_picks
+            WHERE draft_id = %s
+            """,
+            (str(SLEEPER_DRAFT_ID),),
+        )
+        pre_render_persisted_count = int(cur.fetchone()[0])
+
+        cur.execute(
+            """
+            SELECT COUNT(*)
+            FROM draft_events
+            WHERE draft_id = %s
+              AND processing_status = 'APPLIED'
+            """,
+            (str(SLEEPER_DRAFT_ID),),
+        )
+        pre_render_applied_count = int(cur.fetchone()[0])
+
+        remote_pick_count = len(active_picks)
+
+        if (
+            pre_render_persisted_count != remote_pick_count
+            or pre_render_applied_count != remote_pick_count
+        ):
+            app.logger.info(
+                "Draft Board reconciling before render: "
+                "draft=%s remote=%s persisted=%s applied=%s",
+                SLEEPER_DRAFT_ID,
+                remote_pick_count,
+                pre_render_persisted_count,
+                pre_render_applied_count,
+            )
+
+            sync_sleeper_draft_picks()
+
+            # Re-read Sleeper after synchronization in case another pick
+            # arrived during the reconciliation operation.
+            active_picks = get_draft_picks(SLEEPER_DRAFT_ID) or []
+
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM sleeper_draft_picks
+                WHERE draft_id = %s
+                """,
+                (str(SLEEPER_DRAFT_ID),),
+            )
+            post_render_persisted_count = int(cur.fetchone()[0])
+
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM draft_events
+                WHERE draft_id = %s
+                  AND processing_status = 'APPLIED'
+                """,
+                (str(SLEEPER_DRAFT_ID),),
+            )
+            post_render_applied_count = int(cur.fetchone()[0])
+
+            app.logger.info(
+                "Draft Board reconciliation completed: "
+                "draft=%s remote=%s persisted=%s applied=%s",
+                SLEEPER_DRAFT_ID,
+                len(active_picks),
+                post_render_persisted_count,
+                post_render_applied_count,
+            )
 
     cur.execute(
         """
@@ -1915,8 +2085,6 @@ def draftboard():
         ]
         roster = []
 
-    active_draft = get_draft(SLEEPER_DRAFT_ID) or {}
-    active_picks = get_draft_picks(SLEEPER_DRAFT_ID) or []
     sleeper_draft_signals = build_sleeper_draft_signals(
         cur,
         SLEEPER_LEAGUE_ID,
@@ -1938,7 +2106,7 @@ def draftboard():
     event_counts = {status: int(count) for status, count in cur.fetchall()}
 
 
-    
+
 
     cur.close()
     conn.close()
@@ -1952,7 +2120,7 @@ def draftboard():
 
     scarcity = {}
 
-    for position in ["QB", "RB", "WR", "TE"]:
+    for position in list(ROSTER_TARGETS):
 
         remaining = [
             p
@@ -1986,7 +2154,7 @@ def draftboard():
             scarcity_score[position] = 25
 
     tier_counts = {}
-    for position in ["QB", "RB", "WR", "TE"]:
+    for position in list(ROSTER_TARGETS):
         position_tiers = {
             get_draftboard_player_tier(player)
             for player in available_players
@@ -2009,7 +2177,7 @@ def draftboard():
             (player for player in available_players if player[2] == position),
             None,
         )
-        for position in ["QB", "RB", "WR", "TE"]
+        for position in list(ROSTER_TARGETS)
     }
     draft_targets = [player for player in available_players if player[4]]
     drafted_count = sum(1 for player in players if player[5])
@@ -2087,7 +2255,7 @@ def draftboard():
         )
         if leader:
             leader_tier = get_draftboard_player_tier(leader)
-            remaining_in_tier = tier_counts[position].get(leader_tier, 0)
+            remaining_in_tier = tier_counts.get(position, {}).get(leader_tier, 0)
             if remaining_in_tier <= 3:
                 tier_risks.append(
                     (remaining_in_tier, leader_tier, position)
@@ -2116,7 +2284,7 @@ def draftboard():
             continue
 
         leader_tier = get_draftboard_player_tier(leader)
-        remaining_in_tier = tier_counts[position].get(leader_tier, 0)
+        remaining_in_tier = tier_counts.get(position, {}).get(leader_tier, 0)
         tier_risk_details[position] = {
             "tier": leader_tier,
             "remaining": remaining_in_tier,
@@ -2147,10 +2315,10 @@ def draftboard():
     league_size = 10
 
     try:
-        current_sleeper_picks = get_draft_picks(SLEEPER_DRAFT_ID) or []
+        current_sleeper_picks = active_picks
         completed_picks = len(current_sleeper_picks)
 
-        draft_details = get_draft(SLEEPER_DRAFT_ID)
+        draft_details = active_draft
         league_size = int(
             (draft_details.get("settings") or {}).get("teams") or 10
         )
@@ -2166,6 +2334,66 @@ def draftboard():
         available_players,
         current_round=current_round,
     )
+
+    # Live special-teams policy:
+    # - K and DST are excluded before the final two roster rounds.
+    # - In the final two rounds, any missing K/DST slot is required.
+    # - Once both are filled, normal best-available scoring resumes.
+    special_positions = {"K", "DST"}
+
+    # Use the authoritative Sleeper draft length. Strategic roster targets
+    # total 16 players, but this Sleeper mock is configured for 15 rounds.
+    draft_rounds = int(
+        (active_draft.get("settings") or {}).get("rounds")
+        or sum(ROSTER_TARGETS.values())
+    )
+    special_team_round = max(1, draft_rounds - 1)
+
+    missing_special_positions = {
+        position
+        for position in special_positions
+        if position_counts.get(position, 0) < ROSTER_TARGETS[position]
+    }
+
+    if current_round < special_team_round:
+        recommendation_pool = [
+            player
+            for player in recommendation_pool
+            if player[2] not in special_positions
+        ]
+    elif missing_special_positions:
+        # Use the complete available-player list here. This prevents upstream
+        # rank and ADP windows from removing late-round K/DST candidates.
+        required_special_pool = [
+            player
+            for player in available_players
+            if (
+                not player[5]
+                and player[2] in missing_special_positions
+            )
+        ]
+
+        required_special_pool.sort(
+            key=lambda player: (
+                player[0] if player[0] is not None else 9999,
+                player[8] if player[8] is not None else 9999,
+                -(float(player[6] or 0)),
+                player[1],
+            )
+        )
+
+        if required_special_pool:
+            recommendation_pool = required_special_pool
+
+    candidate_pool_audit["special_teams"] = {
+        "current_round": current_round,
+        "special_team_round": special_team_round,
+        "missing": sorted(missing_special_positions),
+        "forced": (
+            current_round >= special_team_round
+            and bool(missing_special_positions)
+        ),
+    }
 
     round_plan = build_round_plan(
         active_strategy,
@@ -2193,7 +2421,7 @@ def draftboard():
         )
         player_scarcity_score = dynamic_scarcity["score"]
         player_tier = get_draftboard_player_tier(player)
-        players_left_in_tier = tier_counts[position].get(player_tier, 0)
+        players_left_in_tier = tier_counts.get(position, {}).get(player_tier, 0)
 
         player_tier_gap = calculate_draftboard_tier_gap(
             recommendation_pool,
@@ -2396,29 +2624,56 @@ def draftboard():
         sleeper_draft_signals,
     )
 
+    # Live Sleeper timing is authoritative for draft advice.
+    # Apply it before Monte Carlo, survival, wait analysis, and Draft Coach.
+    if sleeper_draft_signals.get("available"):
+        pick_forecast["current_pick"] = int(
+            sleeper_draft_signals.get("pick_count") or 0
+        )
+        pick_forecast["next_pick"] = sleeper_draft_signals.get("next_pick")
+        pick_forecast["picks_until_next"] = (
+            sleeper_draft_signals.get("picks_until_next")
+        )
+
+
+    import time
+
+    _draftboard_timer_start = time.perf_counter()
+
+    _t = time.perf_counter()
     monte_carlo = run_monte_carlo_availability(
         recommendation_pool,
         top_recommendations,
         pick_forecast,
         league_tendencies,
     )
+    print(f"TIMING MonteCarlo = {time.perf_counter() - _t:.3f}s")
+
 
     # === Monte Carlo survival batch 4B ===
     monte_carlo = enhance_monte_carlo_survival(monte_carlo, pick_forecast, SLEEPER_DRAFT_ID, sleeper_draft_signals.get("pick_count", 0), top_recommendations)
     monte_carlo["run_id"] = persist_monte_carlo_survival(get_db_connection, SLEEPER_DRAFT_ID, sleeper_draft_signals.get("pick_count", 0), monte_carlo)
 
+
+    _t = time.perf_counter()
     expected_value_analysis = build_expected_value_analysis(
         top_recommendations,
         recommendation_candidates,
         monte_carlo,
     )
+    print(f"TIMING ExpectedValue = {time.perf_counter() - _t:.3f}s")
 
+
+    _t = time.perf_counter()
     value_gap_analysis = build_value_gap_analysis(
         top_recommendations,
         recommendation_candidates,
         monte_carlo,
     )
+    print(f"TIMING ValueGap = {time.perf_counter() - _t:.3f}s")
 
+
+    _t = time.perf_counter()
     draft_now_wait = build_draft_now_wait_analysis(
         team_recommendation,
         top_recommendations,
@@ -2426,6 +2681,7 @@ def draftboard():
         tier_counts,
         need_score,
     )
+    print(f"TIMING DraftNowWait = {time.perf_counter() - _t:.3f}s")
 
     draft_now_wait = reconcile_draft_now_wait(
         draft_now_wait, team_recommendation, monte_carlo,
@@ -2437,6 +2693,11 @@ def draftboard():
     current_model_health = model_health(health_cur)
     health_cur.close()
     health_conn.close()
+
+    print(
+        f"TIMING TOTAL_DRAFTBOARD = "
+        f"{time.perf_counter() - _draftboard_timer_start:.3f}s"
+    )
     draft_now_wait = apply_calibrated_reconciliation(draft_now_wait, current_model_health)
 
     draft_decision_plan = build_decision_plan(
@@ -2537,7 +2798,7 @@ def draftboard():
 
     draft_coach = fuse_decision_plan(draft_coach, draft_decision_plan)
 
-    
+
     readiness_conn = get_db_connection()
     readiness_cur = readiness_conn.cursor()
     draft_readiness = build_draft_readiness(readiness_cur, SLEEPER_LEAGUE_ID, 2026, sleeper_draft_signals, current_model_health)
@@ -3110,29 +3371,72 @@ def sleeper_draft_picks_sync():
 @app.route("/test-draft-picks", methods=["POST"])
 @admin_required
 def test_draft_picks():
-
     draft_id = Config.SLEEPER_DRAFT_ID
 
-    conn = get_db_connection()
-    cur = conn.cursor()
+    # Fast path: fetch the current remote picks once, then compare their count
+    # with the current draft's persisted picks. Full synchronization runs only
+    # when Sleeper has changed.
     try:
-        ensure_schema(cur)
-        state = session_status(
-            cur,
-            league_id=SLEEPER_LEAGUE_ID,
-            configured_draft_id=draft_id,
-            remote=get_draft(draft_id) or {},
-            allow_mock=current_rotation_mode(cur, draft_id) == "MOCK",
-        )
-        if not state["valid"]:
-            return jsonify(error="draft session identity mismatch", details=state), 409
-    finally:
-        cur.close()
-        conn.close()
+        remote_picks = get_draft_picks(draft_id) or []
 
-    return jsonify(
-        get_draft_picks(draft_id)
-    )
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            ensure_schema(cur)
+
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM sleeper_draft_picks
+                WHERE draft_id = %s
+                """,
+                (str(draft_id),),
+            )
+            persisted_count = int(cur.fetchone()[0])
+        finally:
+            cur.close()
+            conn.close()
+
+        remote_count = len(remote_picks)
+
+        if remote_count == persisted_count:
+            return jsonify(remote_picks)
+
+        app.logger.info(
+            "New Sleeper draft state detected for %s: remote=%s persisted=%s",
+            draft_id,
+            remote_count,
+            persisted_count,
+        )
+
+        sync_result = sync_sleeper_draft_picks()
+        stored_count = int(sync_result.get("stored") or 0)
+
+        if stored_count < remote_count:
+            app.logger.error(
+                "Sleeper synchronization incomplete for draft %s: "
+                "remote=%s stored=%s",
+                draft_id,
+                remote_count,
+                stored_count,
+            )
+            return jsonify(
+                error="Sleeper picks are not fully reconciled",
+                draft_id=str(draft_id),
+                remote_count=remote_count,
+                stored_count=stored_count,
+            ), 409
+
+        return jsonify(remote_picks)
+
+    except Exception as exc:
+        app.logger.exception("Sleeper draft-pick polling failed")
+        return jsonify(
+            error="Sleeper draft-pick polling failed",
+            draft_id=str(draft_id),
+            details=str(exc),
+        ), 500
+
 
 @app.route("/create-draft-tables", methods=["POST"])
 @admin_required
@@ -3328,7 +3632,7 @@ def mock_pool(cur, draft_id):
         SELECT ranking, player_name, UPPER(position), nfl_team,
                projected_points, tier, adp, id
         FROM players p
-        WHERE UPPER(position) IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')
+        WHERE UPPER(position) IN ('QB', 'RB', 'WR', 'TE', 'K', 'DST')
           AND NOT EXISTS (
               SELECT 1 FROM mock_picks mp
               WHERE mp.draft_id = %s
@@ -3342,13 +3646,13 @@ def mock_pool(cur, draft_id):
 
 
 def mock_eligible_pool(pool, counts, round_num, rounds):
-    """Exclude K/DEF early and require both in the final two rounds."""
+    """Exclude K/DST early and require both in the final two rounds."""
     offensive = [p for p in pool if p[2] in ("QB", "RB", "WR", "TE")]
     if round_num <= max(1, rounds - 2):
         return offensive
 
     missing_special = [
-        pos for pos in ("K", "DEF")
+        pos for pos in ("K", "DST")
         if counts.get(pos, 0) < MOCK_ROSTER_TARGETS[pos]
     ]
     rounds_remaining = max(1, rounds - round_num + 1)
@@ -3551,7 +3855,15 @@ def delete_mock_draft(draft_id):
 
 # === Draft state hardening batch 1 ===
 _original_sync_sleeper_draft_picks = sync_sleeper_draft_picks
-sync_sleeper_draft_picks = build_hardened_sync(_original_sync_sleeper_draft_picks, get_db_connection, get_draft, get_draft_picks, SLEEPER_LEAGUE_ID, SLEEPER_DRAFT_ID)
+sync_sleeper_draft_picks = build_hardened_sync(
+    _original_sync_sleeper_draft_picks,
+    get_db_connection,
+    get_draft,
+    get_draft_picks,
+    SLEEPER_LEAGUE_ID,
+    SLEEPER_DRAFT_ID,
+    allow_mock=True,
+)
 
 
 def build_live_sleeper_draft_signals(cur, league_id, season=2026, user_slot=5):
@@ -3569,6 +3881,7 @@ def refresh_active_draft_health():
     conn = get_db_connection()
     cur = conn.cursor()
     try:
+        ensure_schema(cur)
         signals = build_live_sleeper_draft_signals(
             cur,
             SLEEPER_LEAGUE_ID,
