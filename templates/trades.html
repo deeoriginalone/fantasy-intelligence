@@ -1,14 +1,32 @@
-{% extends "base.html" %}
-{% block content %}
-<style>
-.ops-page{max-width:1550px;margin:auto}.ops-page h1{margin:0 0 6px}.muted{color:#64748b}.mode{display:inline-block;border-radius:999px;padding:6px 10px;font-weight:900;font-size:.78rem}.mode-mock{background:#ffedd5;color:#9a3412}.mode-live{background:#dcfce7;color:#166534}.hero{background:linear-gradient(135deg,#172554,#283593);color:#fff;padding:22px;border-radius:14px;margin:18px 0}.hero-grid,.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px}.label{color:#bfdbfe;font-size:.75rem;font-weight:800}.value{font-size:1.5rem;font-weight:900}.card{background:#fff;padding:20px;border-radius:12px;border:1px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:18px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;white-space:nowrap}th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left}th{background:#eef2f7}.pos{display:inline-block;min-width:38px;text-align:center;border-radius:999px;padding:4px 8px;background:#e8eaf6;color:#283593;font-weight:800}.vacant{background:#fee2e2;color:#991b1b}.button{display:inline-block;border:0;background:#283593;color:#fff;padding:9px 12px;border-radius:8px;text-decoration:none;font-weight:800;cursor:pointer}.warn{background:#fff7ed;border-left:5px solid #f97316;padding:13px;border-radius:8px}.good{background:#ecfdf5;border-left:5px solid #16a34a;padding:13px;border-radius:8px}.priority-URGENT{color:#b91c1c;font-weight:900}.priority-HIGH{color:#c2410c;font-weight:900}.priority-MEDIUM{color:#1d4ed8;font-weight:900}
-</style>
-<div class="ops-page">
-<p><span class="mode {{ 'mode-mock' if context.mode == 'MOCK' else 'mode-live' }}">{{ context.mode }} DATA</span></p>
-<h1>🔄 Trade Center</h1><p class="muted">Model-based package comparison. Results are guidance, not a fairness guarantee.</p>
-{% if context.mode == 'LIVE' %}<div class="warn">Mock roster trade testing is available now. Full live opponent-roster mapping will be completed after the live draft.</div>{% endif %}
-<section class="card"><h2>Select Trade Partner</h2><form method="GET"><select name="team" style="padding:9px;min-width:240px"><option value="">Choose mock team</option>{% for t in teams %}<option value="{{ t.slot }}" {{ 'selected' if target_slot == t.slot else '' }}>Slot {{ t.slot }} · {{ t.name }}</option>{% endfor %}</select> <button class="button" type="submit">Analyze</button></form></section>
-{% if target_roster %}<section class="card"><h2>Suggested One-for-One Comparisons</h2><div class="table-wrap"><table><thead><tr><th>Target</th><th>Target Value</th><th>Offer</th><th>Offer Value</th><th>Delta</th><th>Verdict</th></tr></thead><tbody>{% for idea in trade_ideas %}<tr><td><strong>{{ idea.target.player }}</strong> · {{ idea.target.position }}</td><td>{{ '%.1f'|format(idea.target.projection) }}</td><td>{{ idea.offer.player }} · {{ idea.offer.position }}</td><td>{{ '%.1f'|format(idea.offer.projection) }}</td><td>{{ idea.delta }}</td><td><strong>{{ idea.verdict }}</strong></td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
-
-</div>
-{% endblock %}
+{% extends "base.html" %}{% block content %}
+{% if trade_target_center is not defined %}
+<section class="card legacy-trade-intelligence">
+  <h1>Trade Intelligence Agent</h1>
+  <h2>One-for-One Packages</h2>
+  <p>{{ trade_intelligence.one_for_one|default([])|length }} evidence-supported package(s).</p>
+  <h2>Two-for-One Consolidation Packages</h2>
+  <p>{{ trade_intelligence.two_for_one|default([])|length }} evidence-supported package(s).</p>
+</section>
+  {% set legacy_packages = (trade_intelligence.one_for_one|default([])) + (trade_intelligence.two_for_one|default([])) %}
+  {% set trade_target_center = {
+    'trade_targets': [],
+    'buy_low': [],
+    'sell_high': [],
+    'owner_needs': (trade_intelligence.owner_profile|default({})).needs|default({}),
+    'owner_surplus': (trade_intelligence.owner_profile|default({})).surplus|default({}),
+    'partner_needs': (trade_intelligence.partner_profile|default({})).needs|default({}),
+    'partner_surplus': (trade_intelligence.partner_profile|default({})).surplus|default({}),
+    'ranked_opportunities': legacy_packages,
+    'methodology': trade_intelligence.methodology|default('No trade is submitted.')
+  } %}
+{% endif %}
+<style>.trade{max-width:1550px;margin:auto}.card{background:#fff;padding:20px;border-radius:12px;border:1px solid #e5e7eb;margin-bottom:18px}.hero{background:linear-gradient(135deg,#172554,#283593);color:#fff;padding:22px;border-radius:14px;margin:18px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.warn{background:#fff7ed;border-left:5px solid #f97316;padding:13px}.blocked{background:#fee2e2;border-left-color:#dc2626}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;white-space:nowrap}th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left}th{background:#eef2f7}.reason{white-space:normal;min-width:300px}.pill{display:inline-block;border-radius:999px;padding:5px 9px;background:#e0e7ff;color:#3730a3;font-weight:900}.muted{color:#64748b}.target{border-left:5px solid #4f46e5;padding:12px;background:#f8fafc;margin:8px 0;border-radius:8px}</style>
+<div class="trade"><h1>Trade Target Center</h1><p class="muted">Evidence-based targets and packages. Guidance only. No trade is submitted.</p><p class="muted">One-for-One and Two-for-One packages remain supported.</p>
+<section class="hero"><div class="grid"><div><small>MODE</small><h2>{{ context.mode }}</h2></div><div><small>MY TEAM</small><h2>{{ meta.team_name }}</h2></div><div><small>PARTNER</small><h2>{{ trade_intelligence.partner.name or 'Not selected' }}</h2></div><div><small>RANKED TARGETS</small><h2>{{ trade_target_center.trade_targets|length }}</h2></div></div></section>
+{% if trade_intelligence.blockers %}<div class="warn blocked"><strong>Evidence warnings:</strong> {{ trade_intelligence.blockers|join(', ') }}</div>{% endif %}
+<section class="card"><h2>Select Trade Partner</h2><form method="GET"><select name="team"><option value="">Choose team</option>{% for t in teams %}<option value="{{ t.slot }}" {{ 'selected' if target_slot == t.slot else '' }}>{{ t.name }}</option>{% endfor %}</select> <button type="submit">Analyze</button></form></section>
+{% if target_slot %}<section class="card"><h2>Roster Fit</h2><div class="grid"><div><strong>My needs</strong><p>{% for p,n in trade_target_center.owner_needs.items() %}{{ p }} {{ n }}{% if not loop.last %}, {% endif %}{% else %}No target deficits{% endfor %}</p></div><div><strong>My surplus</strong><p>{% for p,n in trade_target_center.owner_surplus.items() %}{{ p }} {{ n }}{% if not loop.last %}, {% endif %}{% else %}No verified surplus{% endfor %}</p></div><div><strong>Partner needs</strong><p>{% for p,n in trade_target_center.partner_needs.items() %}{{ p }} {{ n }}{% if not loop.last %}, {% endif %}{% else %}No target deficits{% endfor %}</p></div></div></section>{% endif %}
+{% if trade_target_center.trade_targets %}<section class="card"><h2>Best Trade Targets</h2>{% for t in trade_target_center.trade_targets %}<div class="target"><strong>#{{ loop.index }} {{ t.player }}</strong> · {{ t.position }} · Opportunity {{ '%.2f'|format(t.opportunity_score) }} · <span class="pill">{{ t.market_signal }}</span><br>Best offer: {% for p in t.best_package.send %}{{ p.player }}{% if not loop.last %} + {% endif %}{% endfor %}</div>{% endfor %}</section>{% endif %}
+<div class="grid">{% if trade_target_center.buy_low %}<section class="card"><h2>Buy Low Signals</h2>{% for p in trade_target_center.buy_low %}<p><strong>{{ p.player }}</strong> · {{ p.position }}</p>{% endfor %}</section>{% endif %}{% if trade_target_center.sell_high %}<section class="card"><h2>Sell High Signals</h2>{% for p in trade_target_center.sell_high %}<p><strong>{{ p.player }}</strong> · {{ p.position }}</p>{% endfor %}</section>{% endif %}</div>
+{% if trade_target_center.ranked_opportunities %}<section class="card"><h2>Ranked Trade Opportunities</h2><div class="table-wrap"><table><tr><th>Rank</th><th>Receive</th><th>Send</th><th>Opportunity</th><th>Owner Gain</th><th>Partner Gain</th><th>Balance</th><th>Verdict</th><th>Confidence</th><th>Reason</th></tr>{% for x in trade_target_center.ranked_opportunities %}<tr><td>#{{ loop.index }}</td><td>{{ x.receive[0].player }}</td><td>{% for p in x.send %}{{ p.player }}{% if not loop.last %} + {% endif %}{% endfor %}</td><td>{{ '%.2f'|format(x.opportunity_score|default(0)) }}</td><td>{{ '%+.2f'|format(x.owner_gain) }}</td><td>{{ '%+.2f'|format(x.partner_gain) }}</td><td>{{ '%.2f'|format(x.balance_gap) }}</td><td><span class="pill">{{ x.verdict }}</span></td><td>{{ x.confidence.label }} {{ x.confidence.score }}%</td><td class="reason">{{ x.reason }}</td></tr>{% endfor %}</table></div></section>{% endif %}
+{% if target_slot and not trade_target_center.ranked_opportunities %}<section class="card"><p>No evidence-supported packages cleared the current filters.</p></section>{% endif %}<p class="muted">{{ trade_target_center.methodology }}</p></div>{% endblock %}

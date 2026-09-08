@@ -49,9 +49,11 @@ def enrich_players(cur, players, week, season=2026):
         p["nfl_team"]=team or p.get("nfl_team")
         p["position"]=position
         cur.execute("SELECT bye_week FROM bye_weeks WHERE season=%s AND team=%s",(season,team))
-        row=cur.fetchone(); bye=row[0] if row else None
+        row=cur.fetchone(); bye=row[0] if row else p.get("bye_week")
         p["bye_week"]=bye
         p["is_bye"]=bool(bye==week)
+        p["evidence_gaps"]=[]
+        if bye is None: p["evidence_gaps"].append("BYE_WEEK_NOT_LOADED")
         cur.execute("""SELECT CASE WHEN home_team=%s THEN away_team ELSE home_team END,
                               CASE WHEN home_team=%s THEN 'HOME' ELSE 'AWAY' END,
                               game_time_pacific
@@ -62,6 +64,8 @@ def enrich_players(cur, players, week, season=2026):
         p["opponent"]=sched[0] if sched else None
         p["home_away"]=sched[1] if sched else None
         p["game_time_pacific"]=sched[2] if sched else None
+        p["schedule_source"]="nfl_schedule" if sched else None
+        if not sched and not p["is_bye"]: p["evidence_gaps"].append("SCHEDULE_NOT_LOADED_FOR_WEEK")
         cur.execute("""SELECT injury,status FROM injury_reports
                        WHERE season=%s AND REGEXP_REPLACE(LOWER(player_name),'[^a-z0-9]','','g')=
                              REGEXP_REPLACE(LOWER(%s),'[^a-z0-9]','','g')
@@ -69,7 +73,9 @@ def enrich_players(cur, players, week, season=2026):
         inj=cur.fetchone()
         if inj:
             p["injury"]=inj[0]; p["injury_status"]=inj[1] or p.get("injury_status")
-        else: p["injury"]=None
+        else:
+            p["injury"]=None
+            if not p.get("injury_status") or p.get("injury_status")=="Unknown": p["evidence_gaps"].append("INJURY_STATUS_UNRESOLVED")
         matchup_pos="DEF" if position=="DEF" else position
         cur.execute("""SELECT defense_rank,fp_per_game_allowed FROM defense_matchups
                        WHERE season=%s AND position=%s AND defense_team=%s""",

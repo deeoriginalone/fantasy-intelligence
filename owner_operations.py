@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from flask import Blueprint, current_app, render_template, request, session
 from weekly_intelligence import enrich_players, current_week, upcoming_byes
+from services.weekly_lineup_intelligence import build_lineup_intelligence, optimize_lineup
+from services.trade_intelligence import build_trade_intelligence
+from services.trade_target_center import build_trade_target_center
+from services.decision_ranking import build_action, build_decision_ranking
+from services.matchup_intelligence import build_matchup_intelligence
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
@@ -114,7 +119,12 @@ def create_owner_operations_blueprint(
             )
             row = cur.fetchone()
             if row:
-                result.append(row_to_player(tuple(row) + (None, None)))
+                player=row_to_player(tuple(row) + (None, None))
+                raw_status=raw.get("injury_status") or raw.get("status")
+                if raw_status:
+                    player["injury_status"]=raw_status
+                    player["injury_source"]="sleeper_players"
+                result.append(player)
             else:
                 result.append({
                     "player": name,
@@ -155,41 +165,6 @@ def create_owner_operations_blueprint(
             "strategy": "LIVE",
             "draft_name": None,
         }
-
-    def optimize_lineup(roster):
-        available = sorted(roster, key=lambda p: (-p.get("weekly_score", 0), p.get("rank") or 9999))
-        used = set()
-        starters = []
-
-        def take(slot, allowed):
-            candidate = next(
-                (p for p in available if p["player"] not in used and p["position"] in allowed),
-                None,
-            )
-            if candidate:
-                used.add(candidate["player"])
-                starters.append({**candidate, "slot": slot, "vacant": False})
-            else:
-                starters.append({
-                    "slot": slot, "player": "Vacant", "position": "/".join(allowed),
-                    "nfl_team": "--", "rank": None, "projection": 0.0,
-                    "tier": None, "adp": None, "bye_week": None,
-                    "injury_status": "Needs roster move", "vacant": True,
-                })
-
-        take("QB", ("QB",))
-        take("RB1", ("RB",))
-        take("RB2", ("RB",))
-        take("WR1", ("WR",))
-        take("WR2", ("WR",))
-        take("TE", ("TE",))
-        take("FLEX", ("RB", "WR", "TE"))
-        take("K", ("K",))
-        take("DEF", ("DEF",))
-        bench = [p for p in available if p["player"] not in used]
-        total = round(sum(p["projection"] for p in starters), 1)
-        vacancies = [p["slot"] for p in starters if p["vacant"]]
-        return starters, bench, total, vacancies
 
     def roster_analysis(roster, vacancies):
         counts = {pos: sum(1 for p in roster if p["position"] == pos) for pos in POSITIONS}
@@ -245,6 +220,16 @@ def create_owner_operations_blueprint(
                 (limit * 3,),
             )
         rows = [row_to_player(tuple(row) + (None, None)) for row in cur.fetchall()]
+        if context["mode"] == "LIVE":
+            league_id=current_app.config.get("SLEEPER_LEAGUE_ID","")
+            catalog=get_all_players() or {}; all_rosters=get_rosters(league_id) or []
+            owned=set()
+            for league_roster in all_rosters:
+                for pid in league_roster.get("players") or []:
+                    raw=catalog.get(str(pid),{}) or {}
+                    full=raw.get("full_name") or " ".join(x for x in (raw.get("first_name"),raw.get("last_name")) if x)
+                    if full: owned.add(normalize_player_name(full))
+            return [p for p in rows if normalize_player_name(p["player"]) not in owned][:limit]
         return [p for p in rows if p["player"] not in roster_names][:limit]
 
     def faab_recommendations(pool, counts):
@@ -300,10 +285,10 @@ def create_owner_operations_blueprint(
         conn = get_db_connection(); cur = conn.cursor()
         try:
             context, roster, meta = current_roster(cur)
-            starters, bench, total, vacancies = optimize_lineup(roster)
+            lineup_intelligence = build_lineup_intelligence(roster)
         finally:
             cur.close(); conn.close()
-        return render_template("lineup.html", title="Lineup Optimizer", context=context, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies)
+        return render_template("lineup.html", title="Weekly Lineup Intelligence", context=context, meta=meta, lineup_intelligence=lineup_intelligence)
 
     @bp.route("/waivers")
     def waivers_page():
@@ -323,26 +308,35 @@ def create_owner_operations_blueprint(
         conn = get_db_connection(); cur = conn.cursor()
         try:
             context, roster, meta = current_roster(cur)
-            teams = []
-            target_roster = []
-            target_slot = request.args.get("team", type=int)
+            teams=[]; target_roster=[]; partner={}
+            target_slot=request.args.get("team",type=int)
             if context["mode"] == "MOCK":
-                teams = other_mock_teams(cur, context["draft_id"])
-                teams = [t for t in teams if t["name"] != "My Mock Team"]
-                if target_slot:
-                    target_roster = mock_roster(cur, context["draft_id"], target_slot)
-            trade_ideas = []
-            my_bench = sorted(roster, key=lambda p: (p["projection"], -(p["rank"] or 9999)))[:6]
-            targets = sorted(target_roster, key=lambda p: (-p["projection"], p["rank"] or 9999))[:8]
-            for target in targets:
-                offer = min(my_bench, key=lambda p: abs(p["projection"] - target["projection"]), default=None)
-                if offer:
-                    delta = round(target["projection"] - offer["projection"], 1)
-                    verdict = "LEAN ACCEPT" if delta >= 10 else "FAIR" if delta >= -10 else "DECLINE"
-                    trade_ideas.append({"target": target, "offer": offer, "delta": delta, "verdict": verdict})
+                teams=[t for t in other_mock_teams(cur,context["draft_id"]) if t["name"] != "My Mock Team"]
+                partner=next((t for t in teams if t["slot"]==target_slot),{})
+                if target_slot:target_roster=mock_roster(cur,context["draft_id"],target_slot);target_roster=enrich_players(cur,target_roster,current_week(cur))
+            else:
+                league_id=current_app.config.get("SLEEPER_LEAGUE_ID","")
+                users=get_users(league_id) or [];sleep_rosters=get_rosters(league_id) or [];catalog=get_all_players() or {}
+                users_by_id={str(u.get("user_id")):u for u in users};owner_ids={str(u.get("user_id")) for u in users if u.get("is_owner") is True}
+                for item in sleep_rosters:
+                    rid=int(item.get("roster_id") or 0);oid=str(item.get("owner_id") or "")
+                    if oid in owner_ids:continue
+                    user=users_by_id.get(oid,{}) or {};metadata=user.get("metadata") or {};name=metadata.get("team_name") or user.get("display_name") or f"Roster {rid}"
+                    teams.append({"slot":rid,"name":name})
+                    if target_slot==rid:
+                        partner={"slot":rid,"name":name};raw=[]
+                        for pid in item.get("players") or []:
+                            data=catalog.get(str(pid),{}) or {};full=data.get("full_name") or " ".join(x for x in (data.get("first_name"),data.get("last_name")) if x)
+                            if not full:continue
+                            cur.execute("SELECT player_name,UPPER(position),nfl_team,ranking,projected_points,tier,adp,bye_week,injury_status FROM players WHERE REGEXP_REPLACE(LOWER(player_name),'[^a-z0-9]','','g')=%s LIMIT 1",(normalize_player_name(full),))
+                            row=cur.fetchone()
+                            raw.append(row_to_player(tuple(row)+(None,None)) if row else {"player":full,"position":str(data.get("position") or "NA").upper().replace("DST","DEF"),"nfl_team":data.get("team") or "FA","rank":None,"projection":None,"tier":None,"adp":None,"bye_week":None,"injury_status":"Unknown","pick_no":None,"round":None})
+                        target_roster=enrich_players(cur,raw,current_week(cur))
+            trade_intelligence=build_trade_intelligence(roster,target_roster,partner)
+            trade_target_center=build_trade_target_center(trade_intelligence)
         finally:
-            cur.close(); conn.close()
-        return render_template("trades.html", title="Trade Center", context=context, meta=meta, roster=roster, teams=teams, target_slot=target_slot, target_roster=target_roster, trade_ideas=trade_ideas)
+            cur.close();conn.close()
+        return render_template("trades.html",title="Trade Target Center",context=context,meta=meta,teams=teams,target_slot=target_slot,trade_intelligence=trade_intelligence,trade_target_center=trade_target_center)
 
     @bp.route("/gm")
     def gm_page():
@@ -353,17 +347,23 @@ def create_owner_operations_blueprint(
             counts, grades, needs, overall, score = roster_analysis(roster, vacancies)
             pool = waiver_pool(cur, context, roster, limit=20)
             waivers = faab_recommendations(pool, counts)[:5]
-            actions = []
+            lineup_intelligence = build_lineup_intelligence(roster)
+            matchup_intelligence = build_matchup_intelligence(roster, lineup_intelligence.get("starters"))
+            extra_actions = []
             for vacancy in vacancies:
-                actions.append({"priority": "URGENT", "action": f"Fill vacant {vacancy} slot", "source": "Roster"})
-            for need in needs[:5]:
-                actions.append({"priority": "HIGH", "action": need, "source": "Team Health"})
-            if waivers:
-                top = waivers[0]
-                actions.append({"priority": "HIGH", "action": f"Review {top['player']} at ${top['faab']} FAAB", "source": "Waivers"})
-            actions.append({"priority": "MEDIUM", "action": "Review optimized lineup before Week 1 lock", "source": "Lineup"})
+                extra_actions.append(build_action(action_id=f"roster:vacancy:{vacancy}", category="lineup", title=f"Fill {vacancy}", action=f"Fill vacant {vacancy} starter slot", reason="A vacant starter slot has a zero-point baseline until filled.", urgency="CRITICAL", confidence={"label":"HIGH","score":100}, risk_reduction=100, source="roster_analysis", metadata={"slot":vacancy}))
+            for index, need in enumerate(needs[:5], 1):
+                extra_actions.append(build_action(action_id=f"team-health:{index}", category="waiver", title="Address roster need", action=need, reason=need, urgency="HIGH", confidence={"label":"MEDIUM","score":70}, risk_reduction=50, source="roster_analysis"))
+            for index, candidate in enumerate(waivers[:3], 1):
+                extra_actions.append(build_action(action_id=f"waiver-watch:{index}:{candidate['player']}", category="waiver", title=f"Review {candidate['player']}", action=f"Review {candidate['player']} at ${candidate['faab']} FAAB", reason=f"Priority score {candidate['priority_score']:.1f}; roster need {candidate['need']}.", urgency="HIGH" if candidate.get("need") else "MEDIUM", confidence={"label":"MEDIUM","score":70}, risk_reduction=min(100,float(candidate.get("need") or 0)*25), source="waiver_watch", metadata={"faab":candidate.get("faab")}))
+            incomplete = [p for p in roster if p.get("evidence_gaps")]
+            if incomplete:
+                extra_actions.append(build_action(action_id="data-integrity:weekly-evidence", category="matchup", title="Resolve weekly evidence", action=f"Resolve weekly evidence for {len(incomplete)} roster player(s)", reason="Schedule, bye, health, or matchup evidence is incomplete.", urgency="CRITICAL", confidence={"label":"LOW","score":0}, evidence_complete=False, blockers=sorted({gap for p in incomplete for gap in p.get("evidence_gaps",[])}), source="weekly_intelligence"))
+            for index, player in enumerate(matchup_intelligence.get("favorable_matchups",[])[:3],1):
+                extra_actions.append(build_action(action_id=f"matchup:{index}:{player['player']}", category="matchup", title=f"Exploit {player['player']} matchup", action=f"Prioritize {player['player']} against {player.get('opponent') or 'TBD'}", reason=f"Supplied matchup modifier is {player['matchup_modifier']:+.1%}.", urgency="MEDIUM", confidence=player.get("confidence"), expected_points_gain=max(0.0,player["weekly_score"]-player["weekly_baseline"]), evidence_complete=not player.get("evidence_gaps"), blockers=player.get("evidence_gaps") or (), source="matchup_intelligence", metadata={"position":player.get("position"),"matchup_rank":player.get("matchup_rank")}))
+            decision_ranking = build_decision_ranking(lineup_intelligence=lineup_intelligence, extra_actions=extra_actions, limit=12)
         finally:
             cur.close(); conn.close()
-        return render_template("gm.html", title="GM Center", context=context, meta=meta, overall=overall, roster_score=score, total=total, vacancies=vacancies, actions=actions, waivers=waivers)
+        return render_template("gm.html", title="Weekly Command Center", context=context, meta=meta, overall=overall, roster_score=score, total=total, vacancies=vacancies, waivers=waivers, roster=roster, lineup_intelligence=lineup_intelligence, decision_ranking=decision_ranking, matchup_intelligence=matchup_intelligence)
 
     return bp
