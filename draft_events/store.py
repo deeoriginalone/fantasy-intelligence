@@ -31,6 +31,12 @@ class InMemoryDraftEventStore:
     def ordered_state(self, draft_id):
         return [v for (d,_),v in sorted(self.selections.items(), key=lambda x:x[0][1]) if d==draft_id]
 
+    def refresh_applied_metadata(self, event):
+        stored = self.events.get(event.event_id)
+        if stored and stored['status'] == 'APPLIED':
+            stored['event'] = event
+            self.selections[(event.draft_id, event.pick_number)] = event
+
 class PostgresDraftEventStoreContract:
     """Required production methods; wire to the repository's existing DB helper."""
     required_methods = (

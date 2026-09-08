@@ -19,5 +19,8 @@ def fuse_sleeper_context(coach,signals,overlay,survival):
  seen={_norm(x) for x in reasons}
  for x in add:
   if _norm(x) not in seen:reasons.append(x);seen.add(_norm(x))
+ if sig.get("available"):
+  out["next_pick"]=sig.get("next_pick")
+  out["picks_until_next"]=sig.get("picks_until_next")
  out["reasons"]=reasons;out["sleeper_context_active"]=bool(add);out["sleeper_context"]={"position":pos,"risk_pct":risk,"pressure":pressure,"interested_teams":interested,"picks_before_next":picks,"canonical_score_unchanged":True}
  return out

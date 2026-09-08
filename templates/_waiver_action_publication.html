@@ -1,0 +1,21 @@
+<section class="card" id="waiver-action-publication">
+<h2>Waiver Action Plans</h2>
+{% if not waiver_publication.allowed %}
+<p><strong>Publication blocked.</strong> {{ waiver_publication.decision.reason_codes|join(', ') }}</p>
+{% else %}
+<p>Bench players available for drop review: {{ waiver_publication.local_roster_context.bench_count }}</p>
+{% for plan in waiver_publication.waiver_action_plans %}
+<article class="waiver-plan">
+<h3>#{{ plan.priority }} · {{ plan.summary }}</h3>
+<p><strong>Add:</strong> {{ plan.add.name }} · {{ plan.add.position }} {{ plan.add.team or '' }}</p>
+<p><strong>Drop:</strong> {% if plan.drop %}{{ plan.drop.player_name }} · {{ plan.drop.position }}{% else %}No drop candidate supplied{% endif %}</p>
+<p><strong>Urgency:</strong> {{ plan.urgency or 'WATCH' }}</p>
+<p><strong>Recommended FAAB:</strong> {{ plan.recommended_bid_pct }}%</p>
+{% if plan.recommended_bid is defined %}<p><strong>Recommended bid:</strong> {{ plan.recommended_bid }}</p>{% endif %}
+<p><strong>Reason:</strong> {{ plan.add.reason }}</p>
+</article>
+{% else %}
+<p>No waiver action plans are available.</p>
+{% endfor %}
+{% endif %}
+</section>

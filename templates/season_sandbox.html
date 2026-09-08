@@ -9,7 +9,8 @@
 
 <section class="mode-banner {{ 'mock' if context.mode == 'MOCK' else 'live' }}">
   <div><strong>CURRENT DATA MODE</strong><h2>{{ context.mode }}</h2>{% if active %}<p>{{ active.draft_name }} · Mock #{{ active.id }}</p>{% else %}<p>Real Sleeper league and roster data</p>{% endif %}</div>
-  {% if context.mode == 'MOCK' %}<form method="POST" action="{{ url_for('season_sandbox.exit_sandbox') }}"><button class="button button-live" type="submit">Exit Sandbox and Return to Live</button></form>{% endif %}
+  {% if context.mode == 'MOCK' %}<form method="POST" action="{{ url_for('season_sandbox.exit_sandbox') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<button class="button button-live" type="submit">Exit Sandbox and Return to Live</button></form>{% endif %}
 </section>
 
 {% if context.mode == 'MOCK' and active %}
@@ -24,6 +25,7 @@
 
 <div class="notice"><strong>Safety:</strong> Sandbox mode never writes transactions to Sleeper. It only changes which saved roster the operations pages analyze.</div>
 
-<section class="card"><h2>Completed Slot #5 Mock Drafts</h2>{% if drafts %}<div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Strategy</th><th>Rounds</th><th>Grade</th><th>Score</th><th>Created</th><th>Action</th></tr></thead><tbody>{% for draft in drafts %}<tr class="{% if active and active.id == draft.id %}active-row{% endif %}"><td>{{ draft.id }}</td><td><strong>{{ draft.draft_name }}</strong>{% if active and active.id == draft.id %} <span class="badge">ACTIVE</span>{% endif %}</td><td>{{ draft.strategy }}</td><td>{{ draft.rounds }}</td><td>{{ draft.overall_grade or 'N/A' }}</td><td>{{ draft.roster_score or 'N/A' }}</td><td>{{ draft.created_at }}</td><td><form method="POST" action="{{ url_for('season_sandbox.activate_sandbox', draft_id=draft.id) }}"><button class="button" type="submit">Use as Season Sandbox</button></form></td></tr>{% endfor %}</tbody></table></div>{% else %}<p>No completed 10-team Slot #5 interactive mocks were found. Complete one in Mock Draft Lab, then return here.</p>{% endif %}</section>
+<section class="card"><h2>Completed Slot #5 Mock Drafts</h2>{% if drafts %}<div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Strategy</th><th>Rounds</th><th>Grade</th><th>Score</th><th>Created</th><th>Action</th></tr></thead><tbody>{% for draft in drafts %}<tr class="{% if active and active.id == draft.id %}active-row{% endif %}"><td>{{ draft.id }}</td><td><strong>{{ draft.draft_name }}</strong>{% if active and active.id == draft.id %} <span class="badge">ACTIVE</span>{% endif %}</td><td>{{ draft.strategy }}</td><td>{{ draft.rounds }}</td><td>{{ draft.overall_grade or 'N/A' }}</td><td>{{ draft.roster_score or 'N/A' }}</td><td>{{ draft.created_at }}</td><td><form method="POST" action="{{ url_for('season_sandbox.activate_sandbox', draft_id=draft.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<button class="button" type="submit">Use as Season Sandbox</button></form></td></tr>{% endfor %}</tbody></table></div>{% else %}<p>No completed 10-team Slot #5 interactive mocks were found. Complete one in Mock Draft Lab, then return here.</p>{% endif %}</section>
 </div>
 {% endblock %}

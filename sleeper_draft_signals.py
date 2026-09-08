@@ -6,8 +6,10 @@ def snake_slot(p,teams):
  rnd=(p-1)//teams+1;inside=(p-1)%teams+1;return teams-inside+1 if rnd%2==0 else inside
 def next_pick(current,teams,slot,rounds):
  return next((p for p in range(current+1,teams*rounds+1) if snake_slot(p,teams)==slot),None)
-def build_sleeper_draft_signals(cur,league_id,season=2026,user_slot=5):
+def build_sleeper_draft_signals(cur,league_id,season=2026,user_slot=5,active_draft=None,active_picks=None):
  users=snap(cur,'users',league_id,season) or [];players=snap(cur,'players',league_id,season) or {};drafts=snap(cur,'drafts',league_id,season) or [];draft=(drafts[0] if isinstance(drafts,list) and drafts else drafts) or {};did=str(draft.get('draft_id') or '');picks=snap(cur,'draft_picks',did,season) or []
+ if active_draft is not None:
+  draft=active_draft or {};did=str(draft.get('draft_id') or '');picks=active_picks or []
  settings=draft.get('settings') or {};teams=int(settings.get('teams') or 10);rounds=int(settings.get('rounds') or 14);names={str(u.get('user_id')):u.get('metadata',{}).get('team_name') or u.get('display_name') for u in users};slots={int(v):names.get(str(k),str(k)) for k,v in (draft.get('draft_order') or {}).items()};counts=defaultdict(Counter);totals=Counter();recent=[]
  for x in sorted(picks,key=lambda z:int(z.get('pick_no') or 0)):
   pno=int(x.get('pick_no') or 0);slot=int(x.get('draft_slot') or snake_slot(pno,teams));meta=x.get('metadata') or {};pid=str(x.get('player_id') or meta.get('player_id') or '');pos=str(meta.get('position') or players.get(pid,{}).get('position') or '').upper();name=((meta.get('first_name') or '')+' '+(meta.get('last_name') or '')).strip() or players.get(pid,{}).get('full_name') or pid

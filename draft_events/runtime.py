@@ -9,9 +9,25 @@ def mapped_player_exists(connection_factory, sleeper_player_id):
     try:
         with conn.cursor() as cur:
             cur.execute(
-                """SELECT 1 FROM sleeper_player_map
-                   WHERE sleeper_player_id = %s
-                     AND (local_player_id IS NOT NULL OR local_player_name IS NOT NULL)
+                """SELECT 1
+                   FROM sleeper_player_map AS spm
+                   WHERE spm.sleeper_player_id = %s
+                     AND (
+                         spm.local_player_name IS NOT NULL
+                         OR EXISTS (
+                             SELECT 1
+                             FROM players AS p
+                              WHERE REGEXP_REPLACE(
+                                  REGEXP_REPLACE(
+                                      LOWER(p.player_name), '[^a-z0-9]', '', 'g'
+                                  ),
+                                  '(jr|sr|ii|iii|iv)$', '', 'g'
+                              ) = REGEXP_REPLACE(
+                                  spm.normalized_name,
+                                  '(jr|sr|ii|iii|iv)$', '', 'g'
+                              )
+                         )
+                     )
                    LIMIT 1""",
                 (str(sleeper_player_id),),
             )

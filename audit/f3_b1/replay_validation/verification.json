@@ -1,0 +1,17 @@
+{
+  "phase": "F3-B.1",
+  "scope": "large-batch replay validation against DraftEventProcessor and InMemoryDraftEventStore",
+  "command": [
+    "/home/deeoriginalone/fantasy-intelligence/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_f3_b1_replay_validation.py"
+  ],
+  "started_at": "2026-09-03T06:09:43.628806+00:00",
+  "finished_at": "2026-09-03T06:13:35.838356+00:00",
+  "return_code": 0,
+  "passed": true,
+  "stdout": "........                                                       [100%]\n8 passed, 10 subtests passed in 231.87s (0:03:51)\n",
+  "stderr": ""
+}

@@ -1,80 +1,77 @@
-# Next Session Handoff
+# Fantasy Intelligence Session Handoff
 
-Date: 2026-09-01
+## Operational Verdict
 
-## Where we left off
+**F3-D.4 and F3-D.5 are complete and repository-test validated. The next milestone is full PostgreSQL parity and failure-injection recovery validation.**
 
-The repository is in a verified working state for implementation, but it is waiting for live draft picks. The draft event pipeline is implemented, migration 007 is present, and the runtime sync is executing, but the configured draft is still in `pre_draft` and contains zero picks.
+## Checkpoint
+- Date: 2026-09-07
+- Branch: `post-draft-recovery-20260906`
+- HEAD: `101fcb5d211d458ac9b9d2f8c9107bb2ae2ca061`
+- Upstream: unavailable
+- League ID: `1398094330668797952`
+- Completed real draft ID: `1398094331272794112`
 
-The final verified state is:
+## Work Verified in This Session
+- F3-D.4 authoritative roster-truth hardening remained validated.
+- The F3-D.5 publication module imports successfully from the activated repository environment.
+- The focused F3-D.5 publication test file passed: `4 passed in 0.06s`.
+- The combined F3-D.5 publication, template, and route suite passed: `8 passed in 0.21s`.
+- The earlier bare `pytest` collection error was avoided by running tests with the activated interpreter via `python -m pytest`.
 
-- Draft Event Pipeline: implemented and validated
-- Migration 007: present
-- `draft_events` table: exists, row count = 0
-- `draft_selections` table: exists, row count = 0
-- Live draft status: `pre_draft`
-- Live picks count: 0
-- `sync_sleeper_draft_picks()` result: `{'received': 0, 'stored': 0, 'matched_to_rankings': 0, 'my_team_picks': 0, 'identity_valid': True, 'quarantined': 0}`
+## F3-D.5 Verified Contract
+- Publication is gated by readiness through `PublicationGate`.
+- Blocked readiness returns no candidates or action plans.
+- Invalid publication contracts fail closed.
+- Explicit starter drops are rejected.
+- Unknown unit bids are omitted.
+- The template renders add, drop, urgency, FAAB percentage, optional unit bid, and explanation.
+- The JSON route contract remains unchanged in the focused route test.
+- No transaction is submitted.
 
-## What was verified
+## Validation Results
+- F3-D.4 targeted waiver suite: `30 passed in 0.11s`.
+- F3-D.5 publication-only run: `4 passed in 0.06s`.
+- F3-D.5 publication, template, and route suite: `8 passed in 0.21s`.
+- Syntax validation passed for `app.py`, `sleeper_intelligence.py`, `sleeper_intelligence_routes.py`, and `services/roster_slots.py`.
+- Full repository suite: `316 passed, 9 skipped, 2 xfailed, 20 subtests passed in 934.30s (0:15:34)`.
+- The 9 skipped tests are not counted as passing PostgreSQL parity validation.
+- The 2 expected failures remain expected failures, not passes.
 
-Only the following facts are verified:
+## Known Boundaries and Technical Debt
+- Production deployment and production recovery are not proven.
+- Full PostgreSQL parity remains incomplete because 9 tests were skipped in the full suite.
+- F3-D.5 has repository-level publication, template, and Flask route test coverage, but a supervised live-server HTML route rehearsal is not recorded here.
+- The broader My Team and post-draft route sweep remain separate validation work.
+- No automatic waiver, lineup, trade, draft, or season transaction submission is enabled.
+- Generated audits, SQL dumps, patches, backups, source captures, and rehearsal evidence must not be broadly committed.
 
-- F3-A implemented and tests pass
-- F3-A.1 implemented and tests pass
-- F3-A.2 runtime integration performed and tests pass
-- `draft_events` table exists
-- `draft_selections` table exists
-- Sleeper connectivity works
-- Sleeper league and draft IDs are valid
-- Draft status is currently `pre_draft`
-- Picks endpoint returns zero picks
-- No draft selections are present yet
+## Working-Tree Guidance
+- Preserve unrelated user changes.
+- Do not use `git add .` or `git add -A`.
+- Keep generated evidence, source captures, backups, archives, SQL dumps, and recovery patches outside broad commit scope.
+- Review canonical documentation and audit evidence as separate logical groups.
 
-## Open issues
+## Exact Next Milestone
 
-Only verified blockers:
+**Full PostgreSQL 1000-event/10-replay verification and failure-injection recovery testing**
 
-- No draft picks exist because the draft is not live
-- Downstream F3-B work is not ready to run until picks are available
-- Documentation still contains stale claims from earlier repository phases that do not match the current verified live state
+### Definition of Done
+- Run the full verifier with no skipped PostgreSQL cases.
+- Record failure-injection, rollback, and recovery evidence.
+- Verify guarded cleanup and repeatability.
+- Preserve the no-external-write boundary.
+- Reconcile all four canonical documents after the evidence is complete.
 
-## Do this first next session
-
-Run these exact commands first:
+## First Command for the Next Session
 
 ```bash
-cd /home/deeoriginalone/fantasy-intelligence
-set -a && . ./.env && set +a
-python - <<'PY'
-import json, urllib.request
-url = 'https://api.sleeper.app/v1/draft/1398094331272794112'
-with urllib.request.urlopen(url, timeout=20) as r:
-    data = json.load(r)
-print(data.get('status'))
-print(data.get('draft_id'))
-PY
+cd /home/deeoriginalone/fantasy-intelligence \
+  && source venv/bin/activate \
+  && git status --short --branch
 ```
 
-```bash
-cd /home/deeoriginalone/fantasy-intelligence
-set -a && . ./.env && set +a
-python - <<'PY'
-from app import sync_sleeper_draft_picks
-print(sync_sleeper_draft_picks())
-PY
-```
+## Stop Conditions
 
-```bash
-cd /home/deeoriginalone/fantasy-intelligence
-set -a && . ./.env && set +a
-python -m pytest -q
-```
+Stop rather than guess if database isolation, cleanup safety, reconciliation state, readiness freshness, external-write boundaries, or test evidence cannot be proven.
 
-## Expected next task
-
-The single highest-priority next work item is:
-
-Wait for the configured Sleeper draft to leave `pre_draft` and then verify that live picks start flowing into `draft_events` and `draft_selections` before moving to F3-B downstream logic.
-
-This is the highest-value task because the system is currently operational but empty, and any downstream work before pick data appears would be based on empty state rather than valid runtime data.

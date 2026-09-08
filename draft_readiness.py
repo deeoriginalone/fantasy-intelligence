@@ -51,14 +51,14 @@ def build_reconciliation(cur, league_id, draft_id, draft_status):
         sync_errors.append('No draft sync audit')
     elif str(sync[0]).upper() != 'SUCCESS':
         sync_errors.append('Latest draft sync did not succeed')
-    sleeper_count = _count(cur, 'SELECT count(*) FROM sleeper_draft_picks WHERE draft_id=%s', (str(draft_id),))
-    board_count = _count(cur, 'SELECT count(*) FROM draft_board WHERE drafted=true')
-    roster_count = _count(cur, 'SELECT count(*) FROM league_rosters')
-    quarantine_count = _count(cur, "SELECT count(*) FROM draft_player_quarantine WHERE draft_id=%s AND status='OPEN'", (str(draft_id),))
-    multiple = _count(cur, 'SELECT count(*) FROM (SELECT player_name FROM league_rosters GROUP BY player_name HAVING count(DISTINCT team_name)>1)x')
-    roster_not_drafted = _count(cur, 'SELECT count(*) FROM league_rosters r WHERE NOT EXISTS(SELECT 1 FROM draft_board d WHERE d.player_name=r.player_name AND d.drafted=true)')
-    drafted_without_owner = _count(cur, 'SELECT count(*) FROM draft_board d WHERE d.drafted=true AND NOT EXISTS(SELECT 1 FROM league_rosters r WHERE r.player_name=d.player_name)')
-    my_orphans = _count(cur, 'SELECT count(*) FROM my_roster m WHERE NOT EXISTS(SELECT 1 FROM league_rosters r WHERE r.player_name=m.player_name)')
+    sleeper_count = _count(cur, 'SELECT count(*) FROM sleeper_draft_picks WHERE draft_id=%s', (str(draft_id),)) if _table_exists(cur, 'sleeper_draft_picks') else 0
+    board_count = _count(cur, 'SELECT count(*) FROM draft_board WHERE drafted=true') if _table_exists(cur, 'draft_board') else 0
+    roster_count = _count(cur, 'SELECT count(*) FROM league_rosters') if _table_exists(cur, 'league_rosters') else 0
+    quarantine_count = _count(cur, "SELECT count(*) FROM draft_player_quarantine WHERE draft_id=%s AND status='OPEN'", (str(draft_id),)) if _table_exists(cur, 'draft_player_quarantine') else 0
+    multiple = _count(cur, 'SELECT count(*) FROM (SELECT player_name FROM league_rosters GROUP BY player_name HAVING count(DISTINCT team_name)>1)x') if _table_exists(cur, 'league_rosters') else 0
+    roster_not_drafted = _count(cur, 'SELECT count(*) FROM league_rosters r WHERE NOT EXISTS(SELECT 1 FROM draft_board d WHERE d.player_name=r.player_name AND d.drafted=true)') if _table_exists(cur, 'league_rosters') and _table_exists(cur, 'draft_board') else 0
+    drafted_without_owner = _count(cur, 'SELECT count(*) FROM draft_board d WHERE d.drafted=true AND NOT EXISTS(SELECT 1 FROM league_rosters r WHERE r.player_name=d.player_name)') if _table_exists(cur, 'draft_board') and _table_exists(cur, 'league_rosters') else 0
+    my_orphans = _count(cur, 'SELECT count(*) FROM my_roster m WHERE NOT EXISTS(SELECT 1 FROM league_rosters r WHERE r.player_name=m.player_name)') if _table_exists(cur, 'my_roster') and _table_exists(cur, 'league_rosters') else 0
     reconcile_errors = []
     if not pre:
         if sleeper_count != board_count:

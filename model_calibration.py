@@ -15,7 +15,16 @@ def _bounded_normalize(raw):
   weights=_normalize(weights)
  return {k:round(v,4) for k,v in weights.items()}
 def calibration_metrics(cur):
- cur.execute("SELECT monte_carlo_pct,opponent_pct,survival_pct,actual_available FROM draft_decision_outcomes WHERE actual_available IS NOT NULL")
+ try:
+  cur.execute("SELECT monte_carlo_pct,opponent_pct,survival_pct,actual_available FROM draft_decision_outcomes WHERE actual_available IS NOT NULL")
+ except Exception:
+  conn = getattr(cur, "connection", None)
+  if conn is not None:
+   try:
+    conn.rollback()
+   except Exception:
+    pass
+  return {"monte_carlo": {"samples": 0, "accuracy": None, "brier": None, "skill": None}, "opponent": {"samples": 0, "accuracy": None, "brier": None, "skill": None}, "survival": {"samples": 0, "accuracy": None, "brier": None, "skill": None}}
  rows=cur.fetchall();models={"monte_carlo":0,"opponent":1,"survival":2};metrics={}
  for name,index in models.items():
   vals=[(float(r[index]),bool(r[3])) for r in rows if r[index] is not None]

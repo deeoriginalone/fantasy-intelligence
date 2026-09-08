@@ -1,0 +1,46 @@
+{
+  "policy": {
+    "required_components": [
+      "sleeper",
+      "draft_state",
+      "reconciliation",
+      "recommendations"
+    ],
+    "warning_allows_publish": false,
+    "maximum_age_seconds": {}
+  },
+  "components": [
+    {
+      "name": "sleeper",
+      "level": "READY",
+      "summary": "Sleeper source available",
+      "observed_at": "2026-09-03T09:00:00+00:00",
+      "metadata": {},
+      "issues": []
+    },
+    {
+      "name": "draft_state",
+      "level": "READY",
+      "summary": "Draft state healthy",
+      "observed_at": "2026-09-03T09:00:00+00:00",
+      "metadata": {},
+      "issues": []
+    },
+    {
+      "name": "reconciliation",
+      "level": "READY",
+      "summary": "Reconciliation passed",
+      "observed_at": "2026-09-03T09:00:00+00:00",
+      "metadata": {},
+      "issues": []
+    },
+    {
+      "name": "recommendations",
+      "level": "READY",
+      "summary": "Recommendation engine healthy",
+      "observed_at": "2026-09-03T09:00:00+00:00",
+      "metadata": {},
+      "issues": []
+    }
+  ]
+}

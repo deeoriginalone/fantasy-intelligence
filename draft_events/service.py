@@ -9,10 +9,14 @@ class DraftEventProcessor:
     def process(self, event):
         existing=self.store.get_event(event.event_id)
         if existing and existing['status']=='APPLIED':
+            refresh = getattr(self.store, 'refresh_applied_metadata', None)
+            if callable(refresh):
+                refresh(event)
             return ProcessingResult(event.event_id,'APPLIED','idempotent no-op',True,False)
         try:
             with self.store.transaction():
-                if not existing: self.store.save_received(event)
+                if not existing or existing['status'] == 'FAILED':
+                    self.store.save_received(event)
                 event.validate()
                 if not self.player_exists(event.player_id): raise ValidationError('unknown player_id')
                 if not self.owner_exists(event.roster_id,event.owner_id): raise ValidationError('unknown roster_id or owner_id')
