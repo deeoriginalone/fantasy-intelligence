@@ -1,6 +1,7 @@
 """F4-B weekly matchup intelligence using existing enriched roster evidence."""
 from __future__ import annotations
 
+from services.integrity import build_integrity_report
 POSITIONS=("QB","RB","WR","TE","K","DEF")
 
 def _n(v,d=0.0):
@@ -25,4 +26,4 @@ def build_matchup_intelligence(roster,starters=None):
     for pos in POSITIONS:
         group=[r for r in rows if r["position"]==pos]; known=[r for r in group if r["matchup_rank"] is not None and not r["is_bye"]]
         if group: edges.append({"position":pos,"player_count":len(group),"known_matchups":len(known),"average_matchup_modifier":round(sum(r["matchup_modifier"] for r in known)/len(known),4) if known else None,"projected_weekly_score":round(sum(r["weekly_score"] for r in group),2),"best_player":max(known,key=lambda r:(r["matchup_modifier"],r["weekly_score"]),default=None),"weakest_player":min(known,key=lambda r:(r["matchup_modifier"],r["weekly_score"]),default=None)})
-    return {"allowed":bool(rows),"blockers":sorted({g for r in rows for g in r["evidence_gaps"]}),"favorable_matchups":favorable,"difficult_matchups":difficult,"unavailable_matchups":unavailable,"position_edges":edges,"starter_count":len(rows),"methodology":"Uses existing weekly baseline, opponent, matchup rank, matchup modifier, injury, bye, and weekly score evidence. Missing evidence is not inferred."}
+    return {"allowed":bool(rows),"blockers":sorted({g for r in rows for g in r["evidence_gaps"]}),"favorable_matchups":favorable,"difficult_matchups":difficult,"unavailable_matchups":unavailable,"position_edges":edges,"starter_count":len(rows),"methodology":"Uses existing weekly baseline, opponent, matchup rank, matchup modifier, injury, bye, and weekly score evidence. Missing evidence is not inferred.","integrity":build_integrity_report(rows)}

@@ -1,0 +1,64 @@
+{
+  "generated_at_utc": "2026-09-09T10:41:47.175753+00:00",
+  "passed": false,
+  "repository": {
+    "branch": "feature/evidence-bundle-pipeline",
+    "head": "3c6aef5bb1995887f4e553a2a7954f83eb7cecb7",
+    "short_head": "3c6aef5"
+  },
+  "checks": {
+    "canonical_files_present": true,
+    "canonical_files_nonempty": true,
+    "branch_synchronized": true,
+    "head_synchronized": true,
+    "next_milestone_present": false,
+    "next_milestone_consistent": false,
+    "sensitive_patterns_absent": true
+  },
+  "files": {
+    "PROJECT_STATUS.md": {
+      "exists": true,
+      "bytes": 3087,
+      "nonempty": true,
+      "branch_present": true,
+      "head_present": true,
+      "next_milestone": null
+    },
+    "PROJECT_STATE.md": {
+      "exists": true,
+      "bytes": 2292,
+      "nonempty": true,
+      "branch_present": true,
+      "head_present": true,
+      "next_milestone": null
+    },
+    "DEVELOPMENT_ROADMAP.md": {
+      "exists": true,
+      "bytes": 2738,
+      "nonempty": true,
+      "branch_present": true,
+      "head_present": true,
+      "next_milestone": null
+    },
+    "NEXT_SESSION_HANDOFF.md": {
+      "exists": true,
+      "bytes": 3159,
+      "nonempty": true,
+      "branch_present": true,
+      "head_present": true,
+      "next_milestone": null
+    }
+  },
+  "missing_files": [],
+  "empty_files": [],
+  "branch_mismatches": [],
+  "head_mismatches": [],
+  "missing_milestones": [
+    "PROJECT_STATUS.md",
+    "PROJECT_STATE.md",
+    "DEVELOPMENT_ROADMAP.md",
+    "NEXT_SESSION_HANDOFF.md"
+  ],
+  "unique_milestones": [],
+  "sensitive_findings": []
+}

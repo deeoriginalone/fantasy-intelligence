@@ -1,0 +1,19 @@
+{
+  "generated_at_utc": "2026-09-09T10:41:47.053699+00:00",
+  "passed": true,
+  "checks": {
+    "bundle_directory_exists": true,
+    "required_files_present": true,
+    "required_files_nonempty": true,
+    "archive_exists": true,
+    "archive_readable": true,
+    "archive_members_complete": true,
+    "sensitive_patterns_absent": true
+  },
+  "missing_files": [],
+  "empty_files": [],
+  "missing_archive_members": [],
+  "archive_error": null,
+  "sensitive_findings": [],
+  "manifest": "BUNDLE_MANIFEST.json"
+}

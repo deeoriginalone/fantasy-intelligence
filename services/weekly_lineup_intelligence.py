@@ -3,6 +3,7 @@
 No lineup transaction is submitted. The engine ranks only supplied players and
 reports missing evidence instead of inventing projections, opponents, or status.
 """
+from services.integrity import build_integrity_report
 STARTER_SLOTS=(("QB",("QB",)),("RB1",("RB",)),("RB2",("RB",)),("WR1",("WR",)),("WR2",("WR",)),("TE",("TE",)),("FLEX",("RB","WR","TE")),("K",("K",)),("DEF",("DEF",)))
 HEALTHY={"","healthy","healthy / not listed","none","not listed"}
 
@@ -81,4 +82,4 @@ def build_lineup_intelligence(roster):
     if not roster:blockers.append("ROSTER_EMPTY")
     if vacancies:blockers.append("STARTER_SLOTS_VACANT")
     if missing:blockers.append("WEEKLY_EVIDENCE_INCOMPLETE")
-    return {"allowed":bool(roster) and not vacancies,"blockers":blockers,"starters":starters,"bench":bench,"weekly_total":total,"vacancies":vacancies,"missing_evidence_players":missing,"start_sit_decisions":build_start_sit_decisions(starters,bench),"methodology":"Ranks supplied roster players by existing weekly_score after bye and injury availability checks. No lineup is submitted."}
+    return {"allowed":bool(roster) and not vacancies,"blockers":blockers,"starters":starters,"bench":bench,"weekly_total":total,"vacancies":vacancies,"missing_evidence_players":missing,"start_sit_decisions":build_start_sit_decisions(starters,bench),"methodology":"Ranks supplied roster players by existing weekly_score after bye and injury availability checks. No lineup is submitted.","integrity":build_integrity_report(roster)}

@@ -1,0 +1,57 @@
+{
+  "generated_at_utc": "2026-09-09T10:21:40.052933+00:00",
+  "bundle_directory": "notebook_bundle",
+  "archive": "notebook_bundle.tar.gz",
+  "files": [
+    {
+      "name": "DEVELOPMENT_ROADMAP.md",
+      "bytes": 3164,
+      "sha256": "86b13bbdb4035dc49c54c432a9bef37beaf08f980e0d9d0eaec8998761bbdad1"
+    },
+    {
+      "name": "IMPLEMENTATION_INVENTORY.md",
+      "bytes": 3471,
+      "sha256": "11d8349b87c373d59d2d5c65b7bf5c8cbf224e6830db9e546bbd50df29b0eccf"
+    },
+    {
+      "name": "MIGRATIONS.md",
+      "bytes": 10864,
+      "sha256": "e751430a56f9fd1cb9f641451a4ad262b6ea3a7cff6f24e54b9f2f9f7e222497"
+    },
+    {
+      "name": "NEXT_SESSION_HANDOFF.md",
+      "bytes": 3708,
+      "sha256": "940855dfd881aaecbdb9cd7ac32d98dcb286c2e0ff7ef0850c539fd5509a55e9"
+    },
+    {
+      "name": "PARITY_STATUS.md",
+      "bytes": 4156,
+      "sha256": "87d4dd353a85f6e75412ec3e7c48ba5cf4a565e84a9eb6ee3318b9aee7530be2"
+    },
+    {
+      "name": "PROJECT_STATE.md",
+      "bytes": 3574,
+      "sha256": "a72564bfbcd7c395e74a31c3239aaf8c346269b0fc12f4cd32b916a8f988cc60"
+    },
+    {
+      "name": "PROJECT_STATUS.md",
+      "bytes": 3836,
+      "sha256": "c4304d05df979a73aa242ba00ea4c4f82038b147862921bb7d30b774decd783e"
+    },
+    {
+      "name": "REPOSITORY_CHECKPOINT.md",
+      "bytes": 12895,
+      "sha256": "00d0fbf12d96de1f26f405a6678c2195b9d8d5157fd262ad28104ef13eb383a8"
+    },
+    {
+      "name": "SCHEMA.md",
+      "bytes": 453,
+      "sha256": "3ccfdab45d3d368a659f8c2dda85a5025673ede9d610fe4055d836adc8dbc498"
+    },
+    {
+      "name": "TEST_INVENTORY.md",
+      "bytes": 39489,
+      "sha256": "a7144906d7032146d246aa9a10a1fb52c013a2f991053465bba4a2cd368185c0"
+    }
+  ]
+}
