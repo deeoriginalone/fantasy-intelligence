@@ -8,7 +8,7 @@ The Data Integrity sequence is complete through A.10. On 2026-09-10, a reusable 
 
 - Date: 2026-09-10
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: c35dd41d04d90da1f4001c5ad40ba54640807263
+- HEAD: 126df4ab06bc8a4a1d0e5d73f341cc0cbfe03450
 - Repository: /home/deeoriginalone/fantasy-intelligence
 
 ## Work verified in this sequence
@@ -38,7 +38,7 @@ The Data Integrity sequence is complete through A.10. On 2026-09-10, a reusable 
 
 ## Validation evidence
 
-- Focused UX tests: 9 passed in 0.34 seconds.
+- Focused UX validation suite: 20 passed in 0.38 seconds.
 - `import app`: passed.
 - `from services.ux_evidence import evidence`: passed.
 - Python compile validation: passed.
@@ -64,6 +64,18 @@ The Data Integrity sequence is complete through A.10. On 2026-09-10, a reusable 
 5. Run `./scripts/end_of_day.sh`.
 6. Review `notebook_bundle/CANONICAL_SYNC_VALIDATION.md`.
 7. Review `git diff --cached --stat` and the exact staged diff before committing.
+
+
+### UX evidence presentation expansion validated
+- Dashboard hard-coded draft-readiness, simulation-count, projection-count, tier-count, duplicated league-summary, and pre-draft status claims were removed or replaced with explicit UNKNOWN or UNSUPPORTED states.
+- Reusable page evidence, lineup explanation, waiver explanation, and GM action evidence helpers were added.
+- A reusable UX completion panel was added for evidence and lineage presentation.
+- The Lineup page includes the player identity and lineup evidence presentation boundary.
+- Focused UX validation suite: 20 passed in 0.38 seconds.
+- Python compile validation passed.
+- git diff --check passed.
+- git diff --cached --check passed.
+- This expansion does not prove full active-route completion of UX.1 through UX.7.
 
 ## Next milestone
 

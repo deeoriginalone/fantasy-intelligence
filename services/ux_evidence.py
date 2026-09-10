@@ -18,3 +18,22 @@ def roster_lineage(players):
 def filter_available_waivers(candidates,owned_names):
     owned={str(x).strip().casefold() for x in owned_names or [] if str(x).strip()}
     return [c for c in candidates or [] if str(c.get("player") or c.get("player_name") or c.get("name") or "").strip().casefold() not in owned]
+
+def page_evidence(*, page, fields=None, blockers=None, source=None):
+    normalized={}
+    for name,value in dict(fields or {}).items():
+        normalized[name]=value if isinstance(value,dict) and "state" in value else evidence(value,source=source)
+    blockers=list(blockers or [])
+    return {"page":str(page),"ready":bool(normalized) and all(v.get("state")=="AVAILABLE" for v in normalized.values()) and not blockers,"fields":normalized,"blockers":blockers}
+
+def lineup_explanations(data):
+    data=dict(data or {})
+    return {"decisions":[{"slot":r.get("slot"),"action":r.get("action"),"why":r.get("reason") or "No verified explanation supplied.","confidence":r.get("confidence") or {"label":"UNKNOWN","score":0}} for r in data.get("start_sit_decisions") or []],"blockers":list(data.get("blockers") or [])}
+
+def waiver_explanations(candidates,owned_names=None):
+    rows=filter_available_waivers(candidates,owned_names or [])
+    return [{"player":r.get("player") or r.get("player_name") or "UNKNOWN","reason":r.get("reason") or r.get("faab_reason") or "No verified explanation supplied."} for r in rows]
+
+def gm_action_evidence(data):
+    data=dict(data or {})
+    return {"actions":[{"action":r.get("action"),"urgency":r.get("urgency") or "UNKNOWN","blockers":list(r.get("blockers") or []),"source":r.get("source") or "UNVERIFIED","reason":r.get("reason") or "No verified explanation supplied."} for r in data.get("actions") or []]}

@@ -203,7 +203,7 @@
             </div>
             <div class="league-fact">
                 <dt>Season</dt>
-                <dd>2026</dd>
+                <dd>UNSUPPORTED</dd>
             </div>
             <div class="league-fact">
                 <dt>Draft Date</dt>
@@ -211,49 +211,12 @@
             </div>
             <div class="league-fact">
                 <dt>Status</dt>
-                <dd><span class="status-pill">Pre-Draft</span></dd>
+                <dd><span class="status-pill">UNKNOWN</span></dd>
             </div>
         </dl>
     </div>
 </section>
 
-<div class="status-grid">
-    <div class="dashboard-card">
-        <h3>🚀 Draft Intelligence Status</h3>
-        <ul>
-            <li>✅ 30,000 Simulations Completed</li>
-            <li>✅ WR Heavy Strategy Validated</li>
-            <li>✅ 465 Projections Loaded</li>
-            <li>✅ 401 VBD Tiers Loaded</li>
-            <li>✅ Monte Carlo Availability Enabled</li>
-            <li>✅ Tier Cliff Engine Enabled</li>
-            <li>✅ Sleeper Connected</li>
-        </ul>
-    </div>
-
-    <div class="dashboard-card">
-        <h3>📊 Draft Readiness</h3>
-        <ul>
-            <li>✅ League Configuration Complete</li>
-            <li>✅ Sleeper Draft Connected</li>
-            <li>✅ Draft Assistant Operational</li>
-            <li>✅ Recommendation Engine Active</li>
-            <li>✅ Player Projections Imported</li>
-            <li>✅ Tier Intelligence Active</li>
-        </ul>
-        <p class="ready">READY FOR DRAFT DAY</p>
-    </div>
-
-    <div class="dashboard-card">
-        <h3>🏆 League Summary</h3>
-        <p><strong>League:</strong> Fantasy Intelligence Champions League</p>
-        <p><strong>Teams:</strong> 10</p>
-        <p><strong>Scoring:</strong> Full PPR</p>
-        <p><strong>Playoff Teams:</strong> 6</p>
-        <p><strong>Season:</strong> 2026</p>
-        <p><strong>Draft ID:</strong> 1398094331272794112</p>
-    </div>
-</div>
-
+<div class="status-grid" data-ux1-dashboard-truth><div class="dashboard-card"><h3>Dashboard Truth Status</h3>{% if dashboard_evidence is defined %}<p><strong>Source:</strong> {{ dashboard_evidence.source }}</p><ul>{% for name,item in dashboard_evidence.fields.items() %}<li><strong>{{ name|replace('_',' ')|title }}:</strong> {{ item.value if item.state == 'AVAILABLE' else item.state }}</li>{% endfor %}</ul>{% if dashboard_evidence.blockers %}<p class="warn">{{ dashboard_evidence.blockers|join(', ') }}</p>{% endif %}{% else %}<p>UNKNOWN: No verified dashboard evidence was supplied.</p>{% endif %}</div><div class="dashboard-card"><h3>Season and Draft State</h3><p>UNSUPPORTED: No verified season, current-week, draft-readiness, simulation-count, projection-count, or tier-count contract is supplied to this page.</p></div><div class="dashboard-card"><h3>Read-Only Boundary</h3><p>This dashboard provides decision support only. It does not submit lineup, waiver, trade, draft, or season transactions.</p></div></div>
 {% include "_pickem_dashboard_card.html" %}
 {% endblock %}
