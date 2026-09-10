@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+{% if dashboard_evidence is defined and dashboard_evidence.blockers %}<section class="card warn" data-dashboard-truth><h2>Dashboard Data Status</h2><p><strong>Verified dashboard data is unavailable.</strong></p><p>{{ dashboard_evidence.blockers|join(', ') }}</p></section>{% endif %}
 <title>Fantasy Intelligence Dashboard</title>
 
 <style>

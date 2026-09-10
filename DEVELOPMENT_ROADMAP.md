@@ -1,67 +1,138 @@
-### Development Roadmap
+# Development Roadmap
 
-#### Current checkpoint
+## Current checkpoint
+
 - Date: 2026-09-10
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 17a60d3a71cecf49df5dafe937c604662c025890
-#### Historical completed milestones
+- HEAD: c35dd41d04d90da1f4001c5ad40ba54640807263
+
+## Historical completed milestones
+
 - F3-D.1 through F3-D.5 remain complete at their recorded boundaries.
 
-#### Active development track: Data Integrity
+## Completed development track: Data Integrity
 
-##### Batch A.1: Shared Integrity Foundation
-**Complete.**
+- A.1 Shared Integrity Foundation: COMPLETE
+- A.2 Matchup and Lineup Integration: COMPLETE AT FOCUSED TEST BOUNDARY
+- A.3 Freshness and Fail-Closed Confidence: VALIDATED
+- A.4 Verified Timestamp Wiring: WIRED AT RECORDED CONTRACT BOUNDARY
+- A.5 Roster Synchronization and Reconciliation: GATE PASS
+- A.6 League-Settings-Derived Needs: GATE PASS
+- A.7 Injury Status Synchronization and Health Confidence: IMPLEMENTATION PACKAGE VALIDATED
+- A.8 Matchup Enrichment Coverage: VALIDATED
+- A.9 User-Facing Yahoo Remnant Removal: IMPLEMENTED AT VERIFIED TEMPLATE BOUNDARY
+- A.10 Cross-Page Integrity Display: IMPLEMENTED AND FOCUSED VALIDATION PASSED
 
-##### Batch A.2: Matchup and Lineup Integration
-**Complete at the focused repository-test boundary.**
+## Post-A.10 UX foundation completed on 2026-09-10
 
-##### Batch A.3: Freshness and Fail-Closed Confidence
-**Validated.**
+A shared implementation foundation for UX.1 through UX.7 was added and validated. It includes fail-closed dashboard evidence, reusable evidence and lineage contracts, owned-player waiver filtering, a reusable evidence-state template, and a labeled Lineup Bench Order table.
 
-##### Batch A.4: Verified Timestamp Wiring
-**Wired at the recorded consumer-contract boundary.**
+Focused validation recorded:
 
-##### Batch A.5: Roster Synchronization and Reconciliation Gate
-**Gate passed.**
-
-##### Batch A.6: League-Settings-Derived Needs Gate
-**Gate passed.**
-
-##### Batch A.7: Injury Status Synchronization and Health Confidence
-**Implementation package validated.**
-- Focused validation recorded as 34 passed.
-- Compile validation passed.
+- 9 tests passed in 0.34 seconds.
+- `app.py` and `services/ux_evidence.py` compiled.
+- imports passed.
 - `git diff --check` passed.
-- Boundary remains read-only and does not claim live-route or production proof.
+- `git diff --cached --check` passed.
 
-##### Batch A.8: Matchup Enrichment Coverage
-**Validated.**
-- Focused and regression validation recorded as 34 passed.
-- Compile validation passed.
-- `git diff --check` passed.
-- Standalone coverage validation does not itself prove every route is wired.
+This foundation is not equivalent to full completion of UX.1 through UX.7.
 
-##### Batch A.9: User-Facing Yahoo Remnant Removal
-**Implemented at the verified Pick'em template boundary.**
-- User-facing Yahoo wording was removed from the verified active Pick'em templates.
-- Legacy `yahoo_*` storage identifiers were preserved.
-- Compile and whitespace validation passed.
+## Next milestone
 
-##### Batch A.10: Cross-Page Integrity Display
-**Implemented and focused-validation passed.**
-- Reusable integrity summary template added.
-- Lineup and Weekly Command Center consume `lineup_intelligence.integrity`.
-- Focused and regression validation recorded as 19 passed.
-- Compile validation and `git diff --check` passed.
-- My Team, Waivers, and Trades remain outside this batch until a verified integrity payload is wired.
+**Complete UX.1 Dashboard Modernization and Truth Audit.**
 
-#### Next milestone
+### Verified progress
 
-**Repository-state reconciliation and next-batch selection.**
+- Dashboard league metadata no longer needs the unmaintained `league_info` read in the current working tree.
+- Current dashboard league, owner-team, roster-count, and scoring metadata are derived from verified Sleeper league, users, and rosters calls.
+- Missing or incomplete source data fails closed.
+- Dashboard evidence contract and focused tests pass.
 
-No A.11 milestone is assigned by the currently verified evidence. The next step is to regenerate repository metadata and continuity outputs, reconcile the canonical files, and select the next milestone from the current repository state.
+### Remaining UX.1 work
 
-#### Outstanding validation track
+- Replace or remove unsupported hard-coded dashboard values, including draft-era status, readiness claims, simulations, projection counts, tier counts, dates, and duplicated league summary values.
+- Verify current season, week, draft, and league status from supported sources.
+- Expose source freshness or last-refresh data only where verified timestamps exist.
+- Verify dashboard agreement with My Team and Weekly Command Center.
+- Add focused route and template tests for repaired dashboard values.
+
+### UX.1 definition of done
+
+- Data sources and route contracts are identified from repository evidence.
+- Stale or contradictory dashboard values are repaired.
+- Focused route and template tests pass.
+- Compile checks and `git diff --check` pass.
+
+## UX.2: My Team Accuracy and League-Settings Validation
+
+**Status: FOUNDATION ONLY, NOT COMPLETE.**
+
+Available foundation: evidence states and player-lineage helpers.
+
+Remaining work includes active-route proof for roster slots, K and DEF requirements, scoring settings, health and matchup gaps, and explicit unavailable-state explanations.
+
+## UX.3: Waiver Correctness and Availability Validation
+
+**Status: FOUNDATION ONLY, NOT COMPLETE.**
+
+Available foundation: tested owned-player filtering helper.
+
+Remaining work includes verified active-route integration, ownership and eligibility proof, league-derived needs, filters, and fail-closed unsupported metrics.
+
+## UX.4: Shared Integrity Expansion
+
+**Status: FOUNDATION ONLY, NOT COMPLETE.**
+
+Available foundation: reusable UX evidence contract and evidence-state renderer.
+
+Remaining work includes verified payload wiring and route/template tests for My Team, Waivers, and Trades.
+
+## UX.5: Lineup Explainability and Bench Redesign
+
+**Status: PARTIAL.**
+
+Completed portion: Bench Order is rendered as a labeled table.
+
+Remaining work includes stronger evidence-based explanations, alternatives, missing-evidence distinctions, and proof for the full definition of done.
+
+## UX.6: GM Center Impact Redesign
+
+**Status: NOT VERIFIED COMPLETE.**
+
+The existing GM Center has decision-ranking and blocker concepts, but the UX.6 impact redesign definition of done has not been validated from the recorded UX batch.
+
+## UX.7: Player Identity and Data Lineage Audit
+
+**Status: FOUNDATION ONLY, NOT COMPLETE.**
+
+Available foundation: reusable player lineage helper covering position, ownership, health, matchup, projection, source, update time, and unknown states.
+
+Remaining work includes active lineage presentation, reproducible mismatch diagnostics, transformation and fallback reporting, and change explanations where verified history exists.
+
+## Strategic Intelligence Roadmap
+
+The following systems remain planned and deferred, not abandoned:
+
+- A.11 VOR Engine
+- A.12 Floor / Median / Ceiling Model
+- A.13 Opportunity Metrics Engine
+- A.14 Schedule and Matchup Forecaster
+- A.15 Correlation Engine
+- A.16 Vegas Integration
+- A.17 Market Mispricing Engine
+- A.18 Trade Impact Simulator
+
+## Cross-cutting requirements
+
+- Prefer decision support, transparency, freshness, and actionable fantasy value.
+- Separate data health, model confidence, and decision confidence.
+- Show data lineage for important values.
+- Distinguish unknown, stale, unsupported, and not-applicable evidence.
+- Do not invent missing player, health, matchup, projection, ownership, market, or betting data.
+- Preserve read-only behavior unless transaction safeguards are separately requested and validated.
+
+## Outstanding validation track
+
 - PostgreSQL 1000-event/10-replay verification.
 - Failure-injection validation.
 - Rollback and recovery evidence.
@@ -69,16 +140,6 @@ No A.11 milestone is assigned by the currently verified evidence. The next step 
 - Live-route validation where required.
 - Production deployment and recovery proof are not claimed.
 
-#### Decision-engine improvements after integrity defects
-- VOR Engine.
-- Floor/Median/Ceiling Model.
-- Opportunity Metrics.
-- Trade Impact Simulator.
-- Schedule and Matchup Forecaster.
-- Vegas Integration.
-- Correlation Engine.
-- Market Mispricing Engine.
+## Stop conditions
 
-#### Stop conditions
-
-Stop rather than guess when repository state, timestamp provenance, health source, matchup evidence, database isolation, cleanup safety, external-write boundaries, or test evidence cannot be proven.
+Stop rather than guess when repository state, player identity, roster truth, timestamp provenance, health source, matchup evidence, projection evidence, ownership availability, database isolation, cleanup safety, external-write boundaries, or test evidence cannot be proven.

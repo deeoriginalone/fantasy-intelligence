@@ -1,18 +1,18 @@
-### Fantasy Intelligence Session Handoff
+# Fantasy Intelligence Session Handoff
 
-#### Operational verdict
+## Operational verdict
 
-The data-integrity repair cycle is recorded through A.10. A.7 and A.8 are validated, A.9 removed user-facing Yahoo terminology at the verified Pick'em template boundary, and A.10 implemented the shared integrity display for Lineup and Weekly Command Center.
+The Data Integrity sequence is complete through A.10. On 2026-09-10, a reusable UX.1 through UX.7 implementation foundation was added and focused validation passed. Full completion of UX.1 through UX.7 is not claimed.
 
-These results do not claim full live-route coverage, production readiness, external-write authorization, PostgreSQL parity completion, or full end-to-end recovery proof.
+## Current checkpoint
 
-#### Current checkpoint
 - Date: 2026-09-10
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 17a60d3a71cecf49df5dafe937c604662c025890
+- HEAD: c35dd41d04d90da1f4001c5ad40ba54640807263
 - Repository: /home/deeoriginalone/fantasy-intelligence
 
-#### Work verified in the current development sequence
+## Work verified in this sequence
+
 - A.1 COMPLETE
 - A.2 COMPLETE
 - A.3 VALIDATED
@@ -23,59 +23,63 @@ These results do not claim full live-route coverage, production readiness, exter
 - A.8 MATCHUP ENRICHMENT COVERAGE VALIDATED
 - A.9 USER-FACING YAHOO REMNANTS REMOVED
 - A.10 CROSS-PAGE INTEGRITY DISPLAY IMPLEMENTED
+- UX.1-UX.7 SHARED IMPLEMENTATION FOUNDATION VALIDATED
 
-#### Recent validation evidence
-- A.7: 34 passed; compile passed; `git diff --check` passed.
-- A.8: 34 passed; compile passed; `git diff --check` passed.
-- A.9: targeted template diff reviewed; `pickem_inputs_routes.py` compiled; `git diff --check` passed.
-- A.10: 19 passed; compile passed; `git diff --check` passed; five-file staged scope reviewed.
+## UX foundation delivered
 
-#### Current boundary
-- A.10 renders the existing Shared Integrity contract on Lineup and Weekly Command Center.
-- My Team, Waivers, and Trades were not included because their discovered render calls did not provide a verified shared-integrity payload.
-- No database or schema change is attributed to A.7 through A.10.
+- Fail-closed dashboard evidence contract.
+- Reusable evidence states and source/blocker fields.
+- Player lineage helper.
+- Owned-player waiver filtering helper.
+- Reusable evidence-state template macro.
+- Dashboard unavailable-data warning.
+- Labeled Lineup Bench Order table.
+- Sleeper-backed dashboard league metadata repair in the current working tree.
+
+## Validation evidence
+
+- Focused UX tests: 9 passed in 0.34 seconds.
+- `import app`: passed.
+- `from services.ux_evidence import evidence`: passed.
+- Python compile validation: passed.
+- `git diff --check`: passed.
+- `git diff --cached --check`: passed.
+
+## Important completion boundary
+
+- The UX work is a shared foundation, not proof that UX.1 through UX.7 are all complete.
+- UX.1 is partially implemented. Verified Sleeper league metadata and fail-closed behavior are covered, but other hard-coded dashboard values still require truth reconciliation.
+- UX.2, UX.3, UX.4, and UX.7 have helper foundations without complete active-route validation.
+- UX.5 includes the labeled Bench Order table but not the full explainability redesign.
+- UX.6 completion is not proven.
+- No database or schema migration is attributed to this UX foundation.
 - No external fantasy transaction submission is authorized.
 
-#### Next milestone
+## Immediate next work
 
-**Repository-state reconciliation and next-batch selection.**
+1. Replace the four canonical project-memory files with the reconciled versions.
+2. Review `app.py` because it has both staged and unstaged changes. The unstaged layer contains the verified Sleeper dashboard-source repair.
+3. Stage only the intended UX implementation and canonical documentation files using exact paths.
+4. Run focused tests, compile checks, `git diff --check`, and `git diff --cached --check` again.
+5. Run `./scripts/end_of_day.sh`.
+6. Review `notebook_bundle/CANONICAL_SYNC_VALIDATION.md`.
+7. Review `git diff --cached --stat` and the exact staged diff before committing.
 
-No A.11 milestone has been verified. Do not re-open A.7 or invent A.11 from stale canonical text. Regenerate current repository evidence and use it to select the next coherent batch.
+## Next milestone
 
-#### Exact next continuity commands
+**Complete UX.1 Dashboard Modernization and Truth Audit.**
 
-```bash
-cd /home/deeoriginalone/fantasy-intelligence
-./scripts/end_of_day.sh
-```
+The next implementation batch should reconcile the remaining hard-coded dashboard status and summary values to verified sources or explicitly unavailable states.
 
-Then inspect:
+## Outstanding work not to forget
 
-```bash
-git branch --show-current
-git rev-parse HEAD
-git status --short --branch
-git log --oneline --decorate -20
-cat notebook_bundle/CANONICAL_SYNC_VALIDATION.md
-```
-
-#### Outstanding work not to forget
 - PostgreSQL 1000-event/10-replay parity verification.
 - Failure injection, rollback, recovery, cleanup, and repeatability evidence.
-- Live-route and production proof where required.
+- Live-route proof where explicitly required.
 
-#### Deferred strategic intelligence
-- VOR Engine.
-- Vegas Integration.
-- Schedule and Matchup Forecaster.
-- Trade Impact Simulator.
-- Opportunity Metrics.
-- Correlation Engine.
-- Market Mispricing Engine.
-- Floor/Median/Ceiling Model.
+## Working-tree safety
 
-#### Working-tree safety
 - Preserve unrelated changes.
 - Do not use `git add .` or `git add -A`.
-- Use exact file lists and narrow coherent groups.
-- Keep generated artifacts and backups outside broad commit scope.
+- Use exact file lists and narrow coherent commit groups.
+- Keep `.batch_backups`, generated bundles, broad audit captures, and unrelated deletions outside the UX commit.

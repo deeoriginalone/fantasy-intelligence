@@ -1,19 +1,31 @@
-### Project Status
+# Project Status
 
-#### Current verdict
+## Current verdict
 
-The Shared Integrity and ordered data-integrity defect track has advanced through Batch A.10. Repository evidence records A.7 as an implementation package validated, A.8 matchup enrichment coverage validated, A.9 user-facing Yahoo remnants removed, and A.10 cross-page integrity display implemented.
+The verified Data Integrity track remains complete through Batch A.10. On 2026-09-10, a post-A.10 user-experience implementation foundation was added and validated. This foundation does not complete every UX.1 through UX.7 definition of done.
 
-These records do not claim live-route completion across every page, production readiness, external-write authorization, PostgreSQL parity completion, or recovery proof.
+The verified UX foundation currently includes:
 
-#### Current checkpoint
+- dashboard fail-closed truth-status handling
+- a reusable evidence-state contract
+- reusable player lineage helpers
+- owned-player waiver filtering logic
+- a labeled Lineup Bench Order table
+- a corrected dashboard league-source path using verified Sleeper league, user, and roster data in the current working tree
+
+No live-route, production, automatic transaction submission, PostgreSQL parity completion, or full recovery proof is claimed.
+
+## Current checkpoint
+
 - Date: 2026-09-10
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 17a60d3a71cecf49df5dafe937c604662c025890
+- HEAD: c35dd41d04d90da1f4001c5ad40ba54640807263
+- Repository: /home/deeoriginalone/fantasy-intelligence
 - League ID: 1398094330668797952
 - Completed real draft ID: 1398094331272794112
 
-#### Current Batch A progress
+## Completed Data Integrity progress
+
 - A.1 COMPLETE
 - A.2 COMPLETE
 - A.3 VALIDATED
@@ -25,25 +37,46 @@ These records do not claim live-route completion across every page, production r
 - A.9 USER-FACING YAHOO REMNANTS REMOVED
 - A.10 CROSS-PAGE INTEGRITY DISPLAY IMPLEMENTED
 
-#### Verified recent validation evidence
-- Batch A.7 focused validation: 34 passed; compile check passed; `git diff --check` passed.
-- Batch A.8 focused and regression validation: 34 passed; compile check passed; `git diff --check` passed.
-- Batch A.9 user-facing terminology changes were reviewed in the three Pick'em templates; `pickem_inputs_routes.py` compiled and `git diff --check` passed.
-- Batch A.10 focused and regression validation: 19 passed; compile check passed; `git diff --check` passed.
+## UX.1 through UX.7 foundation status
 
-#### Current completion boundary
-- A.10 displays the existing Shared Integrity contract on Lineup and Weekly Command Center.
-- My Team, Waivers, and Trades are not claimed as wired to the shared integrity display by A.10.
-- Live-route and production validation are not claimed.
+**IMPLEMENTATION FOUNDATION VALIDATED. FULL UX.1 THROUGH UX.7 COMPLETION IS NOT CLAIMED.**
+
+Verified implementation evidence:
+
+- `services/ux_evidence.py` defines fail-closed evidence states, dashboard evidence, player lineage, and owned-player waiver filtering.
+- `templates/_ux_evidence_state.html` provides a reusable evidence-state renderer.
+- `templates/dashboard.html` displays a dashboard truth warning when verified dashboard evidence is unavailable.
+- `templates/lineup.html` renders Bench Order as a labeled table.
+- `tests/test_ux_evidence.py` covers fail-closed dashboard evidence, verified rows, owned-player filtering, lineage unknown state, and evidence-state normalization.
+- `tests/test_ux1_dashboard_sleeper_source.py` covers verified Sleeper metadata, PPR formats, owner-name fallback, incomplete metadata, and unavailable source behavior.
+
+## Validation recorded on 2026-09-10
+
+- Focused UX tests: 9 passed in 0.34 seconds.
+- `app.py` import: passed.
+- `services.ux_evidence` import: passed.
+- Python compile validation for `app.py` and `services/ux_evidence.py`: passed.
+- `git diff --check`: passed.
+- `git diff --cached --check`: passed.
+
+## Current completion boundary
+
+- UX.1 dashboard league metadata is wired to verified Sleeper league, user, and roster calls in the current working tree and fails closed when required data is absent.
+- The dashboard template still contains other hard-coded draft-era status and summary values that require a separate truth audit before UX.1 can be called complete.
+- UX.2 through UX.7 have shared foundation helpers or partial UI support, but their complete route wiring and individual definitions of done are not proven.
+- My Team, Waivers, and Trades are not yet proven to receive the shared UX evidence contract on their active routes.
+- The owned-player waiver filter exists as a tested helper, but active waiver-route integration is not claimed.
+- Full player-identity and source-lineage views are not claimed.
 - No automatic waiver, lineup, trade, draft, or season transaction submission is authorized.
 
-#### Next milestone
+## Next milestone
 
-**Repository-state reconciliation and next-batch selection.**
+**Complete UX.1 Dashboard Modernization and Truth Audit.**
 
-No A.11 milestone has been verified from the available repository evidence. Before assigning A.11, regenerate repository metadata, run the continuity pipeline, inspect canonical synchronization, and select the next milestone from current repository evidence rather than the stale pre-A.7 roadmap text.
+The next batch should remove or replace unsupported hard-coded dashboard status values, verify current season/week/draft state, expose supported freshness information, and add focused route/template tests without fabricating missing data.
 
-#### Outstanding validation work
+## Outstanding validation work
+
 - PostgreSQL 1000-event/10-replay parity verification.
 - Failure-injection testing.
 - Rollback and recovery evidence.
@@ -51,16 +84,6 @@ No A.11 milestone has been verified from the available repository evidence. Befo
 - Supervised live-route review where required.
 - Production deployment and recovery proof are not claimed.
 
-#### Deferred strategic intelligence modules
-- VOR Engine.
-- Vegas Integration.
-- Schedule and Matchup Forecaster.
-- Trade Impact Simulator.
-- Opportunity Metrics.
-- Correlation Engine.
-- Market Mispricing Engine.
-- Floor/Median/Ceiling Model.
+## Commit readiness
 
-#### Commit readiness
-
-Use exact file lists and narrow coherent groups. Preserve unrelated working-tree changes and generated evidence separately.
+The working tree contains extensive unrelated changes, deletions, generated evidence, and untracked files. Use exact file lists and narrow commit groups. Do not use `git add .` or `git add -A`.

@@ -1,0 +1,3 @@
+{% macro evidence_state(item, label='Evidence') -%}
+<span class="evidence-state evidence-{{ item.state|lower }}" title="Source: {{ item.source }}{% if item.updated_at %}; updated {{ item.updated_at }}{% endif %}{% if item.blocker %}; blocker {{ item.blocker }}{% endif %}"><strong>{{ label }}:</strong> {{ item.value if item.value is not none else item.state }}</span>
+{%- endmacro %}
