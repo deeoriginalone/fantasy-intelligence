@@ -3,9 +3,9 @@
 <section class="fi-inputs">
   <header class="fi-inputs__header">
     <div>
-      <p class="fi-inputs__eyebrow">Yahoo Pick'em Center</p>
+      <p class="fi-inputs__eyebrow">Pick'em Inputs Center</p>
       <h1>Week {{ week }} Input Center</h1>
-      <p>Enter Yahoo crowd percentages and both American moneylines. The dashboard calculates a no-vig home win probability.</p>
+      <p>Enter crowd percentages and both American moneylines. The dashboard calculates a no-vig home win probability.</p>
     </div>
     <form method="get" class="fi-inputs__week">
       <label>Season <input type="number" name="season" value="{{ season }}" min="2020" max="2100"></label>
@@ -24,7 +24,7 @@
     <input type="hidden" name="week" value="{{ week }}">
     <div class="fi-inputs__table-wrap">
       <table class="fi-inputs__table">
-        <thead><tr><th>Game</th><th>Yahoo Away %</th><th>Yahoo Home %</th><th>Away ML</th><th>Home ML</th><th>Total</th><th>Status</th></tr></thead>
+        <thead><tr><th>Game</th><th>Crowd Away %</th><th>Crowd Home %</th><th>Away ML</th><th>Home ML</th><th>Total</th><th>Status</th></tr></thead>
         <tbody>
         {% for game in games %}
           <tr>
