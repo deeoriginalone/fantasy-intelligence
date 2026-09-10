@@ -8,7 +8,7 @@ Fantasy Intelligence has completed its Shared Integrity and Data Integrity track
 
 - Date: 2026-09-10
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 126df4ab06bc8a4a1d0e5d73f341cc0cbfe03450
+- HEAD: 118ba6c557970403fcc81f9960a2a3ec19a52226
 
 ## Verified capabilities
 
