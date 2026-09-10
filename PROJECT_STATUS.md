@@ -1,58 +1,57 @@
-# Project Status
+### Project Status
 
-## Current verdict
+#### Current verdict
 
-The active development focus is the Shared Integrity Layer and the data-integrity repair cycle. Batch A.1 is complete. Batch A.2 is complete at the focused repository-test boundary with `14 passed in 0.08s`, syntax validation passed, and `git diff --check` clean. Batch A.3 is installed/in progress and must not be marked complete until its focused validation is executed and recorded.
+The Shared Integrity and ordered data-integrity defect track has advanced through Batch A.10. Repository evidence records A.7 as an implementation package validated, A.8 matchup enrichment coverage validated, A.9 user-facing Yahoo remnants removed, and A.10 cross-page integrity display implemented.
 
-This is not a live-route, production-readiness, or external-write authorization claim.
+These records do not claim live-route completion across every page, production readiness, external-write authorization, PostgreSQL parity completion, or recovery proof.
 
-## Current checkpoint
+#### Current checkpoint
+- Date: 2026-09-10
+- Branch: feature/evidence-bundle-pipeline
+- HEAD: 17a60d3a71cecf49df5dafe937c604662c025890
+- League ID: 1398094330668797952
+- Completed real draft ID: 1398094331272794112
 
-- Date: 2026-09-09
-- Branch: `feature/evidence-bundle-pipeline`
-- HEAD: `3c6aef5bb1995887f4e553a2a7954f83eb7cecb7`
-- League ID: `1398094330668797952`
-- Completed real draft ID: `1398094331272794112`
+#### Current Batch A progress
+- A.1 COMPLETE
+- A.2 COMPLETE
+- A.3 VALIDATED
+- A.4 WIRED
+- A.5 GATE PASS
+- A.6 GATE PASS
+- A.7 IMPLEMENTATION PACKAGE VALIDATED
+- A.8 MATCHUP ENRICHMENT COVERAGE VALIDATED
+- A.9 USER-FACING YAHOO REMNANTS REMOVED
+- A.10 CROSS-PAGE INTEGRITY DISPLAY IMPLEMENTED
 
-## Completed and verified work
+#### Verified recent validation evidence
+- Batch A.7 focused validation: 34 passed; compile check passed; `git diff --check` passed.
+- Batch A.8 focused and regression validation: 34 passed; compile check passed; `git diff --check` passed.
+- Batch A.9 user-facing terminology changes were reviewed in the three Pick'em templates; `pickem_inputs_routes.py` compiled and `git diff --check` passed.
+- Batch A.10 focused and regression validation: 19 passed; compile check passed; `git diff --check` passed.
 
-### Historical completed work
+#### Current completion boundary
+- A.10 displays the existing Shared Integrity contract on Lineup and Weekly Command Center.
+- My Team, Waivers, and Trades are not claimed as wired to the shared integrity display by A.10.
+- Live-route and production validation are not claimed.
+- No automatic waiver, lineup, trade, draft, or season transaction submission is authorized.
 
-- F3-D.1 through F3-D.4: complete and verified at their recorded boundaries.
-- F3-D.5: complete and verified at the repository-test boundary.
-- Historical F3-D.5 evidence: 4 publication tests passed, 8 combined publication/template/route tests passed, and the historical full suite recorded 316 passed, 9 skipped, 2 xfailed, and 20 subtests passed.
+#### Next milestone
 
-### Current Batch A work
+**Repository-state reconciliation and next-batch selection.**
 
-- Batch A.1: shared integrity package, unit tests, and documentation created.
-- Batch A.2: shared integrity report integrated into matchup and weekly-lineup aggregate contracts.
-- Batch A.2: unresolved health and missing matchup evidence are exposed through shared blockers and counts.
-- Batch A.2: focused validation recorded as `14 passed in 0.08s`.
-- Batch A.3: freshness and fail-closed confidence package installed/in progress; validation pending.
+No A.11 milestone has been verified from the available repository evidence. Before assigning A.11, regenerate repository metadata, run the continuity pipeline, inspect canonical synchronization, and select the next milestone from current repository evidence rather than the stale pre-A.7 roadmap text.
 
-## Active data-integrity build order
-
-1. Finish Batch A.3 focused validation and evidence capture.
-2. Batch A.4: wire verified roster, injury, matchup, and projection timestamps into consumers without inventing timestamps.
-3. Repair live roster synchronization and complete-roster derivation.
-4. Replace static roster targets with league-settings-derived needs.
-5. Repair injury status synchronization and health confidence.
-6. Repair matchup enrichment coverage and fail closed when required evidence is incomplete.
-7. Remove remaining user-facing Yahoo terminology.
-8. Integrate freshness, completeness, and confidence across My Team, Lineup, Waivers, Trades, GM Center, and Weekly Command Center.
-9. Run focused, route/template, and broader regression validation.
-
-## Outstanding validation work, not forgotten
-
+#### Outstanding validation work
 - PostgreSQL 1000-event/10-replay parity verification.
 - Failure-injection testing.
 - Rollback and recovery evidence.
 - Guarded cleanup and repeatability validation.
 - Supervised live-route review where required.
-- Production deployment and production recovery proof.
+- Production deployment and recovery proof are not claimed.
 
-## Deferred strategic intelligence modules, not skipped permanently
-
+#### Deferred strategic intelligence modules
 - VOR Engine.
 - Vegas Integration.
 - Schedule and Matchup Forecaster.
@@ -62,6 +61,6 @@ This is not a live-route, production-readiness, or external-write authorization 
 - Market Mispricing Engine.
 - Floor/Median/Ceiling Model.
 
-## Commit readiness
+#### Commit readiness
 
-**Not ready as one broad commit.** Use exact file lists and narrow coherent groups.
+Use exact file lists and narrow coherent groups. Preserve unrelated working-tree changes and generated evidence separately.

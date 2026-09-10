@@ -1,51 +1,51 @@
-# Project State
+### Project State
 
-## Current state
+#### Current state
 
-Fantasy Intelligence is in an active data-integrity hardening cycle. The project has historical F3-D.4/F3-D.5 repository-test evidence and newer matchup, lineup, trade, playoff, and decision-intelligence implementation work. The current focused work is the Shared Integrity Layer.
+Fantasy Intelligence remains in an active data-integrity hardening cycle. The ordered integrity-defect work is recorded through A.10, while broader live-route, database parity, recovery, and production proof remain outside the completed boundary.
 
-## Current checkpoint
-
-- Date: 2026-09-09
-- Branch: `feature/evidence-bundle-pipeline`
-- HEAD: `3c6aef5bb1995887f4e553a2a7954f83eb7cecb7`
-
-## Current integrity capabilities
-
-- Central completeness scoring for injury, weekly score, weekly baseline, opponent, and matchup rank evidence.
+#### Current checkpoint
+- Date: 2026-09-10
+- Branch: feature/evidence-bundle-pipeline
+- HEAD: 17a60d3a71cecf49df5dafe937c604662c025890
+#### Current integrity capabilities and evidence
+- Central completeness scoring for injury, weekly score, weekly baseline, opponent, and matchup-rank evidence.
 - Central confidence scoring and integrity blockers.
 - Shared integrity summaries in matchup and weekly-lineup aggregate contracts.
-- Unknown-health and missing-matchup counts.
-- Batch A.3 freshness states for roster, injury, matchup, and projection data are installed/in progress and awaiting focused completion evidence.
-- Read-only behavior with no external transaction submission.
+- Fresh, stale, expired, and unknown freshness-state handling.
+- Roster reconciliation and league-settings-derived needs foundations passed their recorded gates.
+- Injury/health synchronization implementation package validated.
+- Matchup enrichment coverage validator validated.
+- User-facing Yahoo terminology removed from the verified Pick'em templates while legacy storage identifiers were preserved.
+- Shared integrity display implemented for Lineup and Weekly Command Center.
+- Read-only decision support with no external transaction submission.
 
-## Verified current evidence
+#### Current Batch A progress
+- A.1 COMPLETE
+- A.2 COMPLETE
+- A.3 VALIDATED
+- A.4 WIRED
+- A.5 GATE PASS
+- A.6 GATE PASS
+- A.7 IMPLEMENTATION PACKAGE VALIDATED
+- A.8 MATCHUP ENRICHMENT COVERAGE VALIDATED
+- A.9 USER-FACING YAHOO REMNANTS REMOVED
+- A.10 CROSS-PAGE INTEGRITY DISPLAY IMPLEMENTED
 
-- Batch A.1 tests: `3 passed`.
-- Batch A.2 focused integration and regression result: `14 passed in 0.08s`.
-- Batch A.2 syntax validation: passed.
-- Batch A.2 whitespace check: clean.
-
-## Current known boundaries
-
-- Batch A.3 completion is not yet claimed.
-- Verified synchronization timestamps are not yet wired into all consumers.
-- Live routes and templates have not yet been updated to display the new integrity metadata.
-- Dynamic roster-needs derivation is not yet implemented.
-- Health and matchup synchronization defects remain open.
-- User-facing Yahoo remnants still require a targeted sweep.
+#### Current known boundaries
+- A.10 does not prove shared-integrity display wiring for My Team, Waivers, or Trades.
+- Full live-source timestamp provenance is not claimed across every page.
 - PostgreSQL parity and recovery validation remain outstanding.
 - Production readiness is not claimed.
 - No automatic waiver, lineup, trade, draft, or season transaction submission is enabled.
 
-## Next active milestone
+#### Next milestone
 
-**Complete Batch A.3 validation, then implement Batch A.4 verified timestamp wiring and cross-page integrity consumption.**
+**Repository-state reconciliation and next-batch selection.**
 
-## Deferred strategic intelligence modules
+A subsequent A.11 milestone has not been verified from the available evidence. Current Git metadata and continuity outputs must be regenerated before the roadmap assigns the next implementation batch.
 
-The following are planned and must remain visible, but they follow the integrity defects:
-
+#### Deferred strategic intelligence modules
 - VOR Engine
 - Vegas Integration
 - Schedule and Matchup Forecaster
