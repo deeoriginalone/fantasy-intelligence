@@ -37,3 +37,150 @@ def waiver_explanations(candidates,owned_names=None):
 def gm_action_evidence(data):
     data=dict(data or {})
     return {"actions":[{"action":r.get("action"),"urgency":r.get("urgency") or "UNKNOWN","blockers":list(r.get("blockers") or []),"source":r.get("source") or "UNVERIFIED","reason":r.get("reason") or "No verified explanation supplied."} for r in data.get("actions") or []]}
+
+def dashboard_state_contract(league=None, draft=None, source="Sleeper API", error=None):
+    """UX.1 verified season and draft metadata; missing values fail closed."""
+    league = dict(league or {})
+    draft = dict(draft or {})
+    return {
+        "season": evidence(league.get("season"), source=source, blocker=error),
+        "league_status": evidence(league.get("status"), source=source, blocker=error),
+        "draft_status": evidence(draft.get("status"), source=source, blocker=error),
+        "draft_type": evidence(draft.get("type"), source=source, blocker=error),
+        "draft_start_time": evidence(draft.get("start_time"), source=source, blocker=error),
+    }
+
+
+def roster_lineage_view(players):
+    """UX.2/UX.7 reproducible player identity and evidence gaps."""
+    rows = []
+    for player in players or []:
+        if not isinstance(player, dict):
+            continue
+        row = {
+            "position": evidence(
+                player.get("position"),
+                source=player.get("position_source") or "roster",
+            ),
+            "ownership": evidence(
+                player.get("ownership"),
+                source=player.get("ownership_source") or "roster",
+            ),
+            "health": evidence(
+                player.get("injury_status"),
+                source=player.get("health_source"),
+            ),
+            "matchup": evidence(
+                player.get("matchup_rank"),
+                source=player.get("matchup_source"),
+            ),
+            "projection": evidence(
+                player.get("projection"),
+                source=player.get("projection_source"),
+            ),
+        }
+        row["player"] = player.get("player") or player.get("player_name") or "UNKNOWN"
+        row["unknown_fields"] = [name for name, item in row.items() if isinstance(item, dict) and item.get("state") != "AVAILABLE"]
+        rows.append(row)
+    return rows
+
+
+def route_payload_evidence(page, count=None, blockers=None):
+    """UX.3/UX.4/UX.6 active payload state shown by shared panels."""
+    return page_evidence(page=page, fields={"route_payload_count": count}, blockers=blockers, source="active route payload")
+
+UX_REQUIRED_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
+
+
+def freshness_evidence(updated_at=None, *, source=None, stale=False, blocker=None):
+    if blocker:
+        return evidence(None, state="UNKNOWN", source=source, updated_at=updated_at, blocker=blocker)
+    if not updated_at:
+        return evidence(None, state="UNKNOWN", source=source, blocker="UPDATED_AT_UNAVAILABLE")
+    return evidence(updated_at, state="STALE" if stale else "AVAILABLE", source=source, updated_at=updated_at)
+
+
+def roster_requirement_evidence(players, required_positions=None):
+    required = tuple(required_positions or UX_REQUIRED_POSITIONS)
+    present = set()
+
+    for player in players or []:
+        if not isinstance(player, dict):
+            continue
+
+        position = str(
+            player.get("position") or ""
+        ).upper().strip()
+
+        if position == "DST":
+            position = "DEF"
+
+        present.add(position)
+
+    missing = [
+        position
+        for position in required
+        if position not in present
+    ]
+    return page_evidence(
+        page="team",
+        fields={"required_positions": list(required), "present_positions": sorted(present), "missing_positions": missing},
+        blockers=["MISSING_REQUIRED_POSITIONS"] if missing else [],
+        source="active roster payload",
+    )
+
+
+def waiver_availability_evidence(candidates, owned_names=None, eligibility_verified=False):
+    available = filter_available_waivers(candidates, owned_names or [])
+    blockers = [] if eligibility_verified else ["ELIGIBILITY_UNVERIFIED"]
+    return {
+        "candidates": available,
+        "evidence": page_evidence(
+            page="waivers",
+            fields={"candidate_count": len(available), "owned_filter_applied": True, "eligibility_verified": bool(eligibility_verified)},
+            blockers=blockers,
+            source="active waiver payload",
+        ),
+    }
+
+
+def payload_contract(page, payload, *, source="active route payload", blockers=None):
+    count = len(payload) if hasattr(payload, "__len__") else None
+    return page_evidence(
+        page=page,
+        fields={"payload_count": count, "payload_present": payload is not None},
+        blockers=blockers,
+        source=source,
+    )
+
+
+def gm_impact_evidence(data):
+    base = gm_action_evidence(data)
+    for item in base.get("actions", []):
+        item["impact"] = item.get("impact") or "UNKNOWN"
+    return base
+
+
+def lineage_audit(rows):
+    diagnostics = []
+    for row in rows or []:
+        unknown_fields = []
+        fallbacks = []
+        transformations = []
+        for name, item in row.items():
+            if not isinstance(item, dict):
+                continue
+            if item.get("state") != "AVAILABLE":
+                unknown_fields.append(name)
+            if item.get("fallback"):
+                fallbacks.append({"field": name, "fallback": item.get("fallback")})
+            if item.get("transformation"):
+                transformations.append({"field": name, "transformation": item.get("transformation")})
+        if unknown_fields or fallbacks or transformations:
+            diagnostics.append({
+                "player": row.get("player") or "UNKNOWN",
+                "unknown_fields": unknown_fields,
+                "fallbacks": fallbacks,
+                "transformations": transformations,
+            })
+    return diagnostics

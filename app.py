@@ -81,7 +81,8 @@ app.secret_key = Config.SECRET_KEY
 
 @app.context_processor
 def inject_csrf_token():
-    return {"csrf_token": lambda: ensure_csrf_token()}
+    from services.ux_evidence import roster_lineage_view, route_payload_evidence
+    return {"csrf_token": lambda: ensure_csrf_token(), "ux_roster_lineage": roster_lineage_view, "ux_route_evidence": route_payload_evidence}
 
 @app.before_request
 def _ensure_session_csrf():
@@ -1680,7 +1681,16 @@ def sync_sleeper_draft_picks(draft_id=None):
 def dashboard():
     from services.ux_evidence import dashboard_contract
     league, league_error = get_local_league()
+    try:
+        league_source = get_league(SLEEPER_LEAGUE_ID) or {}
+        draft_source = get_draft(SLEEPER_DRAFT_ID) or {}
+    except Exception as exc:
+        current_app.logger.warning("Dashboard state evidence unavailable: %s", exc)
+        league_source, draft_source = {}, {}
+        league_error = league_error or "DASHBOARD_STATE_SOURCE_UNAVAILABLE"
     dashboard_evidence = dashboard_contract(league_row=league, error=league_error)
+    from services.ux_evidence import dashboard_state_contract
+    dashboard_evidence["fields"].update(dashboard_state_contract(league_source, draft_source, error=league_error))
     fields = dashboard_evidence["fields"]
     return render_template(
         "dashboard.html", title="Fantasy Intelligence Dashboard",

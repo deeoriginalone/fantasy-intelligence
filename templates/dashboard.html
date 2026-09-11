@@ -203,15 +203,15 @@
             </div>
             <div class="league-fact">
                 <dt>Season</dt>
-                <dd>UNSUPPORTED</dd>
+                <dd>{{ dashboard_evidence.fields.season.value if dashboard_evidence.fields.season.state == 'AVAILABLE' else dashboard_evidence.fields.season.state }}</dd>
             </div>
             <div class="league-fact">
                 <dt>Draft Date</dt>
-                <dd>September 6, 2026 • 3:00 PM PDT</dd>
+                <dd>{{ dashboard_evidence.fields.draft_start_time.value if dashboard_evidence.fields.draft_start_time.state == 'AVAILABLE' else dashboard_evidence.fields.draft_start_time.state }}</dd>
             </div>
             <div class="league-fact">
                 <dt>Status</dt>
-                <dd><span class="status-pill">UNKNOWN</span></dd>
+                <dd><span class="status-pill">{{ dashboard_evidence.fields.league_status.value if dashboard_evidence.fields.league_status.state == 'AVAILABLE' else dashboard_evidence.fields.league_status.state }}</span></dd>
             </div>
         </dl>
     </div>
