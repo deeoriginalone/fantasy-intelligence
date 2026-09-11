@@ -1,5 +1,6 @@
 # Implementation Inventory
 
+services/ux_evidence.py
 services/draft_recommendation_publication.py
 services/__init__.py
 services/integrity/__init__.py
@@ -9,15 +10,18 @@ services/readiness_report_io.py
 services/matchup_intelligence.py
 services/import_rankings.py
 services/draft_recommendation_service.py
+services/injury_health_sync.py
 services/publication_gate.py
 services/weekly_lineup_intelligence.py
 services/waiver_action_publication.py
+services/matchup_enrichment_validator.py
 services/trade_intelligence.py
 services/sleeper_service.py
 services/roster_slots.py
 services/trade_target_center.py
 services/intelligence/services_trade_target_center.py
 services/intelligence/services_matchup_intelligence.py
+services/roster_reconciliation.py
 services/playoff_intelligence.py
 
 draft_events/__init__.py
@@ -85,6 +89,7 @@ scripts/collection/cache_sleeper_players.py
 scripts/collect_batch_c_verified_input.py
 scripts/run_f3_b3_live_reconciliation.py
 scripts/patch_f3_d1_sleeper_waiver_intelligence.py
+scripts/update_canonical_head.py
 scripts/run_batch_e.py
 scripts/inspect_f3_postgres_store.py
 scripts/patch_f3_d4_action_plan_integration.py

@@ -1,15 +1,29 @@
 # Repository Checkpoint
 
-Generated: Wed Sep  9 10:41:47 AM UTC 2026
 
-## Branch
+## git branch --show-current
+
 feature/evidence-bundle-pipeline
 
-## HEAD
-3c6aef5bb1995887f4e553a2a7954f83eb7cecb7
 
-## Recent Commits
-3c6aef5 (HEAD -> feature/evidence-bundle-pipeline, origin/post-draft-recovery-20260906, post-draft-recovery-20260906) F4: add matchup, lineup, trade, playoff, and decision intelligence
+## git rev-parse HEAD
+
+6c97d30f20c4d9e9becf9ccf1007ef5b84e8b3d9
+
+
+## git log --oneline --decorate -20
+
+6c97d30 (HEAD -> feature/evidence-bundle-pipeline) Docs: synchronize canonical HEAD references
+118ba6c UX: add evidence presentation foundation and dashboard truth states
+126df4a Add UX evidence foundation and Sleeper dashboard truth source
+c35dd41 docs: synchronize canonical project memory through A.10
+17a60d3 A.10 cross-page integrity display
+fb8043d A.9 remove user-facing Yahoo terminology
+64d9083 A.8 add matchup enrichment coverage validator
+9e244a0 A.7 injury status synchronization and health confidence
+8e41a50 A5: add roster reconciliation and validation gate
+efa85c2 Checkpoint: Shared Integrity Layer, continuity pipeline, and project-memory sync
+3c6aef5 (origin/post-draft-recovery-20260906, post-draft-recovery-20260906) F4: add matchup, lineup, trade, playoff, and decision intelligence
 0d02662 docs: update project status and session handoff
 101fcb5 (feature/draft-outcome-tracking) Post-draft recovery, draftboard stabilization, and DST support
 f776f21 Post-draft recovery hotfixes
@@ -19,14 +33,12 @@ f007683 Draft HQ: add CSRF polling regression coverage
 3e2f9eb F3-B.3.1: add PostgreSQL parity and migration validation
 bbf6295 docs: reconcile PostgreSQL parity evidence and project status
 dea778c Add AI agent instruction set
-3c521a4 docs: reconcile repository state and readiness checkpoint
-cc888df Document draft post-draft and season readiness review
-640221c Update readiness review and project documentation
-116b908 Fix Sandbox form CSRF authorization
-6e791be Implement F3-D.5 waiver action publication UI
 
-## Repository Status
+
+## git status --short --branch
+
 ## feature/evidence-bundle-pipeline
+ M .continuity/last_bundle_manifest.json
  M .gitignore
  M DEVELOPMENT_ROADMAP.md
  D MOCK_K_DEF_UPGRADE.md
@@ -39,7 +51,6 @@ cc888df Document draft post-draft and season readiness review
  M PROJECT_STATUS.md
  D SEASON_READINESS.md
  D YAHOO_PICKEM_INSTALL_REPORT.txt
- D adaptive_draft_reconciliation.py
  M app.py
  M audit/f3_b2/reconciliation/VERIFICATION_RESULTS.md
  M audit/f3_b2/reconciliation/pytest_output.txt
@@ -54,47 +65,56 @@ cc888df Document draft post-draft and season readiness review
  M audit/f3_d4/verification/verification.json
  D audit_fantasy_intelligence.py
  D audit_yahoo_pickem.py
- D balanced_recommendation_score.py
  D batch_e_common.py
  D batch_e_injuries.py
  D batch_e_market_bridge.py
  D batch_e_ratings.py
  D batch_e_weather.py
  D cache_sleeper_players.py
- D candidate_filter.py
  M docs/NEXT_SESSION_HANDOFF.md
+ M docs/REPOSITORY_CHECKPOINT.md
+ M docs/database/MIGRATIONS.md
  M draft_accuracy_routes.py
  D draft_coach_sleeper_fusion.py
- D draft_decision_plan.py
  M draft_health_routes.py
  D draft_operations_hardening.py
  D draft_outcome_health.py
- D draft_outcome_tracker.py
- D draft_readiness.py
- D draft_state_hardening.py
- D dynamic_need_model.py
- D fantasy_intelligence_mocklab_v1.sql
  D ingest_weekly_data.py
  D ingestion_store.py
  D ingestion_validation.py
  D install_v1_7_draft_day_readiness.py
- D intelligence_calibration.py
- D intelligence_explainability.py
  M intelligence_operations_routes.py
- D intelligence_readiness.py
- D intelligence_reconciliation.py
- D model_calibration.py
- D player_survival_probability.py
+ M notebook_bundle/BUNDLE_MANIFEST.json
+ M notebook_bundle/BUNDLE_VALIDATION.json
+ M notebook_bundle/BUNDLE_VALIDATION.md
+ M notebook_bundle/CANONICAL_SYNC_VALIDATION.json
+ M notebook_bundle/CANONICAL_SYNC_VALIDATION.md
+ M notebook_bundle/CHANGE_REPORT.json
+ M notebook_bundle/CHANGE_REPORT.md
+ M notebook_bundle/DEVELOPMENT_ROADMAP.md
+ M notebook_bundle/IMPLEMENTATION_INVENTORY.md
+ M notebook_bundle/MIGRATIONS.md
+ M notebook_bundle/NEXT_SESSION_HANDOFF.md
+ M notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json
+ M notebook_bundle/PROJECT_STATE.md
+ M notebook_bundle/PROJECT_STATUS.md
+ M notebook_bundle/REPOSITORY_CHECKPOINT.md
+ M notebook_bundle/SESSION_START.json
+ M notebook_bundle/SESSION_START.md
+ M notebook_bundle/TEST_INVENTORY.md
  D recommendation_engine_audit.py
  M recommendation_explainability_batch_4a_fixed/test_recommendation_explainer.py
- D recommendation_explainer.py
- D reconciled_draft_decision.py
- D scarcity_model.py
  M scripts/run_batch_e.py
  M services/matchup_intelligence.py
+ M services/ux_evidence.py
  M services/weekly_lineup_intelligence.py
- D survival_calibration.py
  D survivor_store.py.bak
+ M templates/dashboard.html
+ M templates/gm.html
+ M templates/lineup.html
+ M templates/team.html
+ M templates/trades.html
+ M templates/waivers.html
  D test_import.py
  M tests/test_batch_b_outcome_intelligence.py
  M tests/test_batch_d_intelligence_operations.py
@@ -104,12 +124,12 @@ cc888df Document draft post-draft and season readiness review
  M tests/test_draft_operations_hardening.py
  M tests/test_draft_state_hardening.py
  M tests/test_f4_c_decision_ranking.py
+ M tests/test_integrity_integration.py
  M tests/test_mock_draft_synchronization.py
  M tests/test_recommendation_explainer.py
  M tests/test_survival_calibration.py
  M tools/validate_draft_readiness.py
 ?? .batch_backups/
-?? .continuity/
 ?? audit/__init__.py
 ?? audit/f3_b1/SUMMARY.md
 ?? audit/f3_b1/constraint_references.txt
@@ -145,23 +165,29 @@ cc888df Document draft post-draft and season readiness review
 ?? audit/phase_f/sleeper_player_matching_code.txt
 ?? audit/phase_f/sleeper_player_sample.json
 ?? audit/post_draft_batch0/
-?? audit/shared_integrity/
+?? audit/repository_truth/
+?? audit/shared_integrity/a5_discovery/
+?? audit/shared_integrity/a6_discovery/
 ?? audit/tools/
+?? audit/ux24_discovery/
+?? audit/ux24_owner_ops/
+?? audit/ux24_render_contracts/
+?? audit/ux24_variable_sources/
 ?? batch_a2_install_manifest.txt
 ?? batch_a2_shared_integrity_integration.zip.sha256
 ?? batch_inputs/
 ?? batch_jobs/
+?? cleanup-review-status.txt
+?? copilot_context/
+?? current-working-tree.txt
 ?? data_integrity_cycle_inputs.txt
 ?? database/sql/fantasy_intelligence_mocklab_v1.sql
 ?? database/sql/post_draft_recovery.sql
+?? docs/COPILOT_REPOSITORY_CONTEXT.md
 ?? docs/F3_D3_BATCH_11_RUNBOOK.md
 ?? docs/F3_D3_WAIVER_ACTION_PLAN_SPEC.md
 ?? docs/PHASE_F2_RUNBOOK.md
-?? docs/REPOSITORY_CHECKPOINT.md
-?? docs/REPO_DOCS.md
-?? docs/SHARED_INTEGRITY_LAYER.md
-?? docs/VALIDATION_REPORT.json
-?? docs/database/
+?? docs/UX_1_7_COMPLETION_BATCH.md
 ?? docs/discovery/F4_DISCOVERY_README.md
 ?? docs/discovery/README_F4_BATCH1.md
 ?? docs/discovery/README_F4_BATCH2.md
@@ -172,16 +198,17 @@ cc888df Document draft post-draft and season readiness review
 ?? docs/runbooks/
 ?? draft/
 ?? end_of_day_status.txt
+?? export_ux17_build_context.sh
+?? export_ux17_source_bundle.sh
 ?? f4_pdf_build/
 ?? ingestion/
 ?? intelligence/
-?? notebook_bundle/
 ?? patches/
 ?? reference_snapshot/
 ?? reports/
 ?? scripts/apply_f3a2_runtime_patch.py
 ?? scripts/collection/
-?? scripts/end_of_day.sh
+?? scripts/export_ux17_source_bundle.sh
 ?? scripts/f3_b1_batch1_audit.sh
 ?? scripts/f3_b1_capture_implementation_sources.sh
 ?? scripts/find_commit_blockers.sh
@@ -192,110 +219,132 @@ cc888df Document draft post-draft and season readiness review
 ?? scripts/repo_inventory.py
 ?? scripts/repo_size_report.sh
 ?? scripts/reporting/
+?? scripts/update_canonical_head.py
 ?? scripts/verify_f3_d3_action_plan.py
-?? services/integrity/
 ?? services/intelligence/
 ?? shared/
 ?? templates/custom/
+?? tests/conftest.py
 ?? tests/test_f3_d3_waiver_action_plan.py
 ?? tests/test_import.py
-?? tests/test_integrity_freshness.py
-?? tests/test_integrity_integration.py
-?? tests/test_integrity_service.py
 ?? tests/test_model_calibration.py
-?? tools/classify_working_tree.py
+?? tests/test_ux_1_7_final_completion.py
+?? tests/test_ux_1_7_large_batch.py
 ?? tools/collect_data_integrity_build_inputs.py
-?? tools/generate_bundle_change_report.py
-?? tools/generate_notebook_bundle.py
-?? tools/generate_session_recovery_pack.py
+?? tools/export_copilot_context.py
+?? tools/extract_owner_operations_contracts.py
+?? tools/extract_owner_variable_definitions.py
+?? tools/extract_render_template_contexts.py
 ?? tools/install_continuity_extensions.py
 ?? tools/install_working_tree_classifier.py
 ?? tools/patch_end_of_day.py
+?? tools/repository_truth_audit.py
 ?? tools/update_docs.py
 ?? tools/upgrade_working_tree_classifier.py
-?? tools/validate_canonical_sync.py
-?? tools/validate_notebook_bundle.py
+?? tools/ux24_discovery.py
+?? tools/ux_discovery.sh
+?? ux17_build_context.txt
+?? ux17_source_bundle.txt
+?? ux_discovery_bundle.txt
 
-## Diff Summary
- .gitignore                                         |     42 +-
- DEVELOPMENT_ROADMAP.md                             |    161 +-
- MOCK_K_DEF_UPGRADE.md                              |     40 -
- PACKAGE_C0_SEASON_SANDBOX.md                       |     85 -
- PACKAGE_C_OWNER_OPERATIONS.md                      |     45 -
- PICKEM_INPUT_CENTER_REPORT.txt                     |      3 -
- PICKEM_POSTGRES_FIX_REPORT.txt                     |      3 -
- PROJECT_AUDIT.md                                   |    254 -
- PROJECT_STATE.md                                   |     93 +-
- PROJECT_STATUS.md                                  |    130 +-
- SEASON_READINESS.md                                |     24 -
- YAHOO_PICKEM_INSTALL_REPORT.txt                    |     16 -
- adaptive_draft_reconciliation.py                   |     19 -
- app.py                                             |     38 +-
- audit/f3_b2/reconciliation/VERIFICATION_RESULTS.md |      6 +-
- audit/f3_b2/reconciliation/pytest_output.txt       |      2 +-
- audit/f3_b2/reconciliation/verification.json       |      6 +-
- audit/f3_b3/verification/VERIFICATION_RESULTS.md   |      6 +-
- audit/f3_b3/verification/pytest_output.txt         |      2 +-
- audit/f3_b3/verification/verification.json         |      6 +-
- audit/f3_b4/verification/VERIFICATION_RESULTS.md   |      4 +-
- audit/f3_b4/verification/verification.json         |      4 +-
- audit/f3_d4/verification/VERIFICATION_RESULTS.md   |      2 +-
- audit/f3_d4/verification/pytest_output.txt         |      2 +-
- audit/f3_d4/verification/verification.json         |      6 +-
- audit_fantasy_intelligence.py                      |    149 -
- audit_yahoo_pickem.py                              |     12 -
- balanced_recommendation_score.py                   |     12 -
- batch_e_common.py                                  |     27 -
- batch_e_injuries.py                                |     19 -
- batch_e_market_bridge.py                           |     11 -
- batch_e_ratings.py                                 |     67 -
- batch_e_weather.py                                 |     18 -
- cache_sleeper_players.py                           |     99 -
- candidate_filter.py                                |    185 -
- docs/NEXT_SESSION_HANDOFF.md                       |    128 +-
- draft_accuracy_routes.py                           |      4 +-
- draft_coach_sleeper_fusion.py                      |     26 -
- draft_decision_plan.py                             |     29 -
- draft_health_routes.py                             |      2 +-
- draft_operations_hardening.py                      |    323 -
- draft_outcome_health.py                            |     61 -
- draft_outcome_tracker.py                           |     41 -
- draft_readiness.py                                 |    149 -
- draft_state_hardening.py                           |   1061 -
- dynamic_need_model.py                              |     22 -
- fantasy_intelligence_mocklab_v1.sql                | 196557 ------------------
- ingest_weekly_data.py                              |     29 -
- ingestion_store.py                                 |     35 -
- ingestion_validation.py                            |     51 -
- install_v1_7_draft_day_readiness.py                |     46 -
- intelligence_calibration.py                        |     26 -
- intelligence_explainability.py                     |     53 -
- intelligence_operations_routes.py                  |      2 +-
- intelligence_readiness.py                          |     70 -
- intelligence_reconciliation.py                     |     25 -
- model_calibration.py                               |     51 -
- player_survival_probability.py                     |     75 -
- recommendation_engine_audit.py                     |     18 -
- .../test_recommendation_explainer.py               |      2 +-
- recommendation_explainer.py                        |     44 -
- reconciled_draft_decision.py                       |     29 -
- scarcity_model.py                                  |     26 -
- scripts/run_batch_e.py                             |     10 +-
- services/matchup_intelligence.py                   |      3 +-
- services/weekly_lineup_intelligence.py             |      3 +-
- survival_calibration.py                            |     48 -
- survivor_store.py.bak                              |     63 -
- test_import.py                                     |     15 -
- tests/test_batch_b_outcome_intelligence.py         |      6 +-
- tests/test_batch_d_intelligence_operations.py      |      8 +-
- tests/test_draft_day_readiness.py                  |      2 +-
- tests/test_draft_environment_rotation.py           |      2 +-
- tests/test_draft_hq_snapshot_integrity.py          |      2 +-
- tests/test_draft_operations_hardening.py           |      2 +-
- tests/test_draft_state_hardening.py                |      2 +-
- tests/test_f4_c_decision_ranking.py                |      1 -
- tests/test_mock_draft_synchronization.py           |      2 +-
- tests/test_recommendation_explainer.py             |      2 +-
- tests/test_survival_calibration.py                 |      2 +-
- tools/validate_draft_readiness.py                  |      4 +-
- 81 files changed, 367 insertions(+), 200393 deletions(-)
+
+## git diff --stat
+
+ .continuity/last_bundle_manifest.json              |   34 +-
+ .gitignore                                         |   42 +-
+ DEVELOPMENT_ROADMAP.md                             |  142 +--
+ MOCK_K_DEF_UPGRADE.md                              |   40 -
+ PACKAGE_C0_SEASON_SANDBOX.md                       |   85 --
+ PACKAGE_C_OWNER_OPERATIONS.md                      |   45 -
+ PICKEM_INPUT_CENTER_REPORT.txt                     |    3 -
+ PICKEM_POSTGRES_FIX_REPORT.txt                     |    3 -
+ PROJECT_AUDIT.md                                   |  254 -----
+ PROJECT_STATE.md                                   |  105 +-
+ PROJECT_STATUS.md                                  |  133 +--
+ SEASON_READINESS.md                                |   24 -
+ YAHOO_PICKEM_INSTALL_REPORT.txt                    |   16 -
+ app.py                                             |   12 +-
+ audit/f3_b2/reconciliation/VERIFICATION_RESULTS.md |    6 +-
+ audit/f3_b2/reconciliation/pytest_output.txt       |    2 +-
+ audit/f3_b2/reconciliation/verification.json       |    6 +-
+ audit/f3_b3/verification/VERIFICATION_RESULTS.md   |    6 +-
+ audit/f3_b3/verification/pytest_output.txt         |    2 +-
+ audit/f3_b3/verification/verification.json         |    6 +-
+ audit/f3_b4/verification/VERIFICATION_RESULTS.md   |    4 +-
+ audit/f3_b4/verification/verification.json         |    4 +-
+ audit/f3_d4/verification/VERIFICATION_RESULTS.md   |    2 +-
+ audit/f3_d4/verification/pytest_output.txt         |    2 +-
+ audit/f3_d4/verification/verification.json         |    6 +-
+ audit_fantasy_intelligence.py                      |  149 ---
+ audit_yahoo_pickem.py                              |   12 -
+ batch_e_common.py                                  |   27 -
+ batch_e_injuries.py                                |   19 -
+ batch_e_market_bridge.py                           |   11 -
+ batch_e_ratings.py                                 |   67 --
+ batch_e_weather.py                                 |   18 -
+ cache_sleeper_players.py                           |   99 --
+ docs/NEXT_SESSION_HANDOFF.md                       |  111 +-
+ docs/REPOSITORY_CHECKPOINT.md                      |  296 +++---
+ docs/database/MIGRATIONS.md                        |    1 +
+ draft_accuracy_routes.py                           |    4 +-
+ draft_coach_sleeper_fusion.py                      |   26 -
+ draft_health_routes.py                             |    2 +-
+ draft_operations_hardening.py                      |  323 ------
+ draft_outcome_health.py                            |   61 --
+ ingest_weekly_data.py                              |   29 -
+ ingestion_store.py                                 |   35 -
+ ingestion_validation.py                            |   51 -
+ install_v1_7_draft_day_readiness.py                |   46 -
+ intelligence_operations_routes.py                  |    2 +-
+ notebook_bundle/BUNDLE_MANIFEST.json               |   34 +-
+ notebook_bundle/BUNDLE_VALIDATION.json             |    2 +-
+ notebook_bundle/BUNDLE_VALIDATION.md               |    2 +-
+ notebook_bundle/CANONICAL_SYNC_VALIDATION.json     |   37 +-
+ notebook_bundle/CANONICAL_SYNC_VALIDATION.md       |   25 +-
+ notebook_bundle/CHANGE_REPORT.json                 |   54 +-
+ notebook_bundle/CHANGE_REPORT.md                   |    2 +-
+ notebook_bundle/DEVELOPMENT_ROADMAP.md             |  130 +--
+ notebook_bundle/IMPLEMENTATION_INVENTORY.md        |    5 +
+ notebook_bundle/MIGRATIONS.md                      |    1 +
+ notebook_bundle/NEXT_SESSION_HANDOFF.md            |  145 +--
+ notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json      |   34 +-
+ notebook_bundle/PROJECT_STATE.md                   |  111 +-
+ notebook_bundle/PROJECT_STATUS.md                  |  121 +--
+ notebook_bundle/REPOSITORY_CHECKPOINT.md           |  296 +++---
+ notebook_bundle/SESSION_START.json                 |  134 +--
+ notebook_bundle/SESSION_START.md                   |  302 +++---
+ notebook_bundle/TEST_INVENTORY.md                  | 1055 ++++++++++----------
+ recommendation_engine_audit.py                     |   18 -
+ .../test_recommendation_explainer.py               |    2 +-
+ scripts/run_batch_e.py                             |   10 +-
+ services/matchup_intelligence.py                   |    4 +-
+ services/ux_evidence.py                            |  147 +++
+ services/weekly_lineup_intelligence.py             |    4 +-
+ survivor_store.py.bak                              |   63 --
+ templates/dashboard.html                           |    6 +-
+ templates/gm.html                                  |    4 +-
+ templates/lineup.html                              |    2 +-
+ templates/team.html                                |    4 +-
+ templates/trades.html                              |    4 +-
+ templates/waivers.html                             |    4 +-
+ test_import.py                                     |   15 -
+ tests/test_batch_b_outcome_intelligence.py         |    6 +-
+ tests/test_batch_d_intelligence_operations.py      |    8 +-
+ tests/test_draft_day_readiness.py                  |    2 +-
+ tests/test_draft_environment_rotation.py           |    2 +-
+ tests/test_draft_hq_snapshot_integrity.py          |    2 +-
+ tests/test_draft_operations_hardening.py           |    2 +-
+ tests/test_draft_state_hardening.py                |    2 +-
+ tests/test_f4_c_decision_ranking.py                |    1 -
+ tests/test_integrity_integration.py                |   37 +
+ tests/test_mock_draft_synchronization.py           |    2 +-
+ tests/test_recommendation_explainer.py             |    2 +-
+ tests/test_survival_calibration.py                 |    2 +-
+ tools/validate_draft_readiness.py                  |    4 +-
+ 91 files changed, 1911 insertions(+), 3311 deletions(-)
+
+
+## git remote -v
+
+origin	https://github.com/deeoriginalone/fantasy-intelligence.git (fetch)
+origin	https://github.com/deeoriginalone/fantasy-intelligence.git (push)

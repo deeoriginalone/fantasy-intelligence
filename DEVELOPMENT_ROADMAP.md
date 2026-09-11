@@ -1,17 +1,14 @@
-# Development Roadmap
+### Development Roadmap
 
-## Current checkpoint
-
+#### Current checkpoint
 - Date: 2026-09-10
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 118ba6c557970403fcc81f9960a2a3ec19a52226
+- HEAD: 6c97d30f20c4d9e9becf9ccf1007ef5b84e8b3d9
 
-## Historical completed milestones
-
+#### Historical completed milestones
 - F3-D.1 through F3-D.5 remain complete at their recorded boundaries.
 
-## Completed development track: Data Integrity
-
+#### Completed development track: Data Integrity
 - A.1 Shared Integrity Foundation: COMPLETE
 - A.2 Matchup and Lineup Integration: COMPLETE AT FOCUSED TEST BOUNDARY
 - A.3 Freshness and Fail-Closed Confidence: VALIDATED
@@ -23,108 +20,61 @@
 - A.9 User-Facing Yahoo Remnant Removal: IMPLEMENTED AT VERIFIED TEMPLATE BOUNDARY
 - A.10 Cross-Page Integrity Display: IMPLEMENTED AND FOCUSED VALIDATION PASSED
 
-## Post-A.10 UX foundation completed on 2026-09-10
+#### Post-A.10 UX correctness progress
+- Shared evidence-state, lineage, explanation, freshness, roster-requirement, waiver-availability, GM-impact, and route-payload contracts are present.
+- Dashboard season, league status, and draft start-time values are rendered from evidence fields instead of fixed template values.
+- Team, Waivers, Trades, Lineup, and GM contain shared completion-panel wiring.
+- Team and Lineup competing lineage assignments were reconciled.
+- DST-to-DEF roster requirement normalization is implemented and validated.
+- pytest repository-root import stability is provided by tests/conftest.py.
+- UX.1-UX.7 reconciliation validation recorded 29 passing tests in 0.47 seconds.
+- Python compilation and both Git whitespace checks passed.
+- Full UX.1 through UX.7 completion is not yet claimed pending formal definition-of-done review.
 
-A shared implementation foundation for UX.1 through UX.7 was added and validated. It includes fail-closed dashboard evidence, reusable evidence and lineage contracts, owned-player waiver filtering, a reusable evidence-state template, and a labeled Lineup Bench Order table.
-
-Focused validation recorded:
-
-- Focused UX validation suite: 20 passed in 0.38 seconds.
-- `app.py` and `services/ux_evidence.py` compiled.
-- imports passed.
-- `git diff --check` passed.
-- `git diff --cached --check` passed.
-
-This foundation is not equivalent to full completion of UX.1 through UX.7.
-
-
-### UX evidence presentation expansion validated
-- Dashboard hard-coded draft-readiness, simulation-count, projection-count, tier-count, duplicated league-summary, and pre-draft status claims were removed or replaced with explicit UNKNOWN or UNSUPPORTED states.
-- Reusable page evidence, lineup explanation, waiver explanation, and GM action evidence helpers were added.
-- A reusable UX completion panel was added for evidence and lineage presentation.
-- The Lineup page includes the player identity and lineup evidence presentation boundary.
-- Focused UX validation suite: 20 passed in 0.38 seconds.
-- Python compile validation passed.
-- git diff --check passed.
-- git diff --cached --check passed.
-- This expansion does not prove full active-route completion of UX.1 through UX.7.
-
-## Next milestone
+### Next milestone
 
 **Complete UX.1 Dashboard Modernization and Truth Audit.**
 
-### Verified progress
+##### Remaining UX.1 work
+- Verify dashboard agreement with My Team and Weekly Command Center at the active-route boundary.
+- Expose freshness or last-refresh data only where verified timestamps exist.
+- Complete focused route and template proof for season, league status, draft status, draft type, draft start time, unavailable-source behavior, and cross-page agreement.
+- Re-run the full focused validation and continuity pipeline after the final UX.1 definition-of-done review.
 
-- Dashboard league metadata no longer needs the unmaintained `league_info` read in the current working tree.
-- Current dashboard league, owner-team, roster-count, and scoring metadata are derived from verified Sleeper league, users, and rosters calls.
-- Missing or incomplete source data fails closed.
-- Dashboard evidence contract and focused tests pass.
-
-### Remaining UX.1 work
-
-- Replace or remove unsupported hard-coded dashboard values, including draft-era status, readiness claims, simulations, projection counts, tier counts, dates, and duplicated league summary values.
-- Verify current season, week, draft, and league status from supported sources.
-- Expose source freshness or last-refresh data only where verified timestamps exist.
-- Verify dashboard agreement with My Team and Weekly Command Center.
-- Add focused route and template tests for repaired dashboard values.
-
-### UX.1 definition of done
-
+##### UX.1 definition of done
 - Data sources and route contracts are identified from repository evidence.
-- Stale or contradictory dashboard values are repaired.
+- Stale or contradictory dashboard values are repaired or fail closed explicitly.
+- Dashboard truth agrees with related active views where those values overlap.
 - Focused route and template tests pass.
-- Compile checks and `git diff --check` pass.
+- Compile checks and both Git whitespace checks pass.
 
-## UX.2: My Team Accuracy and League-Settings Validation
+#### UX.2: My Team Accuracy and League-Settings Validation
 
-**Status: FOUNDATION ONLY, NOT COMPLETE.**
+**Status: ACTIVE WIRING AND RECONCILIATION VALIDATED, FORMAL COMPLETION REVIEW PENDING.** Completed progress includes lineage precedence reconciliation and DST-to-DEF roster requirement normalization. Remaining review: full roster-slot rules, league settings, scoring settings, health and matchup gaps, unavailable-state explanations, and active-route proof.
 
-Available foundation: evidence states and player-lineage helpers.
+#### UX.3: Waiver Correctness and Availability Validation
 
-Remaining work includes active-route proof for roster slots, K and DEF requirements, scoring settings, health and matchup gaps, and explicit unavailable-state explanations.
+**Status: ACTIVE EVIDENCE WIRING AND FAIL-CLOSED CONTRACTS PRESENT, FORMAL COMPLETION REVIEW PENDING.** Completed progress includes owned-player filtering and explicit unverified-eligibility blockers. Remaining review: active-route ownership, eligibility, league-derived needs, unsupported-metric handling, and route/template proof.
 
-## UX.3: Waiver Correctness and Availability Validation
+#### UX.4: Shared Integrity Expansion
 
-**Status: FOUNDATION ONLY, NOT COMPLETE.**
+**Status: ACTIVE PRESENTATION WIRING PRESENT, FORMAL COMPLETION REVIEW PENDING.** Remaining review: final focused payload and rendering proof for Team, Waivers, and Trades.
 
-Available foundation: tested owned-player filtering helper.
+#### UX.5: Lineup Explainability and Bench Redesign
 
-Remaining work includes verified active-route integration, ownership and eligibility proof, league-derived needs, filters, and fail-closed unsupported metrics.
+**Status: RECONCILIATION VALIDATED, FORMAL COMPLETION REVIEW PENDING.** Completed progress includes the labeled Bench Order table, lineage-panel wiring, and reconciled lineage precedence. Remaining review: stronger evidence-based explanations and alternatives plus missing-evidence distinctions.
 
-## UX.4: Shared Integrity Expansion
+#### UX.6: GM Center Impact Redesign
 
-**Status: FOUNDATION ONLY, NOT COMPLETE.**
+**Status: ACTIVE EVIDENCE AND IMPACT SUPPORT PRESENT, FORMAL COMPLETION REVIEW PENDING.** Remaining review: validate the full impact-redesign definition of done with focused route/template evidence.
 
-Available foundation: reusable UX evidence contract and evidence-state renderer.
+#### UX.7: Player Identity and Data Lineage Audit
 
-Remaining work includes verified payload wiring and route/template tests for My Team, Waivers, and Trades.
+**Status: ACTIVE LINEAGE AND DIAGNOSTIC SUPPORT PRESENT, FORMAL COMPLETION REVIEW PENDING.** Completed progress includes unknown-field, fallback, and transformation diagnostics. Remaining review: reproducible mismatch diagnostics, verified history/change explanations, and route/template proof.
 
-## UX.5: Lineup Explainability and Bench Redesign
-
-**Status: PARTIAL.**
-
-Completed portion: Bench Order is rendered as a labeled table.
-
-Remaining work includes stronger evidence-based explanations, alternatives, missing-evidence distinctions, and proof for the full definition of done.
-
-## UX.6: GM Center Impact Redesign
-
-**Status: NOT VERIFIED COMPLETE.**
-
-The existing GM Center has decision-ranking and blocker concepts, but the UX.6 impact redesign definition of done has not been validated from the recorded UX batch.
-
-## UX.7: Player Identity and Data Lineage Audit
-
-**Status: FOUNDATION ONLY, NOT COMPLETE.**
-
-Available foundation: reusable player lineage helper covering position, ownership, health, matchup, projection, source, update time, and unknown states.
-
-Remaining work includes active lineage presentation, reproducible mismatch diagnostics, transformation and fallback reporting, and change explanations where verified history exists.
-
-## Strategic Intelligence Roadmap
+#### Strategic Intelligence Roadmap
 
 The following systems remain planned and deferred, not abandoned:
-
 - A.11 VOR Engine
 - A.12 Floor / Median / Ceiling Model
 - A.13 Opportunity Metrics Engine
@@ -134,24 +84,10 @@ The following systems remain planned and deferred, not abandoned:
 - A.17 Market Mispricing Engine
 - A.18 Trade Impact Simulator
 
-## Cross-cutting requirements
-
-- Prefer decision support, transparency, freshness, and actionable fantasy value.
-- Separate data health, model confidence, and decision confidence.
-- Show data lineage for important values.
-- Distinguish unknown, stale, unsupported, and not-applicable evidence.
-- Do not invent missing player, health, matchup, projection, ownership, market, or betting data.
-- Preserve read-only behavior unless transaction safeguards are separately requested and validated.
-
-## Outstanding validation track
-
+#### Outstanding validation track
 - PostgreSQL 1000-event/10-replay verification.
 - Failure-injection validation.
 - Rollback and recovery evidence.
 - Guarded cleanup and repeatability proof.
 - Live-route validation where required.
 - Production deployment and recovery proof are not claimed.
-
-## Stop conditions
-
-Stop rather than guess when repository state, player identity, roster truth, timestamp provenance, health source, matchup evidence, projection evidence, ownership availability, database isolation, cleanup safety, external-write boundaries, or test evidence cannot be proven.

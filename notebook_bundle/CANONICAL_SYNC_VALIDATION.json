@@ -1,64 +1,61 @@
 {
-  "generated_at_utc": "2026-09-09T10:41:47.175753+00:00",
-  "passed": false,
+  "generated_at_utc": "2026-09-11T04:12:48.122427+00:00",
+  "passed": true,
   "repository": {
     "branch": "feature/evidence-bundle-pipeline",
-    "head": "3c6aef5bb1995887f4e553a2a7954f83eb7cecb7",
-    "short_head": "3c6aef5"
+    "head": "6c97d30f20c4d9e9becf9ccf1007ef5b84e8b3d9",
+    "short_head": "6c97d30"
   },
   "checks": {
     "canonical_files_present": true,
     "canonical_files_nonempty": true,
     "branch_synchronized": true,
     "head_synchronized": true,
-    "next_milestone_present": false,
-    "next_milestone_consistent": false,
+    "next_milestone_present": true,
+    "next_milestone_consistent": true,
     "sensitive_patterns_absent": true
   },
   "files": {
     "PROJECT_STATUS.md": {
       "exists": true,
-      "bytes": 3087,
+      "bytes": 4193,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": null
+      "next_milestone": "**complete ux.1 dashboard modernization and truth audit.**"
     },
     "PROJECT_STATE.md": {
       "exists": true,
-      "bytes": 2292,
+      "bytes": 3693,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": null
+      "next_milestone": "**complete ux.1 dashboard modernization and truth audit.**"
     },
     "DEVELOPMENT_ROADMAP.md": {
       "exists": true,
-      "bytes": 2738,
+      "bytes": 5343,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": null
+      "next_milestone": "**complete ux.1 dashboard modernization and truth audit.**"
     },
     "NEXT_SESSION_HANDOFF.md": {
       "exists": true,
-      "bytes": 3159,
+      "bytes": 4141,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": null
+      "next_milestone": "**complete ux.1 dashboard modernization and truth audit.**"
     }
   },
   "missing_files": [],
   "empty_files": [],
   "branch_mismatches": [],
   "head_mismatches": [],
-  "missing_milestones": [
-    "PROJECT_STATUS.md",
-    "PROJECT_STATE.md",
-    "DEVELOPMENT_ROADMAP.md",
-    "NEXT_SESSION_HANDOFF.md"
+  "missing_milestones": [],
+  "unique_milestones": [
+    "**complete ux.1 dashboard modernization and truth audit.**"
   ],
-  "unique_milestones": [],
   "sensitive_findings": []
 }

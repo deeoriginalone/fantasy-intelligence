@@ -1,67 +1,54 @@
-# Project Status
+### Project Status
 
-## Current verdict
+#### Current verdict
 
-The active development focus is the Shared Integrity Layer and the data-integrity repair cycle. Batch A.1 is complete. Batch A.2 is complete at the focused repository-test boundary with `14 passed in 0.08s`, syntax validation passed, and `git diff --check` clean. Batch A.3 is installed/in progress and must not be marked complete until its focused validation is executed and recorded.
+The verified Data Integrity track remains complete through Batch A.10. The post-A.10 UX correctness implementation has advanced beyond a helper-only foundation: dashboard truth-state fields and shared evidence/lineage presentation are wired into the current working tree. The UX.1-UX.7 reconciliation batch is installed and validated. Full UX.1 through UX.7 completion is not yet claimed pending the formal definition-of-done review.
 
-This is not a live-route, production-readiness, or external-write authorization claim.
+#### Current checkpoint
+- Date: 2026-09-10
+- Branch: feature/evidence-bundle-pipeline
+- HEAD: 6c97d30f20c4d9e9becf9ccf1007ef5b84e8b3d9
+- Repository: /home/deeoriginalone/fantasy-intelligence
+- League ID: 1398094330668797952
+- Completed real draft ID: 1398094331272794112
 
-## Current checkpoint
+#### Verified UX implementation boundary
+- Dashboard season, league status, and draft start-time presentation use the dashboard evidence contract rather than fixed template values.
+- app.py supplies Sleeper league and draft payloads to the dashboard state contract and fails closed when those sources are unavailable.
+- Shared UX template helpers are exposed for roster lineage and route-payload evidence.
+- Team, Waivers, Trades, Lineup, and GM templates contain UX completion-panel wiring.
+- Reusable roster-lineage output identifies unavailable evidence fields explicitly.
+- The waiver helper excludes owned players in focused tests.
+- Team and Lineup lineage precedence was reconciled so supplied lineage is preserved and generated roster lineage is used as fallback.
+- Roster requirement evidence normalizes DST to DEF.
+- tests/conftest.py provides stable repository-root imports for pytest.
+- Read-only decision support remains in effect; no automatic fantasy transaction submission is authorized.
 
-- Date: 2026-09-09
-- Branch: `feature/evidence-bundle-pipeline`
-- HEAD: `3c6aef5bb1995887f4e553a2a7954f83eb7cecb7`
-- League ID: `1398094330668797952`
-- Completed real draft ID: `1398094331272794112`
+#### Validation recorded on 2026-09-10
+- UX.1-UX.7 reconciliation validation: 29 passed in 0.47 seconds.
+- Targeted DST-to-DEF normalization test: 1 passed in 0.05 seconds.
+- Final completion test module: 8 passed in 0.05 seconds.
+- Python compile validation for app.py and services/ux_evidence.py: passed.
+- git diff --check: passed.
+- git diff --cached --check: passed.
+- End-of-day notebook bundle validation must be rerun after this canonical update.
+- End-of-day canonical synchronization must be rerun after this canonical update.
 
-## Completed and verified work
+#### Current completion boundary
+- UX.1 has verified dashboard metadata and truth-state improvements. Formal completion still requires the documented route-level agreement, verified freshness presentation, and final dashboard truth-audit review.
+- UX.2 has active Team lineage wiring, reconciled lineage precedence, and validated DST-to-DEF normalization. Full roster-slot and league-settings route proof is not yet recorded as complete.
+- UX.3 has active Waivers evidence-panel wiring, tested owned-player filtering, and fail-closed eligibility evidence. Full active-route ownership, eligibility, and league-derived-needs proof is not yet recorded as complete.
+- UX.4 has shared presentation wiring on Team, Waivers, and Trades. Final focused route/template payload proof remains part of the definition-of-done review.
+- UX.5 has a labeled Bench Order table, lineage-panel wiring, and reconciled lineage precedence. Final explainability and missing-evidence definition-of-done review remains.
+- UX.6 has GM evidence-panel and impact-evidence support. The full impact-redesign definition of done still requires formal review.
+- UX.7 has active lineage presentation, explicit unknown-field diagnostics, fallback reporting, and transformation diagnostics. Mismatch reproduction and verified change-history explanations still require formal review.
+- No database or schema migration is attributed to this UX batch.
+- Production readiness, PostgreSQL parity completion, and full recovery proof are not claimed.
 
-### Historical completed work
+#### Commit readiness
 
-- F3-D.1 through F3-D.4: complete and verified at their recorded boundaries.
-- F3-D.5: complete and verified at the repository-test boundary.
-- Historical F3-D.5 evidence: 4 publication tests passed, 8 combined publication/template/route tests passed, and the historical full suite recorded 316 passed, 9 skipped, 2 xfailed, and 20 subtests passed.
+The working tree contains extensive unrelated changes, deletions, generated evidence, and untracked files. Keep UX implementation, canonical documentation, generated continuity artifacts, and cleanup/reorganization work in separate narrow commit groups. Do not use git add . or git add -A.
 
-### Current Batch A work
+### Next milestone
 
-- Batch A.1: shared integrity package, unit tests, and documentation created.
-- Batch A.2: shared integrity report integrated into matchup and weekly-lineup aggregate contracts.
-- Batch A.2: unresolved health and missing matchup evidence are exposed through shared blockers and counts.
-- Batch A.2: focused validation recorded as `14 passed in 0.08s`.
-- Batch A.3: freshness and fail-closed confidence package installed/in progress; validation pending.
-
-## Active data-integrity build order
-
-1. Finish Batch A.3 focused validation and evidence capture.
-2. Batch A.4: wire verified roster, injury, matchup, and projection timestamps into consumers without inventing timestamps.
-3. Repair live roster synchronization and complete-roster derivation.
-4. Replace static roster targets with league-settings-derived needs.
-5. Repair injury status synchronization and health confidence.
-6. Repair matchup enrichment coverage and fail closed when required evidence is incomplete.
-7. Remove remaining user-facing Yahoo terminology.
-8. Integrate freshness, completeness, and confidence across My Team, Lineup, Waivers, Trades, GM Center, and Weekly Command Center.
-9. Run focused, route/template, and broader regression validation.
-
-## Outstanding validation work, not forgotten
-
-- PostgreSQL 1000-event/10-replay parity verification.
-- Failure-injection testing.
-- Rollback and recovery evidence.
-- Guarded cleanup and repeatability validation.
-- Supervised live-route review where required.
-- Production deployment and production recovery proof.
-
-## Deferred strategic intelligence modules, not skipped permanently
-
-- VOR Engine.
-- Vegas Integration.
-- Schedule and Matchup Forecaster.
-- Trade Impact Simulator.
-- Opportunity Metrics.
-- Correlation Engine.
-- Market Mispricing Engine.
-- Floor/Median/Ceiling Model.
-
-## Commit readiness
-
-**Not ready as one broad commit.** Use exact file lists and narrow coherent groups.
+**Complete UX.1 Dashboard Modernization and Truth Audit.**

@@ -1,101 +1,54 @@
-# Project Status
+### Project Status
 
-## Current verdict
+#### Current verdict
 
-The verified Data Integrity track remains complete through Batch A.10. On 2026-09-10, a post-A.10 user-experience implementation foundation was added and validated. This foundation does not complete every UX.1 through UX.7 definition of done.
+The verified Data Integrity track remains complete through Batch A.10. The post-A.10 UX correctness implementation has advanced beyond a helper-only foundation: dashboard truth-state fields and shared evidence/lineage presentation are wired into the current working tree. The UX.1-UX.7 reconciliation batch is installed and validated. Full UX.1 through UX.7 completion is not yet claimed pending the formal definition-of-done review.
 
-The verified UX foundation currently includes:
-
-- dashboard fail-closed truth-status handling
-- a reusable evidence-state contract
-- reusable player lineage helpers
-- owned-player waiver filtering logic
-- a labeled Lineup Bench Order table
-- a corrected dashboard league-source path using verified Sleeper league, user, and roster data in the current working tree
-
-No live-route, production, automatic transaction submission, PostgreSQL parity completion, or full recovery proof is claimed.
-
-## Current checkpoint
-
+#### Current checkpoint
 - Date: 2026-09-10
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 118ba6c557970403fcc81f9960a2a3ec19a52226
+- HEAD: 6c97d30f20c4d9e9becf9ccf1007ef5b84e8b3d9
 - Repository: /home/deeoriginalone/fantasy-intelligence
 - League ID: 1398094330668797952
 - Completed real draft ID: 1398094331272794112
 
-## Completed Data Integrity progress
+#### Verified UX implementation boundary
+- Dashboard season, league status, and draft start-time presentation use the dashboard evidence contract rather than fixed template values.
+- app.py supplies Sleeper league and draft payloads to the dashboard state contract and fails closed when those sources are unavailable.
+- Shared UX template helpers are exposed for roster lineage and route-payload evidence.
+- Team, Waivers, Trades, Lineup, and GM templates contain UX completion-panel wiring.
+- Reusable roster-lineage output identifies unavailable evidence fields explicitly.
+- The waiver helper excludes owned players in focused tests.
+- Team and Lineup lineage precedence was reconciled so supplied lineage is preserved and generated roster lineage is used as fallback.
+- Roster requirement evidence normalizes DST to DEF.
+- tests/conftest.py provides stable repository-root imports for pytest.
+- Read-only decision support remains in effect; no automatic fantasy transaction submission is authorized.
 
-- A.1 COMPLETE
-- A.2 COMPLETE
-- A.3 VALIDATED
-- A.4 WIRED
-- A.5 GATE PASS
-- A.6 GATE PASS
-- A.7 IMPLEMENTATION PACKAGE VALIDATED
-- A.8 MATCHUP ENRICHMENT COVERAGE VALIDATED
-- A.9 USER-FACING YAHOO REMNANTS REMOVED
-- A.10 CROSS-PAGE INTEGRITY DISPLAY IMPLEMENTED
+#### Validation recorded on 2026-09-10
+- UX.1-UX.7 reconciliation validation: 29 passed in 0.47 seconds.
+- Targeted DST-to-DEF normalization test: 1 passed in 0.05 seconds.
+- Final completion test module: 8 passed in 0.05 seconds.
+- Python compile validation for app.py and services/ux_evidence.py: passed.
+- git diff --check: passed.
+- git diff --cached --check: passed.
+- End-of-day notebook bundle validation must be rerun after this canonical update.
+- End-of-day canonical synchronization must be rerun after this canonical update.
 
-## UX.1 through UX.7 foundation status
+#### Current completion boundary
+- UX.1 has verified dashboard metadata and truth-state improvements. Formal completion still requires the documented route-level agreement, verified freshness presentation, and final dashboard truth-audit review.
+- UX.2 has active Team lineage wiring, reconciled lineage precedence, and validated DST-to-DEF normalization. Full roster-slot and league-settings route proof is not yet recorded as complete.
+- UX.3 has active Waivers evidence-panel wiring, tested owned-player filtering, and fail-closed eligibility evidence. Full active-route ownership, eligibility, and league-derived-needs proof is not yet recorded as complete.
+- UX.4 has shared presentation wiring on Team, Waivers, and Trades. Final focused route/template payload proof remains part of the definition-of-done review.
+- UX.5 has a labeled Bench Order table, lineage-panel wiring, and reconciled lineage precedence. Final explainability and missing-evidence definition-of-done review remains.
+- UX.6 has GM evidence-panel and impact-evidence support. The full impact-redesign definition of done still requires formal review.
+- UX.7 has active lineage presentation, explicit unknown-field diagnostics, fallback reporting, and transformation diagnostics. Mismatch reproduction and verified change-history explanations still require formal review.
+- No database or schema migration is attributed to this UX batch.
+- Production readiness, PostgreSQL parity completion, and full recovery proof are not claimed.
 
-**IMPLEMENTATION FOUNDATION VALIDATED. FULL UX.1 THROUGH UX.7 COMPLETION IS NOT CLAIMED.**
+#### Commit readiness
 
-Verified implementation evidence:
+The working tree contains extensive unrelated changes, deletions, generated evidence, and untracked files. Keep UX implementation, canonical documentation, generated continuity artifacts, and cleanup/reorganization work in separate narrow commit groups. Do not use git add . or git add -A.
 
-- `services/ux_evidence.py` defines fail-closed evidence states, dashboard evidence, player lineage, and owned-player waiver filtering.
-- `templates/_ux_evidence_state.html` provides a reusable evidence-state renderer.
-- `templates/dashboard.html` displays a dashboard truth warning when verified dashboard evidence is unavailable.
-- `templates/lineup.html` renders Bench Order as a labeled table.
-- `tests/test_ux_evidence.py` covers fail-closed dashboard evidence, verified rows, owned-player filtering, lineage unknown state, and evidence-state normalization.
-- `tests/test_ux1_dashboard_sleeper_source.py` covers verified Sleeper metadata, PPR formats, owner-name fallback, incomplete metadata, and unavailable source behavior.
-
-## Validation recorded on 2026-09-10
-
-- Focused UX validation suite: 20 passed in 0.38 seconds.
-- `app.py` import: passed.
-- `services.ux_evidence` import: passed.
-- Python compile validation for `app.py` and `services/ux_evidence.py`: passed.
-- `git diff --check`: passed.
-- `git diff --cached --check`: passed.
-
-## Current completion boundary
-
-- UX.1 dashboard league metadata is wired to verified Sleeper league, user, and roster calls in the current working tree and fails closed when required data is absent.
-- The dashboard template still contains other hard-coded draft-era status and summary values that require a separate truth audit before UX.1 can be called complete.
-- UX.2 through UX.7 have shared foundation helpers or partial UI support, but their complete route wiring and individual definitions of done are not proven.
-- My Team, Waivers, and Trades are not yet proven to receive the shared UX evidence contract on their active routes.
-- The owned-player waiver filter exists as a tested helper, but active waiver-route integration is not claimed.
-- Full player-identity and source-lineage views are not claimed.
-- No automatic waiver, lineup, trade, draft, or season transaction submission is authorized.
-
-
-### UX evidence presentation expansion validated
-- Dashboard hard-coded draft-readiness, simulation-count, projection-count, tier-count, duplicated league-summary, and pre-draft status claims were removed or replaced with explicit UNKNOWN or UNSUPPORTED states.
-- Reusable page evidence, lineup explanation, waiver explanation, and GM action evidence helpers were added.
-- A reusable UX completion panel was added for evidence and lineage presentation.
-- The Lineup page includes the player identity and lineup evidence presentation boundary.
-- Focused UX validation suite: 20 passed in 0.38 seconds.
-- Python compile validation passed.
-- git diff --check passed.
-- git diff --cached --check passed.
-- This expansion does not prove full active-route completion of UX.1 through UX.7.
-
-## Next milestone
+### Next milestone
 
 **Complete UX.1 Dashboard Modernization and Truth Audit.**
-
-The next batch should remove or replace unsupported hard-coded dashboard status values, verify current season/week/draft state, expose supported freshness information, and add focused route/template tests without fabricating missing data.
-
-## Outstanding validation work
-
-- PostgreSQL 1000-event/10-replay parity verification.
-- Failure-injection testing.
-- Rollback and recovery evidence.
-- Guarded cleanup and repeatability validation.
-- Supervised live-route review where required.
-- Production deployment and recovery proof are not claimed.
-
-## Commit readiness
-
-The working tree contains extensive unrelated changes, deletions, generated evidence, and untracked files. Use exact file lists and narrow commit groups. Do not use `git add .` or `git add -A`.

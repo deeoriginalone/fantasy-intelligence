@@ -105,6 +105,7 @@
 ./f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/006_market_intelligence.sql
 ./f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/004_weekly_intelligence.sql
 ./f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/007_draft_event_pipeline.sql
+./fantasy_intelligence_mocklab_v1.sql
 ./yahoo_pickem_auto_feed_batch/migrations/005_pickem_feed_runs.sql
 ./yahoo_pickem_postgres_fix_v2/migrations/004_yahoo_pickem_postgres.sql
 ./payload/migrations/007_draft_day_readiness.sql
