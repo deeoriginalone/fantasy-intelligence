@@ -1689,8 +1689,15 @@ def dashboard():
         league_source, draft_source = {}, {}
         league_error = league_error or "DASHBOARD_STATE_SOURCE_UNAVAILABLE"
     dashboard_evidence = dashboard_contract(league_row=league, error=league_error)
-    from services.ux_evidence import dashboard_state_contract
+    from services.ux_evidence import dashboard_agreement_evidence, dashboard_state_contract, freshness_evidence
     dashboard_evidence["fields"].update(dashboard_state_contract(league_source, draft_source, error=league_error))
+    dashboard_evidence["freshness"] = freshness_evidence(
+        dashboard_evidence["generated_at"], source="Sleeper API", blocker=league_error
+    )
+    dashboard_evidence["agreement"] = dashboard_agreement_evidence({
+        "season": dashboard_evidence["fields"].get("season"),
+        "league_status": dashboard_evidence["fields"].get("league_status"),
+    })
     fields = dashboard_evidence["fields"]
     return render_template(
         "dashboard.html", title="Fantasy Intelligence Dashboard",

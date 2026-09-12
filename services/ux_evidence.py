@@ -38,16 +38,60 @@ def gm_action_evidence(data):
     data=dict(data or {})
     return {"actions":[{"action":r.get("action"),"urgency":r.get("urgency") or "UNKNOWN","blockers":list(r.get("blockers") or []),"source":r.get("source") or "UNVERIFIED","reason":r.get("reason") or "No verified explanation supplied."} for r in data.get("actions") or []]}
 
+def _fact_value(value):
+    if isinstance(value, dict) and "state" in value:
+        return value.get("value") if value.get("state") == "AVAILABLE" else None
+    return value
+
+
+def format_pacific_datetime(value):
+    if value in (None, ""):
+        return None
+    try:
+        from zoneinfo import ZoneInfo
+        if isinstance(value, (int, float)):
+            numeric = float(value)
+            if numeric > 10_000_000_000:
+                numeric /= 1000.0
+            parsed = datetime.fromtimestamp(numeric, tz=timezone.utc)
+        else:
+            parsed = datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(ZoneInfo("America/Los_Angeles")).strftime("%B %-d, %Y, %-I:%M %p %Z")
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def dashboard_agreement_evidence(dashboard_facts=None, my_team_facts=None, command_center_facts=None):
+    pages = {"dashboard": dict(dashboard_facts or {}), "my_team": dict(my_team_facts or {}), "weekly_command_center": dict(command_center_facts or {})}
+    names = sorted(set().union(*(set(values) for values in pages.values())))
+    checked, mismatches, unavailable = [], [], []
+    for name in names:
+        values = {page: _fact_value(facts.get(name)) for page, facts in pages.items()}
+        available = {page: str(value).strip() for page, value in values.items() if value not in (None, "")}
+        if len(available) < 2:
+            unavailable.append(name)
+            continue
+        checked.append(name)
+        if len({value.casefold() for value in available.values()}) > 1:
+            mismatches.append({"field": name, "values": available})
+    state = "BLOCKED" if mismatches else ("AVAILABLE" if checked else "UNKNOWN")
+    blocker = "CROSS_PAGE_FACT_MISMATCH" if mismatches else (None if checked else "CROSS_PAGE_FACTS_UNAVAILABLE")
+    return {"state": state, "agrees": state == "AVAILABLE", "checked_fields": checked, "mismatches": mismatches, "unavailable_fields": unavailable, "blocker": blocker, "source": "shared active-route facts"}
+
+
 def dashboard_state_contract(league=None, draft=None, source="Sleeper API", error=None):
-    """UX.1 verified season and draft metadata; missing values fail closed."""
     league = dict(league or {})
     draft = dict(draft or {})
+    raw_start = draft.get("start_time")
+    display_start = format_pacific_datetime(raw_start)
     return {
         "season": evidence(league.get("season"), source=source, blocker=error),
         "league_status": evidence(league.get("status"), source=source, blocker=error),
         "draft_status": evidence(draft.get("status"), source=source, blocker=error),
         "draft_type": evidence(draft.get("type"), source=source, blocker=error),
-        "draft_start_time": evidence(draft.get("start_time"), source=source, blocker=error),
+        "draft_start_time": evidence(display_start, state="AVAILABLE" if display_start else "UNKNOWN", source=source, blocker=error or ("DRAFT_START_TIME_INVALID" if raw_start not in (None, "") and not display_start else None)),
     }
 
 
