@@ -44,6 +44,15 @@ def _fact_value(value):
     return value
 
 
+def shared_league_facts(league=None, *, source="Sleeper API", blocker=None):
+    # Fail-closed season and league-status facts shared by active routes.
+    league = dict(league or {})
+    return {
+        "season": evidence(league.get("season"), source=source, blocker=blocker),
+        "league_status": evidence(league.get("status"), source=source, blocker=blocker),
+    }
+
+
 def format_pacific_datetime(value):
     if value in (None, ""):
         return None

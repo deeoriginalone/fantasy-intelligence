@@ -1,0 +1,19 @@
+<section class="card" id="team-accuracy">
+<h2>Why This Recommendation Is Trusted</h2>
+<p><strong>Status:</strong> {{ "VERIFIED" if team_accuracy and team_accuracy.trusted else "DEGRADED" }}</p>
+<p>{{ team_accuracy.recommendation_impact if team_accuracy else "My Team accuracy evidence was not supplied by the route." }}</p>
+{% if team_accuracy and team_accuracy.blockers %}<p><strong>Affected recommendation blockers:</strong> {{ team_accuracy.blockers|join(", ") }}</p>{% endif %}
+</section>
+<section class="card" id="league-settings"><h2>League and Scoring Settings</h2>
+{% if team_accuracy and team_accuracy.league_settings.state == "AVAILABLE" %}
+<p><strong>Source:</strong> {{ team_accuracy.source }}</p><p><strong>Scoring:</strong> {{ team_accuracy.scoring.format }}</p>
+<p><strong>Starter slots:</strong> {% for slot, count in team_accuracy.league_settings.starter_slots.items() %}{{ slot }} x{{ count }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+<p><strong>FLEX eligibility:</strong> {{ team_accuracy.league_settings.flex_eligible_positions|join(", ") or "Unavailable" }}</p>
+{% else %}<p><strong>League settings unavailable.</strong> Team-needs and lineup-fit recommendations are blocked.</p>{% endif %}</section>
+<section class="card" id="full-ppr-team-needs"><h2>Full-PPR Team Needs</h2><div class="table-wrap"><table><thead><tr><th>Position</th><th>Required</th><th>Rostered</th><th>Shortage</th><th>Need</th></tr></thead><tbody>
+{% for position in ["QB", "RB", "WR", "TE", "FLEX", "K", "DEF"] %}{% set item = team_accuracy.team_needs.positions.get(position) if team_accuracy else none %}<tr><td><strong>{{ position }}</strong></td>{% if item and item.state == "AVAILABLE" %}<td>{{ item.required_slots }}</td><td>{{ item.rostered if item.rostered is not none else "Eligible depth: " ~ item.eligible_depth }}</td><td>{{ item.shortage }}</td><td>{{ item.need }}</td>{% else %}<td colspan="4">Unavailable{% if item and item.blocker %}: {{ item.blocker }}{% endif %}</td>{% endif %}</tr>{% endfor %}
+</tbody></table></div></section>
+{% include "_team_health.html" %}
+<section class="card" id="matchup-evidence"><h2>Starter Matchup Evidence</h2><p><strong>Matchup Rank:</strong> opponent difficulty for the player's position. An unavailable rank is not a neutral or favorable matchup.</p>
+{% if team_accuracy and team_accuracy.matchups.rows %}<div class="table-wrap"><table><thead><tr><th>Player</th><th>Position</th><th>State</th><th>Opponent</th><th>Matchup Rank</th><th>Blockers</th></tr></thead><tbody>{% for row in team_accuracy.matchups.rows %}<tr><td>{{ row.player }}</td><td>{{ row.position }}</td><td>{{ row.state }}</td><td>{{ row.opponent or ("BYE" if row.state == "NOT_APPLICABLE" else "Unavailable") }}</td><td>{{ row.matchup_rank if row.matchup_rank is not none else "Unavailable" }}</td><td>{{ row.blockers|join(", ") or "None" }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p>Starter matchup evidence is unavailable. Matchup-sensitive recommendations are reduced in confidence.</p>{% endif %}</section>
+<section class="card" id="metric-definitions"><h2>Displayed Metric Guidance</h2><ul><li><strong>Weekly Score:</strong> shown only when usable weekly evidence is present. It supports lineup comparison and is not evidence confidence.</li><li><strong>Matchup Rank:</strong> unavailable is displayed separately from a difficult matchup.</li><li><strong>Legacy Grade:</strong> the existing roster-count coverage summary. It is not a projection or evidence-confidence score.</li></ul></section>

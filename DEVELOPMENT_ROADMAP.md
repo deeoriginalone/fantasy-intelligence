@@ -1,145 +1,90 @@
-# Development Roadmap
+##### Development Roadmap
 
-## Current checkpoint
-- Date: 2026-09-11
+###### Current checkpoint
+- Date: 2026-09-12
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 8c8480e49c4dfff1c857a5ffaa06c3e6f4c91e30
-- Previously recorded HEAD: 6c97d30f20c4d9e9becf9ccf1007ef5b84e8b3d9
-- Repository reality must be rechecked before the next completion claim or canonical synchronization.
+- HEAD: 0733fc1b64d6a9da6ccf197f272d51d0136d2d91
 
-## Completed verified track
-- Data Integrity A.1 through A.10 remains complete or validated at its recorded boundaries.
-- The UX.1 through UX.7 reconciliation foundation remains installed and previously validated.
-- Those earlier validations do not close the new QA findings below.
+###### Historical completed milestones
+- F3-D.1 through F3-D.5 remain complete at their recorded boundaries.
 
-## Highest-priority QA findings and product direction
+###### Completed development track: Data Integrity
+- A.1 Shared Integrity Foundation: COMPLETE
+- A.2 Matchup and Lineup Integration: COMPLETE AT FOCUSED TEST BOUNDARY
+- A.3 Freshness and Fail-Closed Confidence: VALIDATED
+- A.4 Verified Timestamp Wiring: WIRED AT RECORDED CONTRACT BOUNDARY
+- A.5 Roster Synchronization and Reconciliation: GATE PASS
+- A.6 League-Settings-Derived Needs: GATE PASS
+- A.7 Injury Status Synchronization and Health Confidence: IMPLEMENTATION PACKAGE VALIDATED
+- A.8 Matchup Enrichment Coverage: VALIDATED
+- A.9 User-Facing Yahoo Remnant Removal: IMPLEMENTED AT VERIFIED TEMPLATE BOUNDARY
+- A.10 Cross-Page Integrity Display: IMPLEMENTED AND FOCUSED VALIDATION PASSED
 
-The following items were reported during hands-on QA review on 2026-09-11. They are now the highest-priority workstream. They are treated as reported defects or usability findings until reproduced against the active routes and verified with repository and runtime evidence.
+###### Post-A.10 UX correctness progress
+- Shared evidence-state, lineage, explanation, freshness, roster-requirement, waiver-availability, GM-impact, and route-payload contracts are present.
+- UX.1 Dashboard Modernization and Truth Audit is complete at the verified focused-test and rendered active-route boundary.
+- UX.2 My Team Accuracy and League-Settings Validation is complete at the verified focused-test and rendered active-route boundary.
+- Team needs use active Full-PPR league settings and evaluate QB, RB, WR, TE, FLEX, K, and DEF.
+- Team Health and Team Accuracy contracts are wired into the active `/team` route and rendered through the My Team template.
+- Unknown or unsupported health and matchup evidence fails closed through explicit unavailable states, blockers, or reduced recommendation trust.
+- UX.3 through UX.7 remain pending their formal definition-of-done reviews.
 
-### Pages in scope
-- Fantasy Intelligence Dashboard
-- My Team
-- Weekly Lineup Intelligence
-- Waiver and FAAB Center
-- Trade Target Center
-- Weekly Command Center
+###### Completed milestone: UX.1 Dashboard Modernization and Truth Audit
+- Shared season and league-status facts are wired through Dashboard, My Team, and Weekly Command Center route contracts.
+- The rendered Dashboard reports Cross-Page Agreement as AVAILABLE and states that overlapping verified facts agree.
+- Focused UX.1 validation passed with 17 tests in 0.77 seconds.
+- Python compile validation passed.
+- `git diff --check` passed.
+- `git diff --cached --check` passed.
 
-### Cross-page requirements
-1. **Eliminate stale or misleading data.** Every user-facing value must identify its source, refresh time, freshness state, and failure behavior. Values that cannot be verified must fail closed as unavailable rather than appearing current.
-2. **Use Sleeper as the first-choice live source.** Sleeper league, roster, ownership, draft, matchup, and player-status data should be preferred where the API supports the required field. Local persistence may cache or enrich the response, but must not silently override newer Sleeper truth.
-3. **Make team-needs analysis complete and Full-PPR aware.** Needs must evaluate QB, RB, WR, TE, FLEX, K, and DEF. No required roster position may be excluded. The model must derive roster slots from league settings and explain how Full-PPR strategy affects positional need.
-4. **Prevent invalid waiver recommendations.** A player already rostered anywhere in the active league must not appear as an available waiver recommendation. If current ownership cannot be verified, recommendations must be blocked or clearly marked unverified.
-5. **Translate technical evidence into fantasy impact.** Integrity, lineage, freshness, status, score, timestamp, age, domain, and blocker fields must explain what they mean, whether they affect a recommendation, and what the manager should do next.
-6. **Make every score interpretable.** Weekly score, matchup rank, grade, baseline, confidence, roster fit, and impact metrics must show their scale, inputs, directionality, and decision use. Unsupported or partially populated scores must not be presented as authoritative.
-7. **Keep the system read-only.** Recommendations may support team management decisions, but no external fantasy transaction may be submitted automatically.
+###### Completed milestone: UX.2 My Team Accuracy and League-Settings Validation
+- League-settings, team-needs, team-health, and team-accuracy contracts are wired into the active `/team` route.
+- Full-PPR team-needs coverage includes QB, RB, WR, TE, FLEX, K, and DEF.
+- Health and recommendation evidence use explicit unavailable and blocker states instead of presenting unknown evidence as authoritative.
+- Matchup rank displays `Unavailable` when no supported value exists.
+- Team Health template and route validation passed with 14 tests in 0.38 seconds.
+- The focused UX.2 suite passed with 35 tests in 0.47 seconds.
+- Python compile validation passed for the changed UX.2 Python modules and health test modules.
+- `git diff --check` passed.
+- `git diff --cached --check` passed.
+- Rendered active `/team` page evidence was recorded for the My Team trust, league-settings, team-needs, health, matchup, and blocker presentation.
+- Notebook bundle validation passed.
+- Canonical memory synchronization passed for branch, HEAD, and the exact next milestone.
+- Final UX.2 commit review remains outstanding.
 
-### Product outcome
-The application should prioritize trustworthy weekly team management: who to start, sit, monitor, add, drop, trade for, trade away, and protect against upcoming schedule, injury, depth, and playoff risk.
+###### UX.3: Waiver Correctness and Availability Validation
+**Status: ACTIVE EVIDENCE WIRING AND FAIL-CLOSED CONTRACTS PRESENT, FORMAL COMPLETION REVIEW PENDING.** Completed progress includes owned-player filtering and explicit unverified-eligibility blockers. Remaining review: active-route ownership, eligibility, league-derived needs, unsupported-metric handling, and route/template proof.
 
+###### UX.4: Shared Integrity Expansion
+**Status: ACTIVE PRESENTATION WIRING PRESENT, FORMAL COMPLETION REVIEW PENDING.** Remaining review: final focused payload and rendering proof for Team, Waivers, and Trades.
 
-## New top milestone
+###### UX.5: Lineup Explainability and Bench Redesign
+**Status: RECONCILIATION VALIDATED, FORMAL COMPLETION REVIEW PENDING.** Completed progress includes the labeled Bench Order table, lineage-panel wiring, and reconciled lineage precedence. Remaining review: stronger evidence-based explanations and alternatives plus missing-evidence distinctions.
 
-**UX-QA.1: Live Data Trust, Ownership Correctness, and Cross-Page Decision Clarity**
+###### UX.6: GM Center Impact Redesign
+**Status: ACTIVE EVIDENCE AND IMPACT SUPPORT PRESENT, FORMAL COMPLETION REVIEW PENDING.** Remaining review: validate the full impact-redesign definition of done with focused route/template evidence.
 
-This milestone supersedes the narrower UX.1-only next-step framing. Dashboard truth auditing remains included, but the active priority is now a coordinated correction across all six season-management pages.
+###### UX.7: Player Identity and Data Lineage Audit
+**Status: ACTIVE LINEAGE AND DIAGNOSTIC SUPPORT PRESENT, FORMAL COMPLETION REVIEW PENDING.** Completed progress includes unknown-field, fallback, and transformation diagnostics. Remaining review: reproducible mismatch diagnostics, verified history/change explanations, and route/template proof.
 
-### Workstream 1: Source and freshness audit
-- Inventory every visible field on all six pages and map it to route, service, database field, API endpoint, timestamp, staleness threshold, and fallback.
-- Verify Sleeper-first behavior for supported league, roster, ownership, draft, matchup, and player-status fields.
-- Add a shared freshness contract with source, retrieved-at time, age, state, and blocker reason.
-- Define freshness thresholds by domain instead of using one global threshold.
-- Prevent cached data from being displayed as current when an attempted live refresh fails.
-- Add page-level and cross-page tests proving values agree when they share the same underlying fact.
+###### Strategic Intelligence Roadmap
+The following systems remain planned and deferred, not abandoned:
+- A.11 VOR Engine
+- A.12 Floor / Median / Ceiling Model
+- A.13 Opportunity Metrics Engine
+- A.14 Schedule and Matchup Forecaster
+- A.15 Correlation Engine
+- A.16 Vegas Integration
+- A.17 Market Mispricing Engine
+- A.18 Trade Impact Simulator
 
-### Workstream 2: League and roster truth
-- Rebuild the current ownership map from the active Sleeper league rosters before waiver or trade recommendations are generated.
-- Exclude every owned player from waiver recommendations.
-- Block recommendations when ownership or eligibility cannot be verified.
-- Derive roster requirements from active league settings and normalize DST to DEF consistently.
-- Calculate team need for QB, RB, WR, TE, FLEX, K, and DEF using Full-PPR strategy, starter quality, replacement value, depth, bye-week coverage, injury risk, and positional scarcity.
-- Ensure My Team, Waivers, Trades, Lineup, Dashboard, and Weekly Command Center consume a shared team-needs result.
-
-### Workstream 3: Page-specific corrections
-
-#### Fantasy Intelligence Dashboard
-- Format draft date and start time as `Month Day, Year, Time` in Pacific Time, with timezone label.
-- Replace raw numeric timestamps.
-- Support Season State and Draft State from verified evidence, or hide/fail closed with a useful explanation.
-- Reconcile overlapping league and weekly facts with My Team and Weekly Command Center.
-- Replace technical status clutter with a concise “Data last checked” and “Action required” presentation.
-
-#### My Team
-- Replace or rename the unexplained grade with actionable dimensions such as Starter Strength, Depth, Risk, and Playoff Readiness. Remove the grade if its calculation cannot be explained and validated.
-- Document Weekly Score, including scale, formula inputs, and effect on lineup recommendations.
-- Remove redundant lineup columns and emphasize opponent, projection, matchup context, health, confidence, and explanation.
-- Repair missing matchup ranks and distinguish unavailable data from a poor matchup.
-- Refresh health data from supported sources and expose source and age.
-- Redesign Roster Identity and Data Lineage into a manager-facing “Why this recommendation is trusted” summary, with technical details collapsed by default.
-
-#### Weekly Lineup Intelligence
-- Replace the technical Lineup Data Integrity section with a manager-facing readiness summary and an optional technical detail view.
-- Resolve integrity blockers or identify the exact recommendation each blocker disables.
-- Explain domain, status, score, timestamp, and age in context.
-- Replace ambiguous HOLD decisions with START, SIT, FLEX, or MONITOR, supported by explicit criteria.
-- Define baseline, Weekly Score, matchup rank, health state, and confidence.
-- Replace “rank unavailable,” “injury unknown,” and “ownership unknown” with fail-closed explanations and next actions.
-- Ensure the recommended starting lineup conforms to league slots and excludes unavailable evidence from unsupported scoring claims.
-
-#### Waiver and FAAB Center
-- Refresh league rosters before candidate selection.
-- Exclude all rostered players and test this invariant at the service and route layers.
-- Use the shared Full-PPR team-needs model for ranking and FAAB guidance.
-- Explain availability evidence, eligibility, source age, roster fit, drop candidate, expected role, opportunity path, and recommendation risk.
-- Prevent FAAB precision when the supporting role, projection, ownership, or market evidence is missing.
-
-#### Trade Target Center
-- Use the shared Full-PPR team-needs model for roster fit.
-- Explain why each target helps, what weakness it addresses, what is being given up, and the expected weekly and rest-of-season effect.
-- Add counterparty fit, positional surplus, schedule, injury, bye-week, and depth consequences.
-- Distinguish “good player” from “good trade for this roster.”
-
-#### Weekly Command Center
-- Redesign around weekly management actions rather than raw integrity output.
-- Primary sections: Start/Sit, Waiver/Drop, Trade Watch, Injury/Availability, Upcoming Risk, and Data Alerts.
-- Show the highest-impact action first, with evidence, confidence, deadline, and expected benefit.
-- Keep integrity diagnostics secondary and connect every blocker to a disabled or reduced-confidence recommendation.
-
-### Workstream 4: Missing data and strategic enhancements
-- Rest-of-season projections and rankings with source and update time.
-- Opportunity metrics: snaps, routes, targets, carries, red-zone usage, and role trend where licensed/available.
-- Opponent and schedule strength by position.
-- Injury practice participation and game-status trend.
-- Bye-week and roster-depth exposure.
-- Replacement-level and waiver-wire baseline by position.
-- League transaction and manager tendency history.
-- Trade value, roster surplus, and counterparty need.
-- Playoff schedule and scenario analysis.
-- Projection disagreement and uncertainty ranges.
-
-### Suggested additional pages
-1. **Season Strategy Center:** playoff outlook, remaining schedule, roster strengths, weak points, and recommended strategic posture.
-2. **Roster Risk and Depth Map:** starter quality, backup quality, injury exposure, bye-week conflicts, and replacement options by position.
-3. **Rest-of-Season Planner:** rankings, schedule, role trend, playoff-week outlook, and hold/sell/buy guidance.
-4. **Transaction Planner:** prioritized add/drop, FAAB, and trade actions with dependencies and deadlines.
-5. **Opponent and Matchup Scout:** likely opposing lineup, positional strengths, projected matchup leverage, and contingency planning.
-
-## Definition of done for UX-QA.1
-- Every reported issue is reproduced or explicitly closed as not reproducible with evidence.
-- All six pages display current or explicitly unavailable data.
-- Sleeper-first source priority is proven for supported fields.
-- Recommended waiver players are not rostered in the active league.
-- Team need covers QB, RB, WR, TE, FLEX, K, and DEF and reflects active Full-PPR settings.
-- Shared facts agree across pages.
-- Every user-facing score and status has an explanation and scale.
-- Technical evidence is linked to its fantasy-management impact.
-- Focused route, service, template, stale-data, failure, and cross-page agreement tests pass.
-- Python compile checks and both Git whitespace checks pass.
-- Canonical synchronization and bundle validation pass after the final update.
-
-## Deferred until trust milestone closes
-- New advanced intelligence engines should not take precedence over ownership correctness, freshness, lineup clarity, waiver validity, and cross-page consistency.
-- PostgreSQL replay/parity, failure injection, rollback, recovery, cleanup, repeatability, and production proof remain outstanding validation tracks.
+###### Outstanding validation track
+- PostgreSQL 1000-event/10-replay verification.
+- Failure-injection validation.
+- Rollback and recovery evidence.
+- Guarded cleanup and repeatability proof.
+- Live-route validation where required for later milestones.
+- Production deployment and recovery proof are not claimed.
 
 ## Next milestone
-
-**Complete UX-QA.1: Live Data Trust, Ownership Correctness, and Cross-Page Decision Clarity.**
+**Complete UX.3 Waiver Correctness and Availability Validation.**
