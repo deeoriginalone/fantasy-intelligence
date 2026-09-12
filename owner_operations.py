@@ -7,6 +7,8 @@ from services.trade_intelligence import build_trade_intelligence
 from services.trade_target_center import build_trade_target_center
 from services.decision_ranking import build_action, build_decision_ranking
 from services.matchup_intelligence import build_matchup_intelligence
+from services.ux_evidence import shared_league_facts
+from services.team_needs import league_settings_contract, team_needs_contract
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
@@ -156,6 +158,7 @@ def create_owner_operations_blueprint(
                 "league_name": "Season Sandbox",
                 "strategy": row[1] if row else "WR_HEAVY",
                 "draft_name": row[0] if row else f"Mock #{context['draft_id']}",
+                "shared_facts": shared_league_facts({}, source="Season Sandbox", blocker="LIVE_LEAGUE_FACTS_NOT_APPLICABLE"),
             }
         roster, league = live_roster(cur)
         roster = enrich_players(cur, roster, current_week(cur))
@@ -164,6 +167,7 @@ def create_owner_operations_blueprint(
             "league_name": league.get("name") or "Fantasy Intelligence Champions League",
             "strategy": "LIVE",
             "draft_name": None,
+            "shared_facts": shared_league_facts(league),
         }
 
     def roster_analysis(roster, vacancies):
@@ -265,6 +269,9 @@ def create_owner_operations_blueprint(
             context, roster, meta = current_roster(cur)
             starters, bench, total, vacancies = optimize_lineup(roster)
             counts, grades, needs, overall, score = roster_analysis(roster, vacancies)
+            league_payload = get_league(current_app.config.get("SLEEPER_LEAGUE_ID", "")) or {} if context["mode"] == "LIVE" else {}
+            league_settings = league_settings_contract(league_payload, source="Sleeper API" if context["mode"] == "LIVE" else "Season Sandbox", blocker=None if context["mode"] == "LIVE" else "LIVE_LEAGUE_SETTINGS_NOT_APPLICABLE")
+            team_needs = team_needs_contract(roster, league_settings)
         finally:
             cur.close(); conn.close()
         weekly_defaults = {
@@ -278,7 +285,7 @@ def create_owner_operations_blueprint(
             for key, value in weekly_defaults.items(): player.setdefault(key, value)
         weekly_starter_score = sum(float(player.get("weekly_score") or 0) for player in starters)
 
-        return render_template("team.html", weekly_starter_score=weekly_starter_score, title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score)
+        return render_template("team.html", weekly_starter_score=weekly_starter_score, title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs)
 
     @bp.route("/lineup")
     def lineup_page():
