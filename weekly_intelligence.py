@@ -110,14 +110,24 @@ def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True
         matchup_pos="DEF" if position=="DEF" else position
         m = None
         if allow_local_weekly_data:
-            cur.execute("""SELECT defense_rank,fp_per_game_allowed FROM defense_matchups
+            cur.execute("""SELECT defense_rank,fp_per_game_allowed,source,retrieved_at FROM defense_matchups
                        WHERE season=%s AND position=%s AND defense_team=%s""",
                 (season-1,matchup_pos,p.get("opponent")))
             m=cur.fetchone()
         rank=m[0] if m else None
         p["matchup_rank"]=rank; p["fp_allowed"]=float(m[1]) if m else None
+        matchup_source=m[2] if m and len(m)>2 and m[2] else "Unavailable"
+        matchup_retrieved_at=m[3] if m and len(m)>3 else None
+        p["matchup_source"]=f"nfl_schedule + {matchup_source}" if sched and matchup_source != "Unavailable" else matchup_source
+        p["matchup_retrieved_at"]=matchup_retrieved_at
+        p["matchup_lineage"]={"source":p["matchup_source"],"source_recorded_at":None,"retrieved_at":matchup_retrieved_at}
+        p["matchup_completeness"]="COMPLETE" if sched and m and matchup_retrieved_at else "UNAVAILABLE"
         p["matchup_modifier"]=matchup_modifier(rank)
         season_projection=float(p.get("projection") or 0)
+        projection_retrieved_at=p.get("projection_retrieved_at")
+        p["projection_source"]="players.projected_points" if p.get("projection") is not None else "Unavailable"
+        p["projection_lineage"]={"source":p["projection_source"],"source_recorded_at":None,"retrieved_at":projection_retrieved_at}
+        p["projection_completeness"]="COMPLETE" if p.get("projection") is not None and projection_retrieved_at else "UNAVAILABLE"
         p["weekly_baseline"]=round(season_projection/17.0,2) if allow_local_weekly_data else None
         mult=injury_multiplier(p.get("injury_status"))
         p["injury_multiplier"]=mult

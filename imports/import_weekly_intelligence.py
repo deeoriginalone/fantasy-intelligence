@@ -7,7 +7,7 @@ import psycopg2
 
 TEAMS={
 "Arizona Cardinals":"ARI","Atlanta Falcons":"ATL","Baltimore Ravens":"BAL","Buffalo Bills":"BUF","Carolina Panthers":"CAR","Chicago Bears":"CHI","Cincinnati Bengals":"CIN","Cleveland Browns":"CLE","Dallas Cowboys":"DAL","Denver Broncos":"DEN","Detroit Lions":"DET","Green Bay Packers":"GB","Houston Texans":"HOU","Indianapolis Colts":"IND","Jacksonville Jaguars":"JAX","Kansas City Chiefs":"KC","Los Angeles Chargers":"LAC","Los Angeles Rams":"LAR","Las Vegas Raiders":"LV","Miami Dolphins":"MIA","Minnesota Vikings":"MIN","New England Patriots":"NE","New Orleans Saints":"NO","New York Giants":"NYG","New York Jets":"NYJ","Philadelphia Eagles":"PHI","Pittsburgh Steelers":"PIT","San Francisco 49ers":"SF","Seattle Seahawks":"SEA","Tampa Bay Buccaneers":"TB","Tennessee Titans":"TEN","Washington Commanders":"WAS"}
-ALIASES={"JAC":"JAX","JAX":"JAX","KAN":"KC","KC":"KC","LVR":"LV","LV":"LV","NEP":"NE","NE":"NE","NOS":"NO","NO":"NO","SFO":"SF","SF":"SF","TAM":"TB","TB":"TB","WSH":"WAS","WAS":"WAS","GNB":"GB","GB":"GB"}
+ALIASES={"JAC":"JAX","JAX":"JAX","KAN":"KC","KC":"KC","LVR":"LV","LV":"LV","NEP":"NE","NWE":"NE","NE":"NE","NOS":"NO","NOR":"NO","NO":"NO","SFO":"SF","SF":"SF","TAM":"TB","TB":"TB","WSH":"WAS","WAS":"WAS","GNB":"GB","GB":"GB"}
 
 def abbr(v):
     v=(v or '').strip()
@@ -34,7 +34,7 @@ def main():
       with (d/'defense-fp-against-2025.csv').open(newline='',encoding='utf-8-sig') as f:
         for r in csv.DictReader(f):
           pos=r['Position'].upper().replace('DST','DEF')
-          cur.execute("INSERT INTO defense_matchups(season,position,defense_team,defense_rank,fp_per_game_allowed,source) VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(season,position,defense_team) DO UPDATE SET defense_rank=EXCLUDED.defense_rank,fp_per_game_allowed=EXCLUDED.fp_per_game_allowed,source=EXCLUDED.source",(args.season-1,pos,abbr(r['Team']),int(r['Rank']),float(r['FP / Game Allowed']),'defense-fp-against-2025.csv'))
+          cur.execute("INSERT INTO defense_matchups(season,position,defense_team,defense_rank,fp_per_game_allowed,source,retrieved_at) VALUES(%s,%s,%s,%s,%s,%s,NOW()) ON CONFLICT(season,position,defense_team) DO UPDATE SET defense_rank=EXCLUDED.defense_rank,fp_per_game_allowed=EXCLUDED.fp_per_game_allowed,source=EXCLUDED.source,retrieved_at=EXCLUDED.retrieved_at",(args.season-1,pos,abbr(r['Team']),int(r['Rank']),float(r['FP / Game Allowed']),'defense-fp-against-2025.csv'))
       cur.execute("INSERT INTO weekly_intelligence_runs(season,week,source_files) VALUES(%s,1,%s::jsonb)",(args.season,json.dumps({'schedule':'nfl-2026-UTC.csv','byes':'nfl-2026-bye-weeks.csv','injuries':'nfl-injury-report.csv','matchups':'defense-fp-against-2025.csv'})))
       c.commit()
       for table in ['nfl_schedule','bye_weeks','injury_reports','defense_matchups']:

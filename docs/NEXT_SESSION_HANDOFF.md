@@ -6,19 +6,27 @@ The Data Integrity sequence remains complete through A.10, and UX.1 remains comp
 
 UX.2 My Team Accuracy, Explainability, and League-Settings Validation is validated at its focused and controlled active-route boundary. Its route, league-settings, Full-PPR Team Needs, Team Health, Team Accuracy, recommendation evidence, priority action, unavailable-matchup, and collapsed lineage behavior are preserved.
 
-UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, disclosure, health-source, and matchup-applicability repairs. Acceptance: `APPROVED: MY TEAM UI`. UX.3 is partially implemented at a verified fail-closed boundary and remains the active milestone.
+UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, disclosure, health-source, and matchup-applicability repairs. Acceptance: `APPROVED: MY TEAM UI`. UX.3 is validated at its supported, read-only waiver-publication boundary. UX.4.1 through UX.4.12 are validated at focused implementation, controlled-browser, and live nine-partner dropdown boundaries.
 
 ###### Current UX.3 boundary
-- Shared ownership and eligibility evidence, stable player-ID exclusion, roster-coverage metadata, timestamp requirements, freshness-threshold blockers, and consistent blocked behavior across `/waivers` and `/gm` are verified.
-- The focused waiver suite passes 45 tests; Python compilation and `git diff --check` pass.
-- Flask test-client checks return HTTP 200 for `/waivers` and `/gm`, show manager-facing blocked evidence, and publish zero candidates when required evidence is unsupported.
-- Live success-path publication is intentionally disabled because verified ownership and eligibility thresholds, independent add-eligibility evidence, and complete timestamp propagation are not established. The configured league roster count is now used as an explicit coverage input.
-- UXQA-001 remains IN PROGRESS, not VALIDATED or CLOSED.
+- Stable Sleeper player IDs, complete current roster ownership, and the supported player pool drive read-only waiver publication. Availability is explicitly derived from current Sleeper rosters and the supported player pool, not provider-declared addability or transaction history.
+- Ownership freshness uses successful `retrieved_at` under `integrity.roster.v1`; source-record time is unavailable when not supplied and remains distinct from retrieval time.
+- The focused UX.3 suite passes 78 tests; Python compilation and staged/working-tree whitespace validation pass.
+- Flask test-client and rendered-route checks return HTTP 200 for `/waivers` and `/gm`, with FRESH/COMPLETE ownership and DERIVED/FRESH/COMPLETE availability. `/waivers` publishes nine stable IDs, `/gm` publishes its five-candidate prefix, and no published ID intersects active roster ownership.
+- Supported render surfaces ownership source, freshness, completeness, availability source/authority, unavailable optional candidate values, and collapsed identity diagnostics. Unsupported inputs remain fail-closed.
+- UXQA-001 is VALIDATED, not CLOSED.
+
+###### Current UX.4 boundary
+- Trade Center integrity uses shared roster, injury, matchup, and projection freshness domains. It publishes only when all required evidence is complete and FRESH; AGING is visible as DEGRADED; stale, expired, unknown, unavailable, incomplete, or contradictory evidence blocks with domain-specific reasons.
+- `migrations/011_trade_evidence_freshness.sql` is applied. Writer-owned matchup/projection retrieval times are populated only by successful imports, and canonical team aliases plus deterministic suffix-aware joins complete supported current-partner coverage.
+- A TESTING-only in-memory scenario harness renders READY, READY-empty, DEGRADED, BLOCKED, unsupported partner fit, and identity ambiguity through the live template without database writes, source timestamp changes, or external calls. Desktop and 390px checks passed; diagnostics are collapsed by default.
+- The normal `/trades` app was restarted and the visible selector exercised all nine opponents. Every selection remained selected, matched the displayed partner, rendered READY with separated package types and explicit `Feasibility: UNAVAILABLE`, and omitted acceptance-like verdicts. Collapsed identity lineage exposes stable and local identity fields when supplied.
+- Focused UX.4 validation passed 90 tests; compilation and both whitespace checks passed. Do not claim transaction acceptance, negotiation, rest-of-season impact, production readiness, or defect closure.
 
 ###### Last recorded repository checkpoint
 - Date: 2026-09-13
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 3acdca498633eb19dba014e4476a43863b8441a2
+- HEAD: 8f9dec3821fe48fed62da1a5c13a364f38f321cd
 - Repository: /home/deeoriginalone/fantasy-intelligence
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
@@ -112,4 +120,4 @@ A synchronization PASS confirms documentation consistency only. It does not prov
 
 ## Next milestone
 
-**Continue UX.3 Waiver Correctness and Availability Validation by establishing verified ownership freshness, independent add-eligibility evidence, and controlled successful publication proof.**
+**Finalize UX.4 canonical continuity validation and narrow commit-readiness review.**

@@ -9,7 +9,7 @@ from services.trade_intelligence import build_trade_intelligence
 from services.trade_target_center import build_trade_target_center
 from services.decision_ranking import build_action, build_decision_ranking
 from services.matchup_intelligence import build_matchup_intelligence
-from services.ux_evidence import evaluate_waiver_availability, shared_league_facts, waiver_evidence_contract, waiver_roster_coverage
+from services.ux_evidence import derived_waiver_availability, evaluate_waiver_availability, resolve_waiver_candidate_identity, shared_league_facts, waiver_evidence_contract, waiver_ownership_freshness, waiver_roster_coverage
 from services.team_needs import build_team_needs_summary, league_settings_contract, team_needs_contract
 from services.team_health import team_health_contract, apply_player_health_to_recommendations, health_freshness_from_report_date
 from services.ux2_team_accuracy import build_team_accuracy_contract
@@ -44,7 +44,7 @@ def create_owner_operations_blueprint(
             return {"mode": "MOCK", "draft_id": int(state["draft_id"])}
         return {"mode": "LIVE", "draft_id": None}
 
-    def row_to_player(row):
+    def row_to_player(row, projection_retrieved_at=None, local_player_id=None):
         return {
             "player": row[0],
             "position": (row[1] or "NA").upper().replace("DST", "DEF"),
@@ -57,6 +57,8 @@ def create_owner_operations_blueprint(
             "injury_status": row[8] or "Healthy / Not listed",
             "pick_no": row[9] if len(row) > 9 else None,
             "round": row[10] if len(row) > 10 else None,
+            "projection_retrieved_at": projection_retrieved_at,
+            "local_player_id": local_player_id,
         }
 
     def mock_roster(cur, draft_id, draft_slot=None):
@@ -77,7 +79,8 @@ def create_owner_operations_blueprint(
                 p.bye_week,
                 p.injury_status,
                 mp.pick_no,
-                mp.round_num
+                mp.round_num,
+                p.projection_retrieved_at
             FROM mock_picks mp
             LEFT JOIN players p ON p.player_name = mp.player_name
             WHERE mp.draft_id = %s
@@ -86,14 +89,14 @@ def create_owner_operations_blueprint(
             """,
             (draft_id, draft_slot),
         )
-        return [row_to_player(row) for row in cur.fetchall()]
+        return [row_to_player(row, row[11] if len(row) > 11 else None) for row in cur.fetchall()]
 
     def live_roster(cur):
         league = get_league(current_app.config.get("SLEEPER_LEAGUE_ID", "")) or {}
         users = get_users(current_app.config.get("SLEEPER_LEAGUE_ID", "")) or []
         rosters = get_rosters(current_app.config.get("SLEEPER_LEAGUE_ID", "")) or []
         all_players = get_all_players() or {}
-        health_fetched_at = datetime.now(timezone.utc).isoformat()
+        sleeper_retrieved_at = datetime.now(timezone.utc).isoformat()
         owner_ids = {
             str(user.get("user_id"))
             for user in users
@@ -113,13 +116,14 @@ def create_owner_operations_blueprint(
                 part for part in (raw.get("first_name"), raw.get("last_name")) if part
             )
             if name:
-                local_names.append((name, raw.get("position"), raw.get("team"), raw.get("injury_status") or raw.get("status")))
+                local_names.append((pid, name, raw.get("position"), raw.get("team"), raw.get("injury_status") or raw.get("status")))
         result = []
-        for name, position, team, raw_status in local_names:
+        for sleeper_player_id, name, position, team, raw_status in local_names:
             cur.execute(
                 """
                 SELECT player_name, UPPER(position), nfl_team, ranking,
-                       projected_points, tier, adp, bye_week, injury_status
+                       projected_points, tier, adp, bye_week, injury_status,
+                       projection_retrieved_at, id
                 FROM players
                 WHERE REGEXP_REPLACE(LOWER(player_name), '[^a-z0-9]', '', 'g') = %s
                 LIMIT 1
@@ -132,7 +136,8 @@ def create_owner_operations_blueprint(
                 cur.execute(
                     """
                     SELECT player_name, UPPER(position), nfl_team, ranking,
-                           projected_points, tier, adp, bye_week, injury_status
+                           projected_points, tier, adp, bye_week, injury_status,
+                           projection_retrieved_at, id
                     FROM players
                     WHERE REGEXP_REPLACE(LOWER(player_name), '[^a-z0-9]', '', 'g') LIKE %s
                     ORDER BY LENGTH(player_name)
@@ -142,11 +147,16 @@ def create_owner_operations_blueprint(
                 )
                 row = cur.fetchone()
             if row:
-                player=row_to_player(tuple(row) + (None, None))
+                player=row_to_player(row, row[9] if len(row) > 9 else None, row[10] if len(row) > 10 else None)
+                player["source_player_id"] = sleeper_player_id
+                player["normalized_name"] = normalize_player_name(name)
+                player["identity_match_method"] = "UNIQUE_NORMALIZED_NAME"
+                player["identity_state"] = "RESOLVED"
                 if raw_status:
                     player["injury_status"] = raw_status
                     player["injury_source"] = "Sleeper API"
-                    player["health_fetched_at"] = health_fetched_at
+                    player["health_fetched_at"] = sleeper_retrieved_at
+                    player["injury_updated_at"] = sleeper_retrieved_at
                     player["health_status_available"] = True
                 else:
                     player["injury_status"] = "Unknown"
@@ -154,6 +164,8 @@ def create_owner_operations_blueprint(
                     player["health_status_available"] = False
                 player["ownership"] = "ROSTERED"
                 player["ownership_source"] = "Sleeper API"
+                player["roster_updated_at"] = sleeper_retrieved_at
+                player["roster_source"] = "Sleeper API"
                 result.append(player)
             else:
                 player = {
@@ -171,11 +183,18 @@ def create_owner_operations_blueprint(
                     "round": None,
                 }
                 player["injury_source"] = "Sleeper API"
+                player["source_player_id"] = sleeper_player_id
+                player["normalized_name"] = normalize_player_name(name)
+                player["identity_match_method"] = "LOCAL_PLAYER_UNAVAILABLE"
+                player["identity_state"] = "UNRESOLVED"
                 player["health_status_available"] = player["injury_status"] != "Unknown"
                 player["ownership"] = "ROSTERED"
                 player["ownership_source"] = "Sleeper API"
+                player["roster_updated_at"] = sleeper_retrieved_at
+                player["roster_source"] = "Sleeper API"
                 if player["health_status_available"]:
-                    player["health_fetched_at"] = health_fetched_at
+                    player["health_fetched_at"] = sleeper_retrieved_at
+                    player["injury_updated_at"] = sleeper_retrieved_at
                 result.append(player)
         return result, league
 
@@ -257,7 +276,7 @@ def create_owner_operations_blueprint(
                 ORDER BY ranking NULLS LAST
                 LIMIT %s
                 """,
-                (limit * 3,),
+                (max(120, limit * 3),),
             )
         rows = [row_to_player(tuple(row) + (None, None)) for row in cur.fetchall()]
         if context["mode"] != "LIVE":
@@ -301,53 +320,81 @@ def create_owner_operations_blueprint(
             for player_id in item.get("players") or []
             if player_id is not None and str(player_id)
         }
-        player_ids = {}
-        for row in rows:
-            normalized = name_normalizer(row["player"])
-            matches = [
-                str(player_id)
-                for player_id, raw in (catalog or {}).items()
-                if name_normalizer((raw or {}).get("full_name") or " ".join(
-                    part for part in ((raw or {}).get("first_name"), (raw or {}).get("last_name")) if part
-                )) == normalized
-            ]
-            if len(matches) == 1:
-                player_ids[normalized] = matches[0]
-        if not ownership_blocker and len(player_ids) < len(rows):
-            ownership_blocker = "WAIVER_CANDIDATE_ID_UNRESOLVED"
+        resolutions = [
+            resolve_waiver_candidate_identity(row, catalog, name_normalizer)
+            for row in rows
+        ]
+        ownership_freshness = waiver_ownership_freshness(
+            source_record_time=None,
+            retrieved_at=retrieved_at,
+            source="Sleeper API",
+        )
         ownership = waiver_evidence_contract(
             domain="waiver ownership",
             league_id=league_id,
             source="Sleeper API",
             source_record_time=None,
             retrieved_at=retrieved_at,
-            freshness_state="UNAVAILABLE",
+            age=ownership_freshness["age"],
+            freshness_threshold_id=ownership_freshness["freshness_threshold_id"],
+            freshness_state=ownership_freshness["freshness_state"],
             completeness_state="COMPLETE" if not ownership_blocker else "INCOMPLETE",
-            blocker=ownership_blocker,
+            blocker=ownership_blocker or ownership_freshness["blocker"],
             recommendation_impact="BLOCKED",
             expected_active_roster_count=coverage["expected_active_roster_count"],
             observed_active_roster_count=coverage["observed_active_roster_count"],
             unique_owned_player_ids=owned_ids,
             require_roster_coverage=True,
-            require_timestamps=True,
-        )
-        eligibility = waiver_evidence_contract(
-            domain="waiver eligibility",
-            league_id=league_id,
-            source="UNVERIFIED",
-            source_record_time=None,
-            retrieved_at=retrieved_at,
-            freshness_state="UNAVAILABLE",
-            completeness_state="INCOMPLETE",
-            blocker="WAIVER_ADD_ELIGIBILITY_CONTRACT_UNVERIFIED",
-            recommendation_impact="BLOCKED",
-            require_timestamps=True,
         )
         candidates = [
-            {**row, "player_id": player_ids.get(name_normalizer(row["player"]))}
-            for row in rows[:limit]
+            {
+                **row,
+                "player_id": resolution.get("resolved_player_id"),
+                "identity_resolution": resolution,
+            }
+            for row, resolution in zip(rows, resolutions)
         ]
-        return evaluate_waiver_availability(candidates, {**ownership, "owned_player_ids": owned_ids}, {**eligibility, "eligible_player_ids": set()})
+        supported_positions = {
+            str(position).upper().replace("DST", "DEF")
+            for position in (league or {}).get("roster_positions") or []
+            if str(position).upper().replace("DST", "DEF") in POSITIONS
+        }
+        availability = derived_waiver_availability(
+            league_id=league_id,
+            ownership={**ownership, "owned_player_ids": owned_ids},
+            supported_player_ids=(catalog or {}).keys(),
+            supported_positions=supported_positions,
+            candidates=candidates,
+            identity_diagnostics={
+                "total_source_candidates": len(candidates),
+                "directly_resolved_count": sum(
+                    item["resolution_method"] == "DIRECT_SLEEPER_ID" for item in resolutions
+                ),
+                "uniquely_canonical_resolved_count": sum(
+                    item["resolution_method"] == "UNIQUE_CANONICAL_MATCH" for item in resolutions
+                ),
+                "unresolved_count": sum(item["resolution_state"] == "UNRESOLVED" for item in resolutions),
+                "ambiguous_count": sum(item["resolution_state"] == "AMBIGUOUS" for item in resolutions),
+                "conflicting_count": sum(item["resolution_state"] == "CONFLICTING" for item in resolutions),
+                "unsupported_count": sum(item["resolution_state"] == "UNSUPPORTED" for item in resolutions),
+            },
+        )
+        result = evaluate_waiver_availability(
+            candidates,
+            {**ownership, "owned_player_ids": owned_ids},
+            availability,
+        )
+        result["candidates"] = result["candidates"][:limit]
+        availability["identity_diagnostics"].update(
+            rostered_exclusion_count=sum(
+                item.get("resolved_player_id") in owned_ids
+                for item in resolutions
+                if item.get("resolved_player_id")
+            ),
+            verified_unrostered_count=len(result["candidates"]),
+            published_count=len(result["candidates"]),
+        )
+        return result
 
     def waiver_pool(cur, context, roster, limit=40):
         return waiver_pool_with_evidence(cur, context, roster, limit)["candidates"]
@@ -465,6 +512,12 @@ def create_owner_operations_blueprint(
     def trades_page():
         conn = get_db_connection(); cur = conn.cursor()
         try:
+            scenario=(current_app.config.get("TRADE_SCENARIO") or request.args.get("trade_scenario")) if current_app.testing else None
+            if scenario:
+                from services.trade_scenarios import build_trade_scenario
+                trade_intelligence=build_trade_scenario(scenario)
+                trade_target_center=build_trade_target_center(trade_intelligence)
+                return render_template("trades.html",title="Trade Target Center",context={"mode":"SCENARIO"},meta={"team_name":"Controlled Team"},teams=[trade_intelligence["partner"]],target_slot=trade_intelligence["partner"].get("slot"),trade_intelligence=trade_intelligence,trade_target_center=trade_target_center)
             context, roster, meta = current_roster(cur)
             teams=[]; target_roster=[]; partner={}
             target_slot=request.args.get("team",type=int)
@@ -475,6 +528,7 @@ def create_owner_operations_blueprint(
             else:
                 league_id=current_app.config.get("SLEEPER_LEAGUE_ID","")
                 users=get_users(league_id) or [];sleep_rosters=get_rosters(league_id) or [];catalog=get_all_players() or {}
+                sleeper_retrieved_at=datetime.now(timezone.utc).isoformat()
                 users_by_id={str(u.get("user_id")):u for u in users};owner_ids={str(u.get("user_id")) for u in users if u.get("is_owner") is True}
                 for item in sleep_rosters:
                     rid=int(item.get("roster_id") or 0);oid=str(item.get("owner_id") or "")
@@ -486,11 +540,22 @@ def create_owner_operations_blueprint(
                         for pid in item.get("players") or []:
                             data=catalog.get(str(pid),{}) or {};full=data.get("full_name") or " ".join(x for x in (data.get("first_name"),data.get("last_name")) if x)
                             if not full:continue
-                            cur.execute("SELECT player_name,UPPER(position),nfl_team,ranking,projected_points,tier,adp,bye_week,injury_status FROM players WHERE REGEXP_REPLACE(LOWER(player_name),'[^a-z0-9]','','g')=%s LIMIT 1",(normalize_player_name(full),))
+                            cur.execute("SELECT player_name,UPPER(position),nfl_team,ranking,projected_points,tier,adp,bye_week,injury_status,projection_retrieved_at,id FROM players WHERE REGEXP_REPLACE(REGEXP_REPLACE(LOWER(player_name),'[^a-z0-9]','','g'),'(jr|sr|ii|iii|iv|il|ill)$','','g')=%s LIMIT 1",(normalize_player_name(full),))
                             row=cur.fetchone()
-                            raw.append(row_to_player(tuple(row)+(None,None)) if row else {"player":full,"position":str(data.get("position") or "NA").upper().replace("DST","DEF"),"nfl_team":data.get("team") or "FA","rank":None,"projection":None,"tier":None,"adp":None,"bye_week":None,"injury_status":"Unknown","pick_no":None,"round":None})
+                            player=row_to_player(row,row[9] if len(row)>9 else None,row[10] if len(row)>10 else None) if row else {"player":full,"position":str(data.get("position") or "NA").upper().replace("DST","DEF"),"nfl_team":data.get("team") or "FA","rank":None,"projection":None,"tier":None,"adp":None,"bye_week":None,"injury_status":"Unknown","pick_no":None,"round":None,"projection_retrieved_at":None,"local_player_id":None}
+                            player["source_player_id"]=str(pid);player["normalized_name"]=normalize_player_name(full);player["identity_match_method"]="UNIQUE_NORMALIZED_NAME" if row else "LOCAL_PLAYER_UNAVAILABLE";player["identity_state"]="RESOLVED" if row else "UNRESOLVED"
+                            player["roster_updated_at"]=sleeper_retrieved_at;player["roster_source"]="Sleeper API"
+                            status=data.get("injury_status") or data.get("status")
+                            player["injury_source"]="Sleeper API";player["health_status_available"]=bool(status)
+                            if status:
+                                player["injury_status"]=status;player["health_fetched_at"]=sleeper_retrieved_at;player["injury_updated_at"]=sleeper_retrieved_at
+                            raw.append(player)
                         target_roster=enrich_players(cur,raw,current_week(cur))
-            trade_intelligence=build_trade_intelligence(roster,target_roster,partner)
+            trade_intelligence=build_trade_intelligence(
+                roster,
+                target_roster,
+                partner,
+            )
             trade_target_center=build_trade_target_center(trade_intelligence)
         finally:
             cur.close();conn.close()

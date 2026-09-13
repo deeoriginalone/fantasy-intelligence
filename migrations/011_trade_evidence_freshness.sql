@@ -1,0 +1,9 @@
+BEGIN;
+
+ALTER TABLE defense_matchups
+  ADD COLUMN IF NOT EXISTS retrieved_at TIMESTAMPTZ;
+
+ALTER TABLE players
+  ADD COLUMN IF NOT EXISTS projection_retrieved_at TIMESTAMPTZ;
+
+COMMIT;

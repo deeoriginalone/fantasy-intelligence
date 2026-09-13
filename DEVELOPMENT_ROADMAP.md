@@ -3,7 +3,7 @@
 ####### Last recorded repository checkpoint
 - Date: 2026-09-13
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 3acdca498633eb19dba014e4476a43863b8441a2
+- HEAD: 8f9dec3821fe48fed62da1a5c13a364f38f321cd
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -27,8 +27,8 @@ The branch, HEAD, and working-tree state must be reverified from the repository 
 - UX.1 Dashboard Modernization and Truth Audit remains complete at its verified focused-test and rendered active-route boundary.
 - UX.2 has a validated implementation foundation for league settings, Full-PPR Team Needs, Team Health, Team Accuracy, unavailable matchup presentation, and recommendation blockers.
 - A hands-on rendered-page review identified unresolved UX.2 product-completion work.
-- UX.2.1 passed the All-Season Usability Gate; UX.3 is next and was not implemented in this session.
-- UX.4 through UX.7 remain pending their formal definition-of-done reviews.
+- UX.2.1 passed the All-Season Usability Gate; UX.3 is validated at its supported, read-only waiver-publication boundary.
+- UX.4.1 through UX.4.12 are validated at focused implementation, controlled-browser, and live all-partner dropdown boundaries; UX.5 through UX.7 remain pending their formal definition-of-done reviews.
 
 ####### Completed milestone: UX.1 Dashboard Modernization and Truth Audit
 - Shared season and league-status facts are wired through Dashboard, My Team, and Weekly Command Center route contracts.
@@ -132,28 +132,40 @@ Presentation and active-route proof:
 
 ####### UX.3: Waiver Correctness and Availability Validation
 
-**Status: PARTIALLY IMPLEMENTED AT VERIFIED FAIL-CLOSED BOUNDARY.**
+**Status: VALIDATED AT THE SUPPORTED, READ-ONLY PUBLICATION BOUNDARY.**
 
-Verified:
-- Shared ownership and eligibility evidence blocks unsupported publication.
-- Stable player IDs control rostered-player exclusion.
-- Missing or incomplete roster coverage, timestamps, freshness thresholds, and eligibility evidence block recommendations; roster coverage now reports configured expected count, observed count, unique IDs, missing IDs, and duplicates.
-- `/waivers` and `/gm` share the same blocked availability decision and manager-facing source, freshness, and blocker presentation.
-- Focused waiver validation passes 45 tests; Python compilation and whitespace validation pass.
+Validated:
+- Stable Sleeper player IDs control rostered-player exclusion and publication identity.
+- Current Sleeper roster ownership is FRESH from successful `retrieved_at` under `integrity.roster.v1`; provider source-record time is unavailable and remains distinct from retrieval time.
+- Configured roster coverage, unique roster IDs, missing IDs, and duplicate diagnostics fail closed when incomplete or contradictory.
+- Availability is transparently derived from the supported player pool minus active-league rostered IDs, not from transaction history or a provider-declared addability field.
+- `/waivers` and `/gm` share the evaluated source set and evidence; `/waivers` publishes nine stable IDs and `/gm` publishes the five-candidate prefix, with no published rostered ID.
+- The focused UX.3 suite passes 78 tests; Python compilation, whitespace checks, and rendered supported-state verification pass.
+- UXQA-001 is VALIDATED, not CLOSED.
 
-Not verified:
-- Live success-path publication.
-- Waiver ownership or eligibility freshness thresholds.
-- Independent add-eligibility proof.
-- Candidate-level role, duration, fit, confidence, risk, drop, and evidence-backed FAAB precision.
-- Browser-rendered waiver acceptance.
-- UXQA-001 validation or closure.
+Remaining enhancements:
+- Candidate-level role, opportunity duration, roster fit, confidence, risk, suggested drop, and evidence-backed FAAB sophistication.
+- Formal browser validation and separate UX.3 enhancement review.
+- Commit review, canonical synchronization, and continuity validation required before defect closure.
 
-The implementation correctly fails closed rather than publishing unsupported candidates.
+####### UX.4: Trade Center Integrity and Freshness Provenance
 
-####### UX.4: Shared Integrity Expansion
+**Status: UX.4.1-UX.4.12 VALIDATED AT FOCUSED WRITER, ENRICHMENT, INTEGRITY, TEMPLATE, CONTROLLED-BROWSER, AND LIVE NINE-PARTNER DROPDOWN BOUNDARY.**
 
-**Status: PARTIAL PRESENTATION FOUNDATION PRESERVED; FORMAL COMPLETION REVIEW PENDING.**
+- Shared Trade Center integrity gates package publication from owner and partner roster evidence.
+- Roster and injury retrieval provenance comes from successful Sleeper retrieval. Matchup and projection provenance carries writer-owned source and retrieval-time fields through enrichment.
+- `migrations/011_trade_evidence_freshness.sql` is applied to PostgreSQL and defines `defense_matchups.retrieved_at` and `players.projection_retrieved_at`.
+- Successful matchup and projection imports record their retrieval timestamps; failed imports roll back and route reads do not mutate source freshness.
+- READY requires complete FRESH evidence across roster, injury, matchup, and projection domains. AGING is DEGRADED. Stale, expired, unknown, unavailable, incomplete, or contradictory evidence is BLOCKED with domain-specific reasons.
+- Trade recommendations remain read-only. Action-first presentation precedes collapsed integrity, freshness, provenance, lineage, completeness, and blocker diagnostics.
+- Source imports populated required timestamps and canonical alias/suffix normalization completed supported partner coverage. The local `/trades` route is HTTP 200 and the live selector verified all nine opponents as READY.
+- Test-only, `TESTING=True` scenarios render READY, READY-empty, DEGRADED, BLOCKED, unsupported partner fit, and identity ambiguity through the actual template at desktop and 390px. Unknown scenarios fail closed and scenarios perform no external or database writes.
+- One-for-one and two-for-one alternatives are manager-visible. Acceptance-like verdicts were removed; partner fit, modeled value, and feasibility-unavailable are distinct. Integrity, identity lineage, ranking comparison, and metric definitions are collapsed.
+- Focused validation passed 90 tests, compilation passed, and both whitespace checks passed.
+
+Remaining closure controls:
+- Canonical continuity validation and narrow exact-path commit review.
+- Do not claim transaction acceptance, negotiation, rest-of-season impact, production readiness, or defect closure.
 
 ####### UX.5: Lineup Explainability and Bench Redesign
 
@@ -189,4 +201,4 @@ The following systems remain planned and deferred, not abandoned:
 
 ## Next milestone
 
-**Continue UX.3 Waiver Correctness and Availability Validation by establishing verified ownership freshness, independent add-eligibility evidence, and controlled successful publication proof.**
+**Finalize UX.4 canonical continuity validation and narrow commit-readiness review.**

@@ -6,12 +6,12 @@ Fantasy Intelligence has completed the Shared Integrity and Data Integrity track
 
 UX.2 My Team Accuracy, Explainability, and League-Settings Validation is validated at the focused and controlled active-route boundary. The route, contracts, recommendation evidence, health targeting, priority action, and collapsed lineage are preserved.
 
-UX.2.1C is owner-accepted as of 2026-09-13 (`APPROVED: MY TEAM UI`). UX.3 is partially implemented at a verified fail-closed boundary; UX.4 through UX.7 remain pending.
+UX.2.1C is owner-accepted as of 2026-09-13 (`APPROVED: MY TEAM UI`). UX.3 is validated at a supported, read-only waiver-publication boundary. UX.4.1 through UX.4.12 are validated at focused, controlled-browser, and live nine-partner dropdown boundaries; UX.5 through UX.7 remain pending.
 
 ####### Last recorded repository checkpoint
 - Date: 2026-09-13
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 3acdca498633eb19dba014e4476a43863b8441a2
+- HEAD: 8f9dec3821fe48fed62da1a5c13a364f38f321cd
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -66,15 +66,21 @@ The revised UX.2 product-completion criteria are validated at the focused, contr
 - Keep generated evidence, backups, exports, archives, and implementation changes in separate commit scopes.
 
 ####### Known boundaries
-- UX.3 blocks unsupported waiver publication through shared ownership and eligibility evidence. Stable player IDs, league-configured roster coverage diagnostics, timestamp requirements, freshness-threshold blockers, and manager-facing blocked states are implemented.
-- The current focused UX.3 waiver suite passes 45 tests, compilation passes, and working-tree whitespace checks pass.
-- Flask test-client checks for `/waivers` and `/gm` return HTTP 200 with zero published candidates when ownership or eligibility evidence is unsupported.
-- No verified ownership or eligibility threshold, independent add-eligibility contract, or complete active-route timestamp propagation exists. The active league's configured roster count is available as an explicit completeness input.
-- UX.3 completion and UXQA-001 validation or closure are not claimed.
+- UX.3 publishes only candidates with stable Sleeper IDs that are absent from complete, fresh current league rosters and belong to the supported player pool. Availability is application-derived, not provider-declared addability.
+- Ownership freshness is calculated from successful `retrieved_at` using `integrity.roster.v1`; source-record time remains unavailable when Sleeper does not supply it.
+- The focused UX.3 suite passes 78 tests; compilation and working-tree/staged whitespace checks pass.
+- Active `/waivers` and `/gm` checks return HTTP 200 with shared FRESH/COMPLETE ownership and DERIVED/FRESH/COMPLETE availability. `/waivers` publishes nine stable IDs, `/gm` publishes its five-candidate prefix, and neither set intersects rostered IDs.
+- Rendered supported state exposes source, freshness, completeness, derived authority, unavailable optional values, and collapsed identity diagnostics. Unsupported or degraded inputs remain fail-closed.
+- UXQA-001 is VALIDATED, not CLOSED. Commit review and canonical/continuity validation remain required for closure.
+- UX.4 shared integrity receives owner/partner roster and injury retrieval provenance plus writer-owned matchup/projection retrieval provenance. It publishes only with complete FRESH evidence, degrades for AGING, and blocks stale, expired, unknown, incomplete, or contradictory domains.
+- PostgreSQL applies the UX.4.4 timestamp schema: `defense_matchups.retrieved_at` and `players.projection_retrieved_at`. Successful source import mutations own timestamps; failed imports roll back and route reads remain read-only.
+- Current live dropdown coverage is complete for all nine audited partner populations. Team alias normalization and deterministic suffix-aware local joins repaired supported source matches; unsupported/ambiguous test scenarios remain explicitly blocked.
+- UX.4.10 scenarios verify READY, READY-empty, DEGRADED, BLOCKED, unsupported partner fit, and identity ambiguity in browser at desktop and 390px. UX.4.12 verifies the normal live server and all nine dropdown selections with current feasibility and package presentation.
+- Focused UX.4 validation passed 90 tests; compile and whitespace validation passed. No transaction feasibility, acceptance, negotiation, rest-of-season impact, production readiness, or closure claim is made.
 - Focused UX.2 validation passed with 85 tests, the controlled active-route matrix passed with 11 tests, and the related suite passed with 133 tests.
 - Live `/team` verification covers the currently served unavailable-health state; alternate states are validated through the controlled active-route matrix.
 - Defects are validated but not marked CLOSED because no commit boundary has been reviewed.
-- UX.2.1 passed isolated browser validation for all required states at desktop and 390px mobile widths; UX.3 is unimplemented in this session.
+- UX.2.1 passed isolated browser validation for all required states at desktop and 390px mobile widths.
 - UX.2.1B related validation passes 147 tests; fresh desktop and 390px route inspection passed with no clipped cards or primary overflow.
 - Complete, healthy, multiple-monitor, no-urgent, unavailable, stale, blocked, bench-unavailable, and missing-league browser captures passed without primary overflow or clipped cards.
 - PostgreSQL 1000-event/10-replay parity verification remains outstanding.
@@ -84,4 +90,4 @@ The revised UX.2 product-completion criteria are validated at the focused, contr
 
 ## Next milestone
 
-**Continue UX.3 Waiver Correctness and Availability Validation by establishing verified ownership freshness, independent add-eligibility evidence, and controlled successful publication proof.**
+**Finalize UX.4 canonical continuity validation and narrow commit-readiness review.**

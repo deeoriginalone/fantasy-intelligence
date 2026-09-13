@@ -12,6 +12,13 @@ PROJECTION_FILE = ROOT / "data/master_player_projections.csv"
 ADP_FILE = ROOT / "data/reference/FantasyPros_2026_Overall_ADP_Rankings.csv"
 VBD_FILE = ROOT / "data/top150_vbd.csv"
 
+TEAM_ALIASES = {"JAC": "JAX", "JAX": "JAX"}
+
+
+def normalize_team(value):
+    team = str(value or "").strip().upper()
+    return TEAM_ALIASES.get(team, team)
+
 
 def normalize_name(value):
     value = unicodedata.normalize("NFKD", str(value or ""))
@@ -60,7 +67,7 @@ def load_projection_rows():
             name = str(row.get("Player") or "").strip()
             projection = to_float(row.get("Projected_FPTS"))
             position = str(row.get("Position") or "").strip().upper()
-            team = str(row.get("Team") or "").strip().upper()
+            team = normalize_team(row.get("Team"))
 
             if name and projection is not None:
                 rows.append(
@@ -210,6 +217,7 @@ def main():
                     """
                     UPDATE players
                     SET projected_points = %s,
+                        projection_retrieved_at = NOW(),
                         updated_at = NOW()
                     WHERE id = %s
                     """,

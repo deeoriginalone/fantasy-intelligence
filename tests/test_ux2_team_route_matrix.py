@@ -65,7 +65,7 @@ def health_payload(state="AVAILABLE", freshness="FRESH", blocker=None, last_veri
     }
 
 
-def make_app(monkeypatch, health, weekly_score=None, league_available=True, unknown_player=None, unknown_players=None, authoritative_matchup=False, no_needs=False):
+def make_app(monkeypatch, health, weekly_score=None, league_available=True, unknown_player=None, unknown_players=None, authoritative_matchup=False, no_needs=False, trade_partner=False, trade_enrichment=None, trade_scenario=None):
     unknown_players = set(unknown_players or ())
     names = [f"P{index}" for index in range(len(POSITIONS))]
     players = {}
@@ -76,6 +76,9 @@ def make_app(monkeypatch, health, weekly_score=None, league_available=True, unkn
         rows[name.lower().replace(" ", "")] = (
             name, position, "T", 20, 12.0, 2, 50.0, 8, status,
         )
+    if trade_partner:
+        players["partner"] = {"full_name": "Partner", "position": "WR", "team": "T", "injury_status": "Healthy"}
+        rows["partner"] = ("Partner", "WR", "T", 20, 12.0, 2, 50.0, 8, "Healthy")
 
     def current_roster_rows(roster):
         output = []
@@ -102,7 +105,7 @@ def make_app(monkeypatch, health, weekly_score=None, league_available=True, unkn
             output.append(row)
         return output, [], sum((weekly_score or 0) for _ in output), []
 
-    monkeypatch.setattr(owner_operations, "enrich_players", lambda cur, roster, week, **kwargs: roster)
+    monkeypatch.setattr(owner_operations, "enrich_players", trade_enrichment or (lambda cur, roster, week, **kwargs: roster))
     monkeypatch.setattr(owner_operations, "current_week", lambda cur: 1)
     monkeypatch.setattr(owner_operations, "optimize_lineup", current_roster_rows)
     monkeypatch.setattr(owner_operations, "team_health_contract", lambda *args, **kwargs: health)
@@ -118,16 +121,17 @@ def make_app(monkeypatch, health, weekly_score=None, league_available=True, unkn
     blueprint = create_owner_operations_blueprint(
         lambda: connection,
         lambda league_id: league,
-        lambda league_id: [{"user_id": "owner", "is_owner": True}],
-        lambda league_id: [{"owner_id": "owner", "players": list(players)}],
+        lambda league_id: [{"user_id": "owner", "is_owner": True}, *([{"user_id": "partner", "display_name": "Partner"}] if trade_partner else [])],
+        lambda league_id: [{"owner_id": "owner", "players": [key for key in players if key != "partner"]}, *([{"owner_id": "partner", "roster_id": 2, "players": ["partner"]}] if trade_partner else [])],
         lambda: players,
         lambda value: str(value).lower().replace(" ", ""),
     )
     app = Flask(__name__, root_path=str(Path(__file__).resolve().parents[1]), template_folder="templates")
-    app.config.update(TESTING=True, SLEEPER_LEAGUE_ID="controlled")
+    app.config.update(TESTING=True, SLEEPER_LEAGUE_ID="controlled", TRADE_SCENARIO=trade_scenario)
     app.register_blueprint(blueprint)
     app.jinja_env.globals["url_for"] = lambda *args, **kwargs: "/"
     app.jinja_env.globals["ux_roster_lineage"] = lambda roster: []
+    app.jinja_env.globals["ux_route_evidence"] = lambda *args: {"fields": {}}
     return app
 
 
@@ -213,3 +217,37 @@ def test_no_urgent_risk_state_uses_calm_action(monkeypatch):
     html = response.get_data(as_text=True)
     assert "Review lineup before lock" in html
     assert "No material supported risks identified." in html
+
+
+def test_trades_route_renders_blocked_integrity_when_partner_is_unavailable(monkeypatch):
+    response = make_app(monkeypatch, health_payload()).test_client().get("/trades?team=2")
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "Trade Center Integrity" in html
+    assert "READY</small><h3>NO" in html
+    assert "PARTNER_ROSTER_EMPTY" in html
+    assert "MATCHUP_FRESHNESS_UNKNOWN" in html
+    assert "<details class=\"trade-integrity\">" in html
+
+
+def test_trades_route_publishes_packages_with_fresh_source_timestamps(monkeypatch):
+    timestamp = "2999-01-01T00:00:00+00:00"
+    def enrich_with_fresh_evidence(cur, roster, week, **kwargs):
+        return [{**player, "weekly_baseline": 10.0, "weekly_score": 10.0, "opponent": "SF", "matchup_rank": 10, "matchup_modifier": 0.0, "is_bye": False, "evidence_gaps": [], "matchup_source": "Controlled matchup", "matchup_retrieved_at": timestamp, "projection_source": "Controlled projection", "projection_retrieved_at": timestamp} for player in roster]
+    response = make_app(monkeypatch, health_payload(), trade_partner=True, trade_enrichment=enrich_with_fresh_evidence).test_client().get("/trades?team=2")
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "READY</small><h3>YES" in html
+    assert "Trade Recommendation" in html
+    assert "Controlled matchup" in html
+    assert "Controlled projection" in html
+
+
+@pytest.mark.parametrize("scenario,expected", [("ready", "Review Partner"), ("ready_empty", "READY: No evidence-supported trade package qualifies."), ("degraded", "RISK IMPACT"), ("blocked", "BLOCKED: Trade recommendations are unavailable."), ("identity_ambiguity", "TRADE_IDENTITY_AMBIGUOUS")])
+def test_trade_scenarios_render_through_testing_only_route(monkeypatch, scenario, expected):
+    response = make_app(monkeypatch, health_payload(), trade_scenario=scenario).test_client().get(f"/trades?trade_scenario={scenario}")
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert expected in html
+    assert "<details class=\"trade-integrity\">" in html
+    assert "<details class=\"trade-identity\">" in html
