@@ -51,6 +51,18 @@ def week_selection(pool_key,season,week):
     except Exception as e:
         raise SurvivorHistoryReadError(str(e)) from e
     finally:conn.close()
+
+def delete_selection(pool_key,season,week,team):
+    """Remove a recorded pick so the week reopens for a fresh recommendation. Requires the exact team to avoid deleting the wrong week's fact by mistake."""
+    conn=connect()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('DELETE FROM survivor_selections WHERE pool_key=%s AND season=%s AND week=%s AND team=%s',(pool_key,season,week,team))
+            deleted=cur.rowcount
+        conn.commit()
+        return deleted
+    except Exception:conn.rollback();raise
+    finally:conn.close()
 def used_teams(pool_key,season):
     try:
         conn=connect()

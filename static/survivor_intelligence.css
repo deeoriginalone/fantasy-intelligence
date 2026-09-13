@@ -18,3 +18,6 @@
 .sv-rankings summary,.sv-metrics summary,.sv-lineage summary{cursor:pointer;font-weight:800;padding:8px 0}
 @media(max-width:900px){.sv header,.sv-grid{display:grid}.sv-grid{grid-template-columns:1fr}.history{grid-template-columns:1fr}.sv-alternatives,.sv-risks,.sv-save-later{grid-template-columns:1fr}}
 @media(max-width:420px){.sv{padding:14px}.sv-hero,.sv-primary-card,.sv-state{padding:12px}}
+.sv-reset-btn{background:#fff;color:#991b1b;border:1px solid #991b1b}
+.sv-manual-pick{margin:16px 0;padding:18px;border-radius:12px;background:#fff;border:1px dashed #cbd5e1}
+.sv-manual-pick form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
