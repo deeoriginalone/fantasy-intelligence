@@ -50,6 +50,30 @@ def test_invalid_csrf_is_rejected_for_form_posts():
     assert resp.status_code in {401, 403}
 
 
+def test_market_refresh_endpoint_requires_auth():
+    client = app.test_client()
+    resp = client.post("/api/market-intelligence/refresh", json={"season": 2026, "week": 1, "dry_run": True})
+    assert resp.status_code == 401
+
+
+def test_market_refresh_endpoint_accepts_valid_session_csrf(monkeypatch):
+    import market_routes
+
+    monkeypatch.setattr(market_routes, "run", lambda season, week, strategy, dry_run: {"status": "dry-run", "season": season, "week": week})
+
+    client = app.test_client()
+    with client.session_transaction() as sess:
+        sess["csrf_token"] = "session-token"
+
+    resp = client.post(
+        "/api/market-intelligence/refresh",
+        json={"season": 2026, "week": 1, "dry_run": True},
+        headers={"X-CSRF-Token": "session-token"},
+    )
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "dry-run"
+
+
 def test_duplicate_games_are_rejected():
     game = PickemGame(
         game_id="g1",
