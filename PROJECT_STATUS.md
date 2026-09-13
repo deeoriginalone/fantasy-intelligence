@@ -110,6 +110,15 @@ The last recorded repository state contained extensive unrelated changes, genera
 - Focused survivor + security tests: 84 passed, 1 xfailed (up from 68 earlier this session).
 - UX.8 is not yet formally complete; remaining boundary work is tracked under the Next milestone below.
 
+####### UX.9 My Team + Weekly Lineup Consolidation (complete at verified boundary)
+
+- `/lineup` is retired as a rendered page and now returns HTTP 302 to `/team#lineup`; verified live and by test, preserving existing bookmarks.
+- `/team` is now the single roster command center: hero (verdict/action/projected score/confidence/biggest risk) → Next Best Team Action → Lineup Snapshot → Recommended Starting Lineup (formation, now also carrying the authoritative START/SIT/FLEX/MONITOR call and a bench-swap flag per slot) → Bench Priority → Biggest Risks → Team Needs → Roster Outlook → What Changed This Week → Why This Lineup Is Trusted → collapsed diagnostics.
+- Removed duplicate surfaces: the old plain hero, the separate “Recommended Starters” section, “Bench Plan”, the separate “Start/Sit Decisions” card grid, and Lineup's own risk/diagnostics blocks.
+- No recommendation engine, lineup scoring, Team Needs, Team Health, Team Accuracy, waiver, trade, survivor, or database logic was changed; only route wiring and template presentation.
+- Focused team/lineup route-contract tests: 20 passed (5 pre-existing, unrelated `/trades` failures unchanged).
+- Completion check answered: no functionality on `/lineup` still justifies a separate page.
+
 ## Next milestone
 
 **Complete UX.8 Survivor Intelligence Strategy and All-Season Redesign at the verified read-only active-route boundary.**
