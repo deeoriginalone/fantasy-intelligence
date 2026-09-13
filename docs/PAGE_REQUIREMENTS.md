@@ -9,6 +9,10 @@
 - Put recommended action and fantasy impact before technical diagnostics.
 - Preserve read-only decision support.
 
+## All-Season Page Quality Standard
+
+Each page must earn advancement independently. Technical tests are necessary but insufficient: the current page must also be trustworthy, action-oriented, explainable, useful in unavailable or degraded states, readable on desktop and mobile, and valuable during normal weekly use before work moves to another page.
+
 ## Fantasy Intelligence Dashboard
 
 ### Must show

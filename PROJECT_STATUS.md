@@ -1,51 +1,86 @@
-##### Project Status
+###### Project Status
 
-###### Current verdict
-The verified Data Integrity track remains complete through A.10. The post-A.10 UX correctness track has completed UX.1 Dashboard Modernization and Truth Audit and UX.2 My Team Accuracy and League-Settings Validation at their verified focused-test and rendered active-route boundaries. UX.3 through UX.7 remain pending formal definition-of-done review.
+####### Current verdict
 
-###### Current checkpoint
+The verified Data Integrity track remains complete through A.10. UX.1 Dashboard Modernization and Truth Audit remains complete at its recorded focused-test and rendered active-route boundary.
+
+UX.2 My Team Accuracy, Explainability, and League-Settings Validation is validated at its focused and controlled active-route boundary. The active `/team` route now supplies a deterministic priority action, expected fantasy impact, visible recommendation evidence, fail-closed health freshness, and collapsed technical lineage.
+
+UX.2.1C is owner-accepted after visual hierarchy, contradiction, disclosure, health-source, and matchup-applicability repairs. Acceptance recorded 2026-09-13 as `APPROVED: MY TEAM UI`; UX.3 is the next milestone.
+
+####### Last recorded repository checkpoint
 - Date: 2026-09-12
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 0733fc1b64d6a9da6ccf197f272d51d0136d2d91
+- HEAD: 6458cb0f3aa5b88e5559c6c996be8c18f9f3b630
 - Repository: /home/deeoriginalone/fantasy-intelligence
 - League ID: 1398094330668797952
 - Completed real draft ID: 1398094331272794112
 
-###### Verified UX implementation boundary
-- Dashboard truth-state, freshness, Pacific-time draft presentation, and cross-page agreement evidence are implemented and validated for UX.1.
+The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
+
+####### Preserved verified UX.2 foundation
 - The active `/team` route supplies league settings, team needs, team health, and team accuracy to the My Team template.
 - Full-PPR team-needs coverage includes QB, RB, WR, TE, FLEX, K, and DEF.
-- Health and matchup evidence fail closed through explicit unavailable states and recommendation blockers.
-- Matchup rank is visually distinguished as `Unavailable` when no supported value exists.
+- Unsupported health and matchup evidence can be represented through explicit unavailable states and recommendation blockers.
+- Matchup rank can be visually distinguished as unavailable when no supported value exists.
 - Read-only decision support remains in effect; no automatic fantasy transaction submission is authorized.
 
-###### Validation recorded through 2026-09-12
+####### Historical validation evidence for the preserved foundation
 - UX.1-UX.7 reconciliation validation: 29 passed in 0.47 seconds.
 - UX.1 completion validation: 17 passed in 0.77 seconds.
 - Team Health template and route validation: 14 passed in 0.38 seconds.
 - UX.2 focused validation: 35 passed in 0.47 seconds.
-- Python compile validation for the UX.2 modules and health test modules: passed.
-- `git diff --check`: passed.
-- `git diff --cached --check`: passed.
+- Python compile validation for the previously changed UX.2 modules and health-test modules: passed.
+- Working-tree and staged whitespace validation: passed.
 - Rendered Dashboard active-route evidence: recorded.
-- Rendered My Team active-route evidence: recorded.
+- Rendered My Team active-route evidence: recorded for the earlier UX.2 foundation.
 - Notebook bundle validation: PASS.
 - Canonical synchronization: PASS.
-- Branch synchronized: YES.
-- HEAD synchronized: YES.
-- Next milestone consistent: YES.
 
-###### Current completion boundary
-- UX.1 is complete at the verified focused-test and rendered active-route boundary.
-- UX.2 is complete at the verified focused-test and rendered active-route boundary. The completion evidence covers league-settings-derived Full-PPR team needs, health contract behavior, defensive template behavior, route payload wiring, Team Accuracy presentation, unavailable matchup handling, recommendation blockers, compile checks, Git whitespace checks, and continuity synchronization.
-- UX.2 is not yet recorded as committed. Final exact-scope staging and commit review remain outstanding.
-- UX.3 has active Waivers evidence-panel wiring, tested owned-player filtering, and fail-closed eligibility evidence. Full active-route ownership, eligibility, league-derived-needs, unsupported-metric, and rendered recommendation proof remains.
-- UX.4 through UX.7 remain at their previously recorded partial implementation boundaries.
-- No database or schema migration is attributed to UX.2.
+This historical evidence is supplemented by the current focused, controlled-route, related-suite, and fresh rendered-page evidence recorded below.
+
+####### UX.2 completeness-gate result
+- Unsupported Overall Grade and aggregate Weekly Starter Score authority are absent.
+- Supported weekly value, verified zero, and unavailable states are distinct.
+- Matchup Rank fails closed without population, directionality, source, and freshness evidence.
+- Shared Team Needs covers QB, RB, WR, TE, FLEX, K, and DEF without summary/detail contradiction.
+- Recommendation confidence, reasons, targeted blockers, health impact, priority action, and collapsed lineage pass validation.
+
+####### Current completion boundary
+- Focused UX.2 validation passed: 85 tests.
+- Controlled active `/team` state matrix passed: 11 tests covering supported metadata, missing metadata, AGING, STALE, UNAVAILABLE, BLOCKED, unknown player health, isolated uncertainty, weekly positive/zero/unavailable values, and missing league settings.
+- Related UX.2, health, integrity, matchup, and lineup validation passed: 133 tests.
+- Fresh live `/team` verification at `http://192.168.0.85:5051/team` returned HTTP 200 and visibly rendered the priority action, expected fantasy impact, recommendation evidence, explicit unavailable freshness/impact, and collapsed lineage in the required order.
+- UX.2 is validated for this read-only repository boundary; defect closure and commit review remain separate controls.
+- UX.1 remains complete at its recorded boundary.
+- The earlier UX.2 implementation foundation remains validated at its recorded focused-test and rendered-route boundary.
+- UX.2 is validated at the supported read-only boundary.
+- No external-write, production-readiness, or defect-closure claim is made.
+- UX.2.1 passed the All-Season Usability Gate with isolated browser captures for all required states at desktop and 390px mobile widths.
+- UX.2.1 hardening validation currently passes 143 related tests.
+- The simplified current render presents one action, a compact snapshot, grouped risks, concise Bench Plan, prioritized needs, and closed diagnostics; visible text is approximately 6,266 characters.
+- Fresh `/team` render on port 5054 passes desktop and 390px structural inspection with no primary-content horizontal overflow or clipped cards.
+- Complete, healthy, multiple-monitor, no-urgent, unavailable, stale, blocked, bench-unavailable, and missing-league browser captures passed without primary overflow or clipped cards.
+- No database or schema migration is attributed to this documentation update.
 - Production readiness, PostgreSQL parity completion, and full recovery proof are not claimed.
 
-###### Commit readiness
-The working tree contains extensive unrelated changes, generated evidence, backups, archives, and untracked files. Keep UX.2 implementation, canonical documentation, generated continuity artifacts, and cleanup work in separate narrow commit groups. Do not use `git add .` or `git add -A`.
+####### Validation required before UX.2 completion
+- Repository-reality reconciliation.
+- Focused metric, Team Needs, health, recommendation, route, and template tests.
+- Active `/team` rendered-page verification.
+- Python compile validation for changed Python files.
+- `git diff --check`.
+- `git diff --cached --check` when staged.
+- Exact changed-file and staged-file review.
+- Relevant defect-status review using the documented evidence levels.
+- Notebook bundle validation.
+- Canonical memory synchronization.
+- Narrow UX.2 commit review using exact file paths.
+
+####### Commit readiness
+
+The last recorded repository state contained extensive unrelated changes, generated evidence, backups, archives, and untracked files. Reinspect the current state and keep implementation, canonical documentation, generated continuity artifacts, and cleanup work in separate narrow commit groups. Do not use `git add .` or `git add -A`.
 
 ## Next milestone
-**Complete UX.3 Waiver Correctness and Availability Validation.**
+
+**Begin UX.3 Waiver Correctness and Availability Validation.**

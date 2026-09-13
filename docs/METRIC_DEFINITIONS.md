@@ -27,12 +27,17 @@ Required definition fields:
 - Decision use: Support START, SIT, FLEX, or MONITOR decisions.
 
 ## Matchup Rank
-
-- Status: DEFINITION REQUIRED BEFORE AUTHORITATIVE DISPLAY
-- Purpose: Describe opponent difficulty for the player's fantasy position and scoring context.
-- Required unit: Rank and population, percentile, or named tier.
-- Directionality: The page must state whether a lower rank is easier or harder.
-- Missing-data behavior: “Unavailable” must be visually distinct from a poor matchup.
+- Status: CONTRACT DEFINED; AUTHORITATIVE DISPLAY REQUIRES SUPPLIED POPULATION, DIRECTIONALITY, FRESHNESS, AND VALIDATION TESTS.
+- Name: Matchup Rank.
+- Purpose: Describe opponent difficulty for the player's fantasy position in the active scoring context.
+- Scale or unit: Ordinal rank expressed as rank N of a documented comparison population. The population must identify the compared opponents, player position, and scoring context.
+- Inputs: Supported opponent identity, player position, scoring context, matchup source, source timestamp, and source-provided rank or deterministic rank inputs.
+- Directionality: The supplying contract must state whether a lower rank is easier or harder. The UI must display that direction. No default is assumed.
+- Freshness requirement: Source, source timestamp or retrieved-at time, age, and freshness state are required.
+- Missing-data behavior: If rank, population, directionality, source, or freshness evidence is absent or stale, display “Unavailable” and reduce confidence or block only the affected matchup-sensitive recommendation.
+- Decision use: Provide context for START, SIT, FLEX, or MONITOR. Matchup Rank must not independently determine a decision.
+- Owner service or contract: Matchup evidence supplied through the UX.2 Team Accuracy contract.
+- Validation tests: Population and directionality contract tests, missing and stale evidence tests, template tests, route-payload tests, and active /team rendered-page verification.
 
 ## Roster Strength
 

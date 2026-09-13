@@ -27,6 +27,10 @@ Every season-management page should help answer at least one of these questions:
 - **One shared league truth:** Dashboard, My Team, Lineup, Waivers, Trades, and Weekly Command Center should use the same roster, league-settings, ownership, and team-needs contracts.
 - **Read-only decision support:** the application may recommend actions but must not submit external fantasy transactions automatically.
 
+## All-Season Page Quality Standard
+
+The product must make every season-management page a page the manager actually wants to use throughout the season. Development proceeds one page at a time and does not advance merely because technical acceptance tests pass. Before advancing, the current page must demonstrate trustworthy facts, clear actions, explainable recommendations, useful degraded states, readable desktop and mobile presentation, repeat-use weekly value, and an affirmative answer to: “Is this a page I actually want to use all season?” This supplements, and does not replace, evidence-first tests, active-route validation, and milestone definitions of done.
+
 ## Current product priority
 
 **UX-QA.1: Live Data Trust, Ownership Correctness, and Cross-Page Decision Clarity**
