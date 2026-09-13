@@ -9,7 +9,7 @@ from services.trade_intelligence import build_trade_intelligence
 from services.trade_target_center import build_trade_target_center
 from services.decision_ranking import build_action, build_decision_ranking
 from services.matchup_intelligence import build_matchup_intelligence
-from services.ux_evidence import evaluate_waiver_availability, shared_league_facts, waiver_evidence_contract
+from services.ux_evidence import evaluate_waiver_availability, shared_league_facts, waiver_evidence_contract, waiver_roster_coverage
 from services.team_needs import build_team_needs_summary, league_settings_contract, team_needs_contract
 from services.team_health import team_health_contract, apply_player_health_to_recommendations, health_freshness_from_report_date
 from services.ux2_team_accuracy import build_team_accuracy_contract
@@ -267,16 +267,20 @@ def create_owner_operations_blueprint(
                 waiver_evidence_contract(domain="waiver ownership", source="Season Sandbox", freshness_state="BLOCKED", completeness_state="UNKNOWN", blocker="WAIVER_LIVE_OWNERSHIP_REQUIRED"),
                 waiver_evidence_contract(domain="waiver eligibility", source="Season Sandbox", freshness_state="BLOCKED", completeness_state="UNKNOWN", blocker="WAIVER_LIVE_ELIGIBILITY_REQUIRED"),
             )
-        return _live_waiver_evidence(rows, current_app.config.get("SLEEPER_LEAGUE_ID", ""), get_rosters, get_all_players, normalize_player_name, limit)
+        return _live_waiver_evidence(rows, current_app.config.get("SLEEPER_LEAGUE_ID", ""), get_league, get_rosters, get_all_players, normalize_player_name, limit)
 
-    def _live_waiver_evidence(rows, league_id, roster_fetcher, catalog_fetcher, name_normalizer, limit=40):
+    def _live_waiver_evidence(rows, league_id, league_fetcher, roster_fetcher, catalog_fetcher, name_normalizer, limit=40):
         retrieved_at = datetime.now(timezone.utc).isoformat()
         try:
-            catalog = catalog_fetcher()
+            league = league_fetcher(league_id)
             all_rosters = roster_fetcher(league_id)
+            catalog = catalog_fetcher()
         except Exception:
+            league = None
             catalog = None
             all_rosters = None
+        expected_count = (league or {}).get("total_rosters") if isinstance(league, dict) else None
+        coverage = waiver_roster_coverage(all_rosters, expected_count)
         catalog_ok = isinstance(catalog, dict) and bool(catalog)
         rosters_ok = isinstance(all_rosters, list) and all(
             isinstance(item, dict) and isinstance(item.get("players"), list)
@@ -289,6 +293,8 @@ def create_owner_operations_blueprint(
             ownership_blocker = "WAIVER_PLAYER_CATALOG_UNAVAILABLE"
         elif not rosters_ok:
             ownership_blocker = "WAIVER_ROSTER_DATA_INCOMPLETE"
+        elif coverage["blockers"]:
+            ownership_blocker = coverage["blockers"][0]
         owned_ids = {
             str(player_id)
             for item in all_rosters or []
@@ -319,8 +325,8 @@ def create_owner_operations_blueprint(
             completeness_state="COMPLETE" if not ownership_blocker else "INCOMPLETE",
             blocker=ownership_blocker,
             recommendation_impact="BLOCKED",
-            expected_active_roster_count=None,
-            observed_active_roster_count=len(all_rosters) if isinstance(all_rosters, list) else None,
+            expected_active_roster_count=coverage["expected_active_roster_count"],
+            observed_active_roster_count=coverage["observed_active_roster_count"],
             unique_owned_player_ids=owned_ids,
             require_roster_coverage=True,
             require_timestamps=True,
@@ -328,12 +334,12 @@ def create_owner_operations_blueprint(
         eligibility = waiver_evidence_contract(
             domain="waiver eligibility",
             league_id=league_id,
-            source="local player catalog position allowlist",
+            source="UNVERIFIED",
             source_record_time=None,
             retrieved_at=retrieved_at,
             freshness_state="UNAVAILABLE",
             completeness_state="INCOMPLETE",
-            blocker="WAIVER_ELIGIBILITY_FRESHNESS_UNVERIFIED",
+            blocker="WAIVER_ADD_ELIGIBILITY_CONTRACT_UNVERIFIED",
             recommendation_impact="BLOCKED",
             require_timestamps=True,
         )

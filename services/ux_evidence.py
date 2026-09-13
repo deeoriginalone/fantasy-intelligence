@@ -146,6 +146,36 @@ def route_payload_evidence(page, count=None, blockers=None):
 WAIVER_FRESHNESS_STATES = ("FRESH", "AGING", "STALE", "UNAVAILABLE", "BLOCKED")
 
 
+def waiver_roster_coverage(rosters, expected_count=None):
+    """Validate active-roster coverage without treating a list as complete."""
+    rows = list(rosters) if isinstance(rosters, list) else []
+    roster_ids = [row.get("roster_id") for row in rows if isinstance(row, dict)]
+    missing_ids = [index for index, roster_id in enumerate(roster_ids) if roster_id in (None, "")]
+    normalized_ids = [str(roster_id) for roster_id in roster_ids if roster_id not in (None, "")]
+    duplicate_ids = sorted({roster_id for roster_id in normalized_ids if normalized_ids.count(roster_id) > 1})
+    blockers = []
+    if not isinstance(rosters, list):
+        blockers.append("WAIVER_ROSTER_DATA_UNAVAILABLE")
+    if missing_ids:
+        blockers.append("WAIVER_ROSTER_ID_MISSING")
+    if duplicate_ids:
+        blockers.append("WAIVER_DUPLICATE_ROSTER_IDS")
+    if expected_count is None:
+        blockers.append("WAIVER_EXPECTED_ROSTER_COUNT_UNAVAILABLE")
+    elif len(normalized_ids) != int(expected_count):
+        blockers.append("WAIVER_ROSTER_COVERAGE_INCOMPLETE")
+    return {
+        "expected_active_roster_count": expected_count,
+        "observed_active_roster_count": len(rows),
+        "unique_roster_ids": sorted(set(normalized_ids)),
+        "missing_roster_id_indexes": missing_ids,
+        "duplicate_roster_ids": duplicate_ids,
+        "completeness_state": "COMPLETE" if not blockers else "INCOMPLETE",
+        "blockers": blockers,
+        "allowed": not blockers,
+    }
+
+
 def waiver_evidence_contract(
     *,
     domain,
