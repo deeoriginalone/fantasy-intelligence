@@ -5,13 +5,14 @@ def settings(full_ppr=True): return {"state":"AVAILABLE","source":"Sleeper API",
 def needs(): return {key:{"state":"AVAILABLE","required_slots":1,"rostered":1,"shortage":0,"need":"COVERED","blocker":None} for key in POSITIONS}
 def health(): return {"state":"AVAILABLE","source":"Sleeper","freshness_state":"FRESH","blocker":None}
 def starter(**changes):
-    row={"player":"A","position":"WR","opponent":"SF","matchup_rank":12,"matchup_modifier":0.05,"evidence_gaps":[],"is_bye":False}; row.update(changes); return row
+    row={"player":"A","position":"WR","opponent":"SF","matchup_rank":12,"matchup_modifier":0.05,"matchup_population":"NFL WR opponents","matchup_directionality":"LOWER_IS_EASIER","matchup_source":"Controlled matchup source","matchup_updated_at":"2026-09-12T12:00:00+00:00","evidence_gaps":[],"is_bye":False}; row.update(changes); return row
 
 def test_complete_evidence_is_trusted():
-    result=build_team_accuracy_contract([], [starter()], settings(), needs(), health())
+    result=build_team_accuracy_contract([], [starter(opponent_name="San Francisco 49ers")], settings(), needs(), health())
     assert result["trusted"] is True
     assert result["scoring"]["format"] == "Full PPR"
     assert set(result["team_needs"]["positions"]) == set(POSITIONS)
+    assert result["matchups"]["rows"][0]["opponent_name"] == "San Francisco 49ers"
 
 def test_non_full_ppr_blocks_full_ppr_claim():
     result=build_team_accuracy_contract([], [starter()], settings(False), needs(), health())

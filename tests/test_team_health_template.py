@@ -48,3 +48,22 @@ def test_health_template_unknown_freshness_renders_safe_fallback(render_team_hea
     assert_unknown_state_rendered(html, payload)
     assert "cannot be treated as current" in html
     assert "Healthy</div>" not in html
+
+
+def test_health_template_renders_metadata_and_unverified_freshness(render_team_health, available_health):
+    html = render_team_health(available_health)
+    assert "Source:</strong> Sleeper" in html
+    assert "<strong>Freshness:</strong>" in html
+    assert "UNVERIFIED" in html
+    assert "Last verified:</strong> Unavailable" in html
+    assert "<strong>Age:</strong>" in html
+    assert "Unavailable" in html
+    assert "Health data supports lineup recommendations." in html
+
+
+def test_health_template_renders_supplied_metadata(render_team_health, available_health):
+    payload = dict(available_health, last_verified="2026-09-12T12:00:00+00:00", age=3600)
+    html = render_team_health(payload)
+    assert "Freshness:</strong> FRESH" in html
+    assert "Last verified:</strong> 2026-09-12T12:00:00+00:00" in html
+    assert "Age:</strong> 3600" in html

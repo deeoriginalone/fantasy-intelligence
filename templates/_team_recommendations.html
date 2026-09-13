@@ -1,0 +1,20 @@
+<section class="card" id="recommendation-evidence" aria-labelledby="recommendation-heading">
+  <h2 id="recommendation-heading">Recommended Starters</h2>
+  <div class="recommendation-grid">
+  {% for player in starters or [] %}
+    <article class="recommendation-card decision-{{ (player.decision or 'START')|lower }}">
+      <header class="recommendation-header"><span class="decision-badge">{{ player.decision or "START" }}</span><strong>Player: {{ player.player }}</strong><span>Slot: {{ player.slot }} · {{ player.position }}</span></header>
+      <p class="recommendation-confidence"><strong>Recommendation confidence:</strong> {{ player.confidence.label if player.confidence else "UNAVAILABLE" }}{% if player.confidence %} {{ player.confidence.score }}%{% endif %}</p>
+      <p><strong>Why:</strong> {% if team_health and team_health.state != "AVAILABLE" %}Health verification is pending; confirm availability before lineup lock.{% else %}{{ player.reason or "No supported explanation is available." }}{% endif %}</p>
+      <dl class="evidence-list">
+        <div><dt>Opponent</dt><dd>{{ "BYE" if player.is_bye else (player.opponent_name or player.opponent or "Unavailable") }}</dd></div>
+        <div><dt>Weekly value</dt><dd>{{ player.weekly_value_state or ("AVAILABLE" if player.weekly_score is not none else "UNAVAILABLE") }}{% if player.weekly_score is not none %} · {{ "%.2f"|format(player.weekly_score) }}{% endif %}</dd></div>
+        <div><dt>Player status</dt><dd>{{ player.health_evidence.health_state if player.health_evidence and player.health_evidence.health_state else "Not verified" }}</dd></div>
+        <div><dt>Health evidence</dt><dd>{{ "Current" if player.health_evidence and player.health_evidence.freshness_state in ["FRESH", "AGING"] else "Verification unavailable" }}</dd></div>
+      </dl>
+      <p class="impact"><strong>Impact:</strong> {% if team_health and team_health.freshness_state in ["UNAVAILABLE", "BLOCKED", "UNKNOWN"] and player.health_evidence and player.health_evidence.freshness_state == team_health.freshness_state %}This recommendation is affected by the Team Health state summarized above; monitor before lineup lock.{% else %}{{ player.health_evidence.recommendation_impact if player.health_evidence else "Health impact unavailable." }}{% endif %}</p>
+      {% if player.evidence_gaps and not player.health_shared_only %}<details class="evidence-details"><summary>Evidence issue</summary><p class="evidence-warning">A player-specific evidence issue needs review.</p><p>{{ player.evidence_gaps|join(", ") }}</p></details>{% endif %}
+    </article>
+  {% else %}<p>Recommended lineup evidence is unavailable.</p>{% endfor %}
+  </div>
+</section>

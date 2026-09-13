@@ -101,3 +101,13 @@ def test_missing_freshness_metadata_remains_unknown_in_both_contracts():
             "MATCHUP_FRESHNESS_UNKNOWN",
             "PROJECTION_FRESHNESS_UNKNOWN",
         } <= set(result["integrity"]["blockers"])
+
+
+def test_freshness_metadata_is_preserved_by_both_contracts():
+    metadata = {"matchup_updated_at": "2999-01-01T00:00:00+00:00"}
+    matchup = build_matchup_intelligence(roster(), freshness_metadata=metadata)
+    lineup = build_lineup_intelligence(roster(), freshness_metadata=metadata)
+    assert matchup["freshness_metadata"] == metadata
+    assert lineup["freshness_metadata"] == metadata
+    assert matchup["integrity"]["freshness"]["domains"]["matchup"]["status"] == "FRESH"
+    assert lineup["integrity"]["freshness"]["domains"]["matchup"]["status"] == "FRESH"

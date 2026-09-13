@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from flask import Blueprint, current_app, render_template, request, session
 from weekly_intelligence import enrich_players, current_week, upcoming_byes
 from services.weekly_lineup_intelligence import build_lineup_intelligence, optimize_lineup
@@ -8,9 +10,11 @@ from services.trade_target_center import build_trade_target_center
 from services.decision_ranking import build_action, build_decision_ranking
 from services.matchup_intelligence import build_matchup_intelligence
 from services.ux_evidence import shared_league_facts
-from services.team_needs import league_settings_contract, team_needs_contract
-from services.team_health import team_health_contract
+from services.team_needs import build_team_needs_summary, league_settings_contract, team_needs_contract
+from services.team_health import team_health_contract, apply_player_health_to_recommendations, health_freshness_from_report_date
 from services.ux2_team_accuracy import build_team_accuracy_contract
+from services.team_priority import build_team_priority_action
+from services.team_hardening import build_bench_decisions, build_bench_plan, build_lineup_snapshot, build_roster_outlook, build_team_trust_summary, build_weekly_risks
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
@@ -89,6 +93,7 @@ def create_owner_operations_blueprint(
         users = get_users(current_app.config.get("SLEEPER_LEAGUE_ID", "")) or []
         rosters = get_rosters(current_app.config.get("SLEEPER_LEAGUE_ID", "")) or []
         all_players = get_all_players() or {}
+        health_fetched_at = datetime.now(timezone.utc).isoformat()
         owner_ids = {
             str(user.get("user_id"))
             for user in users
@@ -108,9 +113,9 @@ def create_owner_operations_blueprint(
                 part for part in (raw.get("first_name"), raw.get("last_name")) if part
             )
             if name:
-                local_names.append((name, raw.get("position"), raw.get("team")))
+                local_names.append((name, raw.get("position"), raw.get("team"), raw.get("injury_status") or raw.get("status")))
         result = []
-        for name, position, team in local_names:
+        for name, position, team, raw_status in local_names:
             cur.execute(
                 """
                 SELECT player_name, UPPER(position), nfl_team, ranking,
@@ -122,15 +127,36 @@ def create_owner_operations_blueprint(
                 (normalize_player_name(name),),
             )
             row = cur.fetchone()
+            if not row:
+                normalized_name = normalize_player_name(name)
+                cur.execute(
+                    """
+                    SELECT player_name, UPPER(position), nfl_team, ranking,
+                           projected_points, tier, adp, bye_week, injury_status
+                    FROM players
+                    WHERE REGEXP_REPLACE(LOWER(player_name), '[^a-z0-9]', '', 'g') LIKE %s
+                    ORDER BY LENGTH(player_name)
+                    LIMIT 1
+                    """,
+                    (f"{normalized_name}%",),
+                )
+                row = cur.fetchone()
             if row:
                 player=row_to_player(tuple(row) + (None, None))
-                raw_status=raw.get("injury_status") or raw.get("status")
                 if raw_status:
-                    player["injury_status"]=raw_status
-                    player["injury_source"]="sleeper_players"
+                    player["injury_status"] = raw_status
+                    player["injury_source"] = "Sleeper API"
+                    player["health_fetched_at"] = health_fetched_at
+                    player["health_status_available"] = True
+                else:
+                    player["injury_status"] = "Unknown"
+                    player["injury_source"] = "Sleeper API"
+                    player["health_status_available"] = False
+                player["ownership"] = "ROSTERED"
+                player["ownership_source"] = "Sleeper API"
                 result.append(player)
             else:
-                result.append({
+                player = {
                     "player": name,
                     "position": (position or "NA").upper().replace("DST", "DEF"),
                     "nfl_team": team or "FA",
@@ -139,10 +165,18 @@ def create_owner_operations_blueprint(
                     "tier": None,
                     "adp": None,
                     "bye_week": None,
-                    "injury_status": "Unknown",
+                    "injury_status": raw.get("injury_status") or raw.get("status") or "Unknown",
+                    "injury_source": "Sleeper API",
                     "pick_no": None,
                     "round": None,
-                })
+                }
+                player["injury_source"] = "Sleeper API"
+                player["health_status_available"] = player["injury_status"] != "Unknown"
+                player["ownership"] = "ROSTERED"
+                player["ownership_source"] = "Sleeper API"
+                if player["health_status_available"]:
+                    player["health_fetched_at"] = health_fetched_at
+                result.append(player)
         return result, league
 
     def current_roster(cur):
@@ -163,7 +197,7 @@ def create_owner_operations_blueprint(
                 "shared_facts": shared_league_facts({}, source="Season Sandbox", blocker="LIVE_LEAGUE_FACTS_NOT_APPLICABLE"),
             }
         roster, league = live_roster(cur)
-        roster = enrich_players(cur, roster, current_week(cur))
+        roster = enrich_players(cur, roster, current_week(cur), allow_local_weekly_data=True, allow_local_health_fallback=False)
         return context, roster, {
             "team_name": "DiE-HaRd-9eRs-FaN",
             "league_name": league.get("name") or "Fantasy Intelligence Champions League",
@@ -270,26 +304,59 @@ def create_owner_operations_blueprint(
         try:
             context, roster, meta = current_roster(cur)
             starters, bench, total, vacancies = optimize_lineup(roster)
-            counts, grades, needs, overall, score = roster_analysis(roster, vacancies)
+            counts, grades, _, overall, score = roster_analysis(roster, vacancies)
             league_payload = get_league(current_app.config.get("SLEEPER_LEAGUE_ID", "")) or {} if context["mode"] == "LIVE" else {}
             league_settings = league_settings_contract(league_payload, source="Sleeper API" if context["mode"] == "LIVE" else "Season Sandbox", blocker=None if context["mode"] == "LIVE" else "LIVE_LEAGUE_SETTINGS_NOT_APPLICABLE")
             team_needs = team_needs_contract(roster, league_settings)
-            team_health = team_health_contract(roster, source="Sleeper" if context["mode"] == "LIVE" else "Season Sandbox", freshness_state="FRESH" if context["mode"] == "LIVE" else "UNAVAILABLE")
+            needs = build_team_needs_summary(team_needs)
+            if context["mode"] == "LIVE":
+                fetched_at = next((player.get("health_fetched_at") for player in roster if player.get("health_fetched_at")), None)
+                if fetched_at and any(player.get("health_status_available") for player in roster):
+                    health_meta = health_freshness_from_report_date(fetched_at)
+                    health_source = "Sleeper API"
+                else:
+                    health_meta = {"freshness_state": "UNAVAILABLE", "last_verified": None, "age": None}
+                    health_source = "Sleeper API"
+            else:
+                health_meta = {"freshness_state": "UNAVAILABLE", "last_verified": None, "age": None}
+                health_source = "Season Sandbox"
+            team_health = team_health_contract(roster, source=health_source, **health_meta)
             team_accuracy = build_team_accuracy_contract(roster, starters, league_settings, team_needs, team_health)
         finally:
             cur.close(); conn.close()
         weekly_defaults = {
             "weekly_baseline": 0.0, "matchup_modifier": 0.0,
-            "injury_multiplier": 1.0, "weekly_score": 0.0,
+            "injury_multiplier": 1.0, "weekly_score": None,
             "is_bye": False, "bye_week": None, "opponent": None,
             "home_away": None, "game_time_pacific": None,
             "matchup_rank": None, "injury_status": "Unknown", "vacant": False,
         }
         for player in [*starters, *bench]:
             for key, value in weekly_defaults.items(): player.setdefault(key, value)
-        weekly_starter_score = sum(float(player.get("weekly_score") or 0) for player in starters)
-
-        return render_template("team.html", weekly_starter_score=weekly_starter_score, title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy)
+        health_source = team_health.get("source") or ("Sleeper" if context["mode"] == "LIVE" else "Season Sandbox")
+        health_freshness = team_health.get("freshness_state") or "UNAVAILABLE"
+        apply_player_health_to_recommendations(
+            starters,
+            source=health_source,
+            freshness_state=health_freshness,
+            blocker=(team_health.get("blocker") if team_health.get("state") == "BLOCKED" else None),
+        )
+        for player in [*starters, *bench]:
+            player["weekly_value_state"] = "AVAILABLE" if player.get("weekly_score") is not None else "UNAVAILABLE"
+            gaps = player.get("evidence_gaps") or []
+            player["health_shared_only"] = team_health.get("state") != "AVAILABLE" and not any(
+                gap not in {"HEALTH_UNAVAILABLE", "HEALTH_BLOCKED", "HEALTH_EVIDENCE_STALE", "HEALTH_REFRESH_FAILED", "TEAM_HEALTH_UNAVAILABLE", "TEAM_HEALTH_STALE"}
+                for gap in gaps
+            )
+        team_priority_action = build_team_priority_action(starters, team_needs, team_health, team_accuracy)
+        team_accuracy["recommendation_impact"] = team_priority_action["action"]
+        team_trust = build_team_trust_summary(team_accuracy, team_health, starters, bench)
+        bench_decisions = build_bench_decisions(starters, bench)
+        bench_plan = build_bench_plan(bench_decisions)
+        lineup_snapshot = build_lineup_snapshot(starters, bench_decisions)
+        weekly_risks = build_weekly_risks(starters, team_needs, team_health, team_accuracy)
+        roster_outlook = build_roster_outlook(team_needs, team_health)
+        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook)
 
     @bp.route("/lineup")
     def lineup_page():

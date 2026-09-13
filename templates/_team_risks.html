@@ -1,0 +1,4 @@
+<section class="card" id="weekly-risks" aria-labelledby="weekly-risks-heading">
+  <h2 id="weekly-risks-heading">Biggest Risks This Week</h2>
+  {% if weekly_risks %}<ol class="risk-list">{% for risk in weekly_risks[:5] %}<li><strong>{{ risk.title }}</strong><span>{{ risk.reason }}</span><em>{{ risk.action }}</em></li>{% endfor %}</ol>{% else %}<p>No material supported risks identified.</p>{% endif %}
+</section>

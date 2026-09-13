@@ -1,0 +1,6 @@
+<section class="card" id="lineup-snapshot" aria-labelledby="lineup-snapshot-heading">
+  <h2 id="lineup-snapshot-heading">Lineup Snapshot</h2>
+  <div class="snapshot-grid"><div><strong>{{ lineup_snapshot.counts.ready }}</strong><span>Ready</span></div><div><strong>{{ lineup_snapshot.counts.monitor }}</strong><span>Monitor</span></div><div><strong>{{ lineup_snapshot.counts.blocked }}</strong><span>Blocked</span></div></div>
+  {% if lineup_snapshot.attention %}<p><strong>Most important check:</strong> {% for item in lineup_snapshot.attention[:3] %}{{ item.player }} ({{ item.slot }}){% if not loop.last %}, {% endif %}{% endfor %}</p>{% else %}<p>No starter requires special attention from the supplied evidence.</p>{% endif %}
+  {% if lineup_snapshot.best_contingency %}<p><strong>Best supported contingency:</strong> {{ lineup_snapshot.best_contingency.player }} for {{ lineup_snapshot.best_contingency.slot }}.</p>{% else %}<p><strong>Contingency:</strong> No supported alternative is available for the monitored slots.</p>{% endif %}
+</section>

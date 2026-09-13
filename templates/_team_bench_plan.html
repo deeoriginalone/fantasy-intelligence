@@ -1,0 +1,7 @@
+<section class="card" id="bench-plan" aria-labelledby="bench-plan-heading">
+  <h2 id="bench-plan-heading">Bench Plan</h2>
+  {% if bench_plan.best %}<p><strong>Best contingency:</strong> {{ bench_plan.best[0].player }} for {{ bench_plan.best[0].slot }}. <span>{{ bench_plan.best[0].trigger }}</span></p>{% else %}<p>No supported bench alternative is available for the monitored slots.</p>{% endif %}
+  {% if bench_plan.additional %}<p><strong>Additional alternatives:</strong> {% for item in bench_plan.additional %}{{ item.player }} for {{ item.slot }}{% if 'Conditional' in item.reason %} (conditional){% endif %}{% if not loop.last %}; {% endif %}{% endfor %}</p>{% endif %}
+  {% if bench_plan.unavailable_slots %}<p><strong>No supported alternative:</strong> {{ bench_plan.unavailable_slots|join(", ") }}</p>{% endif %}
+  <details><summary>Slot-by-slot contingency detail</summary>{% include "_team_bench.html" %}</details>
+</section>

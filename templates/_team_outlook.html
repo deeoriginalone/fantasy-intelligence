@@ -1,0 +1,4 @@
+<section class="card" id="roster-outlook" aria-labelledby="roster-outlook-heading">
+  <h2 id="roster-outlook-heading">Roster Outlook</h2>
+  <div class="outlook-grid">{% for key, item in roster_outlook.items() %}<article><h3>{{ key|replace('_', ' ')|title }}</h3><strong>{{ item.state }}</strong><p>{{ item.label }}</p></article>{% endfor %}</div>
+</section>

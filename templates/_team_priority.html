@@ -1,0 +1,12 @@
+<section class="card" id="team-priority-action" aria-labelledby="team-priority-heading">
+  <h2 id="team-priority-heading">Next Best Team Action</h2>
+  {% if team_priority_action %}
+    <p><strong>Action:</strong> {{ team_priority_action.action }}</p>
+    <p><strong>Expected fantasy impact:</strong> {{ team_priority_action.metadata.expected_impact or "Unavailable" }}</p>
+    <p><strong>Action confidence:</strong> {{ team_priority_action.confidence_label }} {{ team_priority_action.confidence_score }}%</p>
+    <p><strong>Why:</strong> {{ team_priority_action.reason }}</p>
+    {% if team_priority_action.blockers %}<p class="evidence-warning"><strong>Evidence review:</strong> The action depends on evidence that needs confirmation before lineup lock.</p><details class="evidence-details"><summary>Technical evidence</summary><p>{{ team_priority_action.blockers|join(", ") }}</p></details>{% endif %}
+  {% else %}
+    <p>Priority action is unavailable because no supported action payload was supplied.</p>
+  {% endif %}
+</section>

@@ -1,0 +1,5 @@
+<section class="card" id="bench-decisions" aria-labelledby="bench-decisions-heading">
+  <h2 id="bench-decisions-heading">Bench Decisions</h2>
+  {% if bench_decisions %}<div class="bench-decision-grid">{% for item in bench_decisions %}<article class="bench-decision state-{{ item.state|lower }}"><strong>{{ item.kind|title }}: {{ item.player }}</strong><span>Slot: {{ item.slot }}</span><p>{{ item.reason }}</p><em>{{ item.trigger }}</em></article>{% endfor %}</div>{% else %}<p>No supported contingency comparison is available.</p>{% endif %}
+  <h3>Remaining Bench</h3><div class="bench-list">{% for player in bench %}<span><strong>{{ player.player }}</strong> · {{ player.position }} · {{ player.injury_status or "Unknown" }}</span>{% else %}<span>Bench evidence unavailable.</span>{% endfor %}</div>
+</section>
