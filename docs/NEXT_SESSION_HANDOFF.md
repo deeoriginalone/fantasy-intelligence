@@ -10,15 +10,15 @@ UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, 
 
 ###### Current UX.3 boundary
 - Shared ownership and eligibility evidence, stable player-ID exclusion, roster-coverage metadata, timestamp requirements, freshness-threshold blockers, and consistent blocked behavior across `/waivers` and `/gm` are verified.
-- The focused waiver suite passes 42 tests; Python compilation, `git diff --check`, and `git diff --cached --check` pass.
+- The focused waiver suite passes 45 tests; Python compilation and `git diff --check` pass.
 - Flask test-client checks return HTTP 200 for `/waivers` and `/gm`, show manager-facing blocked evidence, and publish zero candidates when required evidence is unsupported.
-- Live success-path publication is intentionally disabled because verified ownership and eligibility thresholds, independent add-eligibility evidence, expected active-roster counts, and complete timestamp propagation are not established.
+- Live success-path publication is intentionally disabled because verified ownership and eligibility thresholds, independent add-eligibility evidence, and complete timestamp propagation are not established. The configured league roster count is now used as an explicit coverage input.
 - UXQA-001 remains IN PROGRESS, not VALIDATED or CLOSED.
 
 ###### Last recorded repository checkpoint
 - Date: 2026-09-13
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: d073a5a57a465ad9eb2c3207daaa88469dfd50c1
+- HEAD: 3acdca498633eb19dba014e4476a43863b8441a2
 - Repository: /home/deeoriginalone/fantasy-intelligence
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
@@ -112,4 +112,4 @@ A synchronization PASS confirms documentation consistency only. It does not prov
 
 ## Next milestone
 
-**Continue UX.3 Waiver Correctness and Availability Validation by establishing verified ownership freshness, roster completeness, and add-eligibility evidence.**
+**Continue UX.3 Waiver Correctness and Availability Validation by establishing verified ownership freshness, independent add-eligibility evidence, and controlled successful publication proof.**

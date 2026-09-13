@@ -16,8 +16,8 @@
 - Risk: Invalid add advice and loss of trust.
 - Required proof: Current league ownership map from Sleeper, service test, route test, and rendered-page verification.
 - Acceptance: Every recommended player is absent from every active league roster; unverified ownership blocks the list.
-- Current evidence: Shared stable-ID filtering and fail-closed ownership/eligibility blockers are implemented and focused-tested. The active `/waivers` and `/gm` routes return blocked states with zero published candidates when required evidence is unsupported.
-- Remaining proof: Complete active-league roster coverage, verified freshness thresholds, independent add-eligibility evidence, successful publication-path route tests, and rendered supported-state verification. This defect is not VALIDATED or CLOSED.
+- Current evidence: Shared stable-ID filtering, configured roster-coverage diagnostics, and fail-closed ownership/eligibility blockers are implemented and focused-tested. The active `/waivers` and `/gm` routes return blocked states with zero published candidates when required evidence is unsupported.
+- Remaining proof: Complete fresh active-league ownership evidence, verified freshness thresholds, independent add-eligibility evidence, successful publication-path route tests, and rendered supported-state verification. This defect is not VALIDATED or CLOSED.
 
 #### UXQA-002: Data freshness is unclear or stale across core pages
 - Status: VALIDATED

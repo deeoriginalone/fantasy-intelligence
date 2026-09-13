@@ -3,7 +3,7 @@
 ####### Last recorded repository checkpoint
 - Date: 2026-09-13
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: d073a5a57a465ad9eb2c3207daaa88469dfd50c1
+- HEAD: 3acdca498633eb19dba014e4476a43863b8441a2
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -137,13 +137,12 @@ Presentation and active-route proof:
 Verified:
 - Shared ownership and eligibility evidence blocks unsupported publication.
 - Stable player IDs control rostered-player exclusion.
-- Missing or incomplete roster coverage, timestamps, freshness thresholds, and eligibility evidence block recommendations.
+- Missing or incomplete roster coverage, timestamps, freshness thresholds, and eligibility evidence block recommendations; roster coverage now reports configured expected count, observed count, unique IDs, missing IDs, and duplicates.
 - `/waivers` and `/gm` share the same blocked availability decision and manager-facing source, freshness, and blocker presentation.
-- Focused waiver validation passes 42 tests; Python compilation and whitespace validation pass.
+- Focused waiver validation passes 45 tests; Python compilation and whitespace validation pass.
 
 Not verified:
 - Live success-path publication.
-- Expected active-roster count source.
 - Waiver ownership or eligibility freshness thresholds.
 - Independent add-eligibility proof.
 - Candidate-level role, duration, fit, confidence, risk, drop, and evidence-backed FAAB precision.
@@ -190,4 +189,4 @@ The following systems remain planned and deferred, not abandoned:
 
 ## Next milestone
 
-**Continue UX.3 Waiver Correctness and Availability Validation by establishing verified ownership freshness, roster completeness, and add-eligibility evidence.**
+**Continue UX.3 Waiver Correctness and Availability Validation by establishing verified ownership freshness, independent add-eligibility evidence, and controlled successful publication proof.**
