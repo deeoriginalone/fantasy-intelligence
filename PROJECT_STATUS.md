@@ -6,12 +6,12 @@ The verified Data Integrity track remains complete through A.10. UX.1 Dashboard 
 
 UX.2 My Team Accuracy, Explainability, and League-Settings Validation is validated at its focused and controlled active-route boundary. The active `/team` route now supplies a deterministic priority action, expected fantasy impact, visible recommendation evidence, fail-closed health freshness, and collapsed technical lineage.
 
-UX.2.1C is owner-accepted after visual hierarchy, contradiction, disclosure, health-source, and matchup-applicability repairs. Acceptance recorded 2026-09-13 as `APPROVED: MY TEAM UI`; UX.3 is the next milestone.
+UX.2.1C is owner-accepted after visual hierarchy, contradiction, disclosure, health-source, and matchup-applicability repairs. Acceptance recorded 2026-09-13 as `APPROVED: MY TEAM UI`. UX.3 is in progress at a verified fail-closed boundary; live success-path publication remains disabled.
 
 ####### Last recorded repository checkpoint
-- Date: 2026-09-12
+- Date: 2026-09-13
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 6458cb0f3aa5b88e5559c6c996be8c18f9f3b630
+- HEAD: d073a5a57a465ad9eb2c3207daaa88469dfd50c1
 - Repository: /home/deeoriginalone/fantasy-intelligence
 - League ID: 1398094330668797952
 - Completed real draft ID: 1398094331272794112
@@ -47,6 +47,11 @@ This historical evidence is supplemented by the current focused, controlled-rout
 - Recommendation confidence, reasons, targeted blockers, health impact, priority action, and collapsed lineage pass validation.
 
 ####### Current completion boundary
+- UX.3 partial implementation: shared fail-closed ownership and eligibility evidence, stable player-ID exclusion, explicit roster-coverage metadata, timestamp and freshness-threshold blockers, and consistent blocked behavior across `/waivers` and `/gm`.
+- Current UX.3 focused waiver suite passed: 42 tests.
+- `/waivers` and `/gm` Flask test-client checks returned HTTP 200 with zero published candidates under unsupported evidence; source, freshness, and blocker states were visible.
+- UX.3 live success-path publication is not verified because no waiver ownership threshold, eligibility threshold, independent add-eligibility contract, expected active-roster count source, or complete timestamp propagation exists.
+- UXQA-001 remains IN PROGRESS; validation and closure are not claimed.
 - Focused UX.2 validation passed: 85 tests.
 - Controlled active `/team` state matrix passed: 11 tests covering supported metadata, missing metadata, AGING, STALE, UNAVAILABLE, BLOCKED, unknown player health, isolated uncertainty, weekly positive/zero/unavailable values, and missing league settings.
 - Related UX.2, health, integrity, matchup, and lineup validation passed: 133 tests.
@@ -83,4 +88,4 @@ The last recorded repository state contained extensive unrelated changes, genera
 
 ## Next milestone
 
-**Begin UX.3 Waiver Correctness and Availability Validation.**
+**Continue UX.3 Waiver Correctness and Availability Validation by establishing verified ownership freshness, roster completeness, and add-eligibility evidence.**

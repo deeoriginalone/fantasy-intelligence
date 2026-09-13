@@ -6,12 +6,12 @@ Fantasy Intelligence has completed the Shared Integrity and Data Integrity track
 
 UX.2 My Team Accuracy, Explainability, and League-Settings Validation is validated at the focused and controlled active-route boundary. The route, contracts, recommendation evidence, health targeting, priority action, and collapsed lineage are preserved.
 
-UX.2.1C is owner-accepted as of 2026-09-13 (`APPROVED: MY TEAM UI`). UX.3 is the next milestone; UX.4 through UX.7 remain pending.
+UX.2.1C is owner-accepted as of 2026-09-13 (`APPROVED: MY TEAM UI`). UX.3 is partially implemented at a verified fail-closed boundary; UX.4 through UX.7 remain pending.
 
 ####### Last recorded repository checkpoint
-- Date: 2026-09-12
+- Date: 2026-09-13
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 6458cb0f3aa5b88e5559c6c996be8c18f9f3b630
+- HEAD: d073a5a57a465ad9eb2c3207daaa88469dfd50c1
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -66,6 +66,11 @@ The revised UX.2 product-completion criteria are validated at the focused, contr
 - Keep generated evidence, backups, exports, archives, and implementation changes in separate commit scopes.
 
 ####### Known boundaries
+- UX.3 blocks unsupported waiver publication through shared ownership and eligibility evidence. Stable player IDs, roster coverage metadata, timestamp requirements, freshness-threshold blockers, and manager-facing blocked states are implemented.
+- The current focused UX.3 waiver suite passes 42 tests, compilation passes, and both working-tree and cached whitespace checks pass.
+- Flask test-client checks for `/waivers` and `/gm` return HTTP 200 with zero published candidates when ownership or eligibility evidence is unsupported.
+- No verified ownership or eligibility threshold, independent add-eligibility contract, expected active-roster count source, or complete active-route timestamp propagation exists.
+- UX.3 completion and UXQA-001 validation or closure are not claimed.
 - Focused UX.2 validation passed with 85 tests, the controlled active-route matrix passed with 11 tests, and the related suite passed with 133 tests.
 - Live `/team` verification covers the currently served unavailable-health state; alternate states are validated through the controlled active-route matrix.
 - Defects are validated but not marked CLOSED because no commit boundary has been reviewed.
@@ -79,4 +84,4 @@ The revised UX.2 product-completion criteria are validated at the focused, contr
 
 ## Next milestone
 
-**Begin UX.3 Waiver Correctness and Availability Validation.**
+**Continue UX.3 Waiver Correctness and Availability Validation by establishing verified ownership freshness, roster completeness, and add-eligibility evidence.**

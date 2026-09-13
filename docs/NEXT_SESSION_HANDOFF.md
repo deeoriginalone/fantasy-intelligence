@@ -6,12 +6,19 @@ The Data Integrity sequence remains complete through A.10, and UX.1 remains comp
 
 UX.2 My Team Accuracy, Explainability, and League-Settings Validation is validated at its focused and controlled active-route boundary. Its route, league-settings, Full-PPR Team Needs, Team Health, Team Accuracy, recommendation evidence, priority action, unavailable-matchup, and collapsed lineage behavior are preserved.
 
-UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, disclosure, health-source, and matchup-applicability repairs. Acceptance: `APPROVED: MY TEAM UI`. UX.3 is the next milestone.
+UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, disclosure, health-source, and matchup-applicability repairs. Acceptance: `APPROVED: MY TEAM UI`. UX.3 is partially implemented at a verified fail-closed boundary and remains the active milestone.
+
+###### Current UX.3 boundary
+- Shared ownership and eligibility evidence, stable player-ID exclusion, roster-coverage metadata, timestamp requirements, freshness-threshold blockers, and consistent blocked behavior across `/waivers` and `/gm` are verified.
+- The focused waiver suite passes 42 tests; Python compilation, `git diff --check`, and `git diff --cached --check` pass.
+- Flask test-client checks return HTTP 200 for `/waivers` and `/gm`, show manager-facing blocked evidence, and publish zero candidates when required evidence is unsupported.
+- Live success-path publication is intentionally disabled because verified ownership and eligibility thresholds, independent add-eligibility evidence, expected active-roster counts, and complete timestamp propagation are not established.
+- UXQA-001 remains IN PROGRESS, not VALIDATED or CLOSED.
 
 ###### Last recorded repository checkpoint
-- Date: 2026-09-12
+- Date: 2026-09-13
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 6458cb0f3aa5b88e5559c6c996be8c18f9f3b630
+- HEAD: d073a5a57a465ad9eb2c3207daaa88469dfd50c1
 - Repository: /home/deeoriginalone/fantasy-intelligence
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
@@ -105,4 +112,4 @@ A synchronization PASS confirms documentation consistency only. It does not prov
 
 ## Next milestone
 
-**Begin UX.3 Waiver Correctness and Availability Validation.**
+**Continue UX.3 Waiver Correctness and Availability Validation by establishing verified ownership freshness, roster completeness, and add-eligibility evidence.**

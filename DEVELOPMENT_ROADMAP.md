@@ -1,9 +1,9 @@
 ###### Development Roadmap
 
 ####### Last recorded repository checkpoint
-- Date: 2026-09-12
+- Date: 2026-09-13
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 6458cb0f3aa5b88e5559c6c996be8c18f9f3b630
+- HEAD: d073a5a57a465ad9eb2c3207daaa88469dfd50c1
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -132,9 +132,25 @@ Presentation and active-route proof:
 
 ####### UX.3: Waiver Correctness and Availability Validation
 
-**Status: NEXT MILESTONE AFTER UX.2.1C OWNER ACCEPTANCE.**
+**Status: PARTIALLY IMPLEMENTED AT VERIFIED FAIL-CLOSED BOUNDARY.**
 
-Previously recorded partial UX.3 evidence, including owned-player filtering and explicit unverified-eligibility blockers, remains preserved. No UX.3 implementation claim is made here.
+Verified:
+- Shared ownership and eligibility evidence blocks unsupported publication.
+- Stable player IDs control rostered-player exclusion.
+- Missing or incomplete roster coverage, timestamps, freshness thresholds, and eligibility evidence block recommendations.
+- `/waivers` and `/gm` share the same blocked availability decision and manager-facing source, freshness, and blocker presentation.
+- Focused waiver validation passes 42 tests; Python compilation and whitespace validation pass.
+
+Not verified:
+- Live success-path publication.
+- Expected active-roster count source.
+- Waiver ownership or eligibility freshness thresholds.
+- Independent add-eligibility proof.
+- Candidate-level role, duration, fit, confidence, risk, drop, and evidence-backed FAAB precision.
+- Browser-rendered waiver acceptance.
+- UXQA-001 validation or closure.
+
+The implementation correctly fails closed rather than publishing unsupported candidates.
 
 ####### UX.4: Shared Integrity Expansion
 
@@ -174,4 +190,4 @@ The following systems remain planned and deferred, not abandoned:
 
 ## Next milestone
 
-**Begin UX.3 Waiver Correctness and Availability Validation.**
+**Continue UX.3 Waiver Correctness and Availability Validation by establishing verified ownership freshness, roster completeness, and add-eligibility evidence.**
