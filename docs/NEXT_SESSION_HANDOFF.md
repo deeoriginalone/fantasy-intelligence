@@ -6,7 +6,22 @@ The Data Integrity sequence remains complete through A.10, and UX.1 remains comp
 
 UX.2 My Team Accuracy, Explainability, and League-Settings Validation is validated at its focused and controlled active-route boundary. Its route, league-settings, Full-PPR Team Needs, Team Health, Team Accuracy, recommendation evidence, priority action, unavailable-matchup, and collapsed lineage behavior are preserved.
 
-UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, disclosure, health-source, and matchup-applicability repairs. Acceptance: `APPROVED: MY TEAM UI`. UX.3 is validated at its supported, read-only waiver-publication boundary. UX.4.1 through UX.4.12 are validated at focused implementation, controlled-browser, and live nine-partner dropdown boundaries.
+UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, disclosure, health-source, and matchup-applicability repairs. Acceptance: `APPROVED: MY TEAM UI`. UX.3 is validated at its supported, read-only waiver-publication boundary. UX.4.1 through UX.4.12 are validated at focused implementation, controlled-browser, and live nine-partner dropdown boundaries. The shared action-first visual system is now applied across Lineup, My Team, Waivers, and Trades. UX.5 has the formalized implementation and evidence boundary; formal definition-of-done review remains pending.
+
+###### Current UX.5 boundary
+- Weekly Lineup Intelligence emits explicit `START`, `FLEX`, `MONITOR`, and bench `SIT` decisions; `HOLD` and `SWAP` are not rendered.
+- Bench Order is deterministic and labeled. Explanations include reason, confidence, opponent, health, weekly value, and metric definitions.
+- Missing weekly or matchup evidence is visibly `Unavailable`, not zero or neutral. The page remains read-only.
+- Focused UX.5 service/template/route-contract validation passed 10 tests; related integrity and UX.2 route validation passed 27 tests; compilation, diagnostics, and whitespace checks passed.
+- Live `/lineup` returned HTTP 200 and passed desktop and 390px mobile inspection with no primary horizontal overflow. Rendered text contained Start/Sit Decisions, Bench Order, START/FLEX/MONITOR/SIT, and Unavailable, with no HOLD.
+- The action-first redesign now leads with a weekly verdict and manager action, followed by decision cards, risks, formation slots, bench priority, unavailable change history, collapsed metric explanations, and bottom-only data quality/lineage diagnostics.
+- Formal UX.5 definition-of-done review and canonical continuity validation remain outstanding.
+
+###### Current cross-page presentation boundary
+- My Team: 34 focused tests; live HTTP 200 desktop/390px verification; priority action remains before roster evidence and diagnostics.
+- Waivers: 47 focused tests; live HTTP 200 desktop/390px verification; verdict, Priority Adds, FAAB guidance, blocked evidence, and availability lineage are visible.
+- Trades: 27 focused tests; live HTTP 200 desktop/390px verification; verdict, partner control, roster fit, package cards, feasibility, and collapsed integrity/identity evidence are visible.
+- No transaction, ownership, eligibility, health, matchup, FAAB, feasibility, or database logic changed in these visual batches.
 
 ###### Current UX.3 boundary
 - Stable Sleeper player IDs, complete current roster ownership, and the supported player pool drive read-only waiver publication. Availability is explicitly derived from current Sleeper rosters and the supported player pool, not provider-declared addability or transaction history.
@@ -26,7 +41,7 @@ UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, 
 ###### Last recorded repository checkpoint
 - Date: 2026-09-13
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 8f9dec3821fe48fed62da1a5c13a364f38f321cd
+- HEAD: 0ae48334b64a13b980a07947009df0de501a263d
 - Repository: /home/deeoriginalone/fantasy-intelligence
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
@@ -120,4 +135,4 @@ A synchronization PASS confirms documentation consistency only. It does not prov
 
 ## Next milestone
 
-**Finalize UX.4 canonical continuity validation and narrow commit-readiness review.**
+**Finalize UX.5 formal completion review and canonical continuity validation.**

@@ -3,7 +3,7 @@
 ####### Last recorded repository checkpoint
 - Date: 2026-09-13
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 8f9dec3821fe48fed62da1a5c13a364f38f321cd
+- HEAD: 0ae48334b64a13b980a07947009df0de501a263d
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -28,7 +28,7 @@ The branch, HEAD, and working-tree state must be reverified from the repository 
 - UX.2 has a validated implementation foundation for league settings, Full-PPR Team Needs, Team Health, Team Accuracy, unavailable matchup presentation, and recommendation blockers.
 - A hands-on rendered-page review identified unresolved UX.2 product-completion work.
 - UX.2.1 passed the All-Season Usability Gate; UX.3 is validated at its supported, read-only waiver-publication boundary.
-- UX.4.1 through UX.4.12 are validated at focused implementation, controlled-browser, and live all-partner dropdown boundaries; UX.5 through UX.7 remain pending their formal definition-of-done reviews.
+- UX.4.1 through UX.4.12 are validated at focused implementation, controlled-browser, and live all-partner dropdown boundaries. The shared action-first visual system is implemented across Lineup, My Team, Waivers, and Trades with focused and live-render evidence. UX.5 has the formalized implementation and evidence boundary; UX.6 and UX.7 remain pending their formal definition-of-done reviews.
 
 ####### Completed milestone: UX.1 Dashboard Modernization and Truth Audit
 - Shared season and league-status facts are wired through Dashboard, My Team, and Weekly Command Center route contracts.
@@ -169,7 +169,11 @@ Remaining closure controls:
 
 ####### UX.5: Lineup Explainability and Bench Redesign
 
-**Status: RECONCILIATION FOUNDATION PRESERVED; FORMAL COMPLETION REVIEW PENDING.**
+**Status: ACTION-FIRST CROSS-PAGE VISUAL SYSTEM IMPLEMENTED; FORMAL COMPLETION REVIEW PENDING.**
+
+Validated evidence includes the action-first weekly verdict, decision cards, dedicated risk panel, league-valid formation, ranked bench cards, unavailable change history, collapsed metric explanations, bottom-only diagnostics, explicit START/FLEX/MONITOR/SIT decisions, deterministic Bench Order, manager-facing explanations and confidence, unavailable-value distinction, baseline and Weekly Score definitions, 10 focused UX.5 tests, 27 related integrity/route tests, and live desktop/390px `/lineup` inspection with HTTP 200 and no HOLD output. The page remains read-only. Remaining controls are formal definition-of-done review and canonical continuity validation.
+
+The visual system has since been applied to My Team, Waivers, and Trades. My Team passed 34 focused tests plus live desktop/390px verification; Waivers passed 47 focused tests plus live desktop/390px verification; Trades passed 27 focused tests plus live desktop/390px verification. These redesigns preserve existing evidence contracts and remain read-only.
 
 ####### UX.6: GM Center Impact Redesign
 
@@ -201,4 +205,4 @@ The following systems remain planned and deferred, not abandoned:
 
 ## Next milestone
 
-**Finalize UX.4 canonical continuity validation and narrow commit-readiness review.**
+**Finalize UX.5 formal completion review and canonical continuity validation.**

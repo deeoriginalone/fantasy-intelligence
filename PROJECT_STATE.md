@@ -6,12 +6,12 @@ Fantasy Intelligence has completed the Shared Integrity and Data Integrity track
 
 UX.2 My Team Accuracy, Explainability, and League-Settings Validation is validated at the focused and controlled active-route boundary. The route, contracts, recommendation evidence, health targeting, priority action, and collapsed lineage are preserved.
 
-UX.2.1C is owner-accepted as of 2026-09-13 (`APPROVED: MY TEAM UI`). UX.3 is validated at a supported, read-only waiver-publication boundary. UX.4.1 through UX.4.12 are validated at focused, controlled-browser, and live nine-partner dropdown boundaries; UX.5 through UX.7 remain pending.
+UX.2.1C is owner-accepted as of 2026-09-13 (`APPROVED: MY TEAM UI`). UX.3 is validated at a supported, read-only waiver-publication boundary. UX.4.1 through UX.4.12 are validated at focused, controlled-browser, and live nine-partner dropdown boundaries. The shared action-first visual system is implemented across Lineup, My Team, Waivers, and Trades. UX.5 has the formalized implementation and evidence boundary; formal definition-of-done review remains pending. UX.6 and UX.7 remain pending.
 
 ####### Last recorded repository checkpoint
 - Date: 2026-09-13
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: 8f9dec3821fe48fed62da1a5c13a364f38f321cd
+- HEAD: 0ae48334b64a13b980a07947009df0de501a263d
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -88,6 +88,21 @@ The revised UX.2 product-completion criteria are validated at the focused, contr
 - Production readiness is not claimed.
 - No automatic external fantasy transaction submission is enabled.
 
+####### Validated UX.5 boundary
+- Weekly Lineup Intelligence emits explicit `START`, `FLEX`, `MONITOR`, and bench `SIT` decisions; ambiguous `HOLD`/`SWAP` output is no longer rendered.
+- Bench players receive deterministic `bench_order` values and manager-facing reason, confidence, opponent, health, and weekly-value evidence.
+- Missing weekly or matchup evidence renders as `Unavailable`, not verified zero or neutral evidence; blocker impacts and baseline/Weekly Score definitions are visible.
+- Focused UX.5 service/template/route-contract validation passed 10 tests. Related integrity and UX.2 route validation passed 27 tests. Compilation, diagnostics, and whitespace checks passed.
+- Live `/lineup` returned HTTP 200 and rendered Start/Sit Decisions, Bench Order, START/FLEX/MONITOR/SIT labels, metric definitions, and Unavailable states with no HOLD text. Desktop and 390px mobile inspection passed without primary horizontal overflow.
+- The redesigned page prioritizes a weekly verdict and manager action, then decision cards, lineup risks, formation slots, bench priority, unavailable change history, collapsed metric explanations, and bottom-only data quality/lineage diagnostics.
+- UX.5 remains read-only. Formal definition-of-done review and canonical continuity validation remain pending.
+
+####### Cross-page action-first presentation boundary
+- My Team uses the shared verdict/action shell, modern evidence cards, responsive grids, and bottom diagnostics while preserving Team Health, Team Accuracy, Team Needs, starter, bench, and lineage contracts. Focused validation passed 34 tests; live `/team` returned HTTP 200 and passed desktop/390px overflow checks.
+- Waivers uses a waiver verdict, Priority Adds cards, FAAB guidance, blocked ownership/eligibility states, and retained availability/lineage evidence. Focused validation passed 47 tests; live `/waivers` returned HTTP 200 and passed desktop/390px overflow checks.
+- Trades uses a trade verdict, partner selector, roster-fit summary, one-for-one/two-for-one package cards, feasibility visibility, and collapsed integrity/identity diagnostics. Focused validation passed 27 tests; live `/trades` returned HTTP 200 and passed desktop/390px overflow checks.
+- These pages remain read-only. No route, database, ownership, eligibility, health, matchup, trade, waiver, or transaction logic was changed by the visual rollout.
+
 ## Next milestone
 
-**Finalize UX.4 canonical continuity validation and narrow commit-readiness review.**
+**Finalize UX.5 formal completion review and canonical continuity validation.**
