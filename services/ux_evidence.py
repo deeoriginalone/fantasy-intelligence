@@ -142,6 +142,123 @@ def route_payload_evidence(page, count=None, blockers=None):
     """UX.3/UX.4/UX.6 active payload state shown by shared panels."""
     return page_evidence(page=page, fields={"route_payload_count": count}, blockers=blockers, source="active route payload")
 
+
+WAIVER_FRESHNESS_STATES = ("FRESH", "AGING", "STALE", "UNAVAILABLE", "BLOCKED")
+
+
+def waiver_evidence_contract(
+    *,
+    domain,
+    league_id=None,
+    source=None,
+    source_record_time=None,
+    retrieved_at=None,
+    age=None,
+    freshness_threshold_id=None,
+    freshness_state="UNAVAILABLE",
+    completeness_state="INCOMPLETE",
+    blocker=None,
+    fallback_used=None,
+    recommendation_impact="BLOCKED",
+    expected_active_roster_count=None,
+    observed_active_roster_count=None,
+    unique_owned_player_ids=None,
+    duplicate_conflicts=None,
+    require_roster_coverage=False,
+    require_timestamps=False,
+):
+    """Represent decision-critical waiver evidence without inventing freshness."""
+    state = str(freshness_state or "UNAVAILABLE").upper()
+    if state not in WAIVER_FRESHNESS_STATES:
+        state = "BLOCKED"
+        blocker = blocker or "WAIVER_FRESHNESS_STATE_INVALID"
+    completeness = str(completeness_state or "INCOMPLETE").upper()
+    if completeness not in {"COMPLETE", "INCOMPLETE", "UNKNOWN"}:
+        completeness = "INCOMPLETE"
+        blocker = blocker or "WAIVER_COMPLETENESS_STATE_INVALID"
+    if not freshness_threshold_id:
+        state = "BLOCKED"
+        blocker = blocker or "WAIVER_FRESHNESS_THRESHOLD_UNVERIFIED"
+    if state not in {"FRESH", "AGING"}:
+        blocker = blocker or f"WAIVER_FRESHNESS_{state}"
+    if require_timestamps and not source_record_time:
+        blocker = blocker or "WAIVER_SOURCE_TIMESTAMP_MISSING"
+    if require_timestamps and not retrieved_at:
+        blocker = blocker or "WAIVER_RETRIEVED_AT_MISSING"
+    if require_roster_coverage:
+        if expected_active_roster_count is None or observed_active_roster_count is None:
+            blocker = blocker or "WAIVER_ROSTER_COVERAGE_UNVERIFIED"
+        elif expected_active_roster_count != observed_active_roster_count:
+            blocker = blocker or "WAIVER_ROSTER_COVERAGE_INCOMPLETE"
+        if duplicate_conflicts:
+            blocker = blocker or "WAIVER_DUPLICATE_OWNERSHIP"
+    if completeness != "COMPLETE":
+        blocker = blocker or "WAIVER_EVIDENCE_INCOMPLETE"
+    allowed = state in {"FRESH", "AGING"} and completeness == "COMPLETE" and not blocker
+    if not allowed:
+        recommendation_impact = "BLOCKED"
+    return {
+        "domain": domain,
+        "league_id": league_id,
+        "source": source or "UNVERIFIED",
+        "source_record_time": source_record_time,
+        "retrieved_at": retrieved_at,
+        "age": age,
+        "freshness_threshold_id": freshness_threshold_id,
+        "freshness_state": state,
+        "completeness_state": completeness,
+        "blocker": blocker,
+        "fallback_used": fallback_used,
+        "expected_active_roster_count": expected_active_roster_count,
+        "observed_active_roster_count": observed_active_roster_count,
+        "unique_owned_player_ids": sorted({str(player_id) for player_id in unique_owned_player_ids or []}),
+        "duplicate_conflicts": list(duplicate_conflicts or []),
+        "recommendation_impact": recommendation_impact if allowed else "BLOCKED",
+        "allowed": allowed,
+    }
+
+
+def evaluate_waiver_availability(candidates, ownership, eligibility):
+    """Publish only candidates covered by complete, fresh, stable-ID evidence."""
+    ownership = dict(ownership or {})
+    eligibility = dict(eligibility or {})
+    blockers = [
+        evidence.get("blocker")
+        for evidence in (ownership, eligibility)
+        if evidence.get("blocker") or not evidence.get("allowed")
+    ]
+    blockers = list(dict.fromkeys(blocker for blocker in blockers if blocker))
+    if blockers:
+        return {
+            "candidates": [],
+            "allowed": False,
+            "blockers": blockers,
+            "recommendation_impact": "BLOCKED",
+            "ownership": ownership,
+            "eligibility": eligibility,
+        }
+
+    owned_ids = {str(player_id) for player_id in ownership.get("owned_player_ids") or []}
+    eligible_ids = {str(player_id) for player_id in eligibility.get("eligible_player_ids") or []}
+    published = []
+    for candidate in candidates or []:
+        row = dict(candidate)
+        player_id = str(row.get("player_id") or "")
+        if not player_id or player_id in owned_ids or player_id not in eligible_ids:
+            continue
+        row["verified_available"] = True
+        row["ownership_evidence"] = ownership
+        row["eligibility_evidence"] = eligibility
+        published.append(row)
+    return {
+        "candidates": published,
+        "allowed": True,
+        "blockers": [],
+        "recommendation_impact": "AVAILABLE",
+        "ownership": ownership,
+        "eligibility": eligibility,
+    }
+
 UX_REQUIRED_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 
 
