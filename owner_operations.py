@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from flask import Blueprint, current_app, render_template, request, session
+from flask import Blueprint, current_app, redirect, render_template, request, session, url_for
 from weekly_intelligence import enrich_players, current_week, upcoming_byes
 from services.weekly_lineup_intelligence import build_lineup_intelligence, optimize_lineup
 from services.trade_intelligence import build_trade_intelligence
@@ -483,17 +483,13 @@ def create_owner_operations_blueprint(
         lineup_snapshot = build_lineup_snapshot(starters, bench_decisions)
         weekly_risks = build_weekly_risks(starters, team_needs, team_health, team_accuracy)
         roster_outlook = build_roster_outlook(team_needs, team_health)
-        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook)
+        lineup_intelligence = build_lineup_intelligence(roster)
+        decisions_by_slot = {d.get("slot"): d for d in lineup_intelligence.get("start_sit_decisions", [])}
+        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_intelligence=lineup_intelligence, decisions_by_slot=decisions_by_slot)
 
     @bp.route("/lineup")
     def lineup_page():
-        conn = get_db_connection(); cur = conn.cursor()
-        try:
-            context, roster, meta = current_roster(cur)
-            lineup_intelligence = build_lineup_intelligence(roster)
-        finally:
-            cur.close(); conn.close()
-        return render_template("lineup.html", title="Weekly Lineup Intelligence", context=context, meta=meta, lineup_intelligence=lineup_intelligence)
+        return redirect(url_for("owner_ops.team_page") + "#lineup", code=302)
 
     @bp.route("/waivers")
     def waivers_page():
