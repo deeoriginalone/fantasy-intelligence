@@ -28,6 +28,7 @@ def base_context(**overrides):
         "result_label": "Pending",
         "next_week": 2,
         "last_verified_pacific": None,
+        "eligible_teams": [],
     }
     ctx.update(overrides)
     return ctx
@@ -57,8 +58,13 @@ def app():
     def status_stub():
         return "", 204
 
+    @app.post("/survivor-test/reset")
+    def reset_stub():
+        return "", 204
+
     app.add_url_rule("/survivor-test/select", endpoint="survivor.select", view_func=select_stub)
     app.add_url_rule("/survivor-test/status", endpoint="survivor.status", view_func=status_stub)
+    app.add_url_rule("/survivor-test/reset", endpoint="survivor.reset", view_func=reset_stub)
     app.add_url_rule("/survivor-test", endpoint="survivor.home", view_func=survivor_test_route)
     return app
 
@@ -81,6 +87,31 @@ def test_jax_visible_under_used_teams_and_history(app, client):
     html = render(app, client).get_data(as_text=True)
     assert "Week 1: JAX" in html
     assert "Result: pending" in html
+
+
+def test_status_dropdown_preselects_the_current_status_won(app, client):
+    history = [{"week": 1, "team": "JAX", "status": "won", "pool_key": "default",
+                "season": 2026, "model_probability": None, "survivor_score": None}]
+    html = render(app, client, survivor_history=history).get_data(as_text=True)
+    assert '<option value="won" selected>won</option>' in html
+    assert '<option value="pending" selected>' not in html
+
+
+def test_status_dropdown_preselects_the_current_status_pending(app, client):
+    html = render(app, client).get_data(as_text=True)
+    assert '<option value="pending" selected>pending</option>' in html
+
+
+def test_reset_control_present_for_each_history_row_with_confirmation(app, client):
+    html = render(app, client).get_data(as_text=True)
+    assert 'action="/survivor-test/reset"' in html
+    assert "Reset Week 1 pick" in html
+    assert "onsubmit=\"return confirm(" in html
+
+
+def test_history_forms_include_csrf_token(app, client):
+    html = render(app, client).get_data(as_text=True)
+    assert html.count('name="csrf_token" value="test-csrf-token"') >= 2
 
 
 def test_used_team_status_is_not_color_only(app, client):
@@ -235,3 +266,23 @@ def test_missing_evidence_agreement_shows_unavailable_not_a_number(app, client):
     status = {**base_context()["survivor_status"], "week_state": "OPEN", "state": "DEGRADED", "blocker_reason": None}
     html = render(app, client, survivor_summary=summary, survivor_status=status).get_data(as_text=True)
     assert "Evidence agreement score (not a win probability): Unavailable" in html
+
+
+def test_manual_pick_control_shown_when_week_open_and_teams_eligible(app, client):
+    status = {**base_context()["survivor_status"], "week_state": "OPEN", "state": "UNAVAILABLE"}
+    html = render(app, client, survivor_status=status, eligible_teams=["DET", "KC", "SEA"]).get_data(as_text=True)
+    assert "PICK A DIFFERENT TEAM" in html
+    assert '<option value="DET">DET</option>' in html
+    assert '<option value="KC">KC</option>' in html
+    assert "Record this team as my Week 1 pick" in html
+
+
+def test_manual_pick_control_hidden_when_no_eligible_teams(app, client):
+    status = {**base_context()["survivor_status"], "week_state": "OPEN", "state": "UNAVAILABLE"}
+    html = render(app, client, survivor_status=status, eligible_teams=[]).get_data(as_text=True)
+    assert "PICK A DIFFERENT TEAM" not in html
+
+
+def test_manual_pick_control_hidden_for_locked_week(app, client):
+    html = render(app, client, eligible_teams=["DET", "KC"]).get_data(as_text=True)
+    assert "PICK A DIFFERENT TEAM" not in html
