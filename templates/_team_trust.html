@@ -1,0 +1,9 @@
+<section class="card" id="lineup-trust" aria-labelledby="lineup-trust-heading">
+  <h2 id="lineup-trust-heading">Why This Lineup Is Trusted</h2>
+  <div class="trust-grid">
+    {% for key, item in team_trust.items() if key not in ['confidence', 'blockers', 'before_lock'] %}<div class="trust-item"><strong>{{ key|replace('_', ' ')|title }}</strong><span class="state-{{ item.state|lower }}">{{ item.state }}</span><p>{{ item.label }}</p></div>{% endfor %}
+  </div>
+  <p><strong>Overall evidence confidence:</strong> {{ team_trust.confidence.label }} {{ team_trust.confidence.score }}%</p>
+  <p><strong>Before lineup lock:</strong> {{ team_trust.before_lock }}</p>
+  {% if team_trust.blockers %}<p class="evidence-warning"><strong>Evidence to review:</strong> Some source evidence is unavailable or needs confirmation before lineup lock.</p><details class="evidence-details"><summary>Technical evidence</summary><p>{{ team_trust.blockers|join(", ") }}</p></details>{% endif %}
+</section>

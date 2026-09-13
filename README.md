@@ -1,134 +1,76 @@
 # Fantasy Intelligence
 
-A Flask-based fantasy football intelligence platform focused on draft intelligence, live draft-state validation, draft outcome tracking, pick'em intelligence, market ingestion, and operational readiness checks.
+Fantasy Intelligence is a read-only fantasy football decision-support platform for managers who want trustworthy, timely, and explainable help throughout the season.
 
-## Current repository status
+It combines league-aware context, roster needs, player information, freshness signals, and recommendation explanations across the major weekly management workflows.
 
-This branch is currently on `feature/draft-outcome-tracking` and the working tree includes both tracked edits and untracked batch artifacts. The current runtime is code-valid and test-valid, but it is not yet a proven live database-backed release state.
+## Core Principles
 
-## Verified evidence
+- **Trust before sophistication:** ownership, eligibility, league settings, health, and matchup facts must be supported before they drive recommendations.
+- **Evidence before precision:** scores, ranks, confidence, roster fit, and FAAB guidance require disclosed sources and decision context.
+- **Freshness is part of truth:** supported data is labeled with source and freshness information; stale or unavailable evidence is not presented as current.
+- **Fail closed:** missing, stale, contradictory, or unsupported evidence can make a recommendation unavailable or block it entirely.
+- **One league truth:** shared roster, ownership, league-settings, team-needs, and freshness contracts should remain consistent across pages.
+- **Action before diagnostics:** manager-facing action and fantasy impact come before technical lineage and integrity details.
+- **Read-only decision support:** recommendations are advisory only. The application does not automatically submit fantasy transactions.
 
-The latest repo-level verification in this workspace is:
+## Current Capabilities
 
-```bash
-cd /home/deeoriginalone/fantasy-intelligence
-source venv/bin/activate
-python -m pytest -q
-```
+- Draft intelligence, player evaluation, roster construction, scarcity, strategy, and draft-state checks
+- Draft readiness, reconciliation, publication gates, and operational readiness reporting
+- Roster management with Full-PPR team-needs analysis across QB, RB, WR, TE, FLEX, K, and DEF
+- Weekly lineup intelligence with START, SIT, FLEX, and MONITOR-style decision support
+- Waiver and FAAB intelligence with ownership and eligibility evidence gates
+- Trade analysis focused on roster fit, weakness addressed, depth, risk, and supported impact
+- Pick'em support and related data-ingestion health checks
+- Survivor support with explicit source gaps and unavailable states
+- Freshness-aware recommendations with source, age, completeness, blocker, and recommendation-impact context
+- Manager-facing explanations and secondary technical lineage details
 
-Result from the current repo state:
-- 102 passed
-- 2 xfailed
-- 0 failed
+Recommendations may be blocked when ownership, eligibility, health, matchup, league settings, or other decision-critical evidence is stale, unavailable, incomplete, or unsupported.
 
-The Postgres service was not available during live validation, so database schema and object verification remain blocked until the database is running.
+## Technology
 
-## First-year league note
+- Python
+- Flask
+- PostgreSQL
+- Sleeper API integrations where supported
+- Jinja templates
+- Pytest
+- Read-only service and route contracts for evidence, freshness, reconciliation, and publication control
 
-This is a first-year fantasy league. Historical owner behavior should not be fabricated or assumed. Historical tables and behavior-modeling structures may exist as forward-compatible infrastructure, but they should be treated as empty or low-signal unless real league data exists.
+## Quick Start
 
-## Current scope
-
-The active runtime includes:
-- draft intelligence and recommendation logic
-- draft-state management and hardening
-- draft outcome tracking and calibration
-- readiness and reconciliation checks
-- pick'em and market intelligence
-- survivor logic and source-gap handling
-- weekly ingestion and reporting helpers
-
-The active runtime does not claim:
-- Post-Draft Ready
-- Week 1 Ready
-- Production Ready
-unless live data, database validation, and source-freshness checks prove that status.
-
-## Batch A review
-
-Batch A is present in the code and validated to some extent in tests.
-
-Verified implementation:
-- draft session identity validation
-- sync audit and quarantine logic
-- draft mutation tracking
-- readiness and publication gating
-- hardening-oriented operational checks
-
-Limitations:
-- live database validation is blocked by missing Postgres service
-- this is operationally useful but not yet live-certified
-
-## Batch B review
-
-Batch B is implemented and validated in code/tests.
-
-Verified implementation:
-- outcome health snapshots
-- resolution tracking for draft decisions
-- calibration metrics and bounded weight logic
-- route-level outcome health reporting
-
-Limitations:
-- it remains source-dependent and should not be described as production-calibrated without real historical outcomes
-
-## Batch C review
-
-Batch C is implemented and validated in code/tests.
-
-Verified implementation:
-- post-draft state evaluation
-- transition checks for complete draft status and count invariants
-- idempotent season activation logic
-- finalization materialization for drafted and available players
-- route wiring for readiness and finalize endpoints
-
-Limitations:
-- live DB state and schema validation remain unproven in this environment
-
-## Current development direction
-
-The next recommended direction is Batch D: Recommendation Publishing.
-
-This is the logical next step because:
-- Batch A/B/C established validation, outcome health, and transition readiness
-- recommendation publication is the most immediate operational gate still left to prove
-- the code already contains readiness and publication checks, but they have not been fully proven in a live environment
-
-## Required environment variables
-
-The runtime expects environment values without committing secrets:
-- FLASK_SECRET_KEY
-- DB_HOST
-- DB_PORT
-- DB_NAME
-- DB_USER
-- DB_PASSWORD
-- ADMIN_TOKEN
-- SLEEPER_LEAGUE_ID
-- SLEEPER_DRAFT_ID
-
-See [config.py](config.py) for the active contract.
-
-## Database guidance
-
-The project expects a PostgreSQL database matching the active DB contract. No canonical live migration file has been verified as the single source of truth for the full schema in the active runtime state.
-
-This should be treated as a live environment dependency, not as a guaranteed local state.
-
-## Quick-start
-
-Representative local run pattern:
+Create and activate a Python environment, install the project requirements, configure PostgreSQL and the required environment variables, then start the Flask application:
 
 ```bash
 cd /home/deeoriginalone/fantasy-intelligence
 source venv/bin/activate
+pip install -r requirements.txt
 python app.py
 ```
 
-Use only after the required environment variables are present and Postgres is running.
+The application expects a working PostgreSQL database and supported provider connectivity for live league workflows. Without those dependencies, affected features should remain unavailable or blocked rather than fabricating results.
 
-## Test command
+## Configuration
+
+Configuration is loaded through the application configuration layer and environment variables. Typical values include:
+
+- `FLASK_SECRET_KEY`
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `ADMIN_TOKEN`
+- `SLEEPER_LEAGUE_ID`
+- `SLEEPER_DRAFT_ID`
+
+Keep secrets in local environment configuration. Do not commit `.env` files, tokens, credentials, or private provider data.
+
+## Testing
+
+Run the full test suite from the repository environment:
 
 ```bash
 cd /home/deeoriginalone/fantasy-intelligence
@@ -136,26 +78,51 @@ source venv/bin/activate
 python -m pytest -q
 ```
 
-## Known limitations
+Focused tests should be used when changing a specific service or route. Python compilation, whitespace checks, active-route checks, and source/freshness validation are also important for decision-critical changes.
 
-- PostgreSQL connectivity is currently unavailable in this workspace validation session.
-- Live weekly recommendations remain gated by source freshness and real provider connectivity.
-- Survivor intelligence remains blocked by missing ownership, QB-status, and weather/injury inputs.
-- Batch ZIPs and backup directories are operational artifacts and should not be mistaken for active runtime sources.
+## Repository Structure
 
-## Data safety warning
+- `app.py`: Flask application and route registration
+- `services/`: reusable decision, evidence, freshness, reconciliation, and intelligence services
+- `templates/`: manager-facing page templates
+- `static/`: presentation assets
+- `tests/`: unit, contract, route, and template tests
+- `draft/`, `draft_events/`: draft-state, event, readiness, and reconciliation logic
+- `database/`, `migrations/`: database definitions and migration material
+- `ingestion/`, `imports/`: data intake and validation helpers
+- `docs/`: product requirements, data policies, strategy, maturity, and development guidance
+- `scripts/`: supported maintenance and continuity tooling
 
-- never commit .env files or secrets
-- never present partial or synthetic recommendations as authoritative live outputs
-- treat batch outputs and backups as traceability artifacts, not as the canonical application source
+Generated bundles, exports, backups, captures, archives, and package outputs are supporting artifacts rather than the canonical application source.
 
-## Documentation links
+## Development Philosophy
 
-- [PROJECT_STATUS.md](PROJECT_STATUS.md)
-- [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md)
-- [SEASON_READINESS.md](SEASON_READINESS.md)
-- [PROJECT_STATE.md](PROJECT_STATE.md)
+Development proceeds from repository evidence and explicit contracts. A feature is not considered trustworthy merely because code exists or a unit test passes.
 
-## Recommended next milestone
+Changes should:
 
-Draft-Day End-to-End Validation remains the highest-priority milestone before broader operational work. After that, the highest-value next direction is recommendation publishing under explicit readiness and freshness gates.
+1. Identify authoritative sources and ownership boundaries.
+2. Preserve shared league truth across routes.
+3. Make missing and degraded evidence visible.
+4. Fail closed when a recommendation cannot be supported.
+5. Explain the manager-facing action, confidence, and impact.
+6. Keep external transaction execution out of the product boundary.
+
+## Known Limitations
+
+- Live recommendation quality depends on provider availability, supported source fields, and verified freshness thresholds.
+- Some recommendation inputs, including role, opportunity, duration, eligibility, or precise FAAB guidance, may be unavailable and therefore block or reduce a recommendation.
+- Production readiness, recovery, operational repeatability, and database parity require environment-specific evidence.
+- Historical owner behavior and outcome calibration must not be fabricated when real league history is absent.
+- A blocked recommendation list does not prove that the successful publication path is fully validated.
+
+## Documentation
+
+- [Product Vision](docs/PRODUCT_VISION.md)
+- [Data Freshness and Source Policy](docs/DATA_FRESHNESS_POLICY.md)
+- [Season Management Strategy](docs/SEASON_MANAGEMENT_STRATEGY.md)
+- [Season-Management Page Requirements](docs/PAGE_REQUIREMENTS.md)
+- [Platform Maturity](docs/PLATFORM_MATURITY.md)
+- [Project Status](PROJECT_STATUS.md)
+- [Development Roadmap](DEVELOPMENT_ROADMAP.md)
+- [Season Readiness](SEASON_READINESS.md)

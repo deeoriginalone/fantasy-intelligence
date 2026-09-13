@@ -1,0 +1,78 @@
+{
+  "generated_at_utc": "2026-09-11T04:12:48.063726+00:00",
+  "first_run": false,
+  "previous_manifest_generated_at_utc": "2026-09-11T04:01:28.477262+00:00",
+  "current_manifest_generated_at_utc": "2026-09-11T04:12:48.001654+00:00",
+  "summary": {
+    "added": 0,
+    "removed": 0,
+    "modified": 6,
+    "unchanged": 4
+  },
+  "added": [],
+  "removed": [],
+  "modified": [
+    "DEVELOPMENT_ROADMAP.md",
+    "NEXT_SESSION_HANDOFF.md",
+    "PROJECT_STATE.md",
+    "PROJECT_STATUS.md",
+    "REPOSITORY_CHECKPOINT.md",
+    "TEST_INVENTORY.md"
+  ],
+  "unchanged": [
+    "IMPLEMENTATION_INVENTORY.md",
+    "MIGRATIONS.md",
+    "PARITY_STATUS.md",
+    "SCHEMA.md"
+  ],
+  "changes": [
+    {
+      "name": "DEVELOPMENT_ROADMAP.md",
+      "change": "modified",
+      "previous_bytes": 444,
+      "current_bytes": 5343,
+      "previous_sha256": "9fa58de9ad5b136bdc824b4a5092c3d0f8b5f23b9d8395d99edc67c861cd26f9",
+      "current_sha256": "dbc3efd35c0221e6801a357ca5a3e04cbd35841f7972d06ad98ca27559191724"
+    },
+    {
+      "name": "NEXT_SESSION_HANDOFF.md",
+      "change": "modified",
+      "previous_bytes": 500,
+      "current_bytes": 4141,
+      "previous_sha256": "6bc39f28ce7e0fda1fed40863b87e1a4b3b0938b953b3c157eca847775552d49",
+      "current_sha256": "80063002c6f32fce8dec9239fffb8891caf573cbcb385626496d3d802cfba46a"
+    },
+    {
+      "name": "PROJECT_STATE.md",
+      "change": "modified",
+      "previous_bytes": 455,
+      "current_bytes": 3693,
+      "previous_sha256": "ccecfc2d12cfee651495381507347a0064536fe147621fa1b6759244be5c7727",
+      "current_sha256": "e5a83b3a2bf46a54668b02527693b0cd197c9e111741bf61a34c818a7e6dccf6"
+    },
+    {
+      "name": "PROJECT_STATUS.md",
+      "change": "modified",
+      "previous_bytes": 677,
+      "current_bytes": 4193,
+      "previous_sha256": "0745b6ef51e3c429f37b1d64f9aff4c8eec5fa822e2b76ce1a0723a92b752866",
+      "current_sha256": "268bf59dce57057858741226504db3e74965a8e5bde5e693c0865a09f7cfcf88"
+    },
+    {
+      "name": "REPOSITORY_CHECKPOINT.md",
+      "change": "modified",
+      "previous_bytes": 14736,
+      "current_bytes": 14682,
+      "previous_sha256": "3e17b2352def376c4d4cc6c1f25697d5a81c334823343b1cd5f25f7b634b6f09",
+      "current_sha256": "aa4a26a83e17e7d18c522244d4a3e0a02345c8a727cffd666e122c463f879298"
+    },
+    {
+      "name": "TEST_INVENTORY.md",
+      "change": "modified",
+      "previous_bytes": 33829,
+      "current_bytes": 33829,
+      "previous_sha256": "81da2068799ec188fab9533c6f47f79115f7481fef494eb57a41aecfc55f5c07",
+      "current_sha256": "411928503f5d7c6e613241eda6a9ae5068d83843c34bd1102633a7c2be9635cf"
+    }
+  ]
+}

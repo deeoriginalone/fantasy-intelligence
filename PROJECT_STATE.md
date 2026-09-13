@@ -1,69 +1,87 @@
-# Project State
+###### Project State
 
-## Current State
+####### Current state
 
-The Waiver Agent is **COMPLETE AND VERIFIED through F3-D.5 at the repository-test boundary**. Core computation includes owned-player filtering, waiver ranking, bounded FAAB guidance, authoritative bench-based add/drop plans, K/DEF starter protection, blocked-state behavior, publication gating, HTML rendering, and preservation of the JSON contract. No external waiver transaction submission is enabled.
+Fantasy Intelligence has completed the Shared Integrity and Data Integrity track through A.10. UX.1 remains complete at its verified focused-test and rendered active-route boundary.
 
-## Current Checkpoint
-- Date: 2026-09-07
-- Branch: `post-draft-recovery-20260906`
-- HEAD: `101fcb5d211d458ac9b9d2f8c9107bb2ae2ca061`
-- Upstream: unavailable
-- League ID: `1398094330668797952`
-- Completed real draft ID: `1398094331272794112`
+UX.2 My Team Accuracy, Explainability, and League-Settings Validation is validated at the focused and controlled active-route boundary. The route, contracts, recommendation evidence, health targeting, priority action, and collapsed lineage are preserved.
 
-## Current Capabilities
-- Available-player filtering and waiver ranking using roster need, trending activity, and league pressure.
-- Bounded FAAB percentages and unit bids only when a remaining budget is explicitly verified.
-- Authoritative starter and bench reconciliation from Sleeper roster data.
-- Add/drop action plans that fail closed when roster truth is incomplete.
-- Publication gating through readiness decisions.
-- Blocked-state rendering with reason codes.
-- Waiver action rendering for add, drop, urgency, FAAB percentage, optional unit bid, and explanation.
-- Existing JSON response contract preserved by the publication UI integration.
-- No automatic external transaction submission.
+UX.2.1C is owner-accepted as of 2026-09-13 (`APPROVED: MY TEAM UI`). UX.3 is partially implemented at a verified fail-closed boundary; UX.4 through UX.7 remain pending.
 
-## F3-D.5 Verification
-- F3-D.4 targeted waiver suite: `30 passed in 0.11s`.
-- F3-D.5 publication-only run: `4 passed in 0.06s`.
-- F3-D.5 publication, template, and route suite: `8 passed in 0.21s`.
-- Syntax validation passed for `app.py`, `sleeper_intelligence.py`, `sleeper_intelligence_routes.py`, and `services/roster_slots.py`.
-- Full repository suite: `316 passed, 9 skipped, 2 xfailed, 20 subtests passed in 934.30s (0:15:34)`.
-- The 9 skipped tests are not counted as passing PostgreSQL parity validation.
-- The 2 expected failures remain expected failures, not passes.
+####### Last recorded repository checkpoint
+- Date: 2026-09-13
+- Branch: feature/evidence-bundle-pipeline
+- HEAD: d073a5a57a465ad9eb2c3207daaa88469dfd50c1
 
-## Known Boundaries
-- Production deployment and production recovery are not proven.
-- Full PostgreSQL parity remains incomplete because 9 tests were skipped in the full suite.
-- F3-D.5 has repository-level publication, template, and Flask route test coverage, but a supervised live-server HTML route rehearsal is not recorded here.
-- The broader My Team and post-draft route sweep remain separate validation work.
-- No automatic waiver, lineup, trade, draft, or season transaction submission is enabled.
-- Generated audits, SQL dumps, patches, backups, source captures, and rehearsal evidence must not be broadly committed.
+The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
-## Exact Next Milestone
+####### Preserved verified capabilities
+- Shared completeness, confidence, freshness, blocker, evidence-state, and lineage contracts previously recorded.
+- Dashboard state, freshness, Pacific-time draft presentation, truth-audit, and fail-closed cross-page agreement evidence.
+- League-settings-derived roster requirements with DST-to-DEF normalization.
+- Full-PPR Team Needs evaluation for QB, RB, WR, TE, FLEX, K, and DEF.
+- Team Health and Team Accuracy contracts wired into the active `/team` route.
+- Explicit unavailable-state and blocker handling for unsupported health and matchup evidence.
+- Tested owned-player waiver filtering and fail-closed eligibility evidence remain preserved as partial UX.3 foundation only.
+- Read-only decision support with no external transaction submission.
 
-**Full PostgreSQL 1000-event/10-replay verification and failure-injection recovery testing**
+####### Historical validation evidence
+- UX.1-UX.7 reconciliation validation: 29 passed in 0.47 seconds.
+- Focused UX.1 validation: 17 passed in 0.77 seconds.
+- Team Health template and route validation: 14 passed in 0.38 seconds.
+- Focused UX.2 validation: 35 passed in 0.47 seconds.
+- Python compile validation passed for the previously recorded UX.2 modules and health-test modules.
+- Working-tree and staged whitespace validation passed.
+- Rendered Dashboard active-route evidence was recorded for UX.1.
+- Rendered My Team active-route evidence was recorded for the earlier UX.2 foundation.
+- Notebook bundle validation: PASS.
+- Canonical memory synchronization: PASS.
 
-### Definition of Done
-- Run the full verifier with no skipped PostgreSQL cases.
-- Record failure-injection, rollback, and recovery evidence.
-- Verify guarded cleanup and repeatability.
-- Preserve the no-external-write boundary.
-- Reconcile all four canonical documents after the evidence is complete.
+The revised UX.2 product-completion criteria are validated at the focused, controlled active-route, and current live-render boundaries recorded below.
 
-## First Command for the Next Session
+####### Validated UX.2 boundary
+- Unsupported aggregate metrics are absent or explicitly unavailable.
+- Matchup Rank fails closed without complete authority metadata.
+- Shared Team Needs, recommendation evidence, health targeting, priority action, and collapsed lineage are validated.
 
-```bash
-cd /home/deeoriginalone/fantasy-intelligence \
-  && source venv/bin/activate \
-  && git status --short --branch
-```
+####### Revised UX.2 acceptance boundary
+- Active Full-PPR league settings and current supported roster truth drive the page.
+- QB, RB, WR, TE, FLEX, K, and DEF remain represented in Team Needs.
+- Team Needs summary and detail cannot contradict each other.
+- Minimum starter coverage, desired depth, and strategic need are distinguished.
+- Unsupported Overall Grade and Weekly Score values are removed or fully defined and tested.
+- Missing weekly evidence cannot silently become zero.
+- Matchup Rank identifies its meaning, population, directionality, and unavailable behavior.
+- Every supported lineup recommendation includes player, slot, opponent, supported weekly value, matchup context, health, confidence, reason, and any targeted blocker.
+- Unknown health is not displayed as healthy.
+- Stale or unavailable evidence lowers confidence, produces MONITOR, makes a component unavailable, or blocks the exact affected recommendation.
+- The highest-priority supported action appears before technical diagnostics.
+- Technical lineage remains available but is secondary and collapsible.
 
-## Stop Conditions
+####### Working-tree safety
+- Reinspect current staged, unstaged, and untracked state before implementation.
+- Review both Git layers for any file shown in both staged and unstaged state.
+- Preserve unrelated changes.
+- Use exact file paths for staging.
+- Keep generated evidence, backups, exports, archives, and implementation changes in separate commit scopes.
 
-Stop rather than guess if database isolation, cleanup safety, reconciliation state, readiness freshness, external-write boundaries, or test evidence cannot be proven.
+####### Known boundaries
+- UX.3 blocks unsupported waiver publication through shared ownership and eligibility evidence. Stable player IDs, roster coverage metadata, timestamp requirements, freshness-threshold blockers, and manager-facing blocked states are implemented.
+- The current focused UX.3 waiver suite passes 42 tests, compilation passes, and both working-tree and cached whitespace checks pass.
+- Flask test-client checks for `/waivers` and `/gm` return HTTP 200 with zero published candidates when ownership or eligibility evidence is unsupported.
+- No verified ownership or eligibility threshold, independent add-eligibility contract, expected active-roster count source, or complete active-route timestamp propagation exists.
+- UX.3 completion and UXQA-001 validation or closure are not claimed.
+- Focused UX.2 validation passed with 85 tests, the controlled active-route matrix passed with 11 tests, and the related suite passed with 133 tests.
+- Live `/team` verification covers the currently served unavailable-health state; alternate states are validated through the controlled active-route matrix.
+- Defects are validated but not marked CLOSED because no commit boundary has been reviewed.
+- UX.2.1 passed isolated browser validation for all required states at desktop and 390px mobile widths; UX.3 is unimplemented in this session.
+- UX.2.1B related validation passes 147 tests; fresh desktop and 390px route inspection passed with no clipped cards or primary overflow.
+- Complete, healthy, multiple-monitor, no-urgent, unavailable, stale, blocked, bench-unavailable, and missing-league browser captures passed without primary overflow or clipped cards.
+- PostgreSQL 1000-event/10-replay parity verification remains outstanding.
+- Failure injection, rollback, recovery, guarded cleanup, and repeatability evidence remain outstanding.
+- Production readiness is not claimed.
+- No automatic external fantasy transaction submission is enabled.
 
+## Next milestone
 
-## Historical Context
-
-Earlier draft-day recovery, mock-draft rehearsal, F3-D.4, and initial F3-D.5 planning statements are historical checkpoints. They do not override the current repository-test evidence above.
+**Continue UX.3 Waiver Correctness and Availability Validation by establishing verified ownership freshness, roster completeness, and add-eligibility evidence.**

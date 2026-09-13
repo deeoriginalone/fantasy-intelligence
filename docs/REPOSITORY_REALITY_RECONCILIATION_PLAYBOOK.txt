@@ -1,0 +1,384 @@
+REPOSITORY REALITY RECONCILIATION PLAYBOOK
+
+Purpose
+
+When implementation work advances faster than the canonical project-memory documents, do not guess, rewrite documents from memory, or assume roadmap status.
+
+Perform a repository-reality reconciliation first.
+
+This procedure exists because:
+
+- implementation may advance ahead of canonical documents
+- generated continuity bundles may reflect stale source files
+- tests may pass while roadmap files still describe older milestones
+- staged implementation may not yet be represented in project-memory documents
+- a file may have both staged and unstaged changes
+- continuity validation may fail because headings or milestone wording are inconsistent
+
+Repository evidence is always the source of truth.
+
+Trigger Conditions
+
+Run this process whenever one or more of the following are true:
+
+- the roadmap appears behind actual implementation
+- new milestone implementation files exist but the roadmap does not mention them
+- tests pass but milestone status appears incomplete
+- project-memory files disagree with Git status
+- continuity output reports synchronization failures
+- recent work is difficult to summarize accurately
+- a large batch was completed without a documentation refresh
+- a canonical file contains an old branch, HEAD, milestone, validation result, or completion boundary
+- the same file has both staged and unstaged modifications
+- before creating a major commit
+- before running scripts/end_of_day.sh after extensive development
+
+Required Repository Evidence Collection
+
+Run from the repository root:
+
+cd /home/deeoriginalone/fantasy-intelligence
+git branch --show-current
+git rev-parse HEAD
+git log --oneline --decorate -20
+git status --short --branch
+git diff --stat
+git diff --cached --stat
+git diff --name-status
+git diff --cached --name-status
+
+Capture:
+
+- staged files
+- unstaged files
+- files with both staged and unstaged changes
+- untracked files
+- deleted files
+- current branch
+- current HEAD
+- recent commits
+
+Do not use notebook memory instead of repository evidence.
+
+Staged and Unstaged Layer Check
+
+A two-letter Git status such as MM means a file has staged changes and additional unstaged changes.
+
+For any file shown in both layers, inspect both versions:
+
+git diff --cached -- <file>
+git diff -- <file>
+
+Do not assume the staged version contains the newest validated implementation.
+
+Repository Reality Audit
+
+When the working tree is large or documentation state is unclear, generate a raw repository audit report outside the repository.
+
+The audit should capture:
+
+- branch and HEAD
+- staged and unstaged diffs
+- files modified during the current work session
+- implementation files related to the milestone
+- test files and validation output
+- canonical document contents
+- likely stale-document indicators
+- generated continuity-file status
+
+Keep the raw audit report outside the repository unless it is deliberately intended as repository evidence.
+
+Mandatory Validation Collection
+
+Run focused tests relevant to the implementation:
+
+python -m pytest <focused tests>
+
+Use python -m pytest rather than a bare pytest command when import behavior differs between the active Python environment and the pytest launcher.
+
+Run compile or syntax validation for changed Python files:
+
+python -m py_compile <changed python files>
+
+Run working-tree whitespace validation:
+
+git diff --check
+
+Run staged whitespace validation:
+
+git diff --cached --check
+
+Record the exact results.
+
+No output from py_compile, git diff --check, or git diff --cached --check normally means the command completed successfully.
+
+Never claim completion without recorded validation evidence.
+
+Implementation Evidence Inspection
+
+Inspect relevant locations, including:
+
+- services/
+- templates/
+- tests/
+- docs/
+- app.py
+- route modules
+- audit evidence related to the active milestone
+
+Look for:
+
+- implementation files
+- focused tests
+- templates
+- route wiring
+- helper contracts
+- source and freshness evidence
+- milestone documents
+- fail-closed behavior
+- explicit unavailable, unknown, stale, unsupported, or not-applicable states
+
+Do not rely solely on roadmap status or filenames that imply completion.
+
+Canonical Files That Must Be Compared
+
+Always compare:
+
+PROJECT_STATUS.md
+PROJECT_STATE.md
+DEVELOPMENT_ROADMAP.md
+docs/NEXT_SESSION_HANDOFF.md
+
+These are the canonical project-memory files.
+
+Verify that all four agree on:
+
+- current branch
+- current HEAD
+- exact Next milestone heading
+- exact Next milestone text
+- completion boundary
+- validation results
+- outstanding work
+- deferred strategic modules
+- live-route, production, transaction, parity, and recovery boundaries
+
+Canonical Next Milestone Format
+
+Use the same parser-friendly section in all four canonical files:
+
+## Next milestone
+
+**<Exact milestone text.>**
+
+The heading and bold milestone line must be present in every canonical file.
+
+Use exactly the same milestone wording in all four files. Similar wording is not sufficient.
+
+For example, these are different and may fail synchronization:
+
+- Finish UX.1 Dashboard Modernization and Truth Audit.
+- Complete UX.1 Dashboard Modernization and Truth Audit.
+- Finish UX.1 Dashboard Modernization and Truth Audit at the verified active-route boundary.
+
+Choose one exact milestone line and use it everywhere.
+
+Additional Files To Inspect When Canonicals Are Stale
+
+Review the current milestone foundation or implementation evidence. For the current UX correctness track, this includes:
+
+docs/REPOSITORY_CHECKPOINT.md
+docs/UX_1_7_IMPLEMENTATION_FOUNDATION.md
+services/ux_evidence.py
+tests/test_ux_evidence.py
+tests/test_ux1_dashboard_sleeper_source.py
+templates/_ux_evidence_state.html
+templates/dashboard.html
+templates/lineup.html
+app.py
+
+These files may reveal implementation progress not yet reflected in the canonical project-memory documents.
+
+The filename UX_1_7_IMPLEMENTATION_FOUNDATION.md is evidence of a foundation document, not automatic proof that UX.1 through UX.7 are complete. Compare its stated boundaries with implementation, route wiring, and tests.
+
+Documentation Update Rules
+
+Update documentation only after:
+
+1. repository evidence is gathered
+2. staged and unstaged layers are reviewed
+3. implementation is inspected
+4. focused tests pass
+5. compile checks pass
+6. git diff --check passes
+7. git diff --cached --check passes
+8. completion boundaries are identified
+
+Then update:
+
+PROJECT_STATUS.md
+PROJECT_STATE.md
+DEVELOPMENT_ROADMAP.md
+docs/NEXT_SESSION_HANDOFF.md
+
+Keep all four synchronized.
+
+Do not update generated notebook_bundle copies directly. Update the canonical source files, then regenerate the bundle.
+
+Common Staleness Indicators
+
+A canonical file is probably stale when:
+
+- its HEAD differs from the current HEAD
+- its branch differs from the current branch
+- it uses a different Next milestone heading
+- it uses different milestone wording
+- the roadmap calls validated implementation future work
+- repository files contain validated milestone work missing from project memory
+- validation counts differ from recorded test evidence
+- current work is missing from handoff notes
+- a completion claim exceeds the tested boundary
+- generated bundle copies disagree with canonical source files
+
+
+Continuity Validation Requirements
+Before declaring repository state synchronized:
+- documentation contract tests must pass
+- canonical memory synchronization must pass
+- notebook bundle validation must pass
+- reference documentation must be included in continuity exports
+
+Validate the continuity workflow in this order:
+python scripts/update_canonical_head.py
+./scripts/end_of_day.sh
+
+After the workflow completes, inspect the generated validation evidence and confirm that the product reference documents are present in the continuity export. A successful synchronization result confirms documentation consistency only; it does not prove feature completion beyond the recorded validation boundary.
+
+Continuity Pipeline Procedure
+
+Verify the canonical source files first.
+
+Then run:
+
+./scripts/end_of_day.sh
+
+Expected continuity outputs include:
+
+- repository checkpoint
+- bundle manifest and validation
+- change report
+- canonical sync validation
+- session-start recovery pack
+- working-tree classification
+- commit candidates
+- migration inventory
+- parity status
+- schema inventory
+- test inventory
+- implementation inventory
+- final continuity archive
+
+Required Post-Run Review
+
+Always inspect:
+
+cat notebook_bundle/BUNDLE_VALIDATION.md
+cat notebook_bundle/CANONICAL_SYNC_VALIDATION.md
+cat notebook_bundle/CHANGE_REPORT.md
+git status --short --branch
+git diff --cached --stat
+git diff --cached --name-status
+
+A successful canonical synchronization should report:
+
+- canonical files present: YES
+- canonical files nonempty: YES
+- branch synchronized: YES
+- HEAD synchronized: YES
+- Next milestone present: YES
+- Next milestone consistent: YES
+- sensitive patterns absent: YES
+- result: PASS
+
+If Canonical Sync Fails
+
+Read the per-file results in:
+
+notebook_bundle/CANONICAL_SYNC_VALIDATION.md
+
+Fix only the failed consistency item.
+
+Common failures include:
+
+- missing Next milestone section
+- inconsistent heading names such as Immediate next milestone or Active next milestone
+- different milestone verbs such as Finish and Complete
+- extra milestone qualifiers in only one file
+- stale branch or HEAD
+
+After correcting the canonical source files, rerun:
+
+./scripts/end_of_day.sh
+
+Do not manually patch notebook_bundle copies as the primary fix.
+
+Before Commit
+
+Never run:
+
+git add .
+git add -A
+
+Instead:
+
+- use exact file lists
+- keep the commit scope narrow and coherent
+- review git diff --cached --stat
+- review git diff --cached --name-status
+- inspect the exact staged diff
+- preserve unrelated changes
+- treat mass deletions as a separate review task
+- keep generated bundles, backups, reports, archives, and broad audit captures outside the implementation commit unless explicitly intended
+
+If a file has both staged and unstaged changes, stage it only after confirming the current working-tree version is the intended validated version.
+
+Preferred Future Workflow
+
+Whenever documentation appears stale:
+
+1. Run Repository Reality Reconciliation.
+2. Gather branch, HEAD, status, staged diff, and unstaged diff evidence.
+3. Generate a raw audit report when the repository state is large or ambiguous.
+4. Inspect implementation, templates, routes, tests, and milestone documents.
+5. Run focused tests, compile checks, and both Git diff checks.
+6. Determine the verified implementation boundary.
+7. Update the four canonical source documents.
+8. Normalize the exact Next milestone heading and text across all four files.
+9. Review canonical diffs before staging.
+10. Run scripts/end_of_day.sh.
+11. Review bundle validation and canonical sync validation.
+12. If validation fails, correct only the reported inconsistency and rerun the pipeline.
+13. Review the exact staged file list and staged diff.
+14. Create a narrow commit.
+
+Definition of Done for Reconciliation
+
+Repository reality reconciliation is complete only when:
+
+- repository evidence has been captured
+- implementation status is supported by tests and file inspection
+- the four canonical files agree on branch, HEAD, milestone, boundaries, validation, and outstanding work
+- bundle validation passes
+- canonical synchronization passes
+- the intended commit scope has been reviewed
+- unrelated changes remain preserved
+
+Final Rule
+
+Repository evidence comes first.
+
+Canonical source documents come second.
+
+Generated continuity files come from the canonical source documents.
+
+A PASS from canonical synchronization confirms consistency, not feature completion beyond the recorded validation boundary.

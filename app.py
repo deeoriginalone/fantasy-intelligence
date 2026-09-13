@@ -2,8 +2,9 @@ from services.draft_recommendation_service import rank_candidates as rank_draft_
 from survival_calibration import build_comparison as build_survival_comparison, create_blueprint as survival_calibration_blueprint, persist as persist_survival_comparison
 from monte_carlo_survival import blueprint as monte_carlo_survival_blueprint, enhance as enhance_monte_carlo_survival, persist as persist_monte_carlo_survival
 from recommendation_explainer import build_explanation, blueprint as recommendation_blueprint, persist as persist_explanation
-from draft_operations_hardening import blueprint,track,undo
-from draft_state_hardening import (
+from draft.draft_operations_hardening import blueprint,track,undo
+from flask import current_app
+from draft.draft_state_hardening import (
     build_hardened_sync,
     create_blueprint,
     ensure_schema,
@@ -18,29 +19,29 @@ load_dotenv()
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 from auth import admin_required, csrf_required, ensure_csrf_token
 from config import Config
-from draft_readiness import (
+from draft.draft_readiness import (
     build_draft_readiness,
     ensure_reconciliation_table,
     record_reconciliation,
     validate_runtime,
 )
-from draft_hq_integrity import build_draft_hq_integrity
+from draft.draft_hq_integrity import build_draft_hq_integrity
 from draft_health_routes import create_draft_health_blueprint
 from scarcity_model import calculate_dynamic_scarcity, scarcity_distribution
 from candidate_filter import filter_candidate_pool
 from model_calibration import model_health
-from adaptive_draft_reconciliation import apply_calibrated_reconciliation
-from draft_outcome_tracker import log_and_resolve
+from draft.adaptive_draft_reconciliation import apply_calibrated_reconciliation
+from draft.draft_outcome_tracker import log_and_resolve
 from draft_accuracy_routes import create_draft_accuracy_blueprint
-from draft_outcome_health import create_outcome_health_blueprint
+from draft.draft_outcome_health import create_outcome_health_blueprint
 from post_draft_transition import create_post_draft_blueprint
 from sleeper_opponent_forecast import reconcile_opponent_forecast
 from dynamic_need_model import calculate_dynamic_need
 from balanced_recommendation_score import calculate_balanced_score
-from recommendation_engine_audit import audit_recommendation_candidates
-from draft_decision_plan import build_decision_plan, fuse_decision_plan
-from reconciled_draft_decision import reconcile_draft_now_wait
-from draft_coach_sleeper_fusion import fuse_sleeper_context
+from audit.tools.recommendation_engine_audit import audit_recommendation_candidates
+from draft.draft_decision_plan import build_decision_plan, fuse_decision_plan
+from draft.reconciled_draft_decision import reconcile_draft_now_wait
+from draft.draft_coach_sleeper_fusion import fuse_sleeper_context
 from player_survival_probability import estimate_player_survival
 from sleeper_recommendation_overlay import build_recommendation_overlay
 from services.roster_slots import build_roster_slots
@@ -80,7 +81,8 @@ app.secret_key = Config.SECRET_KEY
 
 @app.context_processor
 def inject_csrf_token():
-    return {"csrf_token": lambda: ensure_csrf_token()}
+    from services.ux_evidence import roster_lineage_view, route_payload_evidence
+    return {"csrf_token": lambda: ensure_csrf_token(), "ux_roster_lineage": roster_lineage_view, "ux_route_evidence": route_payload_evidence}
 
 @app.before_request
 def _ensure_session_csrf():
@@ -183,28 +185,46 @@ def get_db_connection():
 
 
 def get_local_league():
-    conn = get_db_connection()
-    cur = conn.cursor()
-
+    """Return verified Sleeper league metadata for the dashboard; fail closed."""
     try:
-        cur.execute(
-            """
-            SELECT league_name, team_name, teams, scoring_type
-            FROM league_info
-            LIMIT 1
-            """
+        league = get_league(SLEEPER_LEAGUE_ID)
+        users = get_users(SLEEPER_LEAGUE_ID)
+        rosters = get_rosters(SLEEPER_LEAGUE_ID)
+
+        if not isinstance(league, dict) or not league:
+            return None, "LEAGUE_SOURCE_UNAVAILABLE"
+        if not isinstance(users, list):
+            return None, "LEAGUE_USERS_UNAVAILABLE"
+        if not isinstance(rosters, list) or not rosters:
+            return None, "LEAGUE_ROSTERS_UNAVAILABLE"
+
+        owner = next((user for user in users if user.get("is_owner") is True), None)
+        owner_metadata = (owner or {}).get("metadata") or {}
+        owner_team_name = owner_metadata.get("team_name") or (owner or {}).get("display_name")
+
+        scoring = league.get("scoring_settings") or {}
+        reception_points = scoring.get("rec")
+        if reception_points in (1, 1.0):
+            scoring_type = "Full PPR"
+        elif reception_points == 0.5:
+            scoring_type = "Half PPR"
+        elif reception_points in (0, 0.0):
+            scoring_type = "Standard"
+        else:
+            scoring_type = None
+
+        league_row = (
+            league.get("name"),
+            owner_team_name,
+            league.get("total_rosters"),
+            scoring_type,
         )
-        return cur.fetchone()
-    except Exception:
-        return (
-            "Fantasy League",
-            "My Team",
-            10,
-            "PPR",
-        )
-    finally:
-        cur.close()
-        conn.close()
+        if any(value in (None, "") for value in league_row):
+            return league_row, "LEAGUE_METADATA_INCOMPLETE"
+        return league_row, None
+    except Exception as exc:
+        current_app.logger.warning("Dashboard Sleeper league metadata unavailable: %s", exc)
+        return None, "LEAGUE_SOURCE_UNAVAILABLE"
 
 
 def get_player_tier(overall_rank):
@@ -1659,25 +1679,36 @@ def sync_sleeper_draft_picks(draft_id=None):
 
 @app.route("/")
 def dashboard():
-    league = get_local_league()
-
-    if league is None:
-        return render_template(
-            "dashboard.html",
-            title="Fantasy Intelligence Dashboard",
-            league_name="Fantasy Intelligence",
-            team_name="Not configured",
-            teams="Not configured",
-            scoring_type="Not configured",
-        )
-
+    from services.ux_evidence import dashboard_contract
+    league, league_error = get_local_league()
+    try:
+        league_source = get_league(SLEEPER_LEAGUE_ID) or {}
+        draft_source = get_draft(SLEEPER_DRAFT_ID) or {}
+    except Exception as exc:
+        current_app.logger.warning("Dashboard state evidence unavailable: %s", exc)
+        league_source, draft_source = {}, {}
+        league_error = league_error or "DASHBOARD_STATE_SOURCE_UNAVAILABLE"
+    dashboard_evidence = dashboard_contract(league_row=league, error=league_error)
+    from services.ux_evidence import dashboard_agreement_evidence, dashboard_state_contract, freshness_evidence, shared_league_facts
+    dashboard_evidence["fields"].update(dashboard_state_contract(league_source, draft_source, error=league_error))
+    dashboard_evidence["freshness"] = freshness_evidence(
+        dashboard_evidence["generated_at"], source="Sleeper API", blocker=league_error
+    )
+    dashboard_shared_facts = shared_league_facts(league_source, blocker=league_error)
+    dashboard_evidence["shared_facts"] = dashboard_shared_facts
+    dashboard_evidence["agreement"] = dashboard_agreement_evidence(
+        dashboard_facts=dashboard_shared_facts,
+        my_team_facts=shared_league_facts(league_source, blocker=league_error),
+        command_center_facts=shared_league_facts(league_source, blocker=league_error),
+    )
+    fields = dashboard_evidence["fields"]
     return render_template(
-        "dashboard.html",
-        title="Fantasy Intelligence Dashboard",
-        league_name=league[0],
-        team_name=league[1],
-        teams=league[2],
-        scoring_type=league[3],
+        "dashboard.html", title="Fantasy Intelligence Dashboard",
+        league_name=fields["league_name"]["value"] or "Unavailable",
+        team_name=fields["team_name"]["value"] or "Unavailable",
+        teams=fields["teams"]["value"],
+        scoring_type=fields["scoring_type"]["value"] or "Unavailable",
+        dashboard_evidence=dashboard_evidence,
     )
 
 

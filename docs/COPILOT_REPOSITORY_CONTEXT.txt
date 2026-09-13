@@ -1,0 +1,51 @@
+# Copilot Repository Context Rule
+
+When working on Fantasy Intelligence:
+
+Use the repository context bundle before performing
+large implementation work.
+
+Primary context:
+
+- copilot_context/00_REPOSITORY_MAP.txt
+- copilot_context/01_APP_AND_ROUTES.txt
+- copilot_context/02_SERVICES.txt
+- copilot_context/03_TEMPLATES.txt
+- copilot_context/04_TESTS.txt
+- copilot_context/05_DATABASE_AND_SCHEMA.txt
+- copilot_context/06_CANONICAL_PROJECT_MEMORY.txt
+- copilot_context/07_IMPLEMENTATION_INVENTORY.txt
+- copilot_context/08_TEST_INVENTORY.txt
+- copilot_context/09_ACTIVE_WORKING_TREE.txt
+- copilot_context/10_CONTINUITY_AND_RECOVERY.txt
+- copilot_context/11_PROJECT_RULES_AND_BOUNDARIES.txt
+
+
+Product Reference Documents (Required)
+
+The following files define product truth and must be consulted before making architecture, UX, recommendation, ownership, lineage, freshness, or metric-related decisions:
+
+- PRODUCT_VISION.md
+- CURRENT_DEFECTS.md
+- SEASON_MANAGEMENT_STRATEGY.md
+- METRIC_DEFINITIONS.md
+- DATA_FRESHNESS_POLICY.md
+- PAGE_REQUIREMENTS.md
+- PLATFORM_MATURITY.md
+
+When repository implementation evidence and product reference documentation appear inconsistent, do not guess. Perform repository-reality reconciliation, identify the verified boundary, and update the appropriate source documentation only after validation.
+
+Rules:
+
+1. Repository evidence is the source of truth.
+2. Never guess implementation details.
+3. Prefer large coherent batches.
+4. Validate before claiming completion.
+5. Review tests before changing behavior.
+6. Preserve unrelated changes.
+7. Use exact git file lists.
+8. Never use git add .
+9. Never use git add -A.
+10. Keep implementation, audits, docs, bundles, and generated outputs separated.
+11. Update canonical project-memory files only after validation.
+12. Prefer repository evidence over historical chat memory.

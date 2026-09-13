@@ -1,0 +1,1277 @@
+# Working Tree Classification
+
+- Generated UTC: `2026-09-09T09:10:22.722477+00:00`
+- Branch: `feature/evidence-bundle-pipeline`
+- HEAD: `3c6aef5bb1995887f4e553a2a7954f83eb7cecb7`
+- Total changed paths: `378`
+
+## Safety
+
+- Classification only.
+- No files were staged.
+- No files were deleted or restored.
+- No files were moved.
+- No commit was created.
+- Category assignments are heuristic and require human review.
+
+## Category Counts
+
+- Continuity System: `13`
+- Canonical Documentation: `0`
+- Documentation: `11`
+- Production Source: `23`
+- Draft Intelligence: `13`
+- Recovery and Automation Utilities: `40`
+- Tests: `14`
+- Templates: `2`
+- Database Changes: `2`
+- Audit Evidence: `109`
+- Discovery Artifacts: `6`
+- Temporary Patches and Before-State Files: `2`
+- Generated Outputs: `91`
+- Backups and Archives: `6`
+- Sensitive or Never Commit: `0`
+- Deleted Files Requiring Manual Review: `45`
+- Unknown or Human Review Required: `1`
+
+## Git Status Counts
+
+- `untracked`: `303`
+- `worktree:D`: `45`
+- `worktree:M`: `30`
+
+## Continuity System
+
+Guidance: Potential standalone continuity-system commit after focused validation.
+
+- `??` `.continuity/last_bundle_manifest.json`
+  - Status: `untracked`
+  - Reason: Exact continuity pipeline path.
+- `??` `docs/REPOSITORY_CHECKPOINT.md`
+  - Status: `untracked`
+  - Reason: Exact continuity pipeline path.
+- `??` `scripts/end_of_day.sh`
+  - Status: `untracked`
+  - Reason: Exact continuity pipeline path.
+- `??` `tools/classify_working_tree.py`
+  - Status: `untracked`
+  - Reason: Exact continuity pipeline path.
+- `??` `tools/generate_bundle_change_report.py`
+  - Status: `untracked`
+  - Reason: Exact continuity pipeline path.
+- `??` `tools/generate_notebook_bundle.py`
+  - Status: `untracked`
+  - Reason: Exact continuity pipeline path.
+- `??` `tools/generate_session_recovery_pack.py`
+  - Status: `untracked`
+  - Reason: Exact continuity pipeline path.
+- `??` `tools/install_continuity_extensions.py`
+  - Status: `untracked`
+  - Reason: Exact continuity pipeline path.
+- `??` `tools/install_working_tree_classifier.py`
+  - Status: `untracked`
+  - Reason: Exact continuity pipeline path.
+- `??` `tools/patch_end_of_day.py`
+  - Status: `untracked`
+  - Reason: Exact continuity pipeline path.
+- `??` `tools/upgrade_working_tree_classifier.py`
+  - Status: `untracked`
+  - Reason: Exact continuity pipeline path.
+- `??` `tools/validate_canonical_sync.py`
+  - Status: `untracked`
+  - Reason: Exact continuity pipeline path.
+- `??` `tools/validate_notebook_bundle.py`
+  - Status: `untracked`
+  - Reason: Exact continuity pipeline path.
+
+## Canonical Documentation
+
+Guidance: Keep separate from implementation unless intentionally synchronized.
+
+- None
+
+## Documentation
+
+Guidance: Group by the feature, runbook, or workflow being documented.
+
+- `??` `docs/F3_D3_BATCH_11_RUNBOOK.md`
+  - Status: `untracked`
+  - Reason: Documentation path.
+- `??` `docs/F3_D3_WAIVER_ACTION_PLAN_SPEC.md`
+  - Status: `untracked`
+  - Reason: Documentation path.
+- `??` `docs/PHASE_F2_RUNBOOK.md`
+  - Status: `untracked`
+  - Reason: Documentation path.
+- `??` `docs/database/MIGRATIONS.md`
+  - Status: `untracked`
+  - Reason: Documentation path.
+- `??` `docs/database/PARITY_STATUS.md`
+  - Status: `untracked`
+  - Reason: Documentation path.
+- `??` `docs/database/SCHEMA.md`
+  - Status: `untracked`
+  - Reason: Documentation path.
+- `??` `docs/packages/PACKAGE_C0_SEASON_SANDBOX.md`
+  - Status: `untracked`
+  - Reason: Documentation path.
+- `??` `docs/packages/PACKAGE_C_OWNER_OPERATIONS.md`
+  - Status: `untracked`
+  - Reason: Documentation path.
+- `??` `docs/runbooks/MOCK_K_DEF_UPGRADE.md`
+  - Status: `untracked`
+  - Reason: Documentation path.
+- `??` `docs/runbooks/PROJECT_AUDIT.md`
+  - Status: `untracked`
+  - Reason: Documentation path.
+- `??` `docs/runbooks/SEASON_READINESS.md`
+  - Status: `untracked`
+  - Reason: Documentation path.
+
+## Production Source
+
+Guidance: Review ownership and behavior. Pair with directly related tests.
+
+- ` M` `app.py`
+  - Status: `worktree:M`
+  - Reason: Application entry point or route implementation.
+- ` M` `intelligence_operations_routes.py`
+  - Status: `worktree:M`
+  - Reason: Application entry point or route implementation.
+- ` M` `recommendation_explainability_batch_4a_fixed/test_recommendation_explainer.py`
+  - Status: `worktree:M`
+  - Reason: Source-code extension outside a recognized package.
+- `??` `ingestion/__init__.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `ingestion/ingest_weekly_data.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `ingestion/ingestion_store.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `ingestion/ingestion_validation.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `intelligence/__init__.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `intelligence/balanced_recommendation_score.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `intelligence/candidate_filter.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `intelligence/decision_ranking.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `intelligence/dynamic_need_model.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `intelligence/intelligence_calibration.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `intelligence/intelligence_explainability.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `intelligence/intelligence_readiness.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `intelligence/intelligence_reconciliation.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `intelligence/model_calibration.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `intelligence/player_survival_probability.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `intelligence/recommendation_explainer.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `intelligence/scarcity_model.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `intelligence/survival_calibration.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `services/intelligence/services_matchup_intelligence.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+- `??` `services/intelligence/services_trade_target_center.py`
+  - Status: `untracked`
+  - Reason: Application service or production package path.
+
+## Draft Intelligence
+
+Guidance: Review as draft-domain implementation. Pair with relevant draft tests.
+
+- ` M` `draft_accuracy_routes.py`
+  - Status: `worktree:M`
+  - Reason: Root-level draft, recommendation, calibration, or survival implementation.
+- ` M` `draft_health_routes.py`
+  - Status: `worktree:M`
+  - Reason: Root-level draft, recommendation, calibration, or survival implementation.
+- `??` `draft/__init__.py`
+  - Status: `untracked`
+  - Reason: Draft-domain implementation path.
+- `??` `draft/adaptive_draft_reconciliation.py`
+  - Status: `untracked`
+  - Reason: Draft-domain implementation path.
+- `??` `draft/draft_coach_sleeper_fusion.py`
+  - Status: `untracked`
+  - Reason: Draft-domain implementation path.
+- `??` `draft/draft_decision_plan.py`
+  - Status: `untracked`
+  - Reason: Draft-domain implementation path.
+- `??` `draft/draft_hq_integrity.py`
+  - Status: `untracked`
+  - Reason: Draft-domain implementation path.
+- `??` `draft/draft_operations_hardening.py`
+  - Status: `untracked`
+  - Reason: Draft-domain implementation path.
+- `??` `draft/draft_outcome_health.py`
+  - Status: `untracked`
+  - Reason: Draft-domain implementation path.
+- `??` `draft/draft_outcome_tracker.py`
+  - Status: `untracked`
+  - Reason: Draft-domain implementation path.
+- `??` `draft/draft_readiness.py`
+  - Status: `untracked`
+  - Reason: Draft-domain implementation path.
+- `??` `draft/draft_state_hardening.py`
+  - Status: `untracked`
+  - Reason: Draft-domain implementation path.
+- `??` `draft/reconciled_draft_decision.py`
+  - Status: `untracked`
+  - Reason: Draft-domain implementation path.
+
+## Recovery and Automation Utilities
+
+Guidance: Determine whether each file is durable tooling or temporary recovery work.
+
+- ` M` `scripts/run_batch_e.py`
+  - Status: `worktree:M`
+  - Reason: Script, tool, batch job, or automation path.
+- ` M` `tools/validate_draft_readiness.py`
+  - Status: `worktree:M`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `batch_jobs/__init__.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `batch_jobs/batch_e_common.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `batch_jobs/batch_e_injuries.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `batch_jobs/batch_e_market_bridge.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `batch_jobs/batch_e_ratings.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `batch_jobs/batch_e_weather.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/apply_f3a2_runtime_patch.py`
+  - Status: `untracked`
+  - Reason: Root-level apply, fix, reconciliation, update, inspection, or collection utility.
+- `??` `scripts/collection/cache_sleeper_players.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/collection/collect_regular_season_integrity_batch_inputs.py`
+  - Status: `untracked`
+  - Reason: Root-level apply, fix, reconciliation, update, inspection, or collection utility.
+- `??` `scripts/collection/collect_trade_intelligence_batch_inputs.py`
+  - Status: `untracked`
+  - Reason: Root-level apply, fix, reconciliation, update, inspection, or collection utility.
+- `??` `scripts/collection/collect_weekly_lineup_batch1_inputs.py`
+  - Status: `untracked`
+  - Reason: Root-level apply, fix, reconciliation, update, inspection, or collection utility.
+- `??` `scripts/collection/inspect_weekly_lineup_intelligence.py`
+  - Status: `untracked`
+  - Reason: Root-level apply, fix, reconciliation, update, inspection, or collection utility.
+- `??` `scripts/f3_b1_batch1_audit.sh`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/f3_b1_capture_implementation_sources.sh`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/find_commit_blockers.sh`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/maintenance/apply_f3_b31_postgres_parity_patch_v2.py`
+  - Status: `untracked`
+  - Reason: Root-level apply, fix, reconciliation, update, inspection, or collection utility.
+- `??` `scripts/maintenance/apply_rehearsal_doc_updates.py`
+  - Status: `untracked`
+  - Reason: Root-level apply, fix, reconciliation, update, inspection, or collection utility.
+- `??` `scripts/maintenance/fix_final_doc_cleanup.py`
+  - Status: `untracked`
+  - Reason: Root-level apply, fix, reconciliation, update, inspection, or collection utility.
+- `??` `scripts/maintenance/fix_weekly_template_test.py`
+  - Status: `untracked`
+  - Reason: Root-level apply, fix, reconciliation, update, inspection, or collection utility.
+- `??` `scripts/maintenance/install_v1_7_draft_day_readiness.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/maintenance/patch_owner_operations.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/maintenance/patch_owner_operations_batch3.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/maintenance/patch_trade_template_compat.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/maintenance/patch_trade_template_legacy_headings.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/maintenance/reconcile_rehearsal_docs.py`
+  - Status: `untracked`
+  - Reason: Root-level apply, fix, reconciliation, update, inspection, or collection utility.
+- `??` `scripts/maintenance/update_f3_d4_documentation.py`
+  - Status: `untracked`
+  - Reason: Root-level apply, fix, reconciliation, update, inspection, or collection utility.
+- `??` `scripts/maintenance/update_rehearsal_docs.py`
+  - Status: `untracked`
+  - Reason: Root-level apply, fix, reconciliation, update, inspection, or collection utility.
+- `??` `scripts/patch_f3_d3_waiver_action_plan.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/repo_cleanup_apply.sh`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/repo_cleanup_preview.sh`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/repo_inventory.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/repo_size_report.sh`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/reporting/build_batch2_source_pdf.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/reporting/build_batch3_source_pdf.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/reporting/build_f4_pdfs.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/reporting/export_source_to_pdf.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `scripts/verify_f3_d3_action_plan.py`
+  - Status: `untracked`
+  - Reason: Script, tool, batch job, or automation path.
+- `??` `tools/update_docs.py`
+  - Status: `untracked`
+  - Reason: Root-level apply, fix, reconciliation, update, inspection, or collection utility.
+
+## Tests
+
+Guidance: Pair only with the production change directly validated by the test.
+
+- ` M` `tests/test_batch_b_outcome_intelligence.py`
+  - Status: `worktree:M`
+  - Reason: Repository test path.
+- ` M` `tests/test_batch_d_intelligence_operations.py`
+  - Status: `worktree:M`
+  - Reason: Repository test path.
+- ` M` `tests/test_draft_day_readiness.py`
+  - Status: `worktree:M`
+  - Reason: Repository test path.
+- ` M` `tests/test_draft_environment_rotation.py`
+  - Status: `worktree:M`
+  - Reason: Repository test path.
+- ` M` `tests/test_draft_hq_snapshot_integrity.py`
+  - Status: `worktree:M`
+  - Reason: Repository test path.
+- ` M` `tests/test_draft_operations_hardening.py`
+  - Status: `worktree:M`
+  - Reason: Repository test path.
+- ` M` `tests/test_draft_state_hardening.py`
+  - Status: `worktree:M`
+  - Reason: Repository test path.
+- ` M` `tests/test_f4_c_decision_ranking.py`
+  - Status: `worktree:M`
+  - Reason: Repository test path.
+- ` M` `tests/test_mock_draft_synchronization.py`
+  - Status: `worktree:M`
+  - Reason: Repository test path.
+- ` M` `tests/test_recommendation_explainer.py`
+  - Status: `worktree:M`
+  - Reason: Repository test path.
+- ` M` `tests/test_survival_calibration.py`
+  - Status: `worktree:M`
+  - Reason: Repository test path.
+- `??` `tests/test_f3_d3_waiver_action_plan.py`
+  - Status: `untracked`
+  - Reason: Repository test path.
+- `??` `tests/test_import.py`
+  - Status: `untracked`
+  - Reason: Repository test path.
+- `??` `tests/test_model_calibration.py`
+  - Status: `untracked`
+  - Reason: Repository test path.
+
+## Templates
+
+Guidance: Pair only with its related route or presentation-layer change.
+
+- `??` `templates/custom/template_gm.html`
+  - Status: `untracked`
+  - Reason: Template or presentation-layer path.
+- `??` `templates/custom/template_trades.html`
+  - Status: `untracked`
+  - Reason: Template or presentation-layer path.
+
+## Database Changes
+
+Guidance: Review schema and migration safety separately before committing.
+
+- `??` `database/sql/fantasy_intelligence_mocklab_v1.sql`
+  - Status: `untracked`
+  - Reason: Database schema, SQL, or migration path.
+- `??` `database/sql/post_draft_recovery.sql`
+  - Status: `untracked`
+  - Reason: Database schema, SQL, or migration path.
+
+## Audit Evidence
+
+Guidance: Keep separate from implementation. Review whether the evidence is durable.
+
+- ` M` `audit/f3_b2/reconciliation/VERIFICATION_RESULTS.md`
+  - Status: `worktree:M`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- ` M` `audit/f3_b2/reconciliation/pytest_output.txt`
+  - Status: `worktree:M`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- ` M` `audit/f3_b2/reconciliation/verification.json`
+  - Status: `worktree:M`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- ` M` `audit/f3_b3/verification/VERIFICATION_RESULTS.md`
+  - Status: `worktree:M`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- ` M` `audit/f3_b3/verification/pytest_output.txt`
+  - Status: `worktree:M`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- ` M` `audit/f3_b3/verification/verification.json`
+  - Status: `worktree:M`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- ` M` `audit/f3_b4/verification/VERIFICATION_RESULTS.md`
+  - Status: `worktree:M`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- ` M` `audit/f3_b4/verification/verification.json`
+  - Status: `worktree:M`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- ` M` `audit/f3_d4/verification/VERIFICATION_RESULTS.md`
+  - Status: `worktree:M`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- ` M` `audit/f3_d4/verification/pytest_output.txt`
+  - Status: `worktree:M`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- ` M` `audit/f3_d4/verification/verification.json`
+  - Status: `worktree:M`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/__init__.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/SUMMARY.md`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/constraint_references.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/git_branch.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/git_log.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/git_status.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/pytest_collection.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/pytest_version.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/python_version.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/replay_code_references.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/repository_files.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/GIT_COMMIT.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/GIT_STATUS.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/INTEGRATION_REFERENCES.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/MANIFEST.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/PYTEST_VERSION.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/PYTHON_VERSION.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/README.md`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/TEST_COLLECTION.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/app.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/draft_events/__init__.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/draft_events/runtime.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/draft_events/service.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/draft_events/sleeper_ingestion.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/draft_events/store.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/migrations/007_draft_event_pipeline.sql`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/pytest.ini`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/requirements.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/scripts/replay_failed_draft_events.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/services/sleeper_service.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/tests/fixtures/draft_events.json`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/tests/test_draft_event_pipeline.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/tests/test_f3a1_repository_integration.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b1/source_capture/tests/test_f3a2_runtime.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b31/postgres_parity/VERIFICATION_RESULTS.md`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b31/postgres_parity/pytest_output.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b31/postgres_parity/verification.json`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_b31/postgres_parity/verification_blocked.json`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_d3/verification/VERIFICATION_RESULTS.md`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_d3/verification/pytest_output.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/f3_d3/verification/verification.json`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/F2R_B_MAPPING_AUDIT.md`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/draft_recommendation_function.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/example-run/draft_report.md`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/example-run/recommendation_snapshots.jsonl`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/f2_interface_candidates.json`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/f2_recommendation_review.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/high_priority_candidates.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/mock_recommendations_function.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/player_insert_paths.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/player_sync_paths.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/player_update_paths.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/players_identity_candidates.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/players_identity_columns.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/sleeper_draft_calls.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/sleeper_endpoints.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/sleeper_pick_calls.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/sleeper_player_calls.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/sleeper_player_map_schema.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/sleeper_player_map_usage.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/sleeper_player_matching_code.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/phase_f/sleeper_player_sample.json`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/SUMMARY.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/active_files.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/db_skipped.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/flask_routes.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/git_branch.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/git_diff_check.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/git_head.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/git_log.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/git_status.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/post_draft_references.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/py_compile.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/relevant_tests.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/source__app.py.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/source__owner_operations.py.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/source__services__sleeper_service.py.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/source__sleeper_hub.py.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/source__sleeper_intelligence.py.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/source__sleeper_intelligence_routes.py.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/source__templates__base.html.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/source__templates__gm.html.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/source__templates__league_overview.html.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/source__templates__lineup.html.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/source__templates__sleeper_intelligence.html.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/source__templates__team.html.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/source__templates__trades.html.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/source__templates__waivers.html.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/post_draft_batch0/tracked_files.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/tools/__init__.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/tools/audit_fantasy_intelligence.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/tools/audit_yahoo_pickem.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `audit/tools/recommendation_engine_audit.py`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `reports/PICKEM_INPUT_CENTER_REPORT.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `reports/PICKEM_POSTGRES_FIX_REPORT.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `reports/YAHOO_PICKEM_INSTALL_REPORT.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `reports/trade_intelligence.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+- `??` `reports/weekly_lineup_intelligence.txt`
+  - Status: `untracked`
+  - Reason: Audit, report, verification, or rehearsal evidence.
+
+## Discovery Artifacts
+
+Guidance: Evidence-only by default. Human review required before committing.
+
+- `??` `docs/discovery/F4_DISCOVERY_README.md`
+  - Status: `untracked`
+  - Reason: Discovery documentation or repository-inspection artifact.
+- `??` `docs/discovery/README_F4_BATCH1.md`
+  - Status: `untracked`
+  - Reason: Discovery documentation or repository-inspection artifact.
+- `??` `docs/discovery/README_F4_BATCH2.md`
+  - Status: `untracked`
+  - Reason: Discovery documentation or repository-inspection artifact.
+- `??` `docs/discovery/README_F4_BATCH3.md`
+  - Status: `untracked`
+  - Reason: Discovery documentation or repository-inspection artifact.
+- `??` `docs/discovery/README_F4_BATCH3_COMPAT_FIX.md`
+  - Status: `untracked`
+  - Reason: Discovery documentation or repository-inspection artifact.
+- `??` `docs/discovery/README_F4_BATCH3_LEGACY_HEADINGS_FIX.md`
+  - Status: `untracked`
+  - Reason: Discovery documentation or repository-inspection artifact.
+
+## Temporary Patches and Before-State Files
+
+Guidance: Do not broadly commit. Preserve only when intentionally required.
+
+- `??` `patches/f3_d4a_roster_truth_hardening.patch`
+  - Status: `untracked`
+  - Reason: Patch or recovery patch artifact.
+- `??` `patches/post_draft_recovery.patch`
+  - Status: `untracked`
+  - Reason: Patch or recovery patch artifact.
+
+## Generated Outputs
+
+Guidance: Generated content. Usually ignore or archive outside source control.
+
+- `??` `end_of_day_status.txt`
+  - Status: `untracked`
+  - Reason: Generated status or continuity output.
+- `??` `f4_pdf_build/build_bundle_pdf.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/README.txt`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/checkpoint.txt`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/f4_symbol_search.txt`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/git_cached_names.txt`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/git_cached_stat.txt`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/git_diff_check.txt`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/git_diff_names.txt`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/git_diff_stat.txt`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/git_log.txt`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/git_status.txt`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/missing_candidates.txt`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/pytest_collection.txt`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/python_version.txt`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/repository_inventory.txt`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/.ai/agents/development_director.md`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/.ai/agents/postgres_guardian.md`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/.ai/agents/release_manager.md`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/.ai/agents/repository_guardian.md`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/DEVELOPMENT_ROADMAP.md`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/PROJECT_STATE.md`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/PROJECT_STATUS.md`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/app.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/database/schema.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/docs/F3_D1_SLEEPER_WAIVER_SPEC.md`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/docs/F3_D3_WAIVER_ACTION_PLAN_SPEC.md`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/docs/NEXT_SESSION_HANDOFF.md`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/001_mock_draft_lab.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/002_season_sandbox.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/003_owner_operations.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/003_yahoo_pickem.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/004_weekly_intelligence.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/004_yahoo_pickem_postgres.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/005_pickem_feed_runs.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/005_sleeper_full_integration.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/006_draft_outcome_tracking.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/006_market_intelligence.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/007_draft_day_readiness.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/007_draft_event_pipeline.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/007_survivor_intelligence.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/008_intelligence_operations.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/009_data_ingestion_pipeline.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/010_draft_event_pipeline_upgrade.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/migrations/F2R_C_001_sleeper_local_identity.sql`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/owner_operations.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/services/publication_gate.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/services/roster_slots.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/services/trade_intelligence.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/services/weekly_lineup_intelligence.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/sleeper_intelligence.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/sleeper_intelligence_routes.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/templates/dashboard.html`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/templates/gm.html`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/templates/lineup.html`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/templates/team.html`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/templates/trades.html`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/tests/test_f3_d1_sleeper_waiver_intelligence.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/tests/test_f3_d3_waiver_action_plan.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/tests/test_f3_d4_waiver_action_integration.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/tests/test_f3_d5_waiver_action_publication.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/tests/test_f3_d5_waiver_action_route.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/tests/test_f3_d5_waiver_action_template.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/tests/test_trade_intelligence.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/tests/test_trade_intelligence_template.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/tests/test_weekly_lineup_intelligence.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/tests/test_weekly_lineup_template.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_20260908T062649Z/source/weekly_intelligence.py`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `f4_pdf_build/f4_discovery_bundle.pdf`
+  - Status: `untracked`
+  - Reason: Generated document-build output.
+- `??` `notebook_bundle/BUNDLE_MANIFEST.json`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/BUNDLE_VALIDATION.json`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/BUNDLE_VALIDATION.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/CANONICAL_SYNC_VALIDATION.json`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/CANONICAL_SYNC_VALIDATION.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/CHANGE_REPORT.json`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/CHANGE_REPORT.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/DEVELOPMENT_ROADMAP.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/IMPLEMENTATION_INVENTORY.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/MIGRATIONS.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/NEXT_SESSION_HANDOFF.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/PARITY_STATUS.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/PROJECT_STATE.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/PROJECT_STATUS.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/REPOSITORY_CHECKPOINT.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/SCHEMA.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/SESSION_START.json`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/SESSION_START.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/TEST_INVENTORY.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/WORKING_TREE_CLASSIFICATION.json`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+- `??` `notebook_bundle/WORKING_TREE_CLASSIFICATION.md`
+  - Status: `untracked`
+  - Reason: Generated notebook continuity output.
+
+## Backups and Archives
+
+Guidance: Do not broadly commit.
+
+- `??` `reference_snapshot/DEVELOPMENT_ROADMAP.md`
+  - Status: `untracked`
+  - Reason: Backup, archive, or reference-snapshot path.
+- `??` `reference_snapshot/NEXT_SESSION_HANDOFF.md`
+  - Status: `untracked`
+  - Reason: Backup, archive, or reference-snapshot path.
+- `??` `reference_snapshot/PROJECT_STATE.md`
+  - Status: `untracked`
+  - Reason: Backup, archive, or reference-snapshot path.
+- `??` `reference_snapshot/PROJECT_STATUS.md`
+  - Status: `untracked`
+  - Reason: Backup, archive, or reference-snapshot path.
+- `??` `reference_snapshot/git_status.txt`
+  - Status: `untracked`
+  - Reason: Backup, archive, or reference-snapshot path.
+- `??` `reference_snapshot/head.txt`
+  - Status: `untracked`
+  - Reason: Backup, archive, or reference-snapshot path.
+
+## Sensitive or Never Commit
+
+Guidance: Do not commit. Inspect for credentials, tokens, URLs, or private values.
+
+- None
+
+## Deleted Files Requiring Manual Review
+
+Guidance: Never assume deletion is intended. Review each deletion manually.
+
+- ` D` `MOCK_K_DEF_UPGRADE.md`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `PACKAGE_C0_SEASON_SANDBOX.md`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `PACKAGE_C_OWNER_OPERATIONS.md`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `PICKEM_INPUT_CENTER_REPORT.txt`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `PICKEM_POSTGRES_FIX_REPORT.txt`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `PROJECT_AUDIT.md`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `SEASON_READINESS.md`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `YAHOO_PICKEM_INSTALL_REPORT.txt`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `adaptive_draft_reconciliation.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `audit_fantasy_intelligence.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `audit_yahoo_pickem.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `balanced_recommendation_score.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `batch_e_common.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `batch_e_injuries.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `batch_e_market_bridge.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `batch_e_ratings.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `batch_e_weather.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `cache_sleeper_players.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `candidate_filter.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `draft_coach_sleeper_fusion.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `draft_decision_plan.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `draft_operations_hardening.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `draft_outcome_health.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `draft_outcome_tracker.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `draft_readiness.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `draft_state_hardening.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `dynamic_need_model.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `fantasy_intelligence_mocklab_v1.sql`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `ingest_weekly_data.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `ingestion_store.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `ingestion_validation.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `install_v1_7_draft_day_readiness.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `intelligence_calibration.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `intelligence_explainability.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `intelligence_readiness.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `intelligence_reconciliation.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `model_calibration.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `player_survival_probability.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `recommendation_engine_audit.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `recommendation_explainer.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `reconciled_draft_decision.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `scarcity_model.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `survival_calibration.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `survivor_store.py.bak`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+- ` D` `test_import.py`
+  - Status: `worktree:D`
+  - Reason: Git reports this tracked path as deleted.
+
+## Unknown or Human Review Required
+
+Guidance: No conservative rule matched. Review manually.
+
+- ` M` `.gitignore`
+  - Status: `worktree:M`
+  - Reason: No conservative classification rule matched.
+
+## Recommended Review Order
+
+1. Sensitive or Never Commit
+2. Deleted Files Requiring Manual Review
+3. Unknown or Human Review Required
+4. Continuity System
+5. Production Source, Draft Intelligence, Tests, and Templates
+6. Documentation and Audit Evidence
+7. Temporary Patches, Generated Outputs, Backups, and Archives
+
+## Important
+
+This report is not an automatic staging list.
+Review exact paths before any Git operation.

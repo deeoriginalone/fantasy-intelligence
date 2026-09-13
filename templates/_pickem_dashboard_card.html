@@ -1,8 +1,8 @@
 <section class="fi-pickem-card">
-  <div><span>Yahoo Pick'em</span><h3>{{ pickem_summary.lock.model_pick if pickem_summary and pickem_summary.lock else 'Awaiting weekly data' }}</h3></div>
+  <div><span>Weekly Pick'em</span><h3>{{ pickem_summary.lock.model_pick if pickem_summary and pickem_summary.lock else 'Awaiting weekly data' }}</h3></div>
   {% if pickem_summary and pickem_summary.lock %}
   <p>Lock confidence {{ '%.1f%%'|format(pickem_summary.lock.pick_probability * 100) }}</p>
   <p>Expected correct {{ '%.1f'|format(pickem_summary.expected_correct) }}</p>
-  {% else %}<p>Load weekly Yahoo and market inputs.</p>{% endif %}
+  {% else %}<p>Load weekly crowd and market inputs.</p>{% endif %}
   <a href="{{ url_for('market_intelligence.home') }}">Open Pick'em Center</a>
 </section>

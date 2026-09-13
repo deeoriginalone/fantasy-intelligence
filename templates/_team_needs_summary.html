@@ -1,0 +1,6 @@
+<section class="card" id="actionable-team-needs" aria-labelledby="actionable-needs-heading">
+  <h2 id="actionable-needs-heading">Team Needs</h2>
+  {% set ns = namespace(actionable=[]) %}{% for position in ["QB", "RB", "WR", "TE", "FLEX", "K", "DEF"] %}{% set item = team_needs.get(position) if team_needs else none %}{% if item and (item.strategic_need in ["ADD_STARTER", "ADD_DEPTH"] or item.state != "AVAILABLE") %}{% set ns.actionable = ns.actionable + [position] %}{% endif %}{% endfor %}
+  {% if ns.actionable %}<div class="needs-summary-grid">{% for position in ns.actionable %}{% set item = team_needs.get(position) %}<article class="need-card need-action"><h3>{{ position }}</h3>{% if item.state == "AVAILABLE" %}<strong>{{ item.strategic_need }}</strong><p>{{ item.drivers|join(" ") if item.drivers else "No supported driver available." }}</p>{% else %}<p>Analysis unavailable{% if item.blocker %}: {{ item.blocker }}{% endif %}</p>{% endif %}</article>{% endfor %}</div>{% else %}<p>No actionable Team Needs are supported by the current evidence.</p>{% endif %}
+  <details><summary>All seven position needs</summary>{% include "_team_needs_cards.html" %}</details>
+</section>

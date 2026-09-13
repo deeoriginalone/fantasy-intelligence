@@ -1,0 +1,56 @@
+<section class="card mt-4" id="team-health" aria-labelledby="team-health-heading">
+  <div class="card-header"><h3 id="team-health-heading">Team Health</h3></div>
+  <div class="card-body">
+    {% if not team_health %}
+      <div class="alert alert-secondary">Team health data was not supplied by the route.</div>
+    {% else %}
+      <div class="health-metadata">
+        <p><strong>Source:</strong> {{ team_health.source or "Unavailable" }}</p>
+        <p><strong>Freshness:</strong> {% if team_health.freshness_state == "FRESH" and team_health.last_verified|default(none, true) is none and team_health.age|default(none, true) is none %}UNVERIFIED{% else %}{{ team_health.freshness_state or "UNKNOWN" }}{% endif %}</p>
+        <p><strong>Last verified:</strong> {{ team_health.last_verified or "Unavailable" }}</p>
+        <p><strong>Age:</strong> {{ team_health.age if team_health.age is not none else "Unavailable" }}</p>
+      </div>
+    {% if team_health.freshness_state not in ["FRESH", "AGING", "STALE", "UNAVAILABLE", "BLOCKED"] %}
+      <div class="alert alert-secondary">
+        <h5>Unknown Health State</h5>
+        <p>Health evidence returned an unsupported freshness state and cannot be treated as current.</p>
+        <p><strong>Freshness:</strong> {{ team_health.freshness_state or "UNKNOWN" }}</p>
+        {% if team_health.blocker %}<p><strong>Blocker:</strong> {{ team_health.blocker }}</p>{% endif %}
+        {% if team_health.recommendation_impact %}<p>{{ team_health.recommendation_impact }}</p>{% endif %}
+      </div>
+    {% elif team_health.state == "AVAILABLE" %}
+      <p><strong>Status:</strong> AVAILABLE</p>
+      <div class="row text-center">
+        <div class="col"><strong>{{ team_health.healthy }}</strong><div>Healthy</div></div>
+        <div class="col"><strong>{{ team_health.questionable }}</strong><div>Questionable</div></div>
+        <div class="col"><strong>{{ team_health.doubtful }}</strong><div>Doubtful</div></div>
+        <div class="col"><strong>{{ team_health.out }}</strong><div>Out</div></div>
+        <div class="col"><strong>{{ team_health.ir }}</strong><div>IR</div></div>
+        <div class="col"><strong>{{ team_health.unknown }}</strong><div>Unknown</div></div>
+      </div>
+      <div class="alert alert-info">{{ team_health.recommendation_impact }}</div>
+    {% elif team_health.state == "UNAVAILABLE" %}
+      <div class="alert alert-warning"><h5>Health Information Unavailable</h5>
+        <p>Health verification is unavailable; availability-sensitive recommendations have reduced confidence.</p>
+        {% if team_health.blocker %}<details class="evidence-details"><summary>Technical evidence</summary><p>{{ team_health.blocker }}</p></details>{% endif %}
+      </div>
+    {% elif team_health.state == "BLOCKED" %}
+      <div class="alert alert-danger"><h5>Health-Based Recommendations Blocked</h5>
+        <p>Health-dependent recommendations are blocked until the refresh issue is resolved.</p>
+        {% if team_health.blocker %}<details class="evidence-details"><summary>Technical evidence</summary><p>{{ team_health.blocker }}</p></details>{% endif %}
+      </div>
+    {% elif team_health.state == "STALE" %}
+      <div class="alert alert-warning"><h5>Health Information Is Stale</h5>
+        <p>Health evidence may be outdated; confirm current statuses before lineup lock.</p>
+        {% if team_health.blocker %}<details class="evidence-details"><summary>Technical evidence</summary><p>{{ team_health.blocker }}</p></details>{% endif %}
+      </div>
+    {% else %}
+      <div class="alert alert-secondary"><h5>Unknown Health State</h5>
+        {% if team_health.freshness_state %}<p><strong>Freshness:</strong> {{ team_health.freshness_state }}</p>{% endif %}
+        {% if team_health.blocker %}<p><strong>Blocker:</strong> {{ team_health.blocker }}</p>{% endif %}
+        {% if team_health.recommendation_impact %}<p>{{ team_health.recommendation_impact }}</p>{% endif %}
+      </div>
+    {% endif %}
+    {% endif %}
+  </div>
+</section>

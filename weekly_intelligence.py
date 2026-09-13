@@ -9,6 +9,20 @@ TEAM_ALIASES = {
     "SEA":"SEA","TB":"TB","TAM":"TB","TEN":"TEN","WAS":"WAS","WSH":"WAS"
 }
 
+TEAM_NAMES = {
+    "ARI": "Arizona Cardinals", "ATL": "Atlanta Falcons", "BAL": "Baltimore Ravens",
+    "BUF": "Buffalo Bills", "CAR": "Carolina Panthers", "CHI": "Chicago Bears",
+    "CIN": "Cincinnati Bengals", "CLE": "Cleveland Browns", "DAL": "Dallas Cowboys",
+    "DEN": "Denver Broncos", "DET": "Detroit Lions", "GB": "Green Bay Packers",
+    "HOU": "Houston Texans", "IND": "Indianapolis Colts", "JAX": "Jacksonville Jaguars",
+    "KC": "Kansas City Chiefs", "LAC": "Los Angeles Chargers", "LAR": "Los Angeles Rams",
+    "LV": "Las Vegas Raiders", "MIA": "Miami Dolphins", "MIN": "Minnesota Vikings",
+    "NE": "New England Patriots", "NO": "New Orleans Saints", "NYG": "New York Giants",
+    "NYJ": "New York Jets", "PHI": "Philadelphia Eagles", "PIT": "Pittsburgh Steelers",
+    "SF": "San Francisco 49ers", "SEA": "Seattle Seahawks", "TB": "Tampa Bay Buccaneers",
+    "TEN": "Tennessee Titans", "WAS": "Washington Commanders",
+}
+
 def normalize_team(value):
     if not value: return None
     return TEAM_ALIASES.get(str(value).upper().strip(), str(value).upper().strip())
@@ -40,7 +54,7 @@ def injury_multiplier(status):
     if "probable" in text: return 0.97
     return 1.0
 
-def enrich_players(cur, players, week, season=2026):
+def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True, allow_local_health_fallback=True):
     enriched=[]
     for original in players:
         p=dict(original)
@@ -48,46 +62,68 @@ def enrich_players(cur, players, week, season=2026):
         position=(p.get("position") or "").upper().replace("DST","DEF")
         p["nfl_team"]=team or p.get("nfl_team")
         p["position"]=position
-        cur.execute("SELECT bye_week FROM bye_weeks WHERE season=%s AND team=%s",(season,team))
-        row=cur.fetchone(); bye=row[0] if row else p.get("bye_week")
+        if allow_local_weekly_data:
+            cur.execute("SELECT bye_week FROM bye_weeks WHERE season=%s AND team=%s",(season,team))
+            row=cur.fetchone(); bye=row[0] if row else p.get("bye_week")
+        else:
+            bye = None
         p["bye_week"]=bye
         p["is_bye"]=bool(bye==week)
         p["evidence_gaps"]=[]
         if bye is None: p["evidence_gaps"].append("BYE_WEEK_NOT_LOADED")
-        cur.execute("""SELECT CASE WHEN home_team=%s THEN away_team ELSE home_team END,
+        sched = None
+        if allow_local_weekly_data:
+            cur.execute("""SELECT CASE WHEN home_team=%s THEN away_team ELSE home_team END,
                               CASE WHEN home_team=%s THEN 'HOME' ELSE 'AWAY' END,
                               game_time_pacific
                        FROM nfl_schedule
                        WHERE season=%s AND week=%s AND (home_team=%s OR away_team=%s)
                        LIMIT 1""",(team,team,season,week,team,team))
-        sched=cur.fetchone()
+            sched=cur.fetchone()
         p["opponent"]=sched[0] if sched else None
+        p["opponent_name"] = TEAM_NAMES.get(p["opponent"], p["opponent"])
         p["home_away"]=sched[1] if sched else None
         p["game_time_pacific"]=sched[2] if sched else None
         p["schedule_source"]="nfl_schedule" if sched else None
         if not sched and not p["is_bye"]: p["evidence_gaps"].append("SCHEDULE_NOT_LOADED_FOR_WEEK")
-        cur.execute("""SELECT injury,status FROM injury_reports
-                       WHERE season=%s AND REGEXP_REPLACE(LOWER(player_name),'[^a-z0-9]','','g')=
-                             REGEXP_REPLACE(LOWER(%s),'[^a-z0-9]','','g')
-                       ORDER BY report_date DESC LIMIT 1""",(season,p.get("player")))
-        inj=cur.fetchone()
-        if inj:
-            p["injury"]=inj[0]; p["injury_status"]=inj[1] or p.get("injury_status")
-        else:
-            p["injury"]=None
-            if not p.get("injury_status") or p.get("injury_status")=="Unknown": p["evidence_gaps"].append("INJURY_STATUS_UNRESOLVED")
+        if position == "DEF":
+            p["injury"] = None
+            p["health_status_available"] = True
+            p["injury_status"] = "Not applicable"
+        elif p.get("health_status_available") is not None:
+            p["injury"] = None
+            if not p.get("injury_status") or p.get("injury_status")=="Unknown":
+                p["evidence_gaps"].append("INJURY_STATUS_UNRESOLVED")
+        elif allow_local_health_fallback:
+            cur.execute("""SELECT injury,status FROM injury_reports
+                           WHERE season=%s AND REGEXP_REPLACE(LOWER(player_name),'[^a-z0-9]','','g')=
+                                 REGEXP_REPLACE(LOWER(%s),'[^a-z0-9]','','g')
+                           ORDER BY report_date DESC LIMIT 1""",(season,p.get("player")))
+            inj=cur.fetchone()
+            if inj:
+                p["injury"] = inj[0]
+                if not p.get("injury_source"):
+                    p["injury_status"] = inj[1] or p.get("injury_status")
+            else:
+                p["injury"] = None
+                if not p.get("injury_status") or p.get("injury_status")=="Unknown": p["evidence_gaps"].append("INJURY_STATUS_UNRESOLVED")
         matchup_pos="DEF" if position=="DEF" else position
-        cur.execute("""SELECT defense_rank,fp_per_game_allowed FROM defense_matchups
+        m = None
+        if allow_local_weekly_data:
+            cur.execute("""SELECT defense_rank,fp_per_game_allowed FROM defense_matchups
                        WHERE season=%s AND position=%s AND defense_team=%s""",
-                    (season-1,matchup_pos,p.get("opponent")))
-        m=cur.fetchone(); rank=m[0] if m else None
+                (season-1,matchup_pos,p.get("opponent")))
+            m=cur.fetchone()
+        rank=m[0] if m else None
         p["matchup_rank"]=rank; p["fp_allowed"]=float(m[1]) if m else None
         p["matchup_modifier"]=matchup_modifier(rank)
         season_projection=float(p.get("projection") or 0)
-        p["weekly_baseline"]=round(season_projection/17.0,2)
+        p["weekly_baseline"]=round(season_projection/17.0,2) if allow_local_weekly_data else None
         mult=injury_multiplier(p.get("injury_status"))
         p["injury_multiplier"]=mult
-        p["weekly_score"]=0.0 if p["is_bye"] else round(p["weekly_baseline"]*(1+p["matchup_modifier"])*mult,2)
+        p["weekly_score"]=(0.0 if p["is_bye"] else round(p["weekly_baseline"]*(1+p["matchup_modifier"])*mult,2)) if allow_local_weekly_data else None
+        if not allow_local_weekly_data:
+            p["evidence_gaps"].extend(["BYE_WEEK_UNAVAILABLE", "SCHEDULE_UNAVAILABLE", "MATCHUP_EVIDENCE_UNAVAILABLE", "WEEKLY_VALUE_UNAVAILABLE"])
         enriched.append(p)
     return enriched
 

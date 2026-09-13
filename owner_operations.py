@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from flask import Blueprint, current_app, render_template, request, session
 from weekly_intelligence import enrich_players, current_week, upcoming_byes
 from services.weekly_lineup_intelligence import build_lineup_intelligence, optimize_lineup
@@ -7,6 +9,12 @@ from services.trade_intelligence import build_trade_intelligence
 from services.trade_target_center import build_trade_target_center
 from services.decision_ranking import build_action, build_decision_ranking
 from services.matchup_intelligence import build_matchup_intelligence
+from services.ux_evidence import evaluate_waiver_availability, shared_league_facts, waiver_evidence_contract
+from services.team_needs import build_team_needs_summary, league_settings_contract, team_needs_contract
+from services.team_health import team_health_contract, apply_player_health_to_recommendations, health_freshness_from_report_date
+from services.ux2_team_accuracy import build_team_accuracy_contract
+from services.team_priority import build_team_priority_action
+from services.team_hardening import build_bench_decisions, build_bench_plan, build_lineup_snapshot, build_roster_outlook, build_team_trust_summary, build_weekly_risks
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
@@ -85,6 +93,7 @@ def create_owner_operations_blueprint(
         users = get_users(current_app.config.get("SLEEPER_LEAGUE_ID", "")) or []
         rosters = get_rosters(current_app.config.get("SLEEPER_LEAGUE_ID", "")) or []
         all_players = get_all_players() or {}
+        health_fetched_at = datetime.now(timezone.utc).isoformat()
         owner_ids = {
             str(user.get("user_id"))
             for user in users
@@ -104,9 +113,9 @@ def create_owner_operations_blueprint(
                 part for part in (raw.get("first_name"), raw.get("last_name")) if part
             )
             if name:
-                local_names.append((name, raw.get("position"), raw.get("team")))
+                local_names.append((name, raw.get("position"), raw.get("team"), raw.get("injury_status") or raw.get("status")))
         result = []
-        for name, position, team in local_names:
+        for name, position, team, raw_status in local_names:
             cur.execute(
                 """
                 SELECT player_name, UPPER(position), nfl_team, ranking,
@@ -118,15 +127,36 @@ def create_owner_operations_blueprint(
                 (normalize_player_name(name),),
             )
             row = cur.fetchone()
+            if not row:
+                normalized_name = normalize_player_name(name)
+                cur.execute(
+                    """
+                    SELECT player_name, UPPER(position), nfl_team, ranking,
+                           projected_points, tier, adp, bye_week, injury_status
+                    FROM players
+                    WHERE REGEXP_REPLACE(LOWER(player_name), '[^a-z0-9]', '', 'g') LIKE %s
+                    ORDER BY LENGTH(player_name)
+                    LIMIT 1
+                    """,
+                    (f"{normalized_name}%",),
+                )
+                row = cur.fetchone()
             if row:
                 player=row_to_player(tuple(row) + (None, None))
-                raw_status=raw.get("injury_status") or raw.get("status")
                 if raw_status:
-                    player["injury_status"]=raw_status
-                    player["injury_source"]="sleeper_players"
+                    player["injury_status"] = raw_status
+                    player["injury_source"] = "Sleeper API"
+                    player["health_fetched_at"] = health_fetched_at
+                    player["health_status_available"] = True
+                else:
+                    player["injury_status"] = "Unknown"
+                    player["injury_source"] = "Sleeper API"
+                    player["health_status_available"] = False
+                player["ownership"] = "ROSTERED"
+                player["ownership_source"] = "Sleeper API"
                 result.append(player)
             else:
-                result.append({
+                player = {
                     "player": name,
                     "position": (position or "NA").upper().replace("DST", "DEF"),
                     "nfl_team": team or "FA",
@@ -135,10 +165,18 @@ def create_owner_operations_blueprint(
                     "tier": None,
                     "adp": None,
                     "bye_week": None,
-                    "injury_status": "Unknown",
+                    "injury_status": raw.get("injury_status") or raw.get("status") or "Unknown",
+                    "injury_source": "Sleeper API",
                     "pick_no": None,
                     "round": None,
-                })
+                }
+                player["injury_source"] = "Sleeper API"
+                player["health_status_available"] = player["injury_status"] != "Unknown"
+                player["ownership"] = "ROSTERED"
+                player["ownership_source"] = "Sleeper API"
+                if player["health_status_available"]:
+                    player["health_fetched_at"] = health_fetched_at
+                result.append(player)
         return result, league
 
     def current_roster(cur):
@@ -156,14 +194,16 @@ def create_owner_operations_blueprint(
                 "league_name": "Season Sandbox",
                 "strategy": row[1] if row else "WR_HEAVY",
                 "draft_name": row[0] if row else f"Mock #{context['draft_id']}",
+                "shared_facts": shared_league_facts({}, source="Season Sandbox", blocker="LIVE_LEAGUE_FACTS_NOT_APPLICABLE"),
             }
         roster, league = live_roster(cur)
-        roster = enrich_players(cur, roster, current_week(cur))
+        roster = enrich_players(cur, roster, current_week(cur), allow_local_weekly_data=True, allow_local_health_fallback=False)
         return context, roster, {
             "team_name": "DiE-HaRd-9eRs-FaN",
             "league_name": league.get("name") or "Fantasy Intelligence Champions League",
             "strategy": "LIVE",
             "draft_name": None,
+            "shared_facts": shared_league_facts(league),
         }
 
     def roster_analysis(roster, vacancies):
@@ -189,7 +229,7 @@ def create_owner_operations_blueprint(
         overall = "A" if score >= 90 else "B" if score >= 75 else "C" if score >= 60 else "D" if score >= 45 else "F"
         return counts, grades, needs, overall, round(score)
 
-    def waiver_pool(cur, context, roster, limit=40):
+    def waiver_pool_with_evidence(cur, context, roster, limit=40):
         roster_names = {p["player"] for p in roster}
         if context["mode"] == "MOCK":
             cur.execute(
@@ -220,17 +260,91 @@ def create_owner_operations_blueprint(
                 (limit * 3,),
             )
         rows = [row_to_player(tuple(row) + (None, None)) for row in cur.fetchall()]
-        if context["mode"] == "LIVE":
-            league_id=current_app.config.get("SLEEPER_LEAGUE_ID","")
-            catalog=get_all_players() or {}; all_rosters=get_rosters(league_id) or []
-            owned=set()
-            for league_roster in all_rosters:
-                for pid in league_roster.get("players") or []:
-                    raw=catalog.get(str(pid),{}) or {}
-                    full=raw.get("full_name") or " ".join(x for x in (raw.get("first_name"),raw.get("last_name")) if x)
-                    if full: owned.add(normalize_player_name(full))
-            return [p for p in rows if normalize_player_name(p["player"]) not in owned][:limit]
-        return [p for p in rows if p["player"] not in roster_names][:limit]
+        if context["mode"] != "LIVE":
+            candidates = [{**row, "player_id": normalize_player_name(row["player"])} for row in rows if row["player"] not in roster_names][:limit]
+            return evaluate_waiver_availability(
+                candidates,
+                waiver_evidence_contract(domain="waiver ownership", source="Season Sandbox", freshness_state="BLOCKED", completeness_state="UNKNOWN", blocker="WAIVER_LIVE_OWNERSHIP_REQUIRED"),
+                waiver_evidence_contract(domain="waiver eligibility", source="Season Sandbox", freshness_state="BLOCKED", completeness_state="UNKNOWN", blocker="WAIVER_LIVE_ELIGIBILITY_REQUIRED"),
+            )
+        return _live_waiver_evidence(rows, current_app.config.get("SLEEPER_LEAGUE_ID", ""), get_rosters, get_all_players, normalize_player_name, limit)
+
+    def _live_waiver_evidence(rows, league_id, roster_fetcher, catalog_fetcher, name_normalizer, limit=40):
+        retrieved_at = datetime.now(timezone.utc).isoformat()
+        try:
+            catalog = catalog_fetcher()
+            all_rosters = roster_fetcher(league_id)
+        except Exception:
+            catalog = None
+            all_rosters = None
+        catalog_ok = isinstance(catalog, dict) and bool(catalog)
+        rosters_ok = isinstance(all_rosters, list) and all(
+            isinstance(item, dict) and isinstance(item.get("players"), list)
+            for item in all_rosters or []
+        )
+        ownership_blocker = None
+        if catalog is None or all_rosters is None:
+            ownership_blocker = "WAIVER_OWNERSHIP_RETRIEVAL_FAILED"
+        elif not catalog_ok:
+            ownership_blocker = "WAIVER_PLAYER_CATALOG_UNAVAILABLE"
+        elif not rosters_ok:
+            ownership_blocker = "WAIVER_ROSTER_DATA_INCOMPLETE"
+        owned_ids = {
+            str(player_id)
+            for item in all_rosters or []
+            for player_id in item.get("players") or []
+            if player_id is not None and str(player_id)
+        }
+        player_ids = {}
+        for row in rows:
+            normalized = name_normalizer(row["player"])
+            matches = [
+                str(player_id)
+                for player_id, raw in (catalog or {}).items()
+                if name_normalizer((raw or {}).get("full_name") or " ".join(
+                    part for part in ((raw or {}).get("first_name"), (raw or {}).get("last_name")) if part
+                )) == normalized
+            ]
+            if len(matches) == 1:
+                player_ids[normalized] = matches[0]
+        if not ownership_blocker and len(player_ids) < len(rows):
+            ownership_blocker = "WAIVER_CANDIDATE_ID_UNRESOLVED"
+        ownership = waiver_evidence_contract(
+            domain="waiver ownership",
+            league_id=league_id,
+            source="Sleeper API",
+            source_record_time=None,
+            retrieved_at=retrieved_at,
+            freshness_state="UNAVAILABLE",
+            completeness_state="COMPLETE" if not ownership_blocker else "INCOMPLETE",
+            blocker=ownership_blocker,
+            recommendation_impact="BLOCKED",
+            expected_active_roster_count=None,
+            observed_active_roster_count=len(all_rosters) if isinstance(all_rosters, list) else None,
+            unique_owned_player_ids=owned_ids,
+            require_roster_coverage=True,
+            require_timestamps=True,
+        )
+        eligibility = waiver_evidence_contract(
+            domain="waiver eligibility",
+            league_id=league_id,
+            source="local player catalog position allowlist",
+            source_record_time=None,
+            retrieved_at=retrieved_at,
+            freshness_state="UNAVAILABLE",
+            completeness_state="INCOMPLETE",
+            blocker="WAIVER_ELIGIBILITY_FRESHNESS_UNVERIFIED",
+            recommendation_impact="BLOCKED",
+            require_timestamps=True,
+        )
+        candidates = [
+            {**row, "player_id": player_ids.get(name_normalizer(row["player"]))}
+            for row in rows[:limit]
+        ]
+        return evaluate_waiver_availability(candidates, {**ownership, "owned_player_ids": owned_ids}, {**eligibility, "eligible_player_ids": set()})
+
+    def waiver_pool(cur, context, roster, limit=40):
+        return waiver_pool_with_evidence(cur, context, roster, limit)["candidates"]
 
     def faab_recommendations(pool, counts):
         targets = {"QB": 2, "RB": 4, "WR": 4, "TE": 2, "K": 1, "DEF": 1}
@@ -264,21 +378,59 @@ def create_owner_operations_blueprint(
         try:
             context, roster, meta = current_roster(cur)
             starters, bench, total, vacancies = optimize_lineup(roster)
-            counts, grades, needs, overall, score = roster_analysis(roster, vacancies)
+            counts, grades, _, overall, score = roster_analysis(roster, vacancies)
+            league_payload = get_league(current_app.config.get("SLEEPER_LEAGUE_ID", "")) or {} if context["mode"] == "LIVE" else {}
+            league_settings = league_settings_contract(league_payload, source="Sleeper API" if context["mode"] == "LIVE" else "Season Sandbox", blocker=None if context["mode"] == "LIVE" else "LIVE_LEAGUE_SETTINGS_NOT_APPLICABLE")
+            team_needs = team_needs_contract(roster, league_settings)
+            needs = build_team_needs_summary(team_needs)
+            if context["mode"] == "LIVE":
+                fetched_at = next((player.get("health_fetched_at") for player in roster if player.get("health_fetched_at")), None)
+                if fetched_at and any(player.get("health_status_available") for player in roster):
+                    health_meta = health_freshness_from_report_date(fetched_at)
+                    health_source = "Sleeper API"
+                else:
+                    health_meta = {"freshness_state": "UNAVAILABLE", "last_verified": None, "age": None}
+                    health_source = "Sleeper API"
+            else:
+                health_meta = {"freshness_state": "UNAVAILABLE", "last_verified": None, "age": None}
+                health_source = "Season Sandbox"
+            team_health = team_health_contract(roster, source=health_source, **health_meta)
+            team_accuracy = build_team_accuracy_contract(roster, starters, league_settings, team_needs, team_health)
         finally:
             cur.close(); conn.close()
         weekly_defaults = {
             "weekly_baseline": 0.0, "matchup_modifier": 0.0,
-            "injury_multiplier": 1.0, "weekly_score": 0.0,
+            "injury_multiplier": 1.0, "weekly_score": None,
             "is_bye": False, "bye_week": None, "opponent": None,
             "home_away": None, "game_time_pacific": None,
             "matchup_rank": None, "injury_status": "Unknown", "vacant": False,
         }
         for player in [*starters, *bench]:
             for key, value in weekly_defaults.items(): player.setdefault(key, value)
-        weekly_starter_score = sum(float(player.get("weekly_score") or 0) for player in starters)
-
-        return render_template("team.html", weekly_starter_score=weekly_starter_score, title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score)
+        health_source = team_health.get("source") or ("Sleeper" if context["mode"] == "LIVE" else "Season Sandbox")
+        health_freshness = team_health.get("freshness_state") or "UNAVAILABLE"
+        apply_player_health_to_recommendations(
+            starters,
+            source=health_source,
+            freshness_state=health_freshness,
+            blocker=(team_health.get("blocker") if team_health.get("state") == "BLOCKED" else None),
+        )
+        for player in [*starters, *bench]:
+            player["weekly_value_state"] = "AVAILABLE" if player.get("weekly_score") is not None else "UNAVAILABLE"
+            gaps = player.get("evidence_gaps") or []
+            player["health_shared_only"] = team_health.get("state") != "AVAILABLE" and not any(
+                gap not in {"HEALTH_UNAVAILABLE", "HEALTH_BLOCKED", "HEALTH_EVIDENCE_STALE", "HEALTH_REFRESH_FAILED", "TEAM_HEALTH_UNAVAILABLE", "TEAM_HEALTH_STALE"}
+                for gap in gaps
+            )
+        team_priority_action = build_team_priority_action(starters, team_needs, team_health, team_accuracy)
+        team_accuracy["recommendation_impact"] = team_priority_action["action"]
+        team_trust = build_team_trust_summary(team_accuracy, team_health, starters, bench)
+        bench_decisions = build_bench_decisions(starters, bench)
+        bench_plan = build_bench_plan(bench_decisions)
+        lineup_snapshot = build_lineup_snapshot(starters, bench_decisions)
+        weekly_risks = build_weekly_risks(starters, team_needs, team_health, team_accuracy)
+        roster_outlook = build_roster_outlook(team_needs, team_health)
+        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook)
 
     @bp.route("/lineup")
     def lineup_page():
@@ -297,11 +449,11 @@ def create_owner_operations_blueprint(
             context, roster, meta = current_roster(cur)
             starters, bench, total, vacancies = optimize_lineup(roster)
             counts, grades, needs, overall, score = roster_analysis(roster, vacancies)
-            pool = waiver_pool(cur, context, roster)
-            recommendations = faab_recommendations(pool, counts)[:25]
+            pool_evidence = waiver_pool_with_evidence(cur, context, roster)
+            recommendations = faab_recommendations(pool_evidence["candidates"], counts)[:25]
         finally:
             cur.close(); conn.close()
-        return render_template("waivers.html", title="Waiver and FAAB Center", context=context, meta=meta, recommendations=recommendations, needs=needs, vacancies=vacancies, faab_budget=100)
+        return render_template("waivers.html", title="Waiver and FAAB Center", context=context, meta=meta, recommendations=recommendations, needs=needs, vacancies=vacancies, faab_budget=100, waiver_evidence=pool_evidence)
 
     @bp.route("/trades")
     def trades_page():
@@ -345,8 +497,8 @@ def create_owner_operations_blueprint(
             context, roster, meta = current_roster(cur)
             starters, bench, total, vacancies = optimize_lineup(roster)
             counts, grades, needs, overall, score = roster_analysis(roster, vacancies)
-            pool = waiver_pool(cur, context, roster, limit=20)
-            waivers = faab_recommendations(pool, counts)[:5]
+            pool_evidence = waiver_pool_with_evidence(cur, context, roster, limit=20)
+            waivers = faab_recommendations(pool_evidence["candidates"], counts)[:5]
             lineup_intelligence = build_lineup_intelligence(roster)
             matchup_intelligence = build_matchup_intelligence(roster, lineup_intelligence.get("starters"))
             extra_actions = []
@@ -364,6 +516,6 @@ def create_owner_operations_blueprint(
             decision_ranking = build_decision_ranking(lineup_intelligence=lineup_intelligence, extra_actions=extra_actions, limit=12)
         finally:
             cur.close(); conn.close()
-        return render_template("gm.html", title="Weekly Command Center", context=context, meta=meta, overall=overall, roster_score=score, total=total, vacancies=vacancies, waivers=waivers, roster=roster, lineup_intelligence=lineup_intelligence, decision_ranking=decision_ranking, matchup_intelligence=matchup_intelligence)
+        return render_template("gm.html", title="Weekly Command Center", context=context, meta=meta, overall=overall, roster_score=score, total=total, vacancies=vacancies, waivers=waivers, waiver_evidence=pool_evidence, roster=roster, lineup_intelligence=lineup_intelligence, decision_ranking=decision_ranking, matchup_intelligence=matchup_intelligence)
 
     return bp

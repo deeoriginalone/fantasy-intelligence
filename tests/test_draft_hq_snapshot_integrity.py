@@ -1,4 +1,4 @@
-from draft_hq_integrity import build_draft_hq_integrity
+from draft.draft_hq_integrity import build_draft_hq_integrity
 
 
 def test_unresolved_current_picks_block_recommendations():

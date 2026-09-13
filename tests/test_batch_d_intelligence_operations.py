@@ -1,8 +1,8 @@
 import pytest
-from intelligence_explainability import build_explanation
-from intelligence_readiness import calculate_readiness, validate_weekly_inputs
-from intelligence_reconciliation import reconcile
-from intelligence_calibration import calibration_summary
+from intelligence.intelligence_explainability import build_explanation
+from intelligence.intelligence_readiness import calculate_readiness, validate_weekly_inputs
+from intelligence.intelligence_reconciliation import reconcile
+from intelligence.intelligence_calibration import calibration_summary
 from weekly_intelligence_report import build_weekly_report
 
 def test_explanation_components_and_edge():

@@ -68,3 +68,20 @@ def test_template_renders_decisions_and_has_no_form():
 
     assert "<form" not in html
     # submit text allowed because page says 'does not submit a lineup'
+
+
+def test_template_renders_without_optional_lineage_global():
+    templates = Path(__file__).resolve().parents[1] / "templates"
+    env = Environment(loader=FileSystemLoader(templates))
+    env.globals["url_for"] = lambda endpoint, filename=None, **kwargs: "/"
+    html = env.get_template("lineup.html").render(
+        context={"mode": "LIVE"},
+        meta={"team_name": "Mine"},
+        lineup_intelligence={
+            "blockers": [], "missing_evidence_players": [], "weekly_total": 0,
+            "vacancies": [], "methodology": "No lineup is submitted.",
+            "start_sit_decisions": [], "starters": [], "bench": [],
+            "integrity": {"confidence": {"label": "UNKNOWN", "score": 0}, "blockers": [], "freshness": {"domains": {}}},
+        },
+    )
+    assert "UNKNOWN: No verified page evidence was supplied." in html
