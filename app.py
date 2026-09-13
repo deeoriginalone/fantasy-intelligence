@@ -15,6 +15,8 @@ from draft.draft_state_hardening import (
 from dotenv import load_dotenv
 
 load_dotenv()
+load_dotenv('.env.market')
+load_dotenv('.env.pickem')
 
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 from auth import admin_required, csrf_required, ensure_csrf_token

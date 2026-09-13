@@ -3,6 +3,12 @@ from pathlib import Path
 from psycopg2.extras import RealDictCursor,Json
 from datetime import datetime, date
 
+class SurvivorConflictError(Exception):
+    """Raised when a write would silently overwrite a different team already recorded for a season/week."""
+
+class SurvivorHistoryReadError(Exception):
+    """Raised when survivor history cannot be verified; callers must block eligibility, not assume empty history."""
+
 def _json_safe(value):
     if isinstance(value, dict):
         return {k: _json_safe(v) for k, v in value.items()}
@@ -32,10 +38,28 @@ def ensure_pool(pool_key='default',pool_name='My Survivor Pool',season=2026):
         conn.commit()
     except Exception:conn.rollback();raise
     finally:conn.close()
+
+def week_selection(pool_key,season,week):
+    try:
+        conn=connect()
+    except Exception as e:
+        raise SurvivorHistoryReadError(str(e)) from e
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute('SELECT * FROM survivor_selections WHERE pool_key=%s AND season=%s AND week=%s',(pool_key,season,week))
+            row=cur.fetchone();return dict(row) if row else None
+    except Exception as e:
+        raise SurvivorHistoryReadError(str(e)) from e
+    finally:conn.close()
 def used_teams(pool_key,season):
-    conn=connect()
+    try:
+        conn=connect()
+    except Exception as e:
+        raise SurvivorHistoryReadError(str(e)) from e
     try:
         with conn.cursor() as cur:cur.execute("SELECT team FROM survivor_selections WHERE pool_key=%s AND season=%s AND status<>'void'",(pool_key,season));return [r[0] for r in cur.fetchall()]
+    except Exception as e:
+        raise SurvivorHistoryReadError(str(e)) from e
     finally:conn.close()
 def current_predictions(season,week,strategy):
     conn=connect()
@@ -58,7 +82,12 @@ def future_predictions(season,strategy):
 def save_selection(pool_key,season,week,team,status,probability,score,notes=''):
     conn=connect()
     try:
-        with conn.cursor() as cur:cur.execute('''INSERT INTO survivor_selections(pool_key,season,week,team,status,model_probability,survivor_score,notes) VALUES(%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(pool_key,season,week) DO UPDATE SET team=EXCLUDED.team,status=EXCLUDED.status,model_probability=EXCLUDED.model_probability,survivor_score=EXCLUDED.survivor_score,notes=EXCLUDED.notes,updated_at=NOW()''',(pool_key,season,week,team,status,probability,score,notes))
+        with conn.cursor() as cur:
+            cur.execute('SELECT team FROM survivor_selections WHERE pool_key=%s AND season=%s AND week=%s',(pool_key,season,week))
+            existing=cur.fetchone()
+            if existing and existing[0]!=team:
+                raise SurvivorConflictError(f'Week {week} already has a recorded selection ({existing[0]}); refusing to overwrite with {team}.')
+            cur.execute('''INSERT INTO survivor_selections(pool_key,season,week,team,status,model_probability,survivor_score,notes) VALUES(%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(pool_key,season,week) DO UPDATE SET team=EXCLUDED.team,status=EXCLUDED.status,model_probability=EXCLUDED.model_probability,survivor_score=EXCLUDED.survivor_score,notes=EXCLUDED.notes,updated_at=NOW()''',(pool_key,season,week,team,status,probability,score,notes))
         conn.commit()
     except Exception:conn.rollback();raise
     finally:conn.close()
