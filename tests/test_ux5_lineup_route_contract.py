@@ -20,17 +20,43 @@ def player(name, position, score=10.0):
     }
 
 
-def test_lineup_route_delegates_to_explainable_payload():
+def test_lineup_route_redirects_to_unified_team_page():
     source = Path("owner_operations.py").read_text(encoding="utf-8")
     start = source.index('@bp.route("/lineup")')
     end = source.index('@bp.route("/waivers")', start)
     segment = source[start:end]
 
+    assert 'redirect(url_for("owner_ops.team_page") + "#lineup", code=302)' in segment
+
+
+def test_team_route_delegates_to_explainable_payload():
+    source = Path("owner_operations.py").read_text(encoding="utf-8")
+    start = source.index('@bp.route("/team")')
+    end = source.index('@bp.route("/lineup")', start)
+    segment = source[start:end]
+
     assert "context, roster, meta = current_roster(cur)" in segment
     assert "lineup_intelligence = build_lineup_intelligence(roster)" in segment
-    assert "context=context" in segment
-    assert "meta=meta" in segment
     assert "lineup_intelligence=lineup_intelligence" in segment
+
+
+def test_lineup_route_returns_302_and_preserves_fragment():
+    import os
+
+    os.environ.setdefault("FLASK_SECRET_KEY", "test-secret")
+    os.environ.setdefault("DB_HOST", "localhost")
+    os.environ.setdefault("DB_PORT", "5433")
+    os.environ.setdefault("DB_NAME", "fantasy_intelligence")
+    os.environ.setdefault("DB_USER", "fantasy")
+    os.environ.setdefault("DB_PASSWORD", "fantasy")
+    os.environ.setdefault("ADMIN_TOKEN", "test-admin-token")
+    os.environ.setdefault("SLEEPER_LEAGUE_ID", "league-123")
+    os.environ.setdefault("SLEEPER_DRAFT_ID", "draft-123")
+    from app import app
+
+    response = app.test_client().get("/lineup", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/team#lineup")
 
 
 def test_lineup_payload_uses_explicit_decisions_and_bench_order():

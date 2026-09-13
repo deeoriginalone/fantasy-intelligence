@@ -4,6 +4,7 @@ import pytest
 from flask import Flask
 
 import owner_operations
+import services.weekly_lineup_intelligence as weekly_lineup_intelligence
 from owner_operations import create_owner_operations_blueprint
 
 
@@ -108,6 +109,7 @@ def make_app(monkeypatch, health, weekly_score=None, league_available=True, unkn
     monkeypatch.setattr(owner_operations, "enrich_players", trade_enrichment or (lambda cur, roster, week, **kwargs: roster))
     monkeypatch.setattr(owner_operations, "current_week", lambda cur: 1)
     monkeypatch.setattr(owner_operations, "optimize_lineup", current_roster_rows)
+    monkeypatch.setattr(weekly_lineup_intelligence, "optimize_lineup", current_roster_rows)
     monkeypatch.setattr(owner_operations, "team_health_contract", lambda *args, **kwargs: health)
     if no_needs:
         monkeypatch.setattr(owner_operations, "team_needs_contract", lambda *args, **kwargs: {position: {"state": "AVAILABLE", "strategic_need": "NO_ACTION", "starter_coverage": "COVERED", "depth_status": "AT_TARGET", "depth_target": 1, "required_starters": 1, "rostered_or_eligible": 1, "drivers": ["Supported target satisfied."]} for position in ("QB", "RB", "WR", "TE", "FLEX", "K", "DEF")})
@@ -152,9 +154,9 @@ def test_active_team_route_health_matrix(monkeypatch, health, expected):
     assert response.status_code == 200
     assert "Next Best Team Action" in html
     assert "Expected fantasy impact" in html
-    assert "Recommended Starters" in html
+    assert "Recommended Starting Lineup" in html
     assert "Why This Lineup Is Trusted" in html
-    assert "Bench Decisions" in html
+    assert "Bench Priority" in html
     assert "Biggest Risks This Week" in html
     assert "Actionable Team Needs" in html
     assert "Roster Outlook" in html
@@ -171,7 +173,7 @@ def test_active_team_route_unknown_player_health_targets_only_that_recommendatio
     assert response.status_code == 200
     assert "PLAYER_HEALTH_UNAVAILABLE" in html
     assert "MONITOR" in html
-    assert "HEALTHY" in html
+    assert "Healthy" in html
 
 
 @pytest.mark.parametrize("weekly_score,expected_state,expected_value", [(12.0, "AVAILABLE", "12.00"), (0.0, "AVAILABLE", "0.00"), (None, "UNAVAILABLE", "Unavailable")])
@@ -198,7 +200,7 @@ def test_complete_evidence_route_is_not_blanket_monitor(monkeypatch):
     assert response.status_code == 200
     assert "START" in html
     assert "No urgent evidence-supported change" in html
-    assert "Recommendation confidence:" in html
+    assert "90%" in html
     assert "Playoff readiness evidence is not supplied" in html
 
 
