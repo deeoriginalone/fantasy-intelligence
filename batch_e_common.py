@@ -18,9 +18,11 @@ def store(conn,source,records,season,week,label):
   c.execute("INSERT INTO ingestion_runs(run_id,source_name,season,week,file_name,status,started_at) VALUES(%s,%s,%s,%s,%s,'RUNNING',NOW())",(run,source,season,week,label))
   for r in records:c.execute("INSERT INTO ingestion_records(run_id,source_name,season,week,record_key,payload,ingested_at) VALUES(%s,%s,%s,%s,%s,%s::jsonb,NOW()) ON CONFLICT(source_name,season,week,record_key) DO UPDATE SET run_id=EXCLUDED.run_id,payload=EXCLUDED.payload,ingested_at=NOW()",(run,source,season,week,fp(r),json.dumps(r,default=str)))
   c.execute("UPDATE ingestion_runs SET status='SUCCEEDED',accepted_count=%s,finished_at=NOW() WHERE run_id=%s",(len(records),run))
+ conn.commit()
  return run
 def ready(conn,season,week,name,score,blocker=None,warning=None):
  with conn.cursor() as c:c.execute("INSERT INTO intelligence_readiness_components(season,week,component_name,component_score,blocker,warning,evaluated_at) VALUES(%s,%s,%s,%s,%s,%s,NOW()) ON CONFLICT(season,week,component_name) DO UPDATE SET component_score=EXCLUDED.component_score,blocker=EXCLUDED.blocker,warning=EXCLUDED.warning,evaluated_at=NOW()",(season,week,name,max(0,min(1,float(score))),blocker,warning))
+ conn.commit()
 def validation(conn,season,week):
  required=['schedule','market','ratings','injuries','weather']
  with conn.cursor() as c:c.execute('SELECT component_name,component_score,blocker FROM intelligence_readiness_components WHERE season=%s AND week=%s',(season,week));rows={r[0]:(float(r[1]),r[2]) for r in c.fetchall()}

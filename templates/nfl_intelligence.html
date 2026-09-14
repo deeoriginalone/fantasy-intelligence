@@ -1,0 +1,91 @@
+{% extends "base.html" %}{% block content %}<section class="nfli">
+<style>
+.nfli{max-width:1100px;margin:0 auto;padding:18px 0 54px}.nfli h1{margin:0}.nfli-hero{background:#17365f;color:#fff;border-radius:14px;padding:20px;margin:14px 0 22px}.nfli-hero p{margin:4px 0;color:#d9e8f8}.nfli-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800;text-transform:uppercase;margin-left:8px}.nfli-badge-available{background:#e7f7ef;color:#16805c}.nfli-badge-blocked{background:#fff0ee;color:#b42318}.nfli-badge-unavailable{background:#eef1f5;color:#667085}
+.nfli-section{margin:22px 0}.nfli-section h2{margin:0 0 10px}
+.nfli-signal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.nfli-card{background:#fff;border:1px solid #dfe6ef;border-radius:12px;padding:14px}
+.nfli-signal{display:inline-block;font-size:11px;font-weight:800;text-transform:uppercase;padding:3px 8px;border-radius:999px}.nfli-signal-strong{background:#e7f7ef;color:#16805c}.nfli-signal-moderate{background:#e9f2ff;color:#2563a8}.nfli-signal-low{background:#fff3dd;color:#a96713}.nfli-signal-insufficient{background:#eef1f5;color:#667085}
+.nfli-signal-strong-signal,.nfli-signal-high-confidence{background:#e7f7ef;color:#16805c}.nfli-signal-moderate-signal,.nfli-signal-medium-confidence{background:#e9f2ff;color:#2563a8}.nfli-signal-low-signal,.nfli-signal-low-confidence{background:#fff3dd;color:#a96713}.nfli-signal-insufficient-evidence{background:#eef1f5;color:#667085}
+.nfli-signal-elite,.nfli-signal-strong,.nfli-signal-strong-signal{background:#e7f7ef;color:#16805c}.nfli-signal-solid{background:#e9f2ff;color:#2563a8}.nfli-signal-questionable,.nfli-signal-watch-closely{background:#fff3dd;color:#a96713}.nfli-signal-high-risk{background:#fff0ee;color:#b42318}
+table.nfli-table{width:100%;border-collapse:collapse}.nfli-table th{background:#172554;color:#fff;padding:8px;text-align:left}.nfli-table td{padding:8px;border-bottom:1px solid #edf1f5}
+.nfli-blocker{background:#fff3dd;border:1px solid #f3d39b;border-radius:10px;padding:12px;margin-bottom:10px}
+details.nfli-details summary{cursor:pointer;font-weight:800}
+@media(max-width:900px){.nfli-signal-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.nfli-table{display:block;overflow-x:auto}}
+</style>
+<header><p class="eyebrow">Football Decision Support</p><h1>NFL Intelligence</h1><p>Weekly evidence-based signals. Not a sportsbook page: no wagering guidance is produced here.</p></header>
+<div class="nfli-hero">
+  <p>Week {{ intelligence.week }} <span class="nfli-badge nfli-badge-{{ intelligence.evidence_state|lower }}">{{ intelligence.evidence_state }}</span></p>
+  {% if available_weeks %}<form method="get"><input type="hidden" name="season" value="{{ season }}"><label for="nfli-week">Week</label> <select id="nfli-week" name="week" onchange="this.form.submit()">{% for available_week in available_weeks %}<option value="{{ available_week }}"{% if available_week == intelligence.week %} selected{% endif %}>{{ available_week }}</option>{% endfor %}</select></form><p>Schedule loaded: Weeks {{ available_weeks|join(', ') }}</p>{% endif %}
+  <button type="button" id="nfli-refresh-btn" data-season="{{ season }}" data-week="{{ intelligence.week }}">Refresh predictions for Week {{ intelligence.week }}</button>
+  <p id="nfli-refresh-status" role="status"></p>
+  <p>Data freshness: {{ intelligence.freshness_state }}</p>
+  <p>Last verified: {{ intelligence.last_verified or 'Unavailable' }}</p>
+</div>
+<script>
+const nfliCsrfToken={{ csrf_token() | tojson }};
+const nfliRefreshBtn=document.getElementById('nfli-refresh-btn');
+if(nfliRefreshBtn){nfliRefreshBtn.addEventListener('click',function(){
+  const status=document.getElementById('nfli-refresh-status');
+  nfliRefreshBtn.disabled=true;status.textContent='Refreshing...';
+  fetch('/api/market-intelligence/refresh',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-Token':nfliCsrfToken},body:JSON.stringify({season:Number(nfliRefreshBtn.dataset.season),week:Number(nfliRefreshBtn.dataset.week),strategy:'balanced'})})
+    .then(function(r){return r.json().then(function(body){return {ok:r.ok,body:body};});})
+    .then(function(result){
+      if(!result.ok){status.textContent='Refresh failed: '+(result.body.error||'unknown error');nfliRefreshBtn.disabled=false;return;}
+      if(result.body.games_matched===0){status.textContent='No supported provider evidence is available for this week yet.';nfliRefreshBtn.disabled=false;return;}
+      status.textContent='Refreshed. Reloading...';window.location.reload();
+    })
+    .catch(function(){status.textContent='Refresh failed: network error.';nfliRefreshBtn.disabled=false;});
+});}
+</script>
+
+<div class="nfli-section">
+  <h2>Top Picks This Week</h2>
+  {% if intelligence.top_signals %}<div class="nfli-signal-grid">{% for g in intelligence.top_signals %}<article class="nfli-card"><strong>{{ loop.index }}</strong><h3>{% if g.has_prediction %}{{ g.win_team }} over {{ g.opponent }}{% else %}{{ g.away_team }} @ {{ g.home_team }}{% endif %}</h3><p>Why: {{ g.top_pick_reason }}</p></article>{% endfor %}</div>{% else %}<p>No games are scheduled for this week.</p>{% endif %}
+</div>
+
+<div class="nfli-section">
+  <h2>Top 5 Highest Risk Games</h2>
+  {% if intelligence.high_risk %}<ul>{% for g in intelligence.high_risk %}<li><strong>{{ g.away_team }} @ {{ g.home_team }}</strong><br>Risk: {{ g.risk_reason or g.risk }}</li>{% endfor %}</ul>{% else %}<p>No games currently qualify as high risk.</p>{% endif %}
+</div>
+
+<div class="nfli-section">
+  <h2>All Games</h2>
+  <table class="nfli-table"><thead><tr><th>Game</th><th>Prediction</th><th>Confidence</th><th>Risk</th><th>Action</th></tr></thead><tbody>
+  {% for g in intelligence.games %}<tr><td>{{ g.away_team }} @ {{ g.home_team }}</td><td>{% if g.has_prediction %}{{ g.win_team }}{% else %}Unavailable{% endif %}</td><td><span class="nfli-signal nfli-signal-{{ g.grade|lower|replace(' ','-') }}">{{ g.grade }}</span></td><td>{{ g.risk_reason or g.risk or 'None noted' }}</td><td><span class="nfli-signal nfli-signal-{{ g.action|lower|replace(' ','-') }}">{{ g.action }}</span>
+  <details class="nfli-details"><summary>View Details</summary>
+    {% if not g.has_prediction %}<p>{{ g.reason }}</p>{% endif %}
+    <p>Signal: {{ g.signal }}</p>
+    <p>Injury impact: {{ g.injury_impact }}{% if g.injury_impact != 'UNAVAILABLE' %}. Multiple injuries affect expected team performance.{% endif %}</p>
+    <p>Weather impact: {{ g.weather_flag or 'UNAVAILABLE' }}{% if g.weather_flag == 'HIGH' %}. Wind or precipitation may affect passing efficiency.{% endif %}</p>
+    <p>Evidence freshness: {{ g.freshness }}</p>
+  </details></td></tr>{% else %}<tr><td colspan="5">No scheduled games for this week.</td></tr>{% endfor %}
+  </tbody></table>
+</div>
+
+<div class="nfli-section">
+  <h2>Insights</h2>
+  {% if intelligence.insights %}<ul>
+    {% if intelligence.insights.biggest_favorite %}<li>Biggest favorite: {{ intelligence.insights.biggest_favorite.team }} over {{ intelligence.insights.biggest_favorite.opponent }} ({{ '%.0f'|format(intelligence.insights.biggest_favorite.win_probability*100) }}%)</li>{% endif %}
+    {% if intelligence.insights.closest_game %}<li>Closest game: {{ intelligence.insights.closest_game.away_team }} @ {{ intelligence.insights.closest_game.home_team }} ({{ '%.0f'|format(intelligence.insights.closest_game.win_probability*100) }}% home)</li>{% endif %}
+    {% if intelligence.insights.highest_projected_scoring %}<li>Highest projected scoring: {{ intelligence.insights.highest_projected_scoring.away_team }} @ {{ intelligence.insights.highest_projected_scoring.home_team }} ({{ intelligence.insights.highest_projected_scoring.projected_total }})</li>{% endif %}
+    {% if intelligence.insights.lowest_projected_scoring %}<li>Lowest projected scoring: {{ intelligence.insights.lowest_projected_scoring.away_team }} @ {{ intelligence.insights.lowest_projected_scoring.home_team }} ({{ intelligence.insights.lowest_projected_scoring.projected_total }})</li>{% endif %}
+  </ul>{% else %}<p>Unavailable: no supported predictions or projected totals exist for this week.</p>{% endif %}
+</div>
+
+<div class="nfli-section">
+  <h2>Blockers</h2>
+  {% for b in intelligence.blockers %}<div class="nfli-blocker"><strong>{{ b.name }}</strong><p>{{ b.detail }}</p><p><em>Recommendation impact:</em> {{ b.impact }}</p></div>{% endfor %}
+</div>
+
+<details class="nfli-details"><summary>Diagnostics</summary>
+  <p>Module: nfl-intelligence-v2.0.0</p>
+  <p>Season {{ intelligence.season }}, Week {{ intelligence.week }}</p>
+  <p>Scheduled games: {{ intelligence.scheduled_games }} &middot; Missing predictions: {{ intelligence.missing_predictions }}</p>
+  <p>Confidence reflects agreement across market, Elo, and situational components already computed by market intelligence. Matchup, injury, and weather context use the existing nflverse, Sleeper, and Open-Meteo data pipeline.</p>
+  <p>Sources: real-time market odds (paid third-party feed already integrated); nflverse historical game results (free, public); Sleeper player injury status (free, already integrated); Open-Meteo weather forecast (free, ~16-day window); team schedule (repository-owned). Player props, closing-line movement, offense/defense unit splits, and any wager-sizing calculation are not produced by this page and require data this project does not have.</p>
+  <p><strong>Raw values (Elo, injury counts, matchup edge, weather):</strong></p>
+  <ul>
+    {% for g in intelligence.games %}<li>{{ g.away_team }} @ {{ g.home_team }} &mdash; Elo: {% if g.team_strength_supported %}{{ g.away_team }} {{ g.away_elo }}, {{ g.home_team }} {{ g.home_elo }}, edge {{ g.elo_diff }}{% else %}Unavailable{% endif %}; injury impact: {{ g.injury_total if g.injury_total is not none else 'Unavailable' }}; weather: {% if g.weather_supported %}wind {{ g.weather.wind_speed_10m }} km/h, precipitation {{ g.weather.precipitation }} mm{% else %}Unavailable{% endif %}</li>{% endfor %}
+  </ul>
+</details>
+</section>{% endblock %}
