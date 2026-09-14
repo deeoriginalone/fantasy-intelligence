@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-09-11T04:12:48.122427+00:00",
+  "generated_at_utc": "2026-09-13T13:02:17.414380+00:00",
   "passed": true,
   "repository": {
     "branch": "feature/evidence-bundle-pipeline",
-    "head": "6c97d30f20c4d9e9becf9ccf1007ef5b84e8b3d9",
-    "short_head": "6c97d30"
+    "head": "0ae48334b64a13b980a07947009df0de501a263d",
+    "short_head": "0ae4833"
   },
   "checks": {
     "canonical_files_present": true,
@@ -18,35 +18,35 @@
   "files": {
     "PROJECT_STATUS.md": {
       "exists": true,
-      "bytes": 4193,
+      "bytes": 9008,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**complete ux.1 dashboard modernization and truth audit.**"
+      "next_milestone": "**finalize ux.5 formal completion review and canonical continuity validation.**"
     },
     "PROJECT_STATE.md": {
       "exists": true,
-      "bytes": 3693,
+      "bytes": 10575,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**complete ux.1 dashboard modernization and truth audit.**"
+      "next_milestone": "**finalize ux.5 formal completion review and canonical continuity validation.**"
     },
     "DEVELOPMENT_ROADMAP.md": {
       "exists": true,
-      "bytes": 5343,
+      "bytes": 14446,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**complete ux.1 dashboard modernization and truth audit.**"
+      "next_milestone": "**finalize ux.5 formal completion review and canonical continuity validation.**"
     },
     "NEXT_SESSION_HANDOFF.md": {
       "exists": true,
-      "bytes": 4141,
+      "bytes": 11289,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**complete ux.1 dashboard modernization and truth audit.**"
+      "next_milestone": "**finalize ux.5 formal completion review and canonical continuity validation.**"
     }
   },
   "missing_files": [],
@@ -55,7 +55,7 @@
   "head_mismatches": [],
   "missing_milestones": [],
   "unique_milestones": [
-    "**complete ux.1 dashboard modernization and truth audit.**"
+    "**finalize ux.5 formal completion review and canonical continuity validation.**"
   ],
   "sensitive_findings": []
 }

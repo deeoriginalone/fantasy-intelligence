@@ -11,13 +11,14 @@
 ### P0: Trust and invalid-decision risk
 
 #### UXQA-001: Rostered players appear in waiver recommendations
-- Status: IN PROGRESS
+- Status: VALIDATED
 - Page: Waiver and FAAB Center
 - Risk: Invalid add advice and loss of trust.
 - Required proof: Current league ownership map from Sleeper, service test, route test, and rendered-page verification.
 - Acceptance: Every recommended player is absent from every active league roster; unverified ownership blocks the list.
-- Current evidence: Shared stable-ID filtering and fail-closed ownership/eligibility blockers are implemented and focused-tested. The active `/waivers` and `/gm` routes return blocked states with zero published candidates when required evidence is unsupported.
-- Remaining proof: Complete active-league roster coverage, verified freshness thresholds, independent add-eligibility evidence, successful publication-path route tests, and rendered supported-state verification. This defect is not VALIDATED or CLOSED.
+- Current evidence: Stable Sleeper player IDs control candidate publication and roster exclusion. Current Sleeper roster retrieval is FRESH under `integrity.roster.v1`, coverage is COMPLETE at 10/10 rosters, and availability is explicitly derived from current league rosters and the supported player pool. The focused UX.3 suite passed 78 tests. Active `/waivers` and `/gm` rendered supported states with published stable IDs, visible ownership source/freshness, visible derived-availability source, and collapsed identity diagnostics. Published IDs had an empty intersection with active-roster IDs.
+- Failure behavior: Missing or stale retrieval time, unavailable player universe, incomplete or contradictory roster coverage, unresolved/ambiguous identity, unsupported candidate identity, and rostered IDs fail closed. Unsupported optional candidate fields remain explicitly unavailable rather than invented.
+- Closure requirement: VALIDATED is not CLOSED. Closure still requires a reviewed commit boundary and canonical/continuity validation.
 
 #### UXQA-002: Data freshness is unclear or stale across core pages
 - Status: VALIDATED
@@ -26,6 +27,7 @@
 - Required proof: Field-to-source inventory, retrieved-at timestamp, age, freshness state, stale threshold, and failure behavior.
 - Acceptance: Every decision-critical field is current, explicitly aging, stale, unavailable, or blocked.
 - Additional My Team finding: The page must show health source, age or last-verified time, freshness, and the recommendation impact of stale or unavailable evidence.
+- Current Trade Center boundary: UX.4.1 through UX.4.12 validate shared freshness, source, timestamp, completeness, lineage, impact, and fail-closed publication through focused writer, enrichment, template, controlled-browser, and live all-partner dropdown evidence. The timestamp schema is applied and authoritative imports populated supported retrieval times. READY, READY-empty, DEGRADED, BLOCKED, unsupported partner fit, and identity ambiguity are distinct. Trade recommendations remain read-only; feasibility, acceptance, negotiation, and rest-of-season impact remain explicitly unavailable when unsupported.
 
 #### UXQA-003: Ownership, eligibility, health, matchup, and lineage contain unknown or stale states
 - Status: VALIDATED

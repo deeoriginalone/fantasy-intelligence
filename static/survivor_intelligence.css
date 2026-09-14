@@ -1,1 +1,23 @@
-.sv{background:#f6f8fb;border:1px solid #dbe4ee;border-radius:16px;padding:24px}.sv header{display:flex;justify-content:space-between;gap:20px}.sv header form{display:flex;gap:8px;align-items:center}.sv input,.sv select,.sv button{padding:8px;border:1px solid #cbd5e1;border-radius:7px}.sv button{background:#0759c7;color:#fff;font-weight:800}.sv-eye{color:#0d9488;text-transform:uppercase;font-weight:800;font-size:.75rem}.sv-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin:18px 0}.sv-grid article,.history article{background:#fff;border:1px solid #dbe4ee;border-radius:12px;padding:16px}.sv-grid .primary{border:2px solid #0d9488}.sv-grid span,.sv-grid small{display:block;color:#64748b}.sv-grid strong{display:block;font-size:1.45rem;margin:7px 0}.sv table{width:100%;border-collapse:collapse;background:#fff}.sv th{background:#172554;color:#fff;padding:10px;text-align:left}.sv td{padding:10px;border-bottom:1px solid #edf1f5}.history{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.history form{display:flex;gap:6px;margin-top:8px}.status{margin-left:8px;font-weight:800}.status-won{color:#166534}.status-lost{color:#991b1b}.empty,.sv-alert{padding:14px;border-radius:9px;background:#e8f1fb;margin:14px 0}@media(max-width:900px){.sv header,.sv-grid{display:grid}.sv-grid{grid-template-columns:1fr}.history{grid-template-columns:1fr}}
+.sv{background:#f6f8fb;border:1px solid #dbe4ee;border-radius:16px;padding:24px}.sv header{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}.sv header form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.sv input,.sv select,.sv button{padding:8px;border:1px solid #cbd5e1;border-radius:7px}.sv button{background:#0759c7;color:#fff;font-weight:800}.sv-eye{color:#0d9488;text-transform:uppercase;font-weight:800;font-size:.75rem}.sv-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin:18px 0}.sv-grid article,.history article,.sv-alternatives article,.sv-risks article,.sv-save-later article{background:#fff;border:1px solid #dbe4ee;border-radius:12px;padding:16px}.sv-grid .primary{border:2px solid #0d9488}.sv-grid span,.sv-grid small{display:block;color:#64748b}.sv-grid strong{display:block;font-size:1.45rem;margin:7px 0}.sv table{width:100%;border-collapse:collapse;background:#fff}.sv th{background:#172554;color:#fff;padding:10px;text-align:left}.sv td{padding:10px;border-bottom:1px solid #edf1f5}.history{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.history form{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.status{margin-left:8px;font-weight:800}.status-won{color:#166534}.status-lost{color:#991b1b}.empty,.sv-alert{padding:14px;border-radius:9px;background:#e8f1fb;margin:14px 0}.sv-alert-error{background:#fde8e8;color:#991b1b}
+.sv-hero,.sv-primary-card,.sv-state{margin:16px 0;padding:18px;border-radius:12px;background:#fff;border:1px solid #dbe4ee}
+.sv-primary-card{border:2px solid #0d9488}
+.sv-state-blocked{border:2px solid #991b1b;background:#fde8e8}
+.sv-state-unavailable{border:2px solid #92400e;background:#fff7ed}
+.sv-badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.75rem;font-weight:800;margin-left:8px;text-transform:uppercase}
+.sv-badge-ready{background:#dcfce7;color:#166534}
+.sv-badge-degraded{background:#fef3c7;color:#92400e}
+.sv-badge-blocked{background:#fde8e8;color:#991b1b}
+.sv-badge-unavailable{background:#e5e7eb;color:#374151}
+.sv-badge-pending_result{background:#dbeafe;color:#1e40af}
+.sv-badge-completed{background:#ede9fe;color:#5b21b6}
+.sv-state-locked{border:2px solid #1e40af;background:#eff6ff}
+.sv-next-week{font-weight:800;color:#0759c7}
+.sv-alternatives,.sv-risks,.sv-save-later,.sv-roadmap{margin:16px 0}
+.sv-alternatives,.sv-risks,.sv-save-later{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.sv-rankings,.sv-metrics,.sv-lineage{margin:16px 0}
+.sv-rankings summary,.sv-metrics summary,.sv-lineage summary{cursor:pointer;font-weight:800;padding:8px 0}
+@media(max-width:900px){.sv header,.sv-grid{display:grid}.sv-grid{grid-template-columns:1fr}.history{grid-template-columns:1fr}.sv-alternatives,.sv-risks,.sv-save-later{grid-template-columns:1fr}}
+@media(max-width:420px){.sv{padding:14px}.sv-hero,.sv-primary-card,.sv-state{padding:12px}}
+.sv-reset-btn{background:#fff;color:#991b1b;border:1px solid #991b1b}
+.sv-manual-pick{margin:16px 0;padding:18px;border-radius:12px;background:#fff;border:1px dashed #cbd5e1}
+.sv-manual-pick form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}

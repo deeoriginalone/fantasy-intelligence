@@ -13,3 +13,10 @@ def test_profiles_and_no_submission():
  r=build_trade_target_center(intel([pkg()])); assert r["owner_needs"]=={"WR":1}; assert r["owner_surplus"]=={"RB":1}; assert "No trade is submitted" in r["methodology"]
 def test_blocked_empty_fails_closed():
  r=build_trade_target_center({"allowed":False,"blockers":["PARTNER_ROSTER_EMPTY"],"one_for_one":[],"two_for_one":[]}); assert not r["allowed"] and not r["ranked_opportunities"]
+
+def test_identical_opportunity_inputs_have_stable_name_tie_breaking():
+ rows=[pkg("Zulu","Offer",8,4,4,90),pkg("Alpha","Offer",8,4,4,90)]
+ first=build_trade_target_center(intel(rows))["ranked_opportunities"]
+ second=build_trade_target_center(intel(rows))["ranked_opportunities"]
+ assert [row["receive"][0]["player"] for row in first] == ["Alpha","Zulu"]
+ assert first == second

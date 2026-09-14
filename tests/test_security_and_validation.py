@@ -50,6 +50,110 @@ def test_invalid_csrf_is_rejected_for_form_posts():
     assert resp.status_code in {401, 403}
 
 
+def test_survivor_reset_requires_csrf():
+    client = app.test_client()
+    resp = client.post("/survivor/reset", data={"season": 2026, "week": 1, "pool": "default", "team": "JAX"})
+    assert resp.status_code == 403
+
+
+def test_survivor_select_requires_csrf():
+    client = app.test_client()
+    resp = client.post(
+        "/survivor/select",
+        data={"season": 2026, "week": 1, "pool": "default", "team": "JAX", "probability": 0.7, "score": 0.7},
+    )
+    assert resp.status_code == 403
+
+
+def test_survivor_status_requires_csrf():
+    client = app.test_client()
+    resp = client.post(
+        "/survivor/status",
+        data={"season": 2026, "week": 1, "pool": "default", "team": "JAX", "status": "won"},
+    )
+    assert resp.status_code == 403
+
+
+def test_survivor_manual_pick_accepts_any_eligible_team_without_probability():
+    from survivor_store import connect, ensure_pool, week_selection
+
+    pool_key = "ux8-manual-pick-route-test"
+    ensure_pool(pool_key, "Manual Pick Route Test", 2026)
+    client = app.test_client()
+    with client.session_transaction() as sess:
+        sess["csrf_token"] = "session-token"
+    try:
+        resp = client.post(
+            "/survivor/select",
+            data={"season": 2026, "week": 1, "pool": pool_key, "team": "jax", "csrf_token": "session-token"},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 302
+        row = week_selection(pool_key, 2026, 1)
+        assert row["team"] == "JAX"
+        assert row["model_probability"] is None
+    finally:
+        conn = connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM survivor_selections WHERE pool_key=%s", (pool_key,))
+                cur.execute("DELETE FROM survivor_pools WHERE pool_key=%s", (pool_key,))
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def test_survivor_manual_pick_rejects_unknown_team():
+    from survivor_store import connect, ensure_pool, week_selection
+
+    pool_key = "ux8-manual-pick-invalid-test"
+    ensure_pool(pool_key, "Manual Pick Invalid Test", 2026)
+    client = app.test_client()
+    with client.session_transaction() as sess:
+        sess["csrf_token"] = "session-token"
+    try:
+        resp = client.post(
+            "/survivor/select",
+            data={"season": 2026, "week": 1, "pool": pool_key, "team": "ZZZ", "csrf_token": "session-token"},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 302
+        assert week_selection(pool_key, 2026, 1) is None
+    finally:
+        conn = connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM survivor_selections WHERE pool_key=%s", (pool_key,))
+                cur.execute("DELETE FROM survivor_pools WHERE pool_key=%s", (pool_key,))
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def test_market_refresh_endpoint_requires_auth():
+    client = app.test_client()
+    resp = client.post("/api/market-intelligence/refresh", json={"season": 2026, "week": 1, "dry_run": True})
+    assert resp.status_code == 401
+
+
+def test_market_refresh_endpoint_accepts_valid_session_csrf(monkeypatch):
+    import market_routes
+
+    monkeypatch.setattr(market_routes, "run", lambda season, week, strategy, dry_run: {"status": "dry-run", "season": season, "week": week})
+
+    client = app.test_client()
+    with client.session_transaction() as sess:
+        sess["csrf_token"] = "session-token"
+
+    resp = client.post(
+        "/api/market-intelligence/refresh",
+        json={"season": 2026, "week": 1, "dry_run": True},
+        headers={"X-CSRF-Token": "session-token"},
+    )
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "dry-run"
+
+
 def test_duplicate_games_are_rejected():
     game = PickemGame(
         game_id="g1",

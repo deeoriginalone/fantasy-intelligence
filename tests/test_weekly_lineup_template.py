@@ -26,7 +26,7 @@ def test_template_renders_decisions_and_has_no_form():
             "methodology": "No lineup is submitted.",
             "start_sit_decisions": [
                 {
-                    "action": "HOLD",
+                    "decision": "START",
                     "slot": "QB",
                     "start": {"player": "A"},
                     "sit": {"player": "B"},
@@ -65,6 +65,7 @@ def test_template_renders_decisions_and_has_no_form():
     assert "B" in html
     assert "HIGH 100%" in html
     assert "100.50" in html
+    assert "HOLD" not in html
 
     assert "<form" not in html
     # submit text allowed because page says 'does not submit a lineup'

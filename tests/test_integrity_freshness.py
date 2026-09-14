@@ -10,6 +10,15 @@ def test_unknown(): assert calculate_freshness({},"injury",NOW)["blocker"]=="INJ
 def test_stale_expired():
     assert calculate_freshness({"matchup_updated_at":ts(90000)},"matchup",NOW)["status"]=="STALE"
     assert calculate_freshness({"projection_updated_at":ts(200000)},"projection",NOW)["status"]=="EXPIRED"
+def test_aging_is_visible_without_becoming_fresh():
+    report=build_freshness_report({"roster_updated_at":ts(3000)},NOW)
+    assert report["domains"]["roster"]["status"]=="AGING"
+    assert report["domains"]["roster"]["recommendation_impact"]=="DEGRADED"
+    assert report["has_aging"] is True
+def test_freshness_domain_exposes_source_and_lineage():
+    domain=calculate_freshness({"matchup_updated_at":ts(60),"matchup_source":"Controlled matchup source"},"matchup",NOW)
+    assert domain["source"] == "Controlled matchup source"
+    assert domain["lineage"]["timestamp"] == domain["timestamp"]
 def test_unknown_health_low(): assert calculate_confidence_score(player(injury_status="Unknown"))["label"]=="LOW"
 def test_missing_matchup_low(): assert calculate_confidence_score(player(matchup_rank=None))["label"]=="LOW"
 def test_bye_high(): assert calculate_confidence_score(player(is_bye=True,opponent=None,matchup_rank=None))["label"]=="HIGH"

@@ -3,7 +3,7 @@
 ####### Last recorded repository checkpoint
 - Date: 2026-09-13
 - Branch: feature/evidence-bundle-pipeline
-- HEAD: d073a5a57a465ad9eb2c3207daaa88469dfd50c1
+- HEAD: 156b514ccfecd4d2afe9b57bdf719aeca928c917
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -27,8 +27,8 @@ The branch, HEAD, and working-tree state must be reverified from the repository 
 - UX.1 Dashboard Modernization and Truth Audit remains complete at its verified focused-test and rendered active-route boundary.
 - UX.2 has a validated implementation foundation for league settings, Full-PPR Team Needs, Team Health, Team Accuracy, unavailable matchup presentation, and recommendation blockers.
 - A hands-on rendered-page review identified unresolved UX.2 product-completion work.
-- UX.2.1 passed the All-Season Usability Gate; UX.3 is next and was not implemented in this session.
-- UX.4 through UX.7 remain pending their formal definition-of-done reviews.
+- UX.2.1 passed the All-Season Usability Gate; UX.3 is validated at its supported, read-only waiver-publication boundary.
+- UX.4.1 through UX.4.12 are validated at focused implementation, controlled-browser, and live all-partner dropdown boundaries. The shared action-first visual system is implemented across Lineup, My Team, Waivers, and Trades with focused and live-render evidence. UX.5 has the formalized implementation and evidence boundary; UX.6 and UX.7 remain pending their formal definition-of-done reviews.
 
 ####### Completed milestone: UX.1 Dashboard Modernization and Truth Audit
 - Shared season and league-status facts are wired through Dashboard, My Team, and Weekly Command Center route contracts.
@@ -132,33 +132,48 @@ Presentation and active-route proof:
 
 ####### UX.3: Waiver Correctness and Availability Validation
 
-**Status: PARTIALLY IMPLEMENTED AT VERIFIED FAIL-CLOSED BOUNDARY.**
+**Status: VALIDATED AT THE SUPPORTED, READ-ONLY PUBLICATION BOUNDARY.**
 
-Verified:
-- Shared ownership and eligibility evidence blocks unsupported publication.
-- Stable player IDs control rostered-player exclusion.
-- Missing or incomplete roster coverage, timestamps, freshness thresholds, and eligibility evidence block recommendations.
-- `/waivers` and `/gm` share the same blocked availability decision and manager-facing source, freshness, and blocker presentation.
-- Focused waiver validation passes 42 tests; Python compilation and whitespace validation pass.
+Validated:
+- Stable Sleeper player IDs control rostered-player exclusion and publication identity.
+- Current Sleeper roster ownership is FRESH from successful `retrieved_at` under `integrity.roster.v1`; provider source-record time is unavailable and remains distinct from retrieval time.
+- Configured roster coverage, unique roster IDs, missing IDs, and duplicate diagnostics fail closed when incomplete or contradictory.
+- Availability is transparently derived from the supported player pool minus active-league rostered IDs, not from transaction history or a provider-declared addability field.
+- `/waivers` and `/gm` share the evaluated source set and evidence; `/waivers` publishes nine stable IDs and `/gm` publishes the five-candidate prefix, with no published rostered ID.
+- The focused UX.3 suite passes 78 tests; Python compilation, whitespace checks, and rendered supported-state verification pass.
+- UXQA-001 is VALIDATED, not CLOSED.
 
-Not verified:
-- Live success-path publication.
-- Expected active-roster count source.
-- Waiver ownership or eligibility freshness thresholds.
-- Independent add-eligibility proof.
-- Candidate-level role, duration, fit, confidence, risk, drop, and evidence-backed FAAB precision.
-- Browser-rendered waiver acceptance.
-- UXQA-001 validation or closure.
+Remaining enhancements:
+- Candidate-level role, opportunity duration, roster fit, confidence, risk, suggested drop, and evidence-backed FAAB sophistication.
+- Formal browser validation and separate UX.3 enhancement review.
+- Commit review, canonical synchronization, and continuity validation required before defect closure.
 
-The implementation correctly fails closed rather than publishing unsupported candidates.
+####### UX.4: Trade Center Integrity and Freshness Provenance
 
-####### UX.4: Shared Integrity Expansion
+**Status: UX.4.1-UX.4.12 VALIDATED AT FOCUSED WRITER, ENRICHMENT, INTEGRITY, TEMPLATE, CONTROLLED-BROWSER, AND LIVE NINE-PARTNER DROPDOWN BOUNDARY.**
 
-**Status: PARTIAL PRESENTATION FOUNDATION PRESERVED; FORMAL COMPLETION REVIEW PENDING.**
+- Shared Trade Center integrity gates package publication from owner and partner roster evidence.
+- Roster and injury retrieval provenance comes from successful Sleeper retrieval. Matchup and projection provenance carries writer-owned source and retrieval-time fields through enrichment.
+- `migrations/011_trade_evidence_freshness.sql` is applied to PostgreSQL and defines `defense_matchups.retrieved_at` and `players.projection_retrieved_at`.
+- Successful matchup and projection imports record their retrieval timestamps; failed imports roll back and route reads do not mutate source freshness.
+- READY requires complete FRESH evidence across roster, injury, matchup, and projection domains. AGING is DEGRADED. Stale, expired, unknown, unavailable, incomplete, or contradictory evidence is BLOCKED with domain-specific reasons.
+- Trade recommendations remain read-only. Action-first presentation precedes collapsed integrity, freshness, provenance, lineage, completeness, and blocker diagnostics.
+- Source imports populated required timestamps and canonical alias/suffix normalization completed supported partner coverage. The local `/trades` route is HTTP 200 and the live selector verified all nine opponents as READY.
+- Test-only, `TESTING=True` scenarios render READY, READY-empty, DEGRADED, BLOCKED, unsupported partner fit, and identity ambiguity through the actual template at desktop and 390px. Unknown scenarios fail closed and scenarios perform no external or database writes.
+- One-for-one and two-for-one alternatives are manager-visible. Acceptance-like verdicts were removed; partner fit, modeled value, and feasibility-unavailable are distinct. Integrity, identity lineage, ranking comparison, and metric definitions are collapsed.
+- Focused validation passed 90 tests, compilation passed, and both whitespace checks passed.
+
+Remaining closure controls:
+- Canonical continuity validation and narrow exact-path commit review.
+- Do not claim transaction acceptance, negotiation, rest-of-season impact, production readiness, or defect closure.
 
 ####### UX.5: Lineup Explainability and Bench Redesign
 
-**Status: RECONCILIATION FOUNDATION PRESERVED; FORMAL COMPLETION REVIEW PENDING.**
+**Status: ACTION-FIRST CROSS-PAGE VISUAL SYSTEM IMPLEMENTED; FORMAL COMPLETION REVIEW PENDING.**
+
+Validated evidence includes the action-first weekly verdict, decision cards, dedicated risk panel, league-valid formation, ranked bench cards, unavailable change history, collapsed metric explanations, bottom-only diagnostics, explicit START/FLEX/MONITOR/SIT decisions, deterministic Bench Order, manager-facing explanations and confidence, unavailable-value distinction, baseline and Weekly Score definitions, 10 focused UX.5 tests, 27 related integrity/route tests, and live desktop/390px `/lineup` inspection with HTTP 200 and no HOLD output. The page remains read-only. Remaining controls are formal definition-of-done review and canonical continuity validation.
+
+The visual system has since been applied to My Team, Waivers, and Trades. My Team passed 34 focused tests plus live desktop/390px verification; Waivers passed 47 focused tests plus live desktop/390px verification; Trades passed 27 focused tests plus live desktop/390px verification. These redesigns preserve existing evidence contracts and remain read-only.
 
 ####### UX.6: GM Center Impact Redesign
 
@@ -188,6 +203,45 @@ The following systems remain planned and deferred, not abandoned:
 - Live-route validation where required for later milestones.
 - Production deployment and recovery proof are not claimed.
 
+####### UX.8 Survivor Intelligence progress (in-progress, not complete)
+
+- History/eligibility contract implemented: Week 1 JAX (season 2026) recorded through a conflict-safe write (`SurvivorConflictError`) and a distinct history-read-failure signal (`SurvivorHistoryReadError`); used-team exclusion verified live and by test.
+- Week-state contract implemented (`OPEN` / `PENDING_RESULT` / `COMPLETED` / `UNAVAILABLE` / `BLOCKED`); the occupied-week contradiction is fixed — a locked week no longer offers another actionable pick or “Record… pick” control.
+- Future Value no longer fabricates a neutral 0.50 when future schedule/prediction evidence is missing; Survivor Score discloses a reduced-scope formula (`current_stability_only` / `current_only`) instead of silently substituting a value.
+- Evidence Agreement Score (`stability_score`) no longer reports a fabricated 100% agreement when all three underlying signals are missing; renders Unavailable instead.
+- Action-first template redesign is live: hero, pick-this-week, alternatives, risk center, save-for-later, roadmap, used-teams/history, and collapsed rankings/metrics/lineage; locked-week, blocked, unavailable, degraded, and completed states are rendered through the real template (not only unit-tested).
+- Added a “Refresh Market Intelligence for Week N” button wired to the existing `/api/market-intelligence/refresh` endpoint; fixed two defects surfaced while wiring it: the endpoint had no auth/CSRF protection (added `@admin_required`), and the running server never loaded `.env.market`/`.env.pickem` (added `load_dotenv` calls in `app.py`), which had silently blocked refresh at runtime.
+- Root-caused the Week 2 `SURVIVOR_WEEK_EVIDENCE_MISSING` state: the sandbox schedule is correctly sourced from the real 2026 schedule; the external odds provider has not yet posted Week 2 lines (a temporal data-availability limit, not a code defect).
+- Focused survivor + related security tests: 68 passed, 1 xfailed (up from 43/49 recorded earlier this session).
+- `docs/PAGE_REQUIREMENTS.md` and `docs/METRIC_DEFINITIONS.md` updated with Survivor Intelligence page and metric contracts.
+- Fixed a real Update-result dropdown bug (it always visually reset to “pending” regardless of the actual recorded status); added a Reset-pick control (`delete_selection()`, `/survivor/reset`) so a manager can clear a recorded pick and reopen the week for a fresh recommendation.
+- Added manual team selection (“PICK A DIFFERENT TEAM”): a manager can record any eligible team as their pick, not only the algorithmic top recommendation, including teams with no market data; validated against the real team universe and recorded without fabricating a probability.
+- Added CSRF protection to `/survivor/select` and `/survivor/status` (previously unprotected, same class of gap fixed earlier on the market-refresh endpoint).
+- Added `_verified_current_week()` using Sleeper's `get_nfl_state()` to replace the hardcoded default week only when no week is explicitly requested; fails closed (never guesses) on network error or season mismatch.
+- Focused survivor + security tests: 84 passed, 1 xfailed (up from 68 earlier this session).
+- UX.8 is not yet formally complete; remaining boundary work is tracked under the Next milestone below.
+
+####### UX.9 My Team + Weekly Lineup Consolidation (complete at verified boundary)
+
+- `/lineup` is retired as a rendered page and now returns HTTP 302 to `/team#lineup`; verified live and by test, preserving existing bookmarks.
+- `/team` is now the single roster command center: hero (verdict/action/projected score/confidence/biggest risk) → Next Best Team Action → Lineup Snapshot → Recommended Starting Lineup (formation, now also carrying the authoritative START/SIT/FLEX/MONITOR call and a bench-swap flag per slot) → Bench Priority → Biggest Risks → Team Needs → Roster Outlook → What Changed This Week → Why This Lineup Is Trusted → collapsed diagnostics.
+- Removed duplicate surfaces: the old plain hero, the separate “Recommended Starters” section, “Bench Plan”, the separate “Start/Sit Decisions” card grid, and Lineup's own risk/diagnostics blocks.
+- No recommendation engine, lineup scoring, Team Needs, Team Health, Team Accuracy, waiver, trade, survivor, or database logic was changed; only route wiring and template presentation.
+- Focused team/lineup route-contract tests: 20 passed (5 pre-existing, unrelated `/trades` failures unchanged).
+- Completion check answered: no functionality on `/lineup` still justifies a separate page.
+
+####### NFL Intelligence MVP (implemented; operational data coverage remains bounded)
+
+- Read-only `/nfl-intelligence` is implemented with Top Picks, Top Risk Games, All Games, Insights, Blockers, and collapsed Diagnostics. The primary experience is manager-facing; raw Elo, matchup edge, injury totals, and weather values are confined to Diagnostics.
+- All scheduled games for the selected loaded week render. Prediction absence is explicit as `INSUFFICIENT EVIDENCE`; no prediction is fabricated.
+- The existing protected market-refresh endpoint is available through a per-week refresh button. It refreshes only provider games that match the stored schedule; it does not create unsupported predictions.
+- Verified current coverage: Week 1 has 16 scheduled games and 7 provider-matched predictions; Week 2 has 16 scheduled games and 0 provider-matched predictions. The complete 2026 source schedule (`nfl_schedule`) contains Weeks 1-18, but only Weeks 1-2 are currently seeded into `yahoo_pickem_games`.
+- Matching uses the complete provider full-name-to-standard-abbreviation map and exact away/home pairs. Recorded runs show Week 1 received/matched/wrote 7/7/7; Week 2 received 6 provider games and matched/wrote 0/0. This is a current provider-slate versus stored-schedule mismatch, not a verified naming failure.
+- Focused NFL Intelligence validation: 29 passed. Python compilation for `nfl_intelligence.py` and `nfl_intelligence_routes.py`, whitespace validation, and live Week 1/Week 2 rendering passed. Desktop and 390px renders had no horizontal overflow.
+- Current repository checkpoint: 2026-09-14, branch `feature/evidence-bundle-pipeline`, HEAD `b9170fe0562b8eb57812f1b45267558b581d13cd`. NFL Intelligence files and this documentation remain uncommitted; preserve unrelated working-tree changes.
+
 ## Next milestone
 
-**Continue UX.3 Waiver Correctness and Availability Validation by establishing verified ownership freshness, roster completeness, and add-eligibility evidence.**
+**Complete UX.8 Survivor Intelligence Strategy and All-Season Redesign at the verified read-only active-route boundary.**
+
+UX.8 is the only active feature-development milestone. UX.5 retains its validated implementation and live-render evidence, but formal completion review remains deferred. UX.6 and UX.7 remain deferred at their existing recorded boundaries. Waiver and Trade Center enhancements remain deferred. Existing defects retain their evidence-supported statuses; defect closure remains separate. Strategic systems remain deferred, not abandoned. PostgreSQL parity, failure injection, rollback, recovery, cleanup, repeatability, and production-readiness work remain deferred and unclaimed. No external survivor transaction capability is claimed.

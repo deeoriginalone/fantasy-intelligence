@@ -15,6 +15,8 @@ from draft.draft_state_hardening import (
 from dotenv import load_dotenv
 
 load_dotenv()
+load_dotenv('.env.market')
+load_dotenv('.env.pickem')
 
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 from auth import admin_required, csrf_required, ensure_csrf_token
@@ -71,6 +73,7 @@ import psycopg2
 from services.import_rankings import import_rankings
 from market_routes import market_bp
 from survivor_routes import survivor_bp
+from nfl_intelligence_routes import nfl_intelligence_bp
 from intelligence_operations_routes import create_intelligence_operations_blueprint
 from draft_events.runtime import process_runtime_picks
 
@@ -91,6 +94,7 @@ def _ensure_session_csrf():
 
 app.register_blueprint(market_bp)
 app.register_blueprint(survivor_bp)
+app.register_blueprint(nfl_intelligence_bp)
 
 UPLOAD_FOLDER = Config.UPLOAD_FOLDER
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER

@@ -108,3 +108,32 @@ Each page must earn advancement independently. Technical tests are necessary but
 
 ### Technical detail
 - Integrity and lineage diagnostics should be secondary and collapsible.
+
+## Survivor Intelligence (UX.8)
+
+Survivor Intelligence is not one of the six season-management pages above but reuses the shared requirements (freshness, fail-closed, explainability, action-first ordering, read-only decision support).
+
+### Must show
+- Verified survivor season and week; never a guessed or hard-coded active week
+- Used-team history, sourced from verified persistence, not inferred from an empty read
+- Exact used-team exclusion from any current or future recommendation
+- An explicit already-selected week state (`PENDING_RESULT` or `COMPLETED`) whenever a selection already exists for the requested week, showing the recorded team and result as the primary fact
+- Exactly one supported current-week action, and only when the requested week is verified `OPEN` (no existing selection, verified schedule week)
+- Alternatives only when they are actionable and eligible for an `OPEN` week
+- Win probability displayed separately from evidence confidence; confidence must not be presented as a probability of correctness
+- Future opportunity cost only when supported by verified future schedule and prediction evidence; otherwise Unavailable, never a neutral fallback value
+- Truthful multi-week roadmap unavailability when no supported optimizer exists
+- The exact recommendation effect (DEGRADED/BLOCKED/UNAVAILABLE) of stale or missing evidence, with a disclosed reason code
+- Read-only behavior toward any external survivor platform; no external transaction is ever submitted
+- Manager-friendly (Pacific Time) retrieval/verification time, with the raw source timestamp preserved only in collapsed lineage
+- Collapsed-by-default full rankings, metric explanations, and data-quality/lineage sections; rankings for an already-selected week are labeled "Model snapshot for Week N (non-actionable)"
+
+### Must not show
+- A second actionable recommendation or "Record team as pick" control for a week that already has a recorded selection
+- A neutral 50% (or other invented) Future Value when future schedule/prediction evidence is unavailable
+- "Future cost: LOW/MEDIUM/HIGH" unless future evidence actually supports it
+- A guessed next survivor week; if unverifiable, render "NEXT WEEK UNAVAILABLE"
+- Public pick percentage or leverage data (not sourced from a supported provider)
+
+### Blocking rule
+- A history-read failure must render `ELIGIBILITY BLOCKED` and publish no recommendation; it must never be treated as "no teams used yet."

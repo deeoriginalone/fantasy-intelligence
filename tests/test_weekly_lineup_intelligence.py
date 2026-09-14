@@ -16,3 +16,18 @@ def test_empty_and_incomplete_fail_closed():
 
 def test_missing_evidence_reported_and_inputs_preserved():
  rows=roster();rows[0]["weekly_score"]=None;rows[0]["weekly_baseline"]=None;before=[dict(x) for x in rows];result=build_lineup_intelligence(rows);assert "WEEKLY_EVIDENCE_INCOMPLETE" in result["blockers"];assert "QA" in result["missing_evidence_players"];assert rows==before
+
+def test_decisions_use_explicit_actions_and_bench_order():
+ result=build_lineup_intelligence(roster())
+ assert {item["decision"] for item in result["start_sit_decisions"]} <= {"START", "FLEX", "MONITOR"}
+ assert next(item for item in result["start_sit_decisions"] if item["slot"]=="FLEX")["decision"] == "FLEX"
+ assert [player["bench_order"] for player in result["bench"]] == list(range(1, len(result["bench"])+1))
+ assert all(player["decision"] == "SIT" for player in result["bench"])
+
+def test_incomplete_evidence_is_monitor_not_zero():
+ rows=roster();rows[0]["weekly_score"]=None;rows[0]["weekly_baseline"]=None
+ rows[1].update({"injury_status":"Out","injury_multiplier":0})
+ result=build_lineup_intelligence(rows)
+ qb=next(item for item in result["starters"] if item["slot"]=="QB")
+ assert qb["decision"] == "MONITOR"
+ assert result["weekly_total_available"] is False

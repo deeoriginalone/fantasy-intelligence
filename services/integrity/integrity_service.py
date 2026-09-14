@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 DEFAULT_FRESHNESS_LIMITS={"roster":3600,"injury":86400,"matchup":86400,"projection":86400}
-TIMESTAMP_FIELDS={"roster":("roster_updated_at","roster_sync_time"),"injury":("injury_updated_at","health_updated_at","last_health_update"),"matchup":("matchup_updated_at","matchup_sync_time"),"projection":("projection_updated_at","projection_sync_time")}
+TIMESTAMP_FIELDS={"roster":("roster_updated_at","roster_sync_time"),"injury":("injury_updated_at","health_updated_at","last_health_update"),"matchup":("matchup_updated_at","matchup_sync_time","matchup_retrieved_at"),"projection":("projection_updated_at","projection_sync_time","projection_retrieved_at")}
 def _utc_now(now=None):
     v=now or datetime.now(timezone.utc); return v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)
 def _parse_timestamp(value):
@@ -16,16 +16,18 @@ def _parse_timestamp(value):
     else: return None
     return p.replace(tzinfo=timezone.utc) if p.tzinfo is None else p.astimezone(timezone.utc)
 def calculate_freshness(record:Dict,domain:str,now:Optional[datetime]=None,max_age_seconds:Optional[int]=None)->Dict:
-    fields=TIMESTAMP_FIELDS.get(domain,()); source=next((f for f in fields if record.get(f) not in (None,"")),None); stamp=_parse_timestamp(record.get(source) if source else None); limit=max_age_seconds if max_age_seconds is not None else DEFAULT_FRESHNESS_LIMITS.get(domain,86400)
-    if stamp is None: return {"domain":domain,"status":"UNKNOWN","score":0,"age_seconds":None,"max_age_seconds":limit,"source_field":source,"timestamp":None,"blocker":f"{domain.upper()}_FRESHNESS_UNKNOWN"}
+    fields=TIMESTAMP_FIELDS.get(domain,()); source_field=next((f for f in fields if record.get(f) not in (None,"")),None); stamp=_parse_timestamp(record.get(source_field) if source_field else None); source=record.get(f"{domain}_source") or source_field or "Unavailable"; limit=max_age_seconds if max_age_seconds is not None else DEFAULT_FRESHNESS_LIMITS.get(domain,86400)
+    if stamp is None: return {"domain":domain,"source":source,"lineage":{"source":source,"timestamp_field":source_field,"timestamp":None},"status":"UNKNOWN","score":0,"age_seconds":None,"max_age_seconds":limit,"source_field":source_field,"timestamp":None,"completeness_state":"UNAVAILABLE","recommendation_impact":"BLOCKED","blocker":f"{domain.upper()}_FRESHNESS_UNKNOWN"}
     age=max(0,int((_utc_now(now)-stamp).total_seconds()))
-    if age<=limit: status,score,blocker="FRESH",100,None
+    if age<=limit*.8: status,score,blocker="FRESH",100,None
+    elif age<=limit: status,score,blocker="AGING",75,None
     elif age<=limit*2: status,score,blocker="STALE",50,f"{domain.upper()}_DATA_STALE"
     else: status,score,blocker="EXPIRED",0,f"{domain.upper()}_DATA_EXPIRED"
-    return {"domain":domain,"status":status,"score":score,"age_seconds":age,"max_age_seconds":limit,"source_field":source,"timestamp":stamp.isoformat(),"blocker":blocker}
+    impact="AVAILABLE" if status=="FRESH" else "DEGRADED" if status=="AGING" else "BLOCKED"
+    return {"domain":domain,"source":source,"lineage":{"source":source,"timestamp_field":source_field,"timestamp":stamp.isoformat()},"status":status,"score":score,"age_seconds":age,"max_age_seconds":limit,"source_field":source_field,"timestamp":stamp.isoformat(),"completeness_state":"COMPLETE","recommendation_impact":impact,"blocker":blocker}
 def build_freshness_report(metadata=None,now=None,limits=None):
     metadata,limits=metadata or {},limits or {}; domains={d:calculate_freshness(metadata,d,now,limits.get(d)) for d in DEFAULT_FRESHNESS_LIMITS}; blockers=sorted(x["blocker"] for x in domains.values() if x.get("blocker")); scores=[x["score"] for x in domains.values()]
-    return {"score":round(sum(scores)/len(scores)) if scores else 0,"domains":domains,"blockers":blockers,"has_unknown":any(x["status"]=="UNKNOWN" for x in domains.values()),"has_stale":any(x["status"] in {"STALE","EXPIRED"} for x in domains.values())}
+    return {"score":round(sum(scores)/len(scores)) if scores else 0,"domains":domains,"blockers":blockers,"has_unknown":any(x["status"]=="UNKNOWN" for x in domains.values()),"has_aging":any(x["status"]=="AGING" for x in domains.values()),"has_stale":any(x["status"] in {"STALE","EXPIRED"} for x in domains.values())}
 def calculate_completeness_score(p:Dict)->int:
     checks=(bool(p.get("injury_status")),p.get("weekly_score") is not None,p.get("weekly_baseline") is not None,bool(p.get("opponent")) or bool(p.get("is_bye")),p.get("matchup_rank") is not None or bool(p.get("is_bye"))); return round(sum(bool(x) for x in checks)/len(checks)*100)
 def calculate_confidence_score(p:Dict)->Dict:
