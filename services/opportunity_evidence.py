@@ -33,6 +33,22 @@ MARKET_SIGNAL_STATES = {
     "INSUFFICIENT_MARKET_DATA",
     "UNAVAILABLE",
 }
+TRADE_OPPORTUNITY_STATES = {
+    "TRADE_OPPORTUNITY_PRESENT",
+    "TRADE_OPPORTUNITY_WEAK",
+    "TRADE_OPPORTUNITY_NONE",
+    "INSUFFICIENT_EVIDENCE",
+    "UNAVAILABLE",
+}
+DECISION_CENTER_PANELS = (
+    "MUST_ACT",
+    "START_SIT_ALERTS",
+    "WAIVER_ALERTS",
+    "TRADE_ALERTS",
+    "OPPORTUNITY_ALERTS",
+    "RISK_ALERTS",
+    "NO_ACTION_NEEDED",
+)
 FRESHNESS_STATES = {"FRESH", "AGING", "STALE", "UNAVAILABLE", "BLOCKED"}
 COMPLETENESS_STATES = {"COMPLETE", "INCOMPLETE", "UNAVAILABLE"}
 
@@ -269,6 +285,80 @@ def classify_market_signal(
     return result
 
 
+def classify_trade_opportunity(
+    opportunity_classification: Mapping[str, Any] | None,
+    market_value: Mapping[str, Any] | None,
+    market_signal: Mapping[str, Any] | None,
+    candidate: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Classify trade-opportunity alignment as evidence without suggesting an action."""
+    result = {
+        "trade_opportunity_state": "UNAVAILABLE",
+        "blocker": None,
+        "recommendation_impact": "Informational evidence only; it does not change recommendations.",
+        "authoritative": False,
+    }
+    if not candidate or not market_signal or not opportunity_classification or not market_value:
+        result["blocker"] = "UNAVAILABLE"
+        return result
+    if not opportunity_classification.get("state") or not market_value.get("market_value_state"):
+        result["trade_opportunity_state"] = "INSUFFICIENT_EVIDENCE"
+        result["blocker"] = "INSUFFICIENT_EVIDENCE"
+        return result
+    if opportunity_classification.get("state") == "INSUFFICIENT_HISTORY":
+        result["trade_opportunity_state"] = "INSUFFICIENT_EVIDENCE"
+        result["blocker"] = "INSUFFICIENT_EVIDENCE"
+        return result
+    if not all(item.get("authoritative") for item in (opportunity_classification, market_value, market_signal, candidate)):
+        result["blocker"] = "BLOCKED"
+        result["recommendation_impact"] = "Trade opportunity evidence cannot be assessed from unsupported evidence."
+        return result
+    candidate_state = candidate.get("candidate_state")
+    signal_state = market_signal.get("market_signal_state")
+    if candidate_state not in {"BUY_LOW_CANDIDATE", "SELL_HIGH_CANDIDATE", "FAIR_VALUE"}:
+        result["blocker"] = "BLOCKED"
+        result["recommendation_impact"] = "Trade opportunity evidence cannot be assessed from unsupported evidence."
+        return result
+    if signal_state not in {"UNDERVALUED_SIGNAL", "OVERVALUED_SIGNAL", "FAIR_VALUE_SIGNAL"}:
+        result["blocker"] = "BLOCKED"
+        result["recommendation_impact"] = "Trade opportunity evidence cannot be assessed from unsupported evidence."
+        return result
+    if (candidate_state == "BUY_LOW_CANDIDATE" and signal_state == "UNDERVALUED_SIGNAL") or (candidate_state == "SELL_HIGH_CANDIDATE" and signal_state == "OVERVALUED_SIGNAL"):
+        result["trade_opportunity_state"] = "TRADE_OPPORTUNITY_PRESENT"
+    elif candidate_state == "FAIR_VALUE" and signal_state == "FAIR_VALUE_SIGNAL":
+        result["trade_opportunity_state"] = "TRADE_OPPORTUNITY_NONE"
+    else:
+        result["trade_opportunity_state"] = "TRADE_OPPORTUNITY_WEAK"
+    result["authoritative"] = True
+    return result
+
+
+def build_decision_center(evidence: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Aggregate existing evidence into display-only, non-prioritized panels."""
+    evidence = dict(evidence or {})
+    freshness = evidence.get("freshness") or "UNAVAILABLE"
+    completeness = evidence.get("completeness") or "UNAVAILABLE"
+    blocker = evidence.get("blocker")
+    if blocker or freshness in {"UNKNOWN", "UNAVAILABLE", "BLOCKED"}:
+        status = "BLOCKED"
+    elif completeness in {"INCOMPLETE", "UNKNOWN", "UNAVAILABLE"}:
+        status = "INSUFFICIENT_EVIDENCE"
+    else:
+        status = "AVAILABLE"
+    panels = []
+    for panel in DECISION_CENTER_PANELS:
+        panels.append({
+            "panel": panel,
+            "status": status if panel not in {"MUST_ACT", "NO_ACTION_NEEDED"} else "UNAVAILABLE",
+            "why": "Existing verified evidence is summarized here; no action is generated.",
+            "affected_area": panel.lower(),
+            "freshness": freshness,
+            "blocker": blocker,
+            "confidence_impact": "No confidence changes; informational evidence only.",
+        })
+    return {"panels": panels, "decision_effect": "NONE"}
+
+
 def build_opportunity_view(config: Mapping[str, Any] | None) -> dict[str, Any]:
     """Build a display-only current/previous/baseline view from supplied evidence."""
     config = dict(config or {})
@@ -278,12 +368,15 @@ def build_opportunity_view(config: Mapping[str, Any] | None) -> dict[str, Any]:
     market_value = build_market_value_evidence(config.get("market_value"))
     what_changed = build_what_changed(current, previous, baseline)
     classification = classify_opportunity_trend(current, previous, baseline)
+    market_signal = classify_market_signal(classification, what_changed, market_value)
+    candidate = dict(config.get("candidate") or {})
     return {
         "current": current,
         "what_changed": what_changed,
         "classification": classification,
         "market_value": market_value,
-        "market_signal": classify_market_signal(classification, what_changed, market_value),
+        "market_signal": market_signal,
+        "trade_opportunity": classify_trade_opportunity(classification, market_value, market_signal, candidate),
         "decision_effect": "NONE",
     }
 

@@ -1,4 +1,5 @@
-from services.opportunity_evidence import METRICS, build_market_value_evidence, build_opportunity_evidence, build_what_changed, classify_market_signal, classify_opportunity_trend
+from services.opportunity_evidence import DECISION_CENTER_PANELS, METRICS, build_decision_center, build_market_value_evidence, build_opportunity_evidence, build_what_changed, classify_market_signal, classify_opportunity_trend, classify_trade_opportunity
+from services.opportunity_evidence import METRICS, build_market_value_evidence, build_opportunity_evidence, build_what_changed, classify_market_signal, classify_opportunity_trend, classify_trade_opportunity
 
 
 NOW = "2026-09-15T12:00:00+00:00"
@@ -142,3 +143,36 @@ def test_market_signal_classification_fails_closed():
     assert classify_market_signal({}, {"state": "UNAVAILABLE"}, market)["market_signal_state"] == "INSUFFICIENT_MARKET_DATA"
     assert classify_market_signal({"state": "UNKNOWN"}, {"state": "AVAILABLE"}, market)["blocker"] == "BLOCKED"
     assert classify_market_signal({"state": "STABLE_OPPORTUNITY"}, {"state": "AVAILABLE"}, None)["market_signal_state"] == "UNAVAILABLE"
+
+
+def test_trade_opportunity_is_evidence_only():
+    classification = {"state": "GROWING_OPPORTUNITY", "authoritative": True}
+    market_value = {"market_value_state": "VALUE_FALLING", "authoritative": True}
+    market_signal = {"market_signal_state": "UNDERVALUED_SIGNAL", "authoritative": True}
+    candidate = {"candidate_state": "BUY_LOW_CANDIDATE", "authoritative": True}
+    present = classify_trade_opportunity(classification, market_value, market_signal, candidate)
+    candidate["candidate_state"] = "SELL_HIGH_CANDIDATE"
+    weak = classify_trade_opportunity(classification, market_value, market_signal, candidate)
+    candidate["candidate_state"] = "FAIR_VALUE"
+    none = classify_trade_opportunity(classification, market_value, {"market_signal_state": "FAIR_VALUE_SIGNAL", "authoritative": True}, candidate)
+    assert present["trade_opportunity_state"] == "TRADE_OPPORTUNITY_PRESENT"
+    assert weak["trade_opportunity_state"] == "TRADE_OPPORTUNITY_WEAK"
+    assert none["trade_opportunity_state"] == "TRADE_OPPORTUNITY_NONE"
+    assert present["authoritative"] is True
+
+
+def test_trade_opportunity_fails_closed():
+    valid = {"authoritative": True}
+    insufficient = classify_trade_opportunity({"state": "INSUFFICIENT_HISTORY", "authoritative": False}, {"market_value_state": "VALUE_FALLING", "authoritative": True}, {"market_signal_state": "UNDERVALUED_SIGNAL", "authoritative": True}, valid)
+    blocked = classify_trade_opportunity({"state": "GROWING_OPPORTUNITY", "authoritative": True}, {"market_value_state": "VALUE_FALLING", "authoritative": True}, {"market_signal_state": "UNDERVALUED_SIGNAL", "authoritative": False}, {"candidate_state": "BUY_LOW_CANDIDATE", "authoritative": True})
+    unavailable = classify_trade_opportunity(None, None, None, None)
+    assert insufficient["trade_opportunity_state"] == "INSUFFICIENT_EVIDENCE"
+    assert blocked["blocker"] == "BLOCKED"
+    assert unavailable["trade_opportunity_state"] == "UNAVAILABLE"
+
+
+def test_decision_center_is_summary_only_and_fail_closed():
+    center = build_decision_center({"freshness": "UNAVAILABLE", "completeness": "INCOMPLETE", "blocker": "SOURCE_MISSING"})
+    assert [item["panel"] for item in center["panels"]] == list(DECISION_CENTER_PANELS)
+    assert all(item["status"] in {"BLOCKED", "UNAVAILABLE"} for item in center["panels"])
+    assert center["decision_effect"] == "NONE"

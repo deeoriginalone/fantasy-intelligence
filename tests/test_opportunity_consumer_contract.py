@@ -26,6 +26,7 @@ def test_manager_view_is_informational_and_exposes_changes():
     assert view["market_value"]["authoritative"] is True
     assert view["market_signal"]["market_signal_state"] == "FAIR_VALUE_SIGNAL"
     assert view["market_signal"]["authoritative"] is True
+    assert view["trade_opportunity"]["trade_opportunity_state"] == "UNAVAILABLE"
     assert view["decision_effect"] == "NONE"
     assert all("matchup_rank" not in item and "matchup_modifier" not in item for item in view["what_changed"]["changes"])
 
@@ -33,8 +34,9 @@ def test_manager_view_is_informational_and_exposes_changes():
 def test_templates_include_opportunity_evidence_without_conclusions():
     for name in ("templates/team.html", "templates/waivers.html", "templates/trades.html"):
         assert "_opportunity_evidence.html" in Path(name).read_text(encoding="utf-8")
+    assert "Decision Center" in Path("templates/dashboard.html").read_text(encoding="utf-8")
     text = Path("templates/_opportunity_evidence.html").read_text(encoding="utf-8")
-    for phrase in ("Target Share", "Snap Share", "Routes Run", "Red-Zone Usage", "Role Stability", "Market Value Evidence", "Market Signal Evidence", "Informational evidence only"):
+    for phrase in ("Target Share", "Snap Share", "Routes Run", "Red-Zone Usage", "Role Stability", "Market Value Evidence", "Market Signal Evidence", "Trade Opportunity Evidence", "Informational evidence only"):
         assert phrase in text
     for phrase in ("BREAKOUT", "REGRESSION", "BUY LOW", "SELL HIGH", "SLEEPER", "LEAGUE WINNER", "MUST ADD", "MUST TRADE"):
         assert phrase not in text

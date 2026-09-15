@@ -1684,6 +1684,7 @@ def sync_sleeper_draft_picks(draft_id=None):
 @app.route("/")
 def dashboard():
     from services.ux_evidence import dashboard_contract
+    from services.opportunity_evidence import build_decision_center
     league, league_error = get_local_league()
     try:
         league_source = get_league(SLEEPER_LEAGUE_ID) or {}
@@ -1705,6 +1706,11 @@ def dashboard():
         my_team_facts=shared_league_facts(league_source, blocker=league_error),
         command_center_facts=shared_league_facts(league_source, blocker=league_error),
     )
+    decision_center = build_decision_center({
+        "freshness": dashboard_evidence.get("freshness", {}).get("state"),
+        "completeness": "COMPLETE" if not dashboard_evidence.get("blockers") else "INCOMPLETE",
+        "blocker": ", ".join(dashboard_evidence.get("blockers", [])) or None,
+    })
     fields = dashboard_evidence["fields"]
     return render_template(
         "dashboard.html", title="Fantasy Intelligence Dashboard",
@@ -1712,7 +1718,7 @@ def dashboard():
         team_name=fields["team_name"]["value"] or "Unavailable",
         teams=fields["teams"]["value"],
         scoring_type=fields["scoring_type"]["value"] or "Unavailable",
-        dashboard_evidence=dashboard_evidence,
+        dashboard_evidence=dashboard_evidence, decision_center=decision_center,
     )
 
 
