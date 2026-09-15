@@ -60,7 +60,7 @@ def calculate_defense_matchups(weekly_stats: Sequence[Mapping[str, Any]], *, sea
         status, blocker = "BLOCKED", freshness["blocker"]
     else:
         status, blocker = "AUTHORITATIVE", None
-    return {"season": season, "positions": list(POSITIONS), "rows": rows, "status": status, "authoritative": status == "AUTHORITATIVE", "directionality": "LOWER_IS_HARDER", "completeness": {"defense_count": max((len(value) for value in defenses_by_position.values()), default=0), "required_defenses": ALL_DEFENSES, "complete": complete}, "blocker": blocker, "unresolved_identities": unresolved, "freshness": freshness, "provenance": {"source": source, "version": version, "checksum": checksum, "source_recorded_at": source_recorded_at, "retrieved_at": retrieved_at, "attribution": "NFLverse data, licensed under CC BY 4.0."}}
+    return {"season": season, "positions": list(POSITIONS), "rows": rows, "status": status, "authoritative": status == "AUTHORITATIVE", "scoring_context": "FULL_PPR", "directionality": "LOWER_IS_HARDER", "completeness": {"defense_count": max((len(value) for value in defenses_by_position.values()), default=0), "required_defenses": ALL_DEFENSES, "complete": complete}, "blocker": blocker, "unresolved_identities": unresolved, "freshness": freshness, "provenance": {"source": source, "version": version, "checksum": checksum, "source_recorded_at": source_recorded_at, "retrieved_at": retrieved_at, "attribution": "NFLverse data, licensed under CC BY 4.0."}}
 
 
 def _completed(row: Mapping[str, Any]) -> bool:

@@ -1,0 +1,21 @@
+{% set preliminary = preliminary_matchup_context|default({}) %}
+<section class="card" id="preliminary-matchup-context" aria-labelledby="preliminary-matchup-heading">
+  <h2 id="preliminary-matchup-heading">PRELIMINARY MATCHUP CONTEXT</h2>
+  {% if preliminary.state == "PRELIMINARY" %}
+    {% for matchup in preliminary.matchups %}
+      <p><strong>{{ matchup.completed_games }} completed game{% if matchup.completed_games != 1 %}s{% endif %}</strong></p>
+      <p>{{ matchup.defenses_represented }}/{{ matchup.required_defenses }} defenses represented</p>
+      <p>{{ "%.2f"|format(matchup.fp_per_game_allowed) }} full-PPR fantasy points allowed per completed game to {{ matchup.position }}</p>
+      <p>Source: {{ matchup.source }} · Freshness: {{ matchup.freshness }}</p>
+    {% endfor %}
+    <p>Early-season opponent results are unstable. This information does not change the recommendation.</p>
+    <p>Authoritative Matchup Rank remains unavailable while sample sufficiency is unverified.</p>
+  {% elif preliminary.state == "STALE" %}
+    <p>Preliminary matchup context is unavailable because its source evidence is stale.</p>
+  {% elif preliminary.state == "BLOCKED" %}
+    <p>Preliminary matchup context is blocked until its evidence is complete and valid.</p>
+  {% else %}
+    <p>Preliminary matchup context is unavailable.</p>
+    <p>Authoritative Matchup Rank remains unavailable while sample sufficiency is unverified.</p>
+  {% endif %}
+</section>
