@@ -1,7 +1,33 @@
 """Shared read-only integrity, freshness, completeness, and confidence evaluation."""
 from datetime import datetime, timezone
+import os
 from typing import Dict, List, Optional
 DEFAULT_FRESHNESS_LIMITS={"roster":3600,"injury":86400,"matchup":86400,"projection":86400}
+SCHEDULE_EVIDENCE_THRESHOLD_ID="schedule.evidence.v1"
+BYE_EVIDENCE_THRESHOLD_ID="bye.evidence.v1"
+MATCHUP_SAMPLE_THRESHOLD_ID="matchup.sample.v1"
+
+def _positive_env_seconds(name, environ=None):
+    value=(environ or os.environ).get(name)
+    try:
+        seconds=int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return seconds if seconds > 0 else None
+
+def schedule_bye_freshness_limits(environ=None):
+    return {
+        "schedule":{"id":SCHEDULE_EVIDENCE_THRESHOLD_ID,"seconds":_positive_env_seconds("SCHEDULE_EVIDENCE_MAX_AGE_SECONDS", environ)},
+        "bye":{"id":BYE_EVIDENCE_THRESHOLD_ID,"seconds":_positive_env_seconds("BYE_EVIDENCE_MAX_AGE_SECONDS", environ)},
+    }
+
+def matchup_sample_threshold(environ=None):
+    value=(environ or os.environ).get("MATCHUP_MIN_COMPLETED_GAMES")
+    try:
+        games=int(str(value).strip())
+    except (TypeError, ValueError):
+        games=None
+    return {"id":MATCHUP_SAMPLE_THRESHOLD_ID,"completed_games":games if games and games > 0 else None}
 TIMESTAMP_FIELDS={"roster":("roster_updated_at","roster_sync_time"),"injury":("injury_updated_at","health_updated_at","last_health_update"),"matchup":("matchup_updated_at","matchup_sync_time","matchup_retrieved_at"),"projection":("projection_updated_at","projection_sync_time","projection_retrieved_at")}
 def _utc_now(now=None):
     v=now or datetime.now(timezone.utc); return v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)

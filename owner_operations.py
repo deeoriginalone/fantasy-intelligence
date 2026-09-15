@@ -9,7 +9,8 @@ from services.trade_intelligence import build_trade_intelligence
 from services.trade_target_center import build_trade_target_center
 from services.decision_ranking import build_action, build_decision_ranking
 from services.matchup_intelligence import build_matchup_intelligence
-from services.ux_evidence import derived_waiver_availability, evaluate_waiver_availability, resolve_waiver_candidate_identity, shared_league_facts, waiver_evidence_contract, waiver_ownership_freshness, waiver_roster_coverage
+from services.preliminary_matchup_context import build_preliminary_matchup_context
+from services.ux_evidence import derived_waiver_availability, evaluate_waiver_availability, resolve_waiver_candidate_identity, shared_league_facts, waiver_evidence_contract, waiver_ownership_freshness, waiver_roster_coverage, weekly_evidence_contract
 from services.team_needs import build_team_needs_summary, league_settings_contract, team_needs_contract
 from services.team_health import team_health_contract, apply_player_health_to_recommendations, health_freshness_from_report_date
 from services.ux2_team_accuracy import build_team_accuracy_contract
@@ -216,7 +217,7 @@ def create_owner_operations_blueprint(
                 "shared_facts": shared_league_facts({}, source="Season Sandbox", blocker="LIVE_LEAGUE_FACTS_NOT_APPLICABLE"),
             }
         roster, league = live_roster(cur)
-        roster = enrich_players(cur, roster, current_week(cur), allow_local_weekly_data=True, allow_local_health_fallback=False)
+        roster = enrich_players(cur, roster, current_week(cur), allow_local_weekly_data=True, allow_local_health_fallback=False, require_automated_weekly_evidence=True)
         return context, roster, {
             "team_name": "DiE-HaRd-9eRs-FaN",
             "league_name": league.get("name") or "Fantasy Intelligence Champions League",
@@ -430,6 +431,10 @@ def create_owner_operations_blueprint(
         conn = get_db_connection(); cur = conn.cursor()
         try:
             context, roster, meta = current_roster(cur)
+            preliminary_matchup_context = build_preliminary_matchup_context(
+                current_app.config.get("PRELIMINARY_MATCHUP_EVIDENCE"),
+                roster=roster,
+            )
             starters, bench, total, vacancies = optimize_lineup(roster)
             counts, grades, _, overall, score = roster_analysis(roster, vacancies)
             league_payload = get_league(current_app.config.get("SLEEPER_LEAGUE_ID", "")) or {} if context["mode"] == "LIVE" else {}
@@ -485,7 +490,7 @@ def create_owner_operations_blueprint(
         roster_outlook = build_roster_outlook(team_needs, team_health)
         lineup_intelligence = build_lineup_intelligence(roster)
         decisions_by_slot = {d.get("slot"): d for d in lineup_intelligence.get("start_sit_decisions", [])}
-        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_intelligence=lineup_intelligence, decisions_by_slot=decisions_by_slot)
+        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_intelligence=lineup_intelligence, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context)
 
     @bp.route("/lineup")
     def lineup_page():
