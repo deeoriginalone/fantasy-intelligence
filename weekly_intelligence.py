@@ -1,5 +1,8 @@
 from __future__ import annotations
 from datetime import datetime
+from services.schedule_bye_evidence import evidence_contract as schedule_bye_evidence_contract
+from services.ux_evidence import weekly_evidence_contract
+from services.ux_evidence import weekly_evidence_contract
 
 TEAM_ALIASES = {
     "ARI":"ARI","ATL":"ATL","BAL":"BAL","BUF":"BUF","CAR":"CAR","CHI":"CHI","CIN":"CIN","CLE":"CLE",
@@ -54,7 +57,7 @@ def injury_multiplier(status):
     if "probable" in text: return 0.97
     return 1.0
 
-def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True, allow_local_health_fallback=True):
+def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True, allow_local_health_fallback=True, require_automated_weekly_evidence=False):
     enriched=[]
     for original in players:
         p=dict(original)
@@ -62,9 +65,10 @@ def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True
         position=(p.get("position") or "").upper().replace("DST","DEF")
         p["nfl_team"]=team or p.get("nfl_team")
         p["position"]=position
+        bye_row = None
         if allow_local_weekly_data:
-            cur.execute("SELECT bye_week FROM bye_weeks WHERE season=%s AND team=%s",(season,team))
-            row=cur.fetchone(); bye=row[0] if row else p.get("bye_week")
+            cur.execute("SELECT bye_week,source,source_recorded_at,retrieved_at,imported_at FROM bye_weeks WHERE season=%s AND team=%s",(season,team))
+            bye_row=cur.fetchone(); bye=bye_row[0] if bye_row else p.get("bye_week")
         else:
             bye = None
         p["bye_week"]=bye
@@ -75,7 +79,7 @@ def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True
         if allow_local_weekly_data:
             cur.execute("""SELECT CASE WHEN home_team=%s THEN away_team ELSE home_team END,
                               CASE WHEN home_team=%s THEN 'HOME' ELSE 'AWAY' END,
-                              game_time_pacific
+                              game_time_pacific,source,source_recorded_at,retrieved_at,imported_at
                        FROM nfl_schedule
                        WHERE season=%s AND week=%s AND (home_team=%s OR away_team=%s)
                        LIMIT 1""",(team,team,season,week,team,team))
@@ -84,7 +88,7 @@ def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True
         p["opponent_name"] = TEAM_NAMES.get(p["opponent"], p["opponent"])
         p["home_away"]=sched[1] if sched else None
         p["game_time_pacific"]=sched[2] if sched else None
-        p["schedule_source"]="nfl_schedule" if sched else None
+        p["schedule_source"]=(sched[3] if sched and len(sched)>3 else None) or ("nfl_schedule" if sched else None)
         if not sched and not p["is_bye"]: p["evidence_gaps"].append("SCHEDULE_NOT_LOADED_FOR_WEEK")
         if position == "DEF":
             p["injury"] = None
@@ -110,9 +114,18 @@ def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True
         matchup_pos="DEF" if position=="DEF" else position
         m = None
         if allow_local_weekly_data:
-            cur.execute("""SELECT defense_rank,fp_per_game_allowed,source,retrieved_at FROM defense_matchups
-                       WHERE season=%s AND position=%s AND defense_team=%s""",
-                (season-1,matchup_pos,p.get("opponent")))
+            cur.execute(
+            """SELECT defense_rank,fp_per_game_allowed,source,retrieved_at,completeness_state,blocker
+                                     FROM defense_matchups WHERE season=%s AND position=%s AND defense_team=%s
+                                         AND source LIKE 'automated:nflverse%%' AND completeness_state='COMPLETE'
+                                     UNION ALL
+                                     SELECT defense_rank,fp_per_game_allowed,source,retrieved_at,completeness_state,blocker
+                                     FROM defense_matchups WHERE season=%s AND position=%s AND defense_team=%s
+                                         AND source LIKE 'csv:%%' AND NOT EXISTS (
+                                             SELECT 1 FROM defense_matchups WHERE season=%s AND position=%s AND defense_team=%s
+                                                 AND source LIKE 'automated:nflverse%%' AND completeness_state='COMPLETE')""",
+                (season,p.get("position"),p.get("opponent"),season-1,matchup_pos,p.get("opponent"),season,p.get("position"),p.get("opponent")),
+            )
             m=cur.fetchone()
         rank=m[0] if m else None
         p["matchup_rank"]=rank; p["fp_allowed"]=float(m[1]) if m else None
@@ -122,6 +135,8 @@ def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True
         p["matchup_retrieved_at"]=matchup_retrieved_at
         p["matchup_lineage"]={"source":p["matchup_source"],"source_recorded_at":None,"retrieved_at":matchup_retrieved_at}
         p["matchup_completeness"]="COMPLETE" if sched and m and matchup_retrieved_at else "UNAVAILABLE"
+        if not m or not sched:
+            p["evidence_gaps"].append("MATCHUP_EVIDENCE_UNAVAILABLE")
         p["matchup_modifier"]=matchup_modifier(rank)
         season_projection=float(p.get("projection") or 0)
         projection_retrieved_at=p.get("projection_retrieved_at")
@@ -134,6 +149,18 @@ def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True
         p["weekly_score"]=(0.0 if p["is_bye"] else round(p["weekly_baseline"]*(1+p["matchup_modifier"])*mult,2)) if allow_local_weekly_data else None
         if not allow_local_weekly_data:
             p["evidence_gaps"].extend(["BYE_WEEK_UNAVAILABLE", "SCHEDULE_UNAVAILABLE", "MATCHUP_EVIDENCE_UNAVAILABLE", "WEEKLY_VALUE_UNAVAILABLE"])
+        if require_automated_weekly_evidence:
+            p["weekly_evidence"] = {
+                "schedule": schedule_bye_evidence_contract("schedule", source=(sched[3] if sched and len(sched)>3 else None), source_recorded_at=(sched[4] if sched and len(sched)>4 else None), retrieved_at=(sched[5] if sched and len(sched)>5 else None), imported_at=(sched[6] if sched and len(sched)>6 else None)),
+                "bye": schedule_bye_evidence_contract("bye", source=(bye_row[1] if bye_row and len(bye_row)>1 else None), source_recorded_at=(bye_row[2] if bye_row and len(bye_row)>2 else None), retrieved_at=(bye_row[3] if bye_row and len(bye_row)>3 else None), imported_at=(bye_row[4] if bye_row and len(bye_row)>4 else None)),
+                "matchup": weekly_evidence_contract(domain="matchup", blocker="MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE"),
+                "projection": weekly_evidence_contract(domain="projection", blocker="PROJECTION_AUTOMATED_SOURCE_UNAVAILABLE"),
+            }
+            if not all(item["authoritative"] for item in p["weekly_evidence"].values()):
+                p["weekly_baseline"] = None
+                p["weekly_score"] = None
+        else:
+            p["weekly_evidence"] = {}
         enriched.append(p)
     return enriched
 
