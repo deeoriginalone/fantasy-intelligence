@@ -1,4 +1,4 @@
-from services.opportunity_evidence import METRICS, build_opportunity_evidence, build_what_changed
+from services.opportunity_evidence import METRICS, build_market_value_evidence, build_opportunity_evidence, build_what_changed, classify_market_signal, classify_opportunity_trend
 
 
 NOW = "2026-09-15T12:00:00+00:00"
@@ -70,3 +70,75 @@ def test_what_changed_rejects_unverified_periods_and_has_no_conclusion_labels():
     assert blocked["state"] == "UNAVAILABLE"
     text = str(blocked).upper()
     assert not any(label in text for label in ("BREAKOUT", "REGRESSION", "BUY LOW", "SELL HIGH"))
+
+
+def test_opportunity_classification_is_evidence_only():
+    growing = classify_opportunity_trend(evidence(0.1), evidence(), evidence(-0.05))
+    shrinking = classify_opportunity_trend(evidence(-0.1), evidence(), evidence(0.05))
+    stable = classify_opportunity_trend(evidence(), evidence(), evidence())
+    assert growing["state"] == "GROWING_OPPORTUNITY"
+    assert shrinking["state"] == "SHRINKING_OPPORTUNITY"
+    assert stable["state"] == "STABLE_OPPORTUNITY"
+    assert growing["decision_effect"] == shrinking["decision_effect"] == stable["decision_effect"] == "NONE"
+    assert growing["explanations"] == ["↑ Target Share", "↑ Snap Share", "↑ Routes Run", "↑ Red-Zone Usage"]
+
+
+def test_opportunity_classification_fails_closed_for_history_and_evidence():
+    insufficient = classify_opportunity_trend(evidence(), None, evidence())
+    unavailable = classify_opportunity_trend(None, evidence(), evidence())
+    blocked = classify_opportunity_trend(evidence(), {**evidence(), "authoritative": False}, evidence())
+    assert insufficient["state"] == "INSUFFICIENT_HISTORY"
+    assert unavailable["state"] == "UNAVAILABLE"
+    assert blocked["state"] == "UNAVAILABLE"
+    assert blocked["blocker"] == "BLOCKED"
+
+
+def test_market_value_contract_accepts_only_explicit_supported_state():
+    result = build_market_value_evidence({
+        "market_value_state": "VALUE_RISING",
+        "source": "supported market source",
+        "source_recorded_at": NOW,
+        "retrieved_at": NOW,
+        "freshness_state": "FRESH",
+        "completeness_state": "COMPLETE",
+    })
+    assert result["market_value_state"] == "VALUE_RISING"
+    assert result["market_value_source"] == "supported market source"
+    assert result["authoritative"] is True
+    assert result["recommendation_impact"].startswith("Informational")
+
+
+def test_market_value_contract_fails_closed_for_missing_or_unsupported_evidence():
+    missing = build_market_value_evidence({"market_value_state": "VALUE_RISING"})
+    incomplete = build_market_value_evidence({
+        "market_value_state": "VALUE_RISING", "source": "source", "source_recorded_at": NOW,
+        "retrieved_at": NOW, "freshness_state": "FRESH", "completeness_state": "INCOMPLETE",
+    })
+    unknown = build_market_value_evidence({
+        "market_value_state": "MAYBE", "source": "source", "source_recorded_at": NOW,
+        "retrieved_at": NOW, "freshness_state": "FRESH", "completeness_state": "COMPLETE",
+    })
+    assert missing["market_value_state"] == "UNAVAILABLE"
+    assert incomplete["market_value_state"] == "INSUFFICIENT_MARKET_DATA"
+    assert unknown["market_value_state"] == "UNAVAILABLE"
+    assert not any(item["authoritative"] for item in (missing, incomplete, unknown))
+
+
+def test_market_signal_classification_uses_only_verified_inputs():
+    growing = classify_opportunity_trend(evidence(0.1), evidence(), evidence(-0.05))
+    shrinking = classify_opportunity_trend(evidence(-0.1), evidence(), evidence(0.05))
+    changed = build_what_changed(evidence(0.1), evidence(), evidence(-0.05))
+    rising = build_market_value_evidence({"market_value_state": "VALUE_RISING", "source": "source", "source_recorded_at": NOW, "retrieved_at": NOW, "freshness_state": "FRESH", "completeness_state": "COMPLETE"})
+    falling = build_market_value_evidence({"market_value_state": "VALUE_FALLING", "source": "source", "source_recorded_at": NOW, "retrieved_at": NOW, "freshness_state": "FRESH", "completeness_state": "COMPLETE"})
+    assert classify_market_signal(growing, changed, falling)["market_signal_state"] == "UNDERVALUED_SIGNAL"
+    assert classify_market_signal(shrinking, changed, rising)["market_signal_state"] == "OVERVALUED_SIGNAL"
+    assert classify_market_signal(growing, changed, rising)["market_signal_state"] == "FAIR_VALUE_SIGNAL"
+    assert classify_market_signal(growing, changed, falling)["authoritative"] is True
+
+
+def test_market_signal_classification_fails_closed():
+    market = build_market_value_evidence({"market_value_state": "VALUE_STABLE", "source": "source", "source_recorded_at": NOW, "retrieved_at": NOW, "freshness_state": "FRESH", "completeness_state": "COMPLETE"})
+    assert classify_market_signal(None, None, market)["market_signal_state"] == "INSUFFICIENT_MARKET_DATA"
+    assert classify_market_signal({}, {"state": "UNAVAILABLE"}, market)["market_signal_state"] == "INSUFFICIENT_MARKET_DATA"
+    assert classify_market_signal({"state": "UNKNOWN"}, {"state": "AVAILABLE"}, market)["blocker"] == "BLOCKED"
+    assert classify_market_signal({"state": "STABLE_OPPORTUNITY"}, {"state": "AVAILABLE"}, None)["market_signal_state"] == "UNAVAILABLE"

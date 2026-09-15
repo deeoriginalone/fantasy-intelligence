@@ -13,6 +13,26 @@ METRICS = (
     "goal_line_share",
     "role_stability",
 )
+TREND_METRICS = (
+    "target_share",
+    "snap_share",
+    "route_participation",
+    "red_zone_share",
+)
+MARKET_VALUE_STATES = {
+    "VALUE_RISING",
+    "VALUE_FALLING",
+    "VALUE_STABLE",
+    "INSUFFICIENT_MARKET_DATA",
+    "UNAVAILABLE",
+}
+MARKET_SIGNAL_STATES = {
+    "UNDERVALUED_SIGNAL",
+    "OVERVALUED_SIGNAL",
+    "FAIR_VALUE_SIGNAL",
+    "INSUFFICIENT_MARKET_DATA",
+    "UNAVAILABLE",
+}
 FRESHNESS_STATES = {"FRESH", "AGING", "STALE", "UNAVAILABLE", "BLOCKED"}
 COMPLETENESS_STATES = {"COMPLETE", "INCOMPLETE", "UNAVAILABLE"}
 
@@ -113,13 +133,159 @@ def build_what_changed(
     return result
 
 
+def classify_opportunity_trend(
+    current: Mapping[str, Any] | None,
+    previous: Mapping[str, Any] | None,
+    rolling_baseline: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Classify verified opportunity movement without making a recommendation."""
+    result = {
+        "state": "UNAVAILABLE",
+        "explanations": [],
+        "blocker": None,
+        "decision_effect": "NONE",
+    }
+    if not current or not current.get("authoritative"):
+        result["blocker"] = "UNAVAILABLE"
+        return result
+    if not previous or not rolling_baseline:
+        result["state"] = "INSUFFICIENT_HISTORY"
+        result["blocker"] = "INSUFFICIENT_HISTORY"
+        return result
+    if not previous.get("authoritative") or not rolling_baseline.get("authoritative"):
+        result["blocker"] = "BLOCKED"
+        return result
+    if any(metric not in current or metric not in previous or metric not in rolling_baseline for metric in TREND_METRICS):
+        result["blocker"] = "BLOCKED"
+        return result
+
+    comparisons = {
+        metric: (current[metric] - previous[metric], current[metric] - rolling_baseline[metric])
+        for metric in TREND_METRICS
+    }
+    if all(previous_delta >= 0 and baseline_delta >= 0 for previous_delta, baseline_delta in comparisons.values()) and any(
+        previous_delta > 0 or baseline_delta > 0 for previous_delta, baseline_delta in comparisons.values()
+    ):
+        result["state"] = "GROWING_OPPORTUNITY"
+    elif all(previous_delta <= 0 and baseline_delta <= 0 for previous_delta, baseline_delta in comparisons.values()) and any(
+        previous_delta < 0 or baseline_delta < 0 for previous_delta, baseline_delta in comparisons.values()
+    ):
+        result["state"] = "SHRINKING_OPPORTUNITY"
+    else:
+        result["state"] = "STABLE_OPPORTUNITY"
+
+    labels = {
+        "target_share": "Target Share",
+        "snap_share": "Snap Share",
+        "route_participation": "Routes Run",
+        "red_zone_share": "Red-Zone Usage",
+    }
+    for metric, (previous_delta, baseline_delta) in comparisons.items():
+        if previous_delta > 0 and baseline_delta > 0:
+            result["explanations"].append(f"↑ {labels[metric]}")
+        elif previous_delta < 0 and baseline_delta < 0:
+            result["explanations"].append(f"↓ {labels[metric]}")
+    return result
+
+
+def build_market_value_evidence(config: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Normalize explicitly supplied market evidence without deriving player value."""
+    config = dict(config or {})
+    state = str(config.get("market_value_state") or "UNAVAILABLE").upper()
+    freshness = _state(config.get("freshness_state"), FRESHNESS_STATES)
+    completeness = _state(config.get("completeness_state"), COMPLETENESS_STATES)
+    blocker = config.get("blocker")
+    if state not in MARKET_VALUE_STATES:
+        state = "UNAVAILABLE"
+        blocker = blocker or "MARKET_VALUE_STATE_UNKNOWN"
+    if not config.get("source") or not config.get("source_recorded_at") or not config.get("retrieved_at"):
+        state = "UNAVAILABLE"
+        blocker = blocker or "MARKET_VALUE_SOURCE_METADATA_UNAVAILABLE"
+    elif freshness not in {"FRESH", "AGING"}:
+        state = "UNAVAILABLE"
+        blocker = blocker or ("BLOCKED" if freshness == "BLOCKED" else "MARKET_VALUE_FRESHNESS_UNSUPPORTED")
+    elif completeness != "COMPLETE":
+        state = "INSUFFICIENT_MARKET_DATA"
+        blocker = blocker or "INSUFFICIENT_MARKET_DATA"
+    authoritative = state in {"VALUE_RISING", "VALUE_FALLING", "VALUE_STABLE"} and not blocker
+    return {
+        "market_value_state": state,
+        "market_value_source": config.get("source") or "UNVERIFIED",
+        "source_recorded_at": config.get("source_recorded_at"),
+        "retrieved_at": config.get("retrieved_at"),
+        "freshness_state": freshness,
+        "completeness_state": completeness,
+        "blocker": blocker,
+        "recommendation_impact": config.get("recommendation_impact") or (
+            "Informational evidence only; it does not change recommendations."
+            if authoritative else
+            "Market value evidence cannot support a recommendation until refreshed and verified."
+        ),
+        "authoritative": authoritative,
+    }
+
+
+def classify_market_signal(
+    opportunity_classification: Mapping[str, Any] | None,
+    what_changed: Mapping[str, Any] | None,
+    market_value: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Classify supported opportunity/value alignment as evidence only."""
+    result = {
+        "market_signal_state": "UNAVAILABLE",
+        "blocker": None,
+        "recommendation_impact": "Informational evidence only; it does not change recommendations.",
+        "authoritative": False,
+    }
+    if not market_value or not market_value.get("authoritative"):
+        result["blocker"] = "UNAVAILABLE"
+        result["recommendation_impact"] = "Market signal evidence cannot be assessed until refreshed and verified."
+        return result
+    if not opportunity_classification or not what_changed:
+        result["market_signal_state"] = "INSUFFICIENT_MARKET_DATA"
+        result["blocker"] = "INSUFFICIENT_MARKET_DATA"
+        return result
+    if what_changed.get("state") != "AVAILABLE":
+        result["market_signal_state"] = "INSUFFICIENT_MARKET_DATA"
+        result["blocker"] = "INSUFFICIENT_MARKET_DATA"
+        return result
+    opportunity_state = opportunity_classification.get("state")
+    market_state = market_value.get("market_value_state")
+    if opportunity_state not in {"GROWING_OPPORTUNITY", "SHRINKING_OPPORTUNITY", "STABLE_OPPORTUNITY"}:
+        result["blocker"] = "BLOCKED"
+        result["recommendation_impact"] = "Market signal evidence cannot be assessed from unsupported evidence."
+        return result
+    if market_state not in {"VALUE_RISING", "VALUE_FALLING", "VALUE_STABLE"}:
+        result["blocker"] = "BLOCKED"
+        result["recommendation_impact"] = "Market signal evidence cannot be assessed from unsupported evidence."
+        return result
+    if opportunity_state == "GROWING_OPPORTUNITY" and market_state == "VALUE_FALLING":
+        result["market_signal_state"] = "UNDERVALUED_SIGNAL"
+    elif opportunity_state == "SHRINKING_OPPORTUNITY" and market_state == "VALUE_RISING":
+        result["market_signal_state"] = "OVERVALUED_SIGNAL"
+    else:
+        result["market_signal_state"] = "FAIR_VALUE_SIGNAL"
+    result["authoritative"] = True
+    return result
+
+
 def build_opportunity_view(config: Mapping[str, Any] | None) -> dict[str, Any]:
     """Build a display-only current/previous/baseline view from supplied evidence."""
     config = dict(config or {})
     current = _coerce_period(config.get("current"))
     previous = _coerce_period(config.get("previous"))
     baseline = _coerce_period(config.get("rolling_baseline"))
-    return {"current": current, "what_changed": build_what_changed(current, previous, baseline), "decision_effect": "NONE"}
+    market_value = build_market_value_evidence(config.get("market_value"))
+    what_changed = build_what_changed(current, previous, baseline)
+    classification = classify_opportunity_trend(current, previous, baseline)
+    return {
+        "current": current,
+        "what_changed": what_changed,
+        "classification": classification,
+        "market_value": market_value,
+        "market_signal": classify_market_signal(classification, what_changed, market_value),
+        "decision_effect": "NONE",
+    }
 
 
 def _state(value: Any, allowed: set[str]) -> str:
