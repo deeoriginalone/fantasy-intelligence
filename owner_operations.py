@@ -6,6 +6,7 @@ from flask import Blueprint, current_app, redirect, render_template, request, se
 from weekly_intelligence import enrich_players, current_week, upcoming_byes
 from services.weekly_lineup_intelligence import build_lineup_intelligence, optimize_lineup
 from services.trade_intelligence import build_trade_intelligence
+from services.opportunity_evidence import build_opportunity_view
 from services.trade_target_center import build_trade_target_center
 from services.decision_ranking import build_action, build_decision_ranking
 from services.matchup_intelligence import build_matchup_intelligence
@@ -386,6 +387,16 @@ def create_owner_operations_blueprint(
             availability,
         )
         result["candidates"] = result["candidates"][:limit]
+        decision_evidence = weekly_evidence_contract(
+            domain="waiver ranking inputs", source=None, freshness_state="UNAVAILABLE", completeness_state="UNAVAILABLE",
+            blocker="WAIVER_RANKING_SOURCE_UNVERIFIED", fallback_used="local player projections/rankings",
+            recommendation_impact="Waiver candidates remain visible only as unranked research until automated ranking and projection evidence is available.",
+        )
+        result["decision_evidence"] = decision_evidence
+        if not decision_evidence["authoritative"]:
+            result["allowed"] = False
+            result["candidates"] = []
+            result["blockers"] = list(dict.fromkeys([*(result.get("blockers") or []), decision_evidence["blocker"]]))
         availability["identity_diagnostics"].update(
             rostered_exclusion_count=sum(
                 item.get("resolved_player_id") in owned_ids
@@ -435,6 +446,7 @@ def create_owner_operations_blueprint(
                 current_app.config.get("PRELIMINARY_MATCHUP_EVIDENCE"),
                 roster=roster,
             )
+            opportunity_view = build_opportunity_view(current_app.config.get("OPPORTUNITY_EVIDENCE"))
             starters, bench, total, vacancies = optimize_lineup(roster)
             counts, grades, _, overall, score = roster_analysis(roster, vacancies)
             league_payload = get_league(current_app.config.get("SLEEPER_LEAGUE_ID", "")) or {} if context["mode"] == "LIVE" else {}
@@ -490,7 +502,7 @@ def create_owner_operations_blueprint(
         roster_outlook = build_roster_outlook(team_needs, team_health)
         lineup_intelligence = build_lineup_intelligence(roster)
         decisions_by_slot = {d.get("slot"): d for d in lineup_intelligence.get("start_sit_decisions", [])}
-        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_intelligence=lineup_intelligence, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context)
+        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_intelligence=lineup_intelligence, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context, opportunity_view=opportunity_view)
 
     @bp.route("/lineup")
     def lineup_page():
@@ -507,7 +519,7 @@ def create_owner_operations_blueprint(
             recommendations = faab_recommendations(pool_evidence["candidates"], counts)[:25]
         finally:
             cur.close(); conn.close()
-        return render_template("waivers.html", title="Waiver and FAAB Center", context=context, meta=meta, recommendations=recommendations, needs=needs, vacancies=vacancies, faab_budget=100, waiver_evidence=pool_evidence)
+        return render_template("waivers.html", title="Waiver and FAAB Center", context=context, meta=meta, recommendations=recommendations, needs=needs, vacancies=vacancies, faab_budget=100, waiver_evidence=pool_evidence, opportunity_view=build_opportunity_view(current_app.config.get("OPPORTUNITY_EVIDENCE")))
 
     @bp.route("/trades")
     def trades_page():
@@ -560,7 +572,7 @@ def create_owner_operations_blueprint(
             trade_target_center=build_trade_target_center(trade_intelligence)
         finally:
             cur.close();conn.close()
-        return render_template("trades.html",title="Trade Target Center",context=context,meta=meta,teams=teams,target_slot=target_slot,trade_intelligence=trade_intelligence,trade_target_center=trade_target_center)
+        return render_template("trades.html",title="Trade Target Center",context=context,meta=meta,teams=teams,target_slot=target_slot,trade_intelligence=trade_intelligence,trade_target_center=trade_target_center,opportunity_view=build_opportunity_view(current_app.config.get("OPPORTUNITY_EVIDENCE")))
 
     @bp.route("/gm")
     def gm_page():

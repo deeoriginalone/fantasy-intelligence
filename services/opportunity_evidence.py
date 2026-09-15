@@ -113,6 +113,15 @@ def build_what_changed(
     return result
 
 
+def build_opportunity_view(config: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Build a display-only current/previous/baseline view from supplied evidence."""
+    config = dict(config or {})
+    current = _coerce_period(config.get("current"))
+    previous = _coerce_period(config.get("previous"))
+    baseline = _coerce_period(config.get("rolling_baseline"))
+    return {"current": current, "what_changed": build_what_changed(current, previous, baseline), "decision_effect": "NONE"}
+
+
 def _state(value: Any, allowed: set[str]) -> str:
     normalized = str(value or "UNAVAILABLE").upper()
     return normalized if normalized in allowed else "UNAVAILABLE"
@@ -126,3 +135,15 @@ def _number(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return number if 0 <= number <= 1 else None
+
+
+def _coerce_period(value: Mapping[str, Any] | None) -> dict[str, Any]:
+    if not value or "values" not in value:
+        return build_opportunity_evidence(None)
+    return build_opportunity_evidence(
+        value.get("values"), source=value.get("source"),
+        source_recorded_at=value.get("source_recorded_at"), retrieved_at=value.get("retrieved_at"),
+        age=value.get("age"), freshness_state=value.get("freshness_state", "UNAVAILABLE"),
+        completeness_state=value.get("completeness_state", "COMPLETE"), blocker=value.get("blocker"),
+        recommendation_impact=value.get("recommendation_impact"),
+    )

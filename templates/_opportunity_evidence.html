@@ -1,0 +1,18 @@
+{% set opportunity = (opportunity_view|default({})).current|default({}) %}
+{% set changes = (opportunity_view|default({})).what_changed|default({}) %}
+<section class="evidence-panel opportunity-evidence" aria-labelledby="opportunity-evidence-title">
+  <h2 id="opportunity-evidence-title">Opportunity Evidence</h2>
+  {% if opportunity.authoritative %}
+    <p>Informational evidence only. It does not change recommendations.</p>
+    <p>Source: {{ opportunity.source }} · Freshness: {{ opportunity.freshness_state }} · Completeness: {{ opportunity.completeness_state }}</p>
+    <dl>{% for label, metric in (("Target Share", "target_share"), ("Snap Share", "snap_share"), ("Routes Run", "route_participation"), ("Red-Zone Usage", "red_zone_share"), ("Role Stability", "role_stability")) %}<div><dt>{{ label }}</dt><dd>{{ "%.1f%%"|format(opportunity[metric] * 100) }}</dd></div>{% endfor %}</dl>
+    {% if changes.state == "AVAILABLE" %}<h3>What Changed</h3>{% for change in changes.changes %}<p>{{ "UP" if change.direction == "UP" else "DOWN" if change.direction == "DOWN" else "UNCHANGED" }} {{ change.label }}: {{ "%.1f%%"|format(change.delta * 100) }}</p>{% endfor %}{% endif %}
+  {% elif opportunity.freshness_state == "STALE" %}
+    <p>STALE: Opportunity evidence is not current.</p>
+  {% elif opportunity.blocker %}
+    <p>BLOCKED: Opportunity evidence cannot support a recommendation.</p>
+  {% else %}
+    <p>UNAVAILABLE: Opportunity evidence is not available.</p>
+  {% endif %}
+  <p>Recommendation impact: {{ opportunity.recommendation_impact|default('None. Evidence only.') }}</p>
+</section>
