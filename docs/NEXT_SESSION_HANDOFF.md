@@ -40,8 +40,8 @@ UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, 
 
 ###### Last recorded repository checkpoint
 - Date: 2026-09-13
-- Branch: feature/evidence-bundle-pipeline
-- HEAD: 156b514ccfecd4d2afe9b57bdf719aeca928c917
+- Branch: test-weekly-evidence-trust
+- HEAD: e5285b1918a97e6df7b9e74cd94385ecf489b721
 - Repository: /home/deeoriginalone/fantasy-intelligence
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
@@ -168,10 +168,50 @@ A synchronization PASS confirms documentation consistency only. It does not prov
 - Verified current coverage: Week 1 has 16 scheduled games and 7 provider-matched predictions; Week 2 has 16 scheduled games and 0 provider-matched predictions. The complete 2026 source schedule (`nfl_schedule`) contains Weeks 1-18, but only Weeks 1-2 are currently seeded into `yahoo_pickem_games`.
 - Matching uses the complete provider full-name-to-standard-abbreviation map and exact away/home pairs. Recorded runs show Week 1 received/matched/wrote 7/7/7; Week 2 received 6 provider games and matched/wrote 0/0. This is a current provider-slate versus stored-schedule mismatch, not a verified naming failure.
 - Focused NFL Intelligence validation: 29 passed. Python compilation for `nfl_intelligence.py` and `nfl_intelligence_routes.py`, whitespace validation, and live Week 1/Week 2 rendering passed. Desktop and 390px renders had no horizontal overflow.
-- Current repository checkpoint: 2026-09-14, branch `feature/evidence-bundle-pipeline`, HEAD `b9170fe0562b8eb57812f1b45267558b581d13cd`. NFL Intelligence files and this documentation remain uncommitted; preserve unrelated working-tree changes.
+- Current repository checkpoint: 2026-09-14, branch `feature/evidence-bundle-pipeline`, HEAD `e5285b1918a97e6df7b9e74cd94385ecf489b721`. NFL Intelligence implementation and canonical documentation were committed; preserve unrelated working-tree changes.
+
+###### Verified product architecture and roadmap
+
+- Primary in-season destinations are proposed as Decision Center, My Team, Waivers, Trades, NFL Intelligence, and Survivor. My Team remains the authoritative lineup destination; `/lineup` remains only as a redirect to `/team#lineup` for existing bookmarks.
+- `/gm` duplicates lineup, waiver, and matchup summary behavior and exposes unsupported grades, scores, and modifiers. Its safe retirement path is to move cross-page prioritization to the rebuilt Dashboard, retain detail in the owning pages, then redirect `/gm` after route and bookmark validation.
+- Draft, import, readiness, Sleeper administration, Pick'em, and technical diagnostics are not primary in-season destinations. Preserve useful routes until separately validated for redirection, secondary research, Draft Mode, or Admin placement.
+- Current weekly-data boundary: Sleeper supplies live league, roster, ownership, and supplemental player-status facts; The Odds API supplies partial matched market context; nflverse and Open-Meteo supply automated NFL Intelligence enrichment. Default weekly enrichment can still read local schedule, bye, and CSV-derived matchup inputs. The no-CSV test covers an explicitly disabled path, not the default route.
+- Phase 0: reconcile in-season navigation and retire duplicate manager destinations without losing `/lineup` bookmark behavior. Phase 1: establish automated, timestamped schedule, bye, injury, matchup, and projection inputs or fail closed. Phase 2: rebuild Dashboard as a Decision Center that links to, rather than duplicates, owning pages.
+- Phase 3: add trusted player opportunity data and a multi-week What Changed engine. Phase 4: add market-aware buy/low, sell/high, breakout, and regression intelligence only after market-value and opportunity contracts exist. Phase 5: persist immutable pre-decision snapshots for post-week Process versus Results and narrative manager learning. Phase 6: add rest-of-season, playoff, and championship scenario planning only after trusted inputs exist.
+- Opportunity trends, buy/sell labels, post-week grades, Manager Report Card grades, and playoff strategy are blocked by missing automated source, freshness, identifier, historical-baseline, metric-authority, or decision-time snapshot evidence. Do not infer them from box scores or stale CSV inputs.
+
+###### Decision-first priority override
+
+- Priority 1: make weekly START, SIT, FLEX, MONITOR, ADD, DROP, TRADE FOR, and TRADE AWAY decisions trustworthy with current, league-specific, explained evidence. This outranks navigation work, dashboards, new models, and season strategy.
+- Priority 2: establish automated player opportunity and role evidence, then build What Changed from documented multi-week baselines. Breakout, regression, Buy Low, and Sell High labels remain blocked until source, identifier, history, freshness, metric authority, and market evidence are verified.
+- Priority 3: rebuild Dashboard as the Decision Center, summarizing Must Act, Start/Sit, Waivers, Trades, Opportunity Alerts, Risk Alerts, and No Action Needed while linking to owning pages instead of duplicating their engines.
+- Priority 4: persist immutable pre-decision snapshots before Process versus Results evaluation. Priority 5: provide narrative manager learning before any Manager Report Card grade. Rest-of-season and playoff strategy follow only after these decision foundations are trusted.
+
+###### Schedule and Bye Provenance Contract (installed; not yet authoritative for live decisions)
+
+- The additive provenance contract is installed and validated: 24 focused tests, Python compilation, `git diff --check`, `git diff --cached --check`, and live route inspection passed.
+- Verified schedule state: all 272 2026 `nfl_schedule` rows are owned by `csv:nfl-2026-UTC.csv`, with `source_recorded_at=2026-05-14T00:00:00Z` and preserved import time. CSV fallback is disclosed and cannot overwrite automated, verified-cache, unknown, or differently-owned CSV rows.
+- Verified bye state: all 32 2026 `bye_weeks` rows retain legacy source attribution (`Gridiron Games bye-week PDF; cross-checked against nfl-2026-UTC.csv`) but have no source-recorded, retrieval, or import timestamp. The verified bootstrap correctly refused to infer CSV ownership for these non-null legacy rows.
+- Schedule and bye freshness thresholds are currently unset. Therefore schedule/bye provenance is installed and schedule source time is recorded, but neither domain is yet authoritative for live recommendations; the correct contract state remains `UNAVAILABLE`, not fabricated `FRESH`.
+- Live route evidence: `/team` rendered `FRESH`, `MONITOR`, and `UNAVAILABLE`; `/waivers` rendered `FRESH`; `/trades` rendered `FRESH`, `AGING`, and `BLOCKED`. These route markers do not override the unset schedule/bye freshness configuration.
+- Remaining blockers: approved schedule/bye freshness thresholds, timestamped bye provenance through a controlled source-specific workflow, current matchup evidence, and authoritative projection/ranking evidence. No defect is closed by this installation alone.
+
+###### Current in-season priorities
+
+- Reconcile the season navigation: remove the retired `/lineup` navigation entry, keep `/team#lineup` as the authoritative lineup destination, and move duplicate GM/technical surfaces out of the primary manager workflow.
+- CSV and manual imports are last-resort bootstrap, recovery, or test-fixture mechanisms only. They must not be required for routine weekly decisions; stale or unrefreshable inputs must be explicit `UNAVAILABLE` or `BLOCKED`.
+- Replace default CSV-derived weekly matchup inputs with automated, timestamped sources before using them authoritatively. Until then, preserve fail-closed recommendation behavior.
+- Do not add advanced player opportunity, buy/sell, post-week process, or playoff-strategy features until their source, freshness, metric authority, and missing-data contracts are defined and validated.
+
+###### End-of-day evidence reconciliation (2026-09-14)
+
+- The Schedule/Bye Threshold Registry is installed and validated: 40 focused tests, Python compilation, `git diff --check`, and `git diff --cached --check` passed. Its stable IDs are `schedule.evidence.v1` and `bye.evidence.v1`; absent, malformed, zero, and negative environment values fail closed without a numeric default.
+- Automated nflverse matchup evidence is implemented and validated through official-source retrieval, provenance, Full-PPR calculation, `LA` to `LAR` normalization and regression coverage, completeness, freshness, fail-closed publication, and PostgreSQL transaction behavior. Migration `013_nflverse_defense_matchups.sql` is applied and idempotent.
+- Use source `stats_player` and artifact pattern `stats_player_week_{season}.csv.gz`. Real 2026 Week 1 calculation produced 120 rows and 30-of-32 defense coverage for QB, RB, WR, and TE. `KC` and `DEN` are absent from the official artifact despite the scheduled KC-DEN game; no synthetic or historical substitution is permitted.
+- Authority remains BLOCKED by `CURRENT_SEASON_DEFENSE_COMPLETENESS_REQUIRED` (`UPSTREAM_COVERAGE_INCOMPLETE`). Automated 2026 rows remain 0; 136 historical 2025 CSV rows remain preserved and historical-only. Current consumers remain unavailable or blocked, and production readiness, full current matchup authority, and authoritative Matchup Rank display remain unclaimed.
 
 ## Next milestone
 
-**Complete UX.8 Survivor Intelligence Strategy and All-Season Redesign at the verified read-only active-route boundary.**
+**Make weekly lineup, waiver/drop, and trade decisions trustworthy with automated, timestamped evidence or explicit unavailable states.**
 
-UX.8 is the only active feature-development milestone. UX.5 retains its validated implementation and live-render evidence, but formal completion review remains deferred. UX.6 and UX.7 remain deferred at their existing recorded boundaries. Waiver and Trade Center enhancements remain deferred. Existing defects retain their evidence-supported statuses; defect closure remains separate. Strategic systems remain deferred, not abandoned. PostgreSQL parity, failure injection, rollback, recovery, cleanup, repeatability, and production-readiness work remain deferred and unclaimed. No external survivor transaction capability is claimed.
+Navigation reconciliation supports this milestone but does not outrank decision quality. Opportunity detection is the next competitive advantage after weekly trust; Decision Center, Process versus Results, manager development, and season strategy follow in that order. UX.8 retains its recorded in-progress boundary. Existing defects retain their evidence-supported statuses; production readiness, PostgreSQL parity, recovery, and defect closure remain unclaimed.
