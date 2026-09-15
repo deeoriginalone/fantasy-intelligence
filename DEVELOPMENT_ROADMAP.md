@@ -3,7 +3,7 @@
 ####### Last recorded repository checkpoint
 - Date: 2026-09-13
 - Branch: test-weekly-evidence-trust
-- HEAD: e5285b1918a97e6df7b9e74cd94385ecf489b721
+- HEAD: f55650376339abaa701a6c9ab84e2ed47d190355
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -277,8 +277,8 @@ The following systems remain planned and deferred, not abandoned:
 
 - The Schedule/Bye Threshold Registry is installed and validated: 40 focused tests, Python compilation, `git diff --check`, and `git diff --cached --check` passed. Its stable IDs are `schedule.evidence.v1` and `bye.evidence.v1`; absent, malformed, zero, and negative environment values fail closed without a numeric default.
 - Automated nflverse matchup implementation: VALIDATED at official retrieval, provenance, Full-PPR calculation, `LA` to `LAR` normalization, completeness, freshness, fail-closed publication, and PostgreSQL transaction boundaries. Migration `013_nflverse_defense_matchups.sql` is applied and idempotent.
-- Source: `stats_player`; artifact: `stats_player_week_{season}.csv.gz`. Real 2026 Week 1 calculation reached 120 rows and 30-of-32 defenses for QB, RB, WR, and TE. `KC` and `DEN` are absent from the official artifact, not lost to calculation filtering; identity resolution is otherwise complete. Rank directionality is `LOWER_IS_HARDER`.
-- Current publication remains BLOCKED by `CURRENT_SEASON_DEFENSE_COMPLETENESS_REQUIRED` (`UPSTREAM_COVERAGE_INCOMPLETE`). Automated 2026 rows remain 0; 136 historical 2025 CSV rows remain preserved and historical-only. Current consumers remain unavailable or blocked, and full current-season authority, production readiness, and milestone completion remain unclaimed.
+- Source: `stats_player`; artifact: `stats_player_week_{season}.csv.gz`. Refreshed real 2026 Week 1 calculation reached 128 rows and 32-of-32 defenses for QB, RB, WR, and TE. `KC` and `DEN` are present; identity resolution is complete. Rank directionality is `LOWER_IS_HARDER`. Preliminary context is informational-only and does not influence recommendations.
+- Current publication remains BLOCKED by `MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED`. Automated 2026 rows remain 0; 136 historical 2025 CSV rows remain preserved and historical-only. Current consumers may show preliminary context but cannot use authoritative Matchup Rank; production readiness, full current-season authority, and milestone completion remain unclaimed.
 
 ## Next milestone
 

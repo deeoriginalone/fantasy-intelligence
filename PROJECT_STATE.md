@@ -11,7 +11,7 @@ UX.2.1C is owner-accepted as of 2026-09-13 (`APPROVED: MY TEAM UI`). UX.3 is val
 ####### Last recorded repository checkpoint
 - Date: 2026-09-13
 - Branch: test-weekly-evidence-trust
-- HEAD: e5285b1918a97e6df7b9e74cd94385ecf489b721
+- HEAD: f55650376339abaa701a6c9ab84e2ed47d190355
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -177,8 +177,8 @@ The revised UX.2 product-completion criteria are validated at the focused, contr
 
 - The Schedule/Bye Threshold Registry is installed and validated: 40 focused tests, Python compilation, `git diff --check`, and `git diff --cached --check` passed. Its stable IDs are `schedule.evidence.v1` and `bye.evidence.v1`; absent, malformed, zero, and negative environment values fail closed without a numeric default.
 - Automated nflverse matchup evidence is implemented and validated through official-source retrieval, provenance, Full-PPR calculation, `LA` to `LAR` normalization with regression coverage, completeness evaluation, fail-closed publication, and PostgreSQL transaction behavior. Migration `013_nflverse_defense_matchups.sql` is applied and idempotent.
-- The source is `stats_player` with artifact pattern `stats_player_week_{season}.csv.gz`. Real 2026 Week 1 calculation produced 120 rows and 30-of-32 defense coverage for QB, RB, WR, and TE; `KC` and `DEN` are absent from the official artifact. Source timestamps, retrieval time, compressed/decompressed checksums, release version, and CC BY 4.0 attribution are captured.
-- Current matchup authority remains BLOCKED by `CURRENT_SEASON_DEFENSE_COMPLETENESS_REQUIRED` (`UPSTREAM_COVERAGE_INCOMPLETE`). Automated 2026 rows remain 0; 136 historical 2025 CSV rows remain preserved and cannot satisfy current-season authority. Consumers remain unavailable or blocked for incomplete evidence, and production readiness or full current matchup authority is not claimed.
+- The source is `stats_player` with artifact pattern `stats_player_week_{season}.csv.gz`. Refreshed real 2026 Week 1 calculation produced 128 rows and 32-of-32 defense coverage for QB, RB, WR, and TE; `KC` and `DEN` are present. Source timestamps, retrieval time, compressed/decompressed checksums, release version, and CC BY 4.0 attribution are captured.
+- Preliminary matchup context is fresh, complete, Full-PPR, sample-disclosed, and informational-only in memory. Current matchup authority remains BLOCKED by `MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED`; automated 2026 rows remain 0; 136 historical 2025 CSV rows remain preserved and cannot satisfy current-season authority. Preliminary context does not influence recommendations, and production readiness or full current matchup authority is not claimed.
 
 ## Next milestone
 

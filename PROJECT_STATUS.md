@@ -11,7 +11,7 @@ UX.2.1C is owner-accepted after visual hierarchy, contradiction, disclosure, hea
 ####### Last recorded repository checkpoint
 - Date: 2026-09-13
 - Branch: test-weekly-evidence-trust
-- HEAD: e5285b1918a97e6df7b9e74cd94385ecf489b721
+- HEAD: f55650376339abaa701a6c9ab84e2ed47d190355
 - Repository: /home/deeoriginalone/fantasy-intelligence
 - League ID: 1398094330668797952
 - Completed real draft ID: 1398094331272794112
@@ -166,8 +166,8 @@ The last recorded repository state contained extensive unrelated changes, genera
 
 - The Schedule/Bye Threshold Registry is installed and validated: 40 focused tests, Python compilation, `git diff --check`, and `git diff --cached --check` passed. Its stable IDs are `schedule.evidence.v1` and `bye.evidence.v1`; absent, malformed, zero, and negative environment values fail closed without a numeric default.
 - The automated nflverse matchup implementation is present and validated through official-source retrieval, provenance, Full-PPR calculation, `LA` to `LAR` normalization, completeness evaluation, fail-closed publication, and PostgreSQL transaction behavior. Migration `013_nflverse_defense_matchups.sql` is applied and idempotent.
-- The official source is `stats_player`, using `stats_player_week_{season}.csv.gz`. The real 2026 artifact calculated 120 rows with 30-of-32 defense coverage for QB, RB, WR, and TE; `KC` and `DEN` are absent from the artifact despite a scheduled game. Freshness was FRESH, unresolved identities were zero, and rank directionality is `LOWER_IS_HARDER`.
-- Current authority remains BLOCKED by `CURRENT_SEASON_DEFENSE_COMPLETENESS_REQUIRED` (`UPSTREAM_COVERAGE_INCOMPLETE`). Automated 2026 database rows remain 0. Historical 2025 CSV rows remain 136 and cannot become current-season authority. Current consumers remain unavailable or blocked for incomplete evidence; production readiness, full current matchup authority, and authoritative Matchup Rank display are not claimed.
+- The official source is `stats_player`, using `stats_player_week_{season}.csv.gz`. The refreshed real 2026 artifact calculated 128 rows with 32-of-32 defense coverage for QB, RB, WR, and TE; `KC` and `DEN` are present. Freshness is FRESH, unresolved identities are zero, and rank directionality is `LOWER_IS_HARDER`.
+- Preliminary matchup context is fresh, complete, Full-PPR, sample-disclosed, and informational-only in memory. Current authority remains BLOCKED by `MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED`; automated 2026 database rows remain 0. Historical 2025 CSV rows remain 136 and cannot become current-season authority. Production readiness, full current matchup authority, and authoritative Matchup Rank display are not claimed.
 
 ## Next milestone
 
