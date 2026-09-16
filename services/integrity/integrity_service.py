@@ -60,7 +60,31 @@ def calculate_confidence_score(p:Dict)->Dict:
     gaps=p.get("evidence_gaps") or []; unresolved=str(p.get("injury_status") or "").strip().lower() in {"","unknown"}; missing_weekly=p.get("weekly_score") is None or p.get("weekly_baseline") is None; missing_opponent=not p.get("opponent") and not p.get("is_bye"); missing_matchup=p.get("matchup_rank") is None and not p.get("is_bye"); score=max(0,100-len(gaps)*20)
     if any((unresolved,missing_weekly,missing_opponent,missing_matchup)): score=min(score,50)
     label="HIGH" if score>=80 else "MEDIUM" if score>=60 else "LOW"; return {"label":label,"score":score,"evidence_ready":not any((unresolved,missing_weekly,missing_opponent,missing_matchup))}
+def _metadata_from_players(players):
+    players = list(players or [])
+    fields = {
+        "roster": ("roster_updated_at", "roster_sync_time", "roster_source", "ownership_source"),
+        "injury": ("injury_updated_at", "health_updated_at", "last_health_update", "injury_source", "health_source"),
+        "matchup": ("matchup_updated_at", "matchup_sync_time", "matchup_retrieved_at", "matchup_source"),
+        "projection": ("projection_updated_at", "projection_sync_time", "projection_retrieved_at", "projection_source"),
+    }
+    result = {}
+    for domain, names in fields.items():
+        timestamp_fields = names[:-2] if domain in {"roster", "injury"} else names[:-1]
+        source_fields = names[-2:] if domain in {"roster", "injury"} else names[-1:]
+        timestamps = [row.get(field) for row in players for field in timestamp_fields if row.get(field)]
+        sources = [row.get(field) for row in players for field in source_fields if row.get(field)]
+        if timestamps:
+            timestamp_field = next((field for field in timestamp_fields if any(row.get(field) for row in players)), timestamp_fields[0])
+            result[timestamp_field] = min(row.get(timestamp_field) for row in players if row.get(timestamp_field))
+        if sources and len(set(map(str, sources))) == 1:
+            result[f"{domain}_source"] = sources[0]
+    return result
+
+
 def build_integrity_report(players:List[Dict],freshness_metadata=None,now=None,freshness_limits=None)->Dict:
+    if freshness_metadata is None:
+        freshness_metadata = _metadata_from_players(players)
     freshness=build_freshness_report(freshness_metadata,now,freshness_limits)
     if not players: return {"player_count":0,"completeness_score":0,"confidence_score":0,"confidence":{"label":"BLOCKED","score":0},"blockers":freshness["blockers"],"freshness":freshness,"recommendation_ready":False,"healthy_players":0,"unknown_health_players":0,"missing_matchups":0}
     comp=[calculate_completeness_score(p) for p in players]; conf=[calculate_confidence_score(p)["score"] for p in players]; blockers=sorted({g for p in players for g in (p.get("evidence_gaps") or [])}|set(freshness["blockers"])); score=round(sum(conf)/len(conf)); score=min(score,50) if blockers else score; label="HIGH" if score>=80 else "MEDIUM" if score>=60 else "LOW"

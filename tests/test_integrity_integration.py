@@ -103,6 +103,20 @@ def test_missing_freshness_metadata_remains_unknown_in_both_contracts():
         } <= set(result["integrity"]["blockers"])
 
 
+def test_player_owned_provenance_populates_shared_integrity_without_route_metadata():
+    stamp = "2999-01-01T00:00:00+00:00"
+    rows = [player(
+        roster_updated_at=stamp, roster_source="Sleeper API",
+        injury_updated_at=stamp, injury_source="Sleeper API",
+        matchup_retrieved_at=stamp, matchup_source="automated:nflverse",
+        projection_retrieved_at=stamp, projection_source="FantasyPros API",
+    )]
+    result = build_lineup_intelligence(rows)
+    domains = result["integrity"]["freshness"]["domains"]
+    assert all(domains[name]["status"] == "FRESH" for name in domains)
+    assert result["integrity"]["freshness"]["blockers"] == []
+
+
 def test_freshness_metadata_is_preserved_by_both_contracts():
     metadata = {"matchup_updated_at": "2999-01-01T00:00:00+00:00"}
     matchup = build_matchup_intelligence(roster(), freshness_metadata=metadata)
