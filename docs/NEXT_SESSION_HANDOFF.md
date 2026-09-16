@@ -8,6 +8,13 @@ UX.2 My Team Accuracy, Explainability, and League-Settings Validation is validat
 
 UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, disclosure, health-source, and matchup-applicability repairs. Acceptance: `APPROVED: MY TEAM UI`. UX.3 is validated at its supported, read-only waiver-publication boundary. UX.4.1 through UX.4.12 are validated at focused implementation, controlled-browser, and live nine-partner dropdown boundaries. The shared action-first visual system is now applied across Lineup, My Team, Waivers, and Trades. UX.5 has the formalized implementation and evidence boundary; formal definition-of-done review remains pending.
 
+###### Current evidence-layer foundation (validated 2026-09-15)
+- Opportunity Evidence, What Changed, Opportunity Classification, Market Value, Market Signal, Buy/Sell Candidate, and Trade Opportunity contracts are implemented as pure fail-closed evidence layers.
+- Dashboard Decision Center summarizes existing evidence into the required informational panels without generating recommendations or priority.
+- Dashboard, `/team`, `/waivers`, and `/trades` retain their existing decision payloads. No lineup, waiver, trade, matchup, ranking, confidence, Weekly Score, or transaction behavior consumes these layers.
+- Focused validation passed 16 tests; compilation and both whitespace checks passed. Fresh route checks returned HTTP 200 at desktop and 390px with default evidence fail-closed.
+- No live market or candidate source is configured. Buy Low, Sell High, Breakout, Regression, and trade-action recommendations remain deferred.
+
 ###### Current UX.5 boundary
 - Weekly Lineup Intelligence emits explicit `START`, `FLEX`, `MONITOR`, and bench `SIT` decisions; `HOLD` and `SWAP` are not rendered.
 - Bench Order is deterministic and labeled. Explanations include reason, confidence, opponent, health, weekly value, and metric definitions.
@@ -39,9 +46,9 @@ UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, 
 - Focused UX.4 validation passed 90 tests; compilation and both whitespace checks passed. Do not claim transaction acceptance, negotiation, rest-of-season impact, production readiness, or defect closure.
 
 ###### Last recorded repository checkpoint
-- Date: 2026-09-13
+- Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: f55650376339abaa701a6c9ab84e2ed47d190355
+- HEAD: a8684f99626356659643ec297bf47980d6dc0cf3
 - Repository: /home/deeoriginalone/fantasy-intelligence
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
@@ -168,7 +175,7 @@ A synchronization PASS confirms documentation consistency only. It does not prov
 - Verified current coverage: Week 1 has 16 scheduled games and 7 provider-matched predictions; Week 2 has 16 scheduled games and 0 provider-matched predictions. The complete 2026 source schedule (`nfl_schedule`) contains Weeks 1-18, but only Weeks 1-2 are currently seeded into `yahoo_pickem_games`.
 - Matching uses the complete provider full-name-to-standard-abbreviation map and exact away/home pairs. Recorded runs show Week 1 received/matched/wrote 7/7/7; Week 2 received 6 provider games and matched/wrote 0/0. This is a current provider-slate versus stored-schedule mismatch, not a verified naming failure.
 - Focused NFL Intelligence validation: 29 passed. Python compilation for `nfl_intelligence.py` and `nfl_intelligence_routes.py`, whitespace validation, and live Week 1/Week 2 rendering passed. Desktop and 390px renders had no horizontal overflow.
-- Current repository checkpoint: 2026-09-14, branch `feature/evidence-bundle-pipeline`, HEAD `e5285b1918a97e6df7b9e74cd94385ecf489b721`. NFL Intelligence implementation and canonical documentation were committed; preserve unrelated working-tree changes.
+- Current repository checkpoint: 2026-09-16, branch `test-weekly-evidence-trust`, HEAD `a8684f99626356659643ec297bf47980d6dc0cf3`. Preserve unrelated working-tree changes.
 
 ###### Verified product architecture and roadmap
 
@@ -210,8 +217,15 @@ A synchronization PASS confirms documentation consistency only. It does not prov
 - Use source `stats_player` and artifact pattern `stats_player_week_{season}.csv.gz`. Refreshed real 2026 Week 1 calculation produced 128 rows and 32-of-32 defense coverage for QB, RB, WR, and TE; `KC` and `DEN` are present. Preliminary context is fresh, complete, Full-PPR, sample-disclosed, informational-only, and does not change recommendations.
 - Authority remains BLOCKED by `MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED`. Automated 2026 rows remain 0; 136 historical 2025 CSV rows remain preserved and historical-only. Current consumers keep authoritative Matchup Rank unavailable while preliminary context remains informational-only; production readiness and full current matchup authority remain unclaimed.
 
+###### Current verified matchup authority boundary (2026-09-16)
+- Automated NFLverse matchup calculation and publication are present. Publication metadata propagation is complete for source authority, source-recorded time, retrieved-at time, version, checksum, lineage, and completed games.
+- Implementation-backed informational publication contracts now exist for threshold metadata, population metadata, and directionality metadata. They do not grant Matchup Rank authority.
+- Matchup Rank remains non-authoritative. The blockers `MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED`, `MATCHUP_POPULATION_UNVERIFIED`, and `MATCHUP_DIRECTIONALITY_UNVERIFIED` remain active in shared lineup evidence.
+- Snapshot capture remains blocked. Recommendation behavior remains unchanged, including START, SIT, FLEX, MONITOR, Weekly Score, confidence, waiver, trade, matchup, and transaction behavior.
+- Focused authority tests passed 37 tests; focused evidence and consumer regression validation passed 146 tests. Python compilation, `git diff --check`, and `git diff --cached --check` passed.
+
 ## Next milestone
 
-**Make weekly lineup, waiver/drop, and trade decisions trustworthy with automated, timestamped evidence or explicit unavailable states.**
+**Make the evidence foundations authoritative with automated, timestamped sources or explicit unavailable states before any recommendation consumption.**
 
 Navigation reconciliation supports this milestone but does not outrank decision quality. Opportunity detection is the next competitive advantage after weekly trust; Decision Center, Process versus Results, manager development, and season strategy follow in that order. UX.8 retains its recorded in-progress boundary. Existing defects retain their evidence-supported statuses; production readiness, PostgreSQL parity, recovery, and defect closure remain unclaimed.
