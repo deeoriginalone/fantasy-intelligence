@@ -20,6 +20,7 @@ details.nfli-details summary{cursor:pointer;font-weight:800}
   <p id="nfli-refresh-status" role="status"></p>
   <p>Data freshness: {{ intelligence.freshness_state }}</p>
   <p>Last verified: {{ intelligence.last_verified or 'Unavailable' }}</p>
+  {% if intelligence.evidence_state in ('UNAVAILABLE', 'BLOCKED', 'INSUFFICIENT_EVIDENCE') %}<div class="nfli-blocker"><p><strong>No prediction or recommendation is published.</strong></p><p><strong>Evidence available:</strong> Week {{ intelligence.week }} schedule context is loaded{% if intelligence.scheduled_games %} for {{ intelligence.scheduled_games }} scheduled game(s){% endif %}.</p><p><strong>Evidence missing:</strong> {{ intelligence.missing_predictions or 'Supported prediction provider evidence' }} game-level prediction record(s) for this week.</p><p><strong>Recommendation affected:</strong> No supported top-pick or game prediction is published for the missing games.</p><p><strong>Manager action:</strong> Refresh this week and wait for matched provider data before relying on a prediction.</p></div>{% endif %}
 </div>
 <script>
 const nfliCsrfToken={{ csrf_token() | tojson }};
@@ -74,7 +75,7 @@ if(nfliRefreshBtn){nfliRefreshBtn.addEventListener('click',function(){
 
 <div class="nfli-section">
   <h2>Blockers</h2>
-  {% for b in intelligence.blockers %}<div class="nfli-blocker"><strong>{{ b.name }}</strong><p>{{ b.detail }}</p><p><em>Recommendation impact:</em> {{ b.impact }}</p></div>{% endfor %}
+  {% for b in intelligence.blockers %}<div class="nfli-blocker"><strong>{{ b.name }}</strong><p>{{ b.detail }}</p><p><em>Recommendation impact:</em> {{ b.impact }}</p><p><em>Manager action:</em> Refresh or verify the named evidence before relying on the affected signal.</p></div>{% else %}{% if intelligence.evidence_state in ('UNAVAILABLE', 'BLOCKED', 'INSUFFICIENT_EVIDENCE') %}<div class="nfli-blocker"><strong>Prediction evidence unavailable</strong><p>No blocker detail was supplied by the existing contract.</p><p><em>Recommendation impact:</em> Predictions remain withheld.</p><p><em>Manager action:</em> Review freshness and provider matching, then refresh this week.</p></div>{% endif %}{% endfor %}
 </div>
 
 <details class="nfli-details"><summary>Diagnostics</summary>

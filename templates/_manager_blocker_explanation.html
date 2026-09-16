@@ -1,0 +1,9 @@
+{% if manager_explanation_state|default('') in ('BLOCKED', 'UNAVAILABLE', 'INSUFFICIENT_EVIDENCE') or manager_explanation_missing|default([]) or manager_explanation_blockers|default([]) %}
+<section class="manager-explanation" role="status">
+  <h3>What this means</h3>
+  <p><strong>Evidence available:</strong> {{ manager_explanation_available|default('No decision evidence has been verified yet.', true) }}</p>
+  <p><strong>Evidence missing:</strong> {{ manager_explanation_missing|default(['The required evidence is unavailable or incomplete.'], true)|join('; ') }}</p>
+  <p><strong>Recommendation affected:</strong> {{ manager_explanation_impact|default('The related recommendation remains blocked until the evidence gate is satisfied.') }}</p>
+  <p><strong>Manager action:</strong> {{ manager_explanation_action|default('Review the source status and refresh or verify the missing evidence before acting.') }}</p>
+</section>
+{% endif %}

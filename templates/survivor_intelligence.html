@@ -13,7 +13,11 @@
 
 {% if survivor_status.history_status == 'read_failed' %}
 <div class="sv-state sv-state-blocked" role="alert"><h2>ELIGIBILITY BLOCKED</h2>
-<p>We could not verify your previously used teams, so no survivor recommendation is being published. Recommending from an unverified team pool could repeat a team that is no longer eligible.</p></div>
+<p>We could not verify your previously used teams, so no survivor recommendation is being published. Recommending from an unverified team pool could repeat a team that is no longer eligible.</p>
+<p><strong>Evidence available:</strong> The requested season and week context is loaded.</p>
+<p><strong>Evidence missing:</strong> Verified survivor selection history and the resulting eligible-team set.</p>
+<p><strong>Recommendation affected:</strong> The survivor recommendation is blocked to prevent a repeat-team recommendation.</p>
+<p><strong>Manager action:</strong> Restore or verify the selection-history source, then reload this week.</p></div>
 
 {% elif survivor_status.week_state in ('PENDING_RESULT','COMPLETED') %}
 <div class="sv-state sv-state-locked"><h2>WEEK {{ survivor_week }} SELECTION RECORDED</h2>
@@ -26,12 +30,19 @@
 
 {% elif survivor_status.week_state == 'UNAVAILABLE' %}
 <div class="sv-state sv-state-unavailable"><h2>NEXT WEEK UNAVAILABLE</h2>
-<p>The application could not verify Week {{ survivor_week }} against the supported schedule.</p></div>
+<p>The application could not verify Week {{ survivor_week }} against the supported schedule.</p>
+<p><strong>Evidence available:</strong> The requested season and week context is loaded.</p>
+<p><strong>Evidence missing:</strong> A verified supported schedule for Week {{ survivor_week }}.</p>
+<p><strong>Recommendation affected:</strong> No survivor recommendation can be published for this week.</p>
+<p><strong>Manager action:</strong> Refresh the supported schedule evidence and reload Week {{ survivor_week }} before acting.</p></div>
 
 {% elif not survivor_summary.primary %}
 <div class="sv-state sv-state-unavailable"><h2>SURVIVOR RECOMMENDATION UNAVAILABLE</h2>
 <p>Missing or stale evidence: {{ survivor_status.blocker_reason or 'insufficient supported evidence for this week' }}. This blocks this week's primary recommendation.</p>
-<p>JAX status: {% if 'JAX' in used_teams %}confirmed used and excluded (verified history){% else %}not recorded as used in verified history{% endif %}.</p>
+<p><strong>Evidence available:</strong> Verified history and eligible-team context are shown where available. JAX is {% if 'JAX' in used_teams %}confirmed used and excluded{% else %}not recorded as used in verified history{% endif %}.</p>
+<p><strong>Evidence missing:</strong> Supported current-week market evidence needed to rank a primary survivor option.</p>
+<p><strong>Recommendation affected:</strong> This week's primary survivor recommendation and probability are withheld.</p>
+<p><strong>Manager action:</strong> Use the refresh control below and wait for supported provider evidence before making an algorithmic selection.</p>
 {% if last_verified_pacific %}<p>Last verified: {{ last_verified_pacific }}.</p>{% endif %}
 <button type="button" id="sv-refresh-btn" data-season="{{ survivor_season }}" data-week="{{ survivor_week }}" data-strategy="{{ strategy }}">Refresh Market Intelligence for Week {{ survivor_week }}</button>
 <p id="sv-refresh-status" role="status"></p>
