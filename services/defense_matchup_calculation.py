@@ -10,6 +10,10 @@ POSITIONS = ("QB", "RB", "WR", "TE")
 ALL_DEFENSES = 32
 NOT_APPLICABLE_POSITIONS = {"K", "DEF", "DST"}
 TEAM_ALIASES = {"LA": "LAR"}
+CONTRACT_SCHEMA_VERSION = "nflverse-matchup-publication-contracts.v1"
+THRESHOLD_OWNER = "services.integrity.integrity_service.matchup_sample_threshold"
+POPULATION_OWNER = "services.defense_matchup_calculation.defenses_by_position"
+DIRECTIONALITY_OWNER = "services.defense_matchup_calculation.values.sort"
 
 
 def full_ppr_points(row: Mapping[str, Any]) -> float:
@@ -18,7 +22,8 @@ def full_ppr_points(row: Mapping[str, Any]) -> float:
 
 
 def calculate_defense_matchups(weekly_stats: Sequence[Mapping[str, Any]], *, season: int, sample_threshold: int | None = None, threshold_environment: Mapping[str, str] | None = None, source: str = "automated:nflverse", version: str | None = None, checksum: str | None = None, source_recorded_at: Any = None, retrieved_at: Any = None) -> dict[str, Any]:
-    threshold = sample_threshold if sample_threshold is not None else matchup_sample_threshold(threshold_environment).get("completed_games")
+    threshold_config = matchup_sample_threshold(threshold_environment)
+    threshold = sample_threshold if sample_threshold is not None else threshold_config.get("completed_games")
     games: dict[tuple[str, str], set[Any]] = defaultdict(set)
     totals: dict[tuple[str, str], float] = defaultdict(float)
     unresolved: list[dict[str, Any]] = []
@@ -60,7 +65,32 @@ def calculate_defense_matchups(weekly_stats: Sequence[Mapping[str, Any]], *, sea
         status, blocker = "BLOCKED", freshness["blocker"]
     else:
         status, blocker = "AUTHORITATIVE", None
-    return {"season": season, "positions": list(POSITIONS), "rows": rows, "status": status, "authoritative": status == "AUTHORITATIVE", "scoring_context": "FULL_PPR", "directionality": "LOWER_IS_HARDER", "completeness": {"defense_count": max((len(value) for value in defenses_by_position.values()), default=0), "required_defenses": ALL_DEFENSES, "complete": complete}, "blocker": blocker, "unresolved_identities": unresolved, "freshness": freshness, "provenance": {"source": source, "version": version, "checksum": checksum, "source_recorded_at": source_recorded_at, "retrieved_at": retrieved_at, "attribution": "NFLverse data, licensed under CC BY 4.0."}}
+    threshold_contract = {
+        "identifier": threshold_config.get("id"),
+        "value": threshold,
+        "state": "VERIFIED" if threshold is not None else "UNAVAILABLE",
+        "source": "MATCHUP_MIN_COMPLETED_GAMES",
+        "owner": THRESHOLD_OWNER,
+        "lineage": {"registry": THRESHOLD_OWNER, "environment": "MATCHUP_MIN_COMPLETED_GAMES"},
+        "schema_version": CONTRACT_SCHEMA_VERSION,
+    }
+    population_contract = {
+        "name": "ALL_DEFENSES_BY_POSITION",
+        "size": ALL_DEFENSES,
+        "position_scope": list(POSITIONS),
+        "scoring_context": "FULL_PPR",
+        "owner": POPULATION_OWNER,
+        "lineage": {"constant": "ALL_DEFENSES", "positions": "POSITIONS"},
+        "schema_version": CONTRACT_SCHEMA_VERSION,
+    }
+    directionality_contract = {
+        "value": "LOWER_IS_HARDER",
+        "owner": DIRECTIONALITY_OWNER,
+        "lineage": {"ordering": "values.sort", "rank": "enumerate(values, 1)"},
+        "schema_version": CONTRACT_SCHEMA_VERSION,
+    }
+    publication_contracts = {"threshold": threshold_contract, "population": population_contract, "directionality": directionality_contract}
+    return {"season": season, "positions": list(POSITIONS), "rows": rows, "status": status, "authoritative": status == "AUTHORITATIVE", "scoring_context": "FULL_PPR", "directionality": "LOWER_IS_HARDER", "completeness": {"defense_count": max((len(value) for value in defenses_by_position.values()), default=0), "required_defenses": ALL_DEFENSES, "complete": complete}, "blocker": blocker, "unresolved_identities": unresolved, "freshness": freshness, "publication_contracts": publication_contracts, "provenance": {"source": source, "version": version, "checksum": checksum, "source_recorded_at": source_recorded_at, "retrieved_at": retrieved_at, "attribution": "NFLverse data, licensed under CC BY 4.0.", "publication_contracts": publication_contracts}}
 
 
 def _completed(row: Mapping[str, Any]) -> bool:

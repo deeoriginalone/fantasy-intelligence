@@ -22,6 +22,8 @@ def publish_defense_matchups(conn: Any, evidence: Mapping[str, Any]) -> int:
     if not evidence.get("authoritative"):
         raise ValueError(evidence.get("blocker") or "MATCHUP_PUBLICATION_NOT_AUTHORIZED")
     provenance = evidence.get("provenance") or {}
+    if not provenance.get("publication_contracts"):
+        raise ValueError("MATCHUP_PUBLICATION_CONTRACTS_UNAVAILABLE")
     cursor = conn.cursor()
     try:
         cursor.execute("DELETE FROM defense_matchups WHERE season=%s AND source LIKE 'automated:nflverse%%'", (evidence["season"],))
