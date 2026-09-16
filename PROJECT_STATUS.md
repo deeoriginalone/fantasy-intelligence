@@ -11,7 +11,7 @@ UX.2.1C is owner-accepted after visual hierarchy, contradiction, disclosure, hea
 ####### Last recorded repository checkpoint
 - Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: a8684f99626356659643ec297bf47980d6dc0cf3
+- HEAD: 46109c569182eaf110f032db0fc31c4744abf79e
 - Repository: /home/deeoriginalone/fantasy-intelligence
 - League ID: 1398094330668797952
 - Completed real draft ID: 1398094331272794112
@@ -134,7 +134,7 @@ The last recorded repository state contained extensive unrelated changes, genera
 - Verified current coverage: Week 1 has 16 scheduled games and 7 provider-matched predictions; Week 2 has 16 scheduled games and 0 provider-matched predictions. The complete 2026 source schedule (`nfl_schedule`) contains Weeks 1-18, but only Weeks 1-2 are currently seeded into `yahoo_pickem_games`.
 - Matching uses the complete provider full-name-to-standard-abbreviation map and exact away/home pairs. Recorded runs show Week 1 received/matched/wrote 7/7/7; Week 2 received 6 provider games and matched/wrote 0/0. This is a current provider-slate versus stored-schedule mismatch, not a verified naming failure.
 - Focused NFL Intelligence validation: 29 passed. Python compilation for `nfl_intelligence.py` and `nfl_intelligence_routes.py`, whitespace validation, and live Week 1/Week 2 rendering passed. Desktop and 390px renders had no horizontal overflow.
-- Current repository checkpoint: 2026-09-16, branch `test-weekly-evidence-trust`, HEAD `a8684f99626356659643ec297bf47980d6dc0cf3`. Preserve unrelated working-tree changes.
+- Current repository checkpoint: 2026-09-16, branch `test-weekly-evidence-trust`, HEAD `46109c569182eaf110f032db0fc31c4744abf79e`. Preserve unrelated working-tree changes.
 
 ####### Verified product architecture and roadmap
 
@@ -182,6 +182,13 @@ The last recorded repository state contained extensive unrelated changes, genera
 - Matchup Rank remains non-authoritative. The blockers `MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED`, `MATCHUP_POPULATION_UNVERIFIED`, and `MATCHUP_DIRECTIONALITY_UNVERIFIED` remain active in shared lineup evidence.
 - Snapshot capture remains blocked. Recommendation behavior remains unchanged, including START, SIT, FLEX, MONITOR, Weekly Score, confidence, waiver, trade, matchup, and transaction behavior.
 - Focused authority tests passed 37 tests; focused evidence and consumer regression validation passed 146 tests. Python compilation, `git diff --check`, and `git diff --cached --check` passed.
+
+####### FantasyPros projection evidence foundation (2026-09-16)
+- FantasyPros automated source integration and non-authoritative projection evidence contract are implemented. Live projections and Players endpoints, provider identifiers, and deterministic identifier overlap were validated.
+- The contract preserves `authority_state = NON_AUTHORITATIVE` and `decision_effect = NONE`; recommendation behavior is unchanged and no projection persistence or snapshot capture exists.
+- Projection authority remains blocked by `PROJECTION_SOURCE_USE_UNVERIFIED`, `PROJECTION_UNIT_UNVERIFIED`, `PROJECTION_SOURCE_TIMESTAMP_UNAVAILABLE`, `PROJECTION_FRESHNESS_THRESHOLD_UNVERIFIED`, and `PROJECTION_LINEAGE_VERSION_UNAVAILABLE`.
+- Focused FantasyPros evidence validation passed 16 tests; Python compilation, `git diff --check`, and `git diff --cached --check` passed.
+- The five active blockers publish structured blocker metadata: blocker ID, description, affected capability, recommendation impact, and authority impact. The compatibility string blocker list remains available.
 
 ## Next milestone
 
