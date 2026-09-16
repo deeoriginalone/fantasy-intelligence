@@ -8,6 +8,7 @@ METRICS = (
     "snap_share",
     "route_participation",
     "target_share",
+    "touch_share",
     "rush_share",
     "red_zone_share",
     "goal_line_share",
@@ -16,6 +17,7 @@ METRICS = (
 TREND_METRICS = (
     "target_share",
     "snap_share",
+    "touch_share",
     "route_participation",
     "red_zone_share",
 )
@@ -51,6 +53,90 @@ DECISION_CENTER_PANELS = (
 )
 FRESHNESS_STATES = {"FRESH", "AGING", "STALE", "UNAVAILABLE", "BLOCKED"}
 COMPLETENESS_STATES = {"COMPLETE", "INCOMPLETE", "UNAVAILABLE"}
+USAGE_SCHEMA_VERSION = "nflverse-opportunity-evidence.v1"
+
+
+def build_nflverse_usage_evidence(
+    values: Mapping[str, Any] | None,
+    *,
+    player_id: Any,
+    season: Any,
+    week: Any,
+    source: str | None = None,
+    source_recorded_at: Any = None,
+    retrieved_at: Any = None,
+    freshness_state: str = "UNAVAILABLE",
+    completeness_state: str = "COMPLETE",
+    blocker: str | None = None,
+) -> dict[str, Any]:
+    """Publish only NFLverse usage fields proven by the weekly artifact."""
+    values = dict(values or {})
+    target_volume = _nonnegative(values.get("targets"))
+    target_share = _share(values.get("target_share"))
+    carry_volume = _nonnegative(values.get("carries"))
+    blockers = []
+    if player_id in (None, ""):
+        blockers.append("OPPORTUNITY_PLAYER_ID_UNAVAILABLE")
+    if season in (None, ""):
+        blockers.append("OPPORTUNITY_SEASON_UNAVAILABLE")
+    if week in (None, ""):
+        blockers.append("OPPORTUNITY_WEEK_UNAVAILABLE")
+    if target_volume is None:
+        blockers.append("OPPORTUNITY_TARGETS_UNAVAILABLE")
+    if target_share is None:
+        blockers.append("OPPORTUNITY_TARGET_SHARE_UNAVAILABLE")
+    if carry_volume is None:
+        blockers.append("OPPORTUNITY_CARRIES_UNAVAILABLE")
+    if not source or not retrieved_at:
+        blockers.append("OPPORTUNITY_SOURCE_METADATA_UNAVAILABLE")
+    if blocker:
+        blockers.append(blocker)
+    freshness = _state(freshness_state, FRESHNESS_STATES)
+    completeness = _state(completeness_state, COMPLETENESS_STATES)
+    if freshness not in {"FRESH", "AGING"}:
+        blockers.append("OPPORTUNITY_EVIDENCE_NOT_CURRENT")
+    if completeness != "COMPLETE":
+        blockers.append("OPPORTUNITY_INCOMPLETE")
+    blockers = list(dict.fromkeys(blockers))
+    return {
+        "player_id": player_id,
+        "season": season,
+        "week": week,
+        "target_volume": target_volume,
+        "target_share": target_share,
+        "carry_volume": carry_volume,
+        "snap_share": None,
+        "touch_share": None,
+        "route_participation": None,
+        "source": source or "UNVERIFIED",
+        "source_recorded_at": source_recorded_at,
+        "retrieved_at": retrieved_at,
+        "freshness_state": freshness,
+        "completeness_state": "COMPLETE" if not blockers else "INCOMPLETE",
+        "blockers": blockers,
+        "lineage": {"source": source, "player_id": player_id, "season": season, "week": week},
+        "schema_version": USAGE_SCHEMA_VERSION,
+        "authoritative": not blockers,
+        "decision_effect": "NONE",
+    }
+
+
+def build_nflverse_usage_what_changed(current: Mapping[str, Any] | None, previous: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Compare proven target/carry usage without inferring role labels."""
+    result = {"state": "UNAVAILABLE", "changes": [], "workload_change": "UNAVAILABLE", "role_change": "UNAVAILABLE", "blocker": "OPPORTUNITY_COMPARISON_UNAVAILABLE", "decision_effect": "NONE"}
+    if not current or not previous:
+        return result
+    if not current.get("authoritative") or not previous.get("authoritative"):
+        result["blocker"] = "OPPORTUNITY_PERIOD_UNAVAILABLE"
+        return result
+    changes = []
+    for key, label in (("target_volume", "Targets"), ("carry_volume", "Carries"), ("target_share", "Target Share")):
+        delta = current[key] - previous[key]
+        changes.append({"metric": key, "label": label, "direction": "UP" if delta > 0 else "DOWN" if delta < 0 else "UNCHANGED", "delta": round(delta, 4), "current": current[key], "previous": previous[key]})
+    workload_deltas = [current[key] - previous[key] for key in ("target_volume", "carry_volume", "target_share")]
+    average = sum(workload_deltas) / len(workload_deltas)
+    result.update(state="AVAILABLE", changes=changes, workload_change="UP" if average > 0 else "DOWN" if average < 0 else "UNCHANGED", blocker=None)
+    return result
 
 
 def build_opportunity_evidence(
@@ -111,6 +197,8 @@ def build_what_changed(
         "previous_week": dict(previous or {}),
         "rolling_baseline": dict(rolling_baseline or {}),
         "changes": [],
+        "workload_change": "UNAVAILABLE",
+        "role_change": "UNAVAILABLE",
         "blocker": "OPPORTUNITY_COMPARISON_UNAVAILABLE",
         "recommendation_impact": "Evidence only; no recommendation or score changes are made.",
     }
@@ -144,6 +232,14 @@ def build_what_changed(
             "previous": previous_value,
             "baseline": rolling_baseline[metric],
         })
+    workload_deltas = [
+        current[metric] - previous[metric]
+        for metric in ("snap_share", "touch_share", "target_share", "route_participation")
+    ]
+    workload_delta = sum(workload_deltas) / len(workload_deltas)
+    result["workload_change"] = "UP" if workload_delta > 0 else "DOWN" if workload_delta < 0 else "UNCHANGED"
+    role_delta = current["role_stability"] - previous["role_stability"]
+    result["role_change"] = "UP" if role_delta > 0 else "DOWN" if role_delta < 0 else "UNCHANGED"
     result["state"] = "AVAILABLE"
     result["blocker"] = None
     return result
@@ -193,6 +289,7 @@ def classify_opportunity_trend(
     labels = {
         "target_share": "Target Share",
         "snap_share": "Snap Share",
+        "touch_share": "Touch Share",
         "route_participation": "Routes Run",
         "red_zone_share": "Red-Zone Usage",
     }
@@ -394,6 +491,20 @@ def _number(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return number if 0 <= number <= 1 else None
+
+
+def _nonnegative(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number >= 0 else None
+
+
+def _share(value: Any) -> float | None:
+    return _number(value)
 
 
 def _coerce_period(value: Mapping[str, Any] | None) -> dict[str, Any]:

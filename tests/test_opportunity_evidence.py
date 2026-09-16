@@ -1,4 +1,4 @@
-from services.opportunity_evidence import DECISION_CENTER_PANELS, METRICS, build_decision_center, build_market_value_evidence, build_opportunity_evidence, build_what_changed, classify_market_signal, classify_opportunity_trend, classify_trade_opportunity
+from services.opportunity_evidence import DECISION_CENTER_PANELS, METRICS, build_decision_center, build_market_value_evidence, build_nflverse_usage_evidence, build_nflverse_usage_what_changed, build_opportunity_evidence, build_what_changed, classify_market_signal, classify_opportunity_trend, classify_trade_opportunity
 from services.opportunity_evidence import METRICS, build_market_value_evidence, build_opportunity_evidence, build_what_changed, classify_market_signal, classify_opportunity_trend, classify_trade_opportunity
 
 
@@ -36,6 +36,39 @@ def test_complete_contract_contains_all_usage_and_evidence_fields():
     assert result["recommendation_impact"].startswith("Informational")
 
 
+def test_nflverse_usage_contract_publishes_only_proven_fields():
+    result = build_nflverse_usage_evidence(
+        {"targets": 8, "target_share": 0.22, "carries": 3},
+        player_id="player-1", season=2026, week=3, source="automated:nflverse",
+        source_recorded_at=NOW, retrieved_at=NOW, freshness_state="FRESH",
+    )
+    assert result["authoritative"] is True
+    assert result["target_volume"] == 8
+    assert result["target_share"] == 0.22
+    assert result["carry_volume"] == 3
+    assert result["snap_share"] is None
+    assert result["touch_share"] is None
+    assert result["route_participation"] is None
+    assert result["decision_effect"] == "NONE"
+
+
+def test_nflverse_usage_comparison_publishes_workload_not_role_conclusions():
+    current = build_nflverse_usage_evidence({"targets": 8, "target_share": 0.22, "carries": 3}, player_id="p", season=2026, week=3, source="source", retrieved_at=NOW, freshness_state="FRESH")
+    previous = build_nflverse_usage_evidence({"targets": 4, "target_share": 0.12, "carries": 1}, player_id="p", season=2026, week=2, source="source", retrieved_at=NOW, freshness_state="FRESH")
+    result = build_nflverse_usage_what_changed(current, previous)
+    assert result["state"] == "AVAILABLE"
+    assert result["workload_change"] == "UP"
+    assert result["role_change"] == "UNAVAILABLE"
+    assert result["decision_effect"] == "NONE"
+
+
+def test_nflverse_usage_missing_fields_fails_closed():
+    result = build_nflverse_usage_evidence({"targets": 8}, player_id="p", season=2026, week=3, source="source", retrieved_at=NOW, freshness_state="FRESH")
+    assert result["authoritative"] is False
+    assert "OPPORTUNITY_TARGET_SHARE_UNAVAILABLE" in result["blockers"]
+    assert "OPPORTUNITY_CARRIES_UNAVAILABLE" in result["blockers"]
+
+
 def test_missing_source_or_timestamp_fails_closed():
     missing_source = build_opportunity_evidence(values(), retrieved_at=NOW, freshness_state="FRESH")
     missing_time = build_opportunity_evidence(values(), source="feed", freshness_state="FRESH")
@@ -61,6 +94,8 @@ def test_what_changed_requires_three_verified_periods():
     available = build_what_changed(evidence(0.1), evidence(), evidence(-0.05))
     assert unavailable["state"] == "UNAVAILABLE"
     assert available["state"] == "AVAILABLE"
+    assert available["workload_change"] == "UP"
+    assert available["role_change"] == "UP"
     assert {item["label"] for item in available["changes"]} == {"Target Share", "Snap Share", "Red-Zone Usage", "Routes Run"}
     assert all(item["direction"] == "UP" for item in available["changes"])
     assert available["recommendation_impact"].startswith("Evidence only")
@@ -81,7 +116,7 @@ def test_opportunity_classification_is_evidence_only():
     assert shrinking["state"] == "SHRINKING_OPPORTUNITY"
     assert stable["state"] == "STABLE_OPPORTUNITY"
     assert growing["decision_effect"] == shrinking["decision_effect"] == stable["decision_effect"] == "NONE"
-    assert growing["explanations"] == ["↑ Target Share", "↑ Snap Share", "↑ Routes Run", "↑ Red-Zone Usage"]
+    assert growing["explanations"] == ["↑ Target Share", "↑ Snap Share", "↑ Touch Share", "↑ Routes Run", "↑ Red-Zone Usage"]
 
 
 def test_opportunity_classification_fails_closed_for_history_and_evidence():
