@@ -22,6 +22,23 @@ POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
 
 
+def waiver_projection_contribution(candidate):
+    """Return optional projection evidence without treating warnings as authority."""
+    candidate = dict(candidate or {})
+    identity = candidate.get("identity_resolution") or {}
+    available = (
+        candidate.get("projection") is not None
+        and bool(candidate.get("projection_retrieved_at"))
+        and identity.get("resolution_state") in {None, "RESOLVED"}
+    )
+    evidence = candidate.get("projection_evidence") or {}
+    return {
+        "value": candidate.get("projection") if available else None,
+        "state": "AVAILABLE" if available else "UNAVAILABLE",
+        "warnings": list(evidence.get("blockers") or []),
+    }
+
+
 def create_owner_operations_blueprint(
     get_db_connection,
     get_league,
@@ -422,8 +439,10 @@ def create_owner_operations_blueprint(
             bid = max(0, min(35, round(score / 6)))
             if player["position"] in {"K", "DEF"}:
                 bid = min(bid, 3)
-            recs.append({**player, "priority_score": round(score, 1), "faab": bid, "bid_low": max(0, bid - 3), "bid_high": min(40, bid + 4), "need": need})
-        return sorted(recs, key=lambda p: (-p["priority_score"], p["rank"] or 9999))
+            projection_info = waiver_projection_contribution(player)
+            projection_contribution = projection_info["value"]
+            recs.append({**player, "priority_score": round(score, 1), "faab": bid, "bid_low": max(0, bid - 3), "bid_high": min(40, bid + 4), "need": need, "projection_contribution": projection_contribution, "projection_contribution_state": projection_info["state"], "projection_warnings": projection_info["warnings"]})
+        return sorted(recs, key=lambda p: (-p["priority_score"], -(p["projection_contribution"] if p["projection_contribution"] is not None else float("-inf")), p["rank"] or 9999))
 
     def other_mock_teams(cur, draft_id):
         cur.execute(
