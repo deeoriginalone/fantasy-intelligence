@@ -121,22 +121,55 @@ def build_nflverse_usage_evidence(
     }
 
 
-def build_nflverse_usage_what_changed(current: Mapping[str, Any] | None, previous: Mapping[str, Any] | None) -> dict[str, Any]:
+def build_nflverse_usage_what_changed(
+    current: Mapping[str, Any] | None,
+    previous: Mapping[str, Any] | None,
+    rolling_baseline: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     """Compare proven target/carry usage without inferring role labels."""
-    result = {"state": "UNAVAILABLE", "changes": [], "workload_change": "UNAVAILABLE", "role_change": "UNAVAILABLE", "blocker": "OPPORTUNITY_COMPARISON_UNAVAILABLE", "decision_effect": "NONE"}
-    if not current or not previous:
+    result = {
+        "state": "UNAVAILABLE", "changes": [], "summaries": [],
+        "target_volume_change": None, "target_share_change": None,
+        "carry_volume_change": None, "workload_change": "UNAVAILABLE",
+        "role_change": "UNAVAILABLE", "blocker": "OPPORTUNITY_COMPARISON_UNAVAILABLE",
+        "recommendation_impact": "Evidence only; no recommendation or score changes are made.",
+        "decision_effect": "NONE",
+    }
+    if not current or not previous or not rolling_baseline:
         return result
-    if not current.get("authoritative") or not previous.get("authoritative"):
+    if not all(item.get("authoritative") for item in (current, previous, rolling_baseline)):
         result["blocker"] = "OPPORTUNITY_PERIOD_UNAVAILABLE"
         return result
+    keys = (("target_volume", "Target Volume"), ("target_share", "Target Share"), ("carry_volume", "Carry Volume"))
     changes = []
-    for key, label in (("target_volume", "Targets"), ("carry_volume", "Carries"), ("target_share", "Target Share")):
-        delta = current[key] - previous[key]
-        changes.append({"metric": key, "label": label, "direction": "UP" if delta > 0 else "DOWN" if delta < 0 else "UNCHANGED", "delta": round(delta, 4), "current": current[key], "previous": previous[key]})
+    for key, label in keys:
+        previous_delta = current[key] - previous[key]
+        baseline_delta = current[key] - rolling_baseline[key]
+        previous_classification = _change_classification(previous_delta)
+        baseline_classification = _change_classification(baseline_delta)
+        result_key = f"{key}_change"
+        result[result_key] = {
+            "metric": key, "label": label, "current": current[key],
+            "previous": previous[key], "baseline": rolling_baseline[key],
+            "previous_delta": round(previous_delta, 4),
+            "baseline_delta": round(baseline_delta, 4),
+            "previous_classification": previous_classification,
+            "baseline_classification": baseline_classification,
+        }
+        changes.append({"metric": key, "label": label, "direction": previous_classification, "delta": round(previous_delta, 4), "current": current[key], "previous": previous[key], "baseline": rolling_baseline[key]})
+        result["summaries"].append(f"{label} {_summary_word(previous_classification)}")
     workload_deltas = [current[key] - previous[key] for key in ("target_volume", "carry_volume", "target_share")]
     average = sum(workload_deltas) / len(workload_deltas)
     result.update(state="AVAILABLE", changes=changes, workload_change="UP" if average > 0 else "DOWN" if average < 0 else "UNCHANGED", blocker=None)
     return result
+
+
+def _change_classification(delta: float) -> str:
+    return "INCREASING" if delta > 0 else "DECREASING" if delta < 0 else "STABLE"
+
+
+def _summary_word(classification: str) -> str:
+    return classification.title()
 
 
 def build_opportunity_evidence(

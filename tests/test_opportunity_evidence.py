@@ -55,10 +55,13 @@ def test_nflverse_usage_contract_publishes_only_proven_fields():
 def test_nflverse_usage_comparison_publishes_workload_not_role_conclusions():
     current = build_nflverse_usage_evidence({"targets": 8, "target_share": 0.22, "carries": 3}, player_id="p", season=2026, week=3, source="source", retrieved_at=NOW, freshness_state="FRESH")
     previous = build_nflverse_usage_evidence({"targets": 4, "target_share": 0.12, "carries": 1}, player_id="p", season=2026, week=2, source="source", retrieved_at=NOW, freshness_state="FRESH")
-    result = build_nflverse_usage_what_changed(current, previous)
+    baseline = build_nflverse_usage_evidence({"targets": 2, "target_share": 0.06, "carries": 0}, player_id="p", season=2026, week=1, source="source", retrieved_at=NOW, freshness_state="FRESH")
+    result = build_nflverse_usage_what_changed(current, previous, baseline)
     assert result["state"] == "AVAILABLE"
     assert result["workload_change"] == "UP"
     assert result["role_change"] == "UNAVAILABLE"
+    assert result["target_share_change"]["previous_classification"] == "INCREASING"
+    assert result["summaries"] == ["Target Volume Increasing", "Target Share Increasing", "Carry Volume Increasing"]
     assert result["decision_effect"] == "NONE"
 
 
