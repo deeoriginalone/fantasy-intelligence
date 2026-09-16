@@ -164,7 +164,13 @@ def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True
                 "matchup": weekly_evidence_contract(domain="matchup", blocker="MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE"),
                 "projection": weekly_evidence_contract(domain="projection", blocker="PROJECTION_AUTOMATED_SOURCE_UNAVAILABLE"),
             }
-            if not all(item["authoritative"] for item in p["weekly_evidence"].values()):
+            hard_evidence_blocked = any(
+                not item["authoritative"]
+                and domain != "projection"
+                for domain, item in p["weekly_evidence"].items()
+            )
+            projection_missing = p.get("projection") is None or not p.get("projection_retrieved_at")
+            if hard_evidence_blocked or projection_missing:
                 p["weekly_baseline"] = None
                 p["weekly_score"] = None
             p["lineup_evidence"] = build_lineup_evidence(

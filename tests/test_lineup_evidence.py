@@ -33,6 +33,7 @@ def test_projection_preserves_identity_timestamps_and_explicit_source_blocker():
     assert result["freshness_state"] == "FRESH"
     assert "PROJECTION_AUTOMATED_SOURCE_UNAVAILABLE" in result["blockers"]
     assert result["authoritative"] is False
+    assert result["projection_consumable"] is True
 
 
 def test_matchup_preserves_identity_context_and_unverified_threshold_blockers():
@@ -45,6 +46,12 @@ def test_matchup_preserves_identity_context_and_unverified_threshold_blockers():
     assert "MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED" in result["blockers"]
     assert "MATCHUP_POPULATION_UNVERIFIED" in result["blockers"]
     assert result["decision_effect"] == "NONE"
+
+
+def test_projection_blockers_are_warnings_for_projection_consumption():
+    result = build_projection_evidence(player(), season=2026, week=3, now=NOW)
+    assert result["projection_consumable"] is True
+    assert result["authoritative"] is False
 
 
 def test_published_metadata_is_preserved_without_upgrading_missing_authority():

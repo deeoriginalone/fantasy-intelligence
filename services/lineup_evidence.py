@@ -10,6 +10,14 @@ SCHEMA_VERSION = "lineup-evidence.v1"
 DECISION_EFFECT = "NONE"
 VALID_FRESHNESS = {"FRESH", "AGING", "STALE", "UNAVAILABLE", "BLOCKED"}
 VALID_COMPLETENESS = {"COMPLETE", "INCOMPLETE", "UNAVAILABLE"}
+PROJECTION_WARNING_BLOCKERS = {
+    "PROJECTION_AUTOMATED_SOURCE_UNAVAILABLE",
+    "PROJECTION_SOURCE_USE_UNVERIFIED",
+    "PROJECTION_UNIT_UNVERIFIED",
+    "PROJECTION_SOURCE_TIMESTAMP_UNAVAILABLE",
+    "PROJECTION_FRESHNESS_THRESHOLD_UNVERIFIED",
+    "PROJECTION_LINEAGE_VERSION_UNAVAILABLE",
+}
 
 
 def build_projection_evidence(player: Mapping[str, Any], *, season: Any, week: Any, now: Any = None) -> dict[str, Any]:
@@ -42,7 +50,10 @@ def build_projection_evidence(player: Mapping[str, Any], *, season: Any, week: A
         value=value, source=source, retrieved_at=retrieved_at,
         freshness_state=freshness_state, completeness_state="COMPLETE" if not blockers else "INCOMPLETE",
         blockers=blockers, lineage=player.get("projection_lineage"),
-        extra={"projection_unit": "season_points", "scoring_context": "FULL_PPR"},
+        extra={
+            "projection_unit": "season_points", "scoring_context": "FULL_PPR",
+            "projection_consumable": value is not None and bool(identity) and bool(retrieved_at),
+        },
     )
 
 
@@ -99,6 +110,7 @@ def build_lineup_evidence(projection: Mapping[str, Any], matchup: Mapping[str, A
     return {
         "state": state,
         "authoritative": state == "AVAILABLE",
+        "projection_consumable": bool(projection.get("projection_consumable")),
         "projection": projection,
         "matchup": matchup,
         "freshness_state": freshness,

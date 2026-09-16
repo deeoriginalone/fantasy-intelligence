@@ -17,6 +17,15 @@ def number(value,default=0.0):
 
 
 def evidence_ready(player):
+    weekly_evidence = player.get("weekly_evidence") or {}
+    if weekly_evidence and any(
+        not item.get("authoritative")
+        and domain != "projection"
+        for domain, item in weekly_evidence.items()
+    ):
+        return False
+    if weekly_evidence.get("projection") and not player.get("projection_retrieved_at"):
+        return False
     return bool(player.get("player")) and player.get("position") in TARGETS and (player.get("projection") is not None or player.get("weekly_score") is not None or player.get("rank") is not None)
 
 
