@@ -158,6 +158,16 @@ def test_non_authoritative_publication_preserves_supported_fields_and_gaps():
     assert "PROJECTION_UNIT_UNVERIFIED" in result["blockers"]
     assert "PROJECTION_FRESHNESS_THRESHOLD_UNVERIFIED" in result["blockers"]
     assert "PROJECTION_SOURCE_TIMESTAMP_UNAVAILABLE" in result["blockers"]
+    blocker_ids = {item["blocker_id"] for item in result["authority_blockers"]}
+    assert blocker_ids >= {
+        "PROJECTION_UNIT_UNVERIFIED",
+        "PROJECTION_SOURCE_TIMESTAMP_UNAVAILABLE",
+        "PROJECTION_FRESHNESS_THRESHOLD_UNVERIFIED",
+        "PROJECTION_LINEAGE_VERSION_UNAVAILABLE",
+    }
+    assert all(item["affected_capability"] for item in result["authority_blockers"])
+    assert all(item["recommendation_impact"] for item in result["authority_blockers"])
+    assert all(item["authority_impact"] for item in result["authority_blockers"])
 
 
 def test_non_authoritative_publication_blocks_unresolved_identity():

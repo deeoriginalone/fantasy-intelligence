@@ -13,6 +13,38 @@ SCHEMA_VERSION = "fantasypros-projection-poc.v1"
 DECISION_EFFECT = "NONE"
 IDENTITY_SCHEMA_VERSION = "fantasypros-identity.v1"
 PUBLICATION_SCHEMA_VERSION = "fantasypros-projection-evidence.v1"
+AUTHORITY_BLOCKERS = {
+    "PROJECTION_SOURCE_USE_UNVERIFIED": {
+        "description": "Permitted provider use has not been verified for authoritative projection evidence.",
+        "affected_capability": "projection_authority",
+        "recommendation_impact": "Projection evidence remains informational and cannot support recommendations.",
+        "authority_impact": "Blocks projection authority.",
+    },
+    "PROJECTION_UNIT_UNVERIFIED": {
+        "description": "The provider-owned projection unit has not been verified.",
+        "affected_capability": "projection_unit",
+        "recommendation_impact": "Projected values cannot be safely interpreted for recommendation use.",
+        "authority_impact": "Blocks projection authority.",
+    },
+    "PROJECTION_SOURCE_TIMESTAMP_UNAVAILABLE": {
+        "description": "Provider source, publication, or update timestamp is unavailable.",
+        "affected_capability": "projection_freshness",
+        "recommendation_impact": "Projection freshness cannot be established for recommendations.",
+        "authority_impact": "Blocks projection authority.",
+    },
+    "PROJECTION_FRESHNESS_THRESHOLD_UNVERIFIED": {
+        "description": "No approved projection freshness threshold is owned by the repository.",
+        "affected_capability": "projection_freshness",
+        "recommendation_impact": "Projection evidence remains unavailable for authoritative recommendation use.",
+        "authority_impact": "Blocks projection authority.",
+    },
+    "PROJECTION_LINEAGE_VERSION_UNAVAILABLE": {
+        "description": "Provider version or release lineage is unavailable.",
+        "affected_capability": "projection_lineage",
+        "recommendation_impact": "Projection lineage cannot support authoritative recommendation evidence.",
+        "authority_impact": "Blocks projection authority.",
+    },
+}
 
 
 class FantasyProsProjectionError(RuntimeError):
@@ -177,6 +209,7 @@ def build_fantasypros_projection_evidence(
     blockers.extend(("PROJECTION_FRESHNESS_THRESHOLD_UNVERIFIED", "PROJECTION_LINEAGE_VERSION_UNAVAILABLE"))
     if not identity or identity.get("identity_state") != "RESOLVED":
         blockers.append("PROJECTION_IDENTITY_UNRESOLVED")
+    blockers = list(dict.fromkeys(blockers))
     return {
         "source": SOURCE,
         "source_type": "automated",
@@ -210,7 +243,12 @@ def build_fantasypros_projection_evidence(
         "lineage": {"provider": {"source": SOURCE, "provider_player_id": identity.get("provider_player_id") or _provider_id(provider_row), "provider_secondary_id": _provider_mfl_id(provider_row)}, "identity": identity.get("lineage"), "retrieval": {"retrieved_at": retrieved_at}},
         "lineage_state": "PARTIAL",
         "version": None,
-        "blockers": list(dict.fromkeys(blockers)),
+        "blockers": blockers,
+        "authority_blockers": [
+            {"blocker_id": blocker, **AUTHORITY_BLOCKERS[blocker]}
+            for blocker in blockers
+            if blocker in AUTHORITY_BLOCKERS
+        ],
         "schema_version": PUBLICATION_SCHEMA_VERSION,
         "authority_state": "NON_AUTHORITATIVE",
         "decision_effect": DECISION_EFFECT,
