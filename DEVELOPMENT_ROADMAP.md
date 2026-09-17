@@ -3,7 +3,7 @@
 ####### Last recorded repository checkpoint
 - Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: 46109c569182eaf110f032db0fc31c4744abf79e
+- HEAD: 4b464f4ab0808ae2678588825d009221b3c61fb9
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -238,7 +238,7 @@ The following systems remain planned and deferred, not abandoned:
 - Verified current coverage: Week 1 has 16 scheduled games and 7 provider-matched predictions; Week 2 has 16 scheduled games and 0 provider-matched predictions. The complete 2026 source schedule (`nfl_schedule`) contains Weeks 1-18, but only Weeks 1-2 are currently seeded into `yahoo_pickem_games`.
 - Matching uses the complete provider full-name-to-standard-abbreviation map and exact away/home pairs. Recorded runs show Week 1 received/matched/wrote 7/7/7; Week 2 received 6 provider games and matched/wrote 0/0. This is a current provider-slate versus stored-schedule mismatch, not a verified naming failure.
 - Focused NFL Intelligence validation: 29 passed. Python compilation for `nfl_intelligence.py` and `nfl_intelligence_routes.py`, whitespace validation, and live Week 1/Week 2 rendering passed. Desktop and 390px renders had no horizontal overflow.
-- Current repository checkpoint: 2026-09-16, branch `test-weekly-evidence-trust`, HEAD `46109c569182eaf110f032db0fc31c4744abf79e`. Preserve unrelated working-tree changes.
+- Current repository checkpoint: 2026-09-16, branch `test-weekly-evidence-trust`, HEAD `0e01c27530f312149cb4d8554faf795c7185365a`. Preserve unrelated working-tree changes.
 
 ####### Verified product architecture and roadmap
 
@@ -287,15 +287,28 @@ The following systems remain planned and deferred, not abandoned:
 - Snapshot capture remains blocked. Recommendation behavior remains unchanged, including START, SIT, FLEX, MONITOR, Weekly Score, confidence, waiver, trade, matchup, and transaction behavior.
 - Focused authority tests passed 37 tests; focused evidence and consumer regression validation passed 146 tests. Python compilation, `git diff --check`, and `git diff --cached --check` passed.
 
-####### FantasyPros projection evidence foundation (2026-09-16)
-- FantasyPros automated source integration and non-authoritative projection evidence contract are implemented. Live projections and Players endpoints, provider identifiers, and deterministic identifier overlap were validated.
-- The contract preserves `authority_state = NON_AUTHORITATIVE` and `decision_effect = NONE`; recommendation behavior is unchanged and no projection persistence or snapshot capture exists.
-- Projection authority remains blocked by `PROJECTION_SOURCE_USE_UNVERIFIED`, `PROJECTION_UNIT_UNVERIFIED`, `PROJECTION_SOURCE_TIMESTAMP_UNAVAILABLE`, `PROJECTION_FRESHNESS_THRESHOLD_UNVERIFIED`, and `PROJECTION_LINEAGE_VERSION_UNAVAILABLE`.
-- Focused FantasyPros evidence validation passed 16 tests; Python compilation, `git diff --check`, and `git diff --cached --check` passed.
-- The five active blockers publish structured blocker metadata: blocker ID, description, affected capability, recommendation impact, and authority impact. The compatibility string blocker list remains available.
+####### Team Accuracy matchup authority consumer completion (2026-09-17)
+- Team Accuracy (`services/ux2_team_accuracy.py`) now consumes the shared `services/lineup_evidence.py::build_matchup_evidence` contract as its sole Matchup Rank authority result. The prior duplicate four-field presence check (population, directionality, source, updated-at only) is removed; no second authority calculation exists.
+- Matchup Rank on `/team` is fail-closed through the same contract already governing other consumers: verified sample threshold, verified population, verified directionality, structured automated source authority, current freshness, resolved player identity, and resolved opponent are all required before a rank is shown.
+- Comparison population and a plain-language directionality explanation (for example, "Rank 1 is hardest; rank 32 is easiest") are now manager-visible next to Matchup Rank. Population size is shown only when the automated publication contract supplies it and is never invented.
+- Recommendation, projection, waiver, trade, ranking, confidence, and transaction behavior are unchanged by this batch.
+- Automated 2026 matchup rows remain 0 in the database. The blockers remain active whenever authoritative automated matchup evidence is unavailable. The consumer now correctly honors those blockers through the shared matchup contract; this batch changed the consumer, not the underlying data availability.
+- Focused authority, Team Accuracy, template, and route-matrix validation completed with one pre-existing unrelated failure retained outside the changed boundary (`test_team_template_wires_accuracy_partial`). Related-suite validation passed 118 of 120 tests (2 pre-existing unrelated matchup-calculation staleness failures). Python compilation, `git diff --check`, and `git diff --cached --check` passed.
+- Rendered `/team` verification at desktop and 390px confirmed no primary horizontal overflow, no clipped content, all technical diagnostics collapsed by default, and visually distinct authoritative versus unavailable matchup states.
+- Production readiness, PostgreSQL parity, and recovery validation remain unclaimed.
+
+####### FantasyPros projection consumption boundary (2026-09-16)
+- FantasyPros automated source integration, live endpoint validation, deterministic identity overlap, non-authoritative evidence publication, and structured blocker metadata are implemented.
+- Present, resolved, retrieved projection evidence may contribute to weekly lineup intelligence and trade evidence readiness. Projection authority concerns remain visible warnings; missing projections and hard-blocked non-projection evidence remain fail-closed.
+- Present projection evidence may contribute as a deterministic secondary comparison input for verified-unrostered waiver candidates. Existing ownership, roster coverage, eligibility, stable identity, and `WAIVER_RANKING_SOURCE_UNVERIFIED` protections remain unchanged.
+- `authority_state = NON_AUTHORITATIVE` and `decision_effect = NONE` remain unchanged. No projection persistence, snapshot capture, external transaction, transaction acceptance, or production-readiness claim exists.
+- The five projection warnings remain active and structured: `PROJECTION_SOURCE_USE_UNVERIFIED`, `PROJECTION_UNIT_UNVERIFIED`, `PROJECTION_SOURCE_TIMESTAMP_UNAVAILABLE`, `PROJECTION_FRESHNESS_THRESHOLD_UNVERIFIED`, and `PROJECTION_LINEAGE_VERSION_UNAVAILABLE`.
+- Lineup/trade projection-consumption validation passed 44 tests; waiver projection-contribution validation passed 70 tests. Python compilation and both diff checks passed for each batch.
 
 ## Next milestone
 
-**Make the evidence foundations authoritative with automated, timestamped sources or explicit unavailable states before any recommendation consumption.**
+**Establish automated player opportunity and role evidence, then build a multi-week What Changed engine.**
+
+Opportunity publication is the next evidence foundation. Snap share, target share, touch share, routes, and role change require supported source and identity evidence. Buy Low, Sell High, Breakout, and Regression labels remain deferred until opportunity history and market evidence support them. No new recommendation behavior is authorized by this documentation update.
 
 Navigation reconciliation supports this milestone but does not outrank decision quality. Opportunity detection is the next competitive advantage after weekly trust; Decision Center, Process versus Results, manager development, and season strategy follow in that order. UX.8 retains its recorded in-progress boundary. Existing defects retain their evidence-supported statuses; production readiness, PostgreSQL parity, recovery, and defect closure remain unclaimed.
