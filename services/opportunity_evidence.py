@@ -74,6 +74,12 @@ def build_nflverse_usage_evidence(
     target_volume = _nonnegative(values.get("targets"))
     target_share = _share(values.get("target_share"))
     carry_volume = _nonnegative(values.get("carries"))
+    carry_share = _share(values.get("carry_share"))
+    touch_share = _share(values.get("touch_share"))
+    snap_share = _share(values.get("snap_share"))
+    route_participation = _share(values.get("route_participation"))
+    red_zone_share = _share(values.get("red_zone_share"))
+    role_classification = values.get("role_classification") or None
     blockers = []
     if player_id in (None, ""):
         blockers.append("OPPORTUNITY_PLAYER_ID_UNAVAILABLE")
@@ -105,9 +111,12 @@ def build_nflverse_usage_evidence(
         "target_volume": target_volume,
         "target_share": target_share,
         "carry_volume": carry_volume,
-        "snap_share": None,
-        "touch_share": None,
-        "route_participation": None,
+        "carry_share": carry_share,
+        "snap_share": snap_share,
+        "touch_share": touch_share,
+        "route_participation": route_participation,
+        "red_zone_share": red_zone_share,
+        "role_classification": role_classification,
         "source": source or "UNVERIFIED",
         "source_recorded_at": source_recorded_at,
         "retrieved_at": retrieved_at,

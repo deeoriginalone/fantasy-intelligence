@@ -6,6 +6,7 @@ DEFAULT_FRESHNESS_LIMITS={"roster":3600,"injury":86400,"matchup":86400,"projecti
 SCHEDULE_EVIDENCE_THRESHOLD_ID="schedule.evidence.v1"
 BYE_EVIDENCE_THRESHOLD_ID="bye.evidence.v1"
 MATCHUP_SAMPLE_THRESHOLD_ID="matchup.sample.v1"
+OPPORTUNITY_EVIDENCE_THRESHOLD_ID="opportunity.evidence.v1"
 
 def _positive_env_seconds(name, environ=None):
     value=(environ or os.environ).get(name)
@@ -28,6 +29,9 @@ def matchup_sample_threshold(environ=None):
     except (TypeError, ValueError):
         games=None
     return {"id":MATCHUP_SAMPLE_THRESHOLD_ID,"completed_games":games if games and games > 0 else None}
+
+def opportunity_evidence_threshold(environ=None):
+    return {"id":OPPORTUNITY_EVIDENCE_THRESHOLD_ID,"seconds":_positive_env_seconds("OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS", environ)}
 TIMESTAMP_FIELDS={"roster":("roster_updated_at","roster_sync_time"),"injury":("injury_updated_at","health_updated_at","last_health_update"),"matchup":("matchup_updated_at","matchup_sync_time","matchup_retrieved_at"),"projection":("projection_updated_at","projection_sync_time","projection_retrieved_at")}
 def _utc_now(now=None):
     v=now or datetime.now(timezone.utc); return v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)
