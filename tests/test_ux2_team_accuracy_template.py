@@ -12,6 +12,13 @@ def test_accuracy_partial_explains_required_domains():
     assert '{% include "_team_health.html" %}' in text
 
 
+def test_accuracy_partial_renders_matchup_context_from_shared_evidence():
+    text=Path("templates/_team_accuracy.html").read_text(encoding="utf-8")
+    assert "Matchup Context" in text
+    assert "row.matchup_context" in text
+    assert "row.matchup_rank if row.matchup_rank is not none else \"Unavailable\"" in text
+
+
 def test_team_template_removes_unsupported_aggregate_metrics():
     text=Path("templates/team.html").read_text(encoding="utf-8")
     assert "WEEKLY STARTER SCORE" not in text

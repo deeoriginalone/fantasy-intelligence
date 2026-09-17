@@ -75,11 +75,23 @@ def build_matchup_evidence(player: Mapping[str, Any], *, season: Any, week: Any,
         blockers.append("MATCHUP_SOURCE_UNAVAILABLE")
     if not retrieved_at:
         blockers.append("MATCHUP_RETRIEVAL_TIME_UNAVAILABLE")
-    if not source or not source.startswith("automated:nflverse"):
+    # matchup_source may be display-formatted (e.g. "nfl_schedule + automated:nflverse...");
+    # matchup_source_authority is derived from the raw source and is the trustworthy signal.
+    reported_authority = player.get("matchup_source_authority")
+    if reported_authority is not None:
+        automated_source_verified = reported_authority == "automated"
+    else:
+        automated_source_verified = bool(source) and source.startswith("automated:nflverse")
+    if not automated_source_verified:
         blockers.append("MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE")
     sample_threshold_id = player.get("matchup_sample_threshold_id")
     population = player.get("matchup_population")
     directionality = player.get("matchup_directionality")
+    # Population size is not separately threaded onto the player; read it from
+    # the publication lineage already supplied for this same evidence result.
+    raw_lineage = player.get("matchup_publication_lineage") or player.get("matchup_lineage")
+    population_contract = (raw_lineage.get("publication_contracts") or {}).get("population") if isinstance(raw_lineage, dict) else None
+    population_size = (population_contract or {}).get("size") if isinstance(population_contract, dict) else None
     if not sample_threshold_id:
         blockers.append("MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED")
     if not population:
@@ -96,7 +108,8 @@ def build_matchup_evidence(player: Mapping[str, Any], *, season: Any, week: Any,
         value=player.get("matchup_rank"), source=source, retrieved_at=retrieved_at,
         freshness_state=freshness_state, completeness_state="COMPLETE" if not blockers else "INCOMPLETE",
         blockers=blockers, lineage=player.get("matchup_publication_lineage") or player.get("matchup_lineage"),
-        extra={"opponent_identity": opponent, "position": player.get("position"), "scoring_context": "FULL_PPR", "rank_directionality": directionality, "comparison_population": population, "sample_size": player.get("matchup_sample_size"), "sample_threshold_id": sample_threshold_id, "version": player.get("matchup_version"), "checksum": player.get("matchup_checksum"), "artifact_id": player.get("matchup_artifact_id"), "release_id": player.get("matchup_release_id"), "source_recorded_at": player.get("matchup_source_recorded_at")},
+        source_authority="automated" if automated_source_verified else "UNVERIFIED",
+        extra={"opponent_identity": opponent, "position": player.get("position"), "scoring_context": "FULL_PPR", "rank_directionality": directionality, "comparison_population": population, "comparison_population_size": population_size, "sample_size": player.get("matchup_sample_size"), "sample_threshold_id": sample_threshold_id, "version": player.get("matchup_version"), "checksum": player.get("matchup_checksum"), "artifact_id": player.get("matchup_artifact_id"), "release_id": player.get("matchup_release_id"), "source_recorded_at": player.get("matchup_source_recorded_at")},
     )
 
 
@@ -122,10 +135,11 @@ def build_lineup_evidence(projection: Mapping[str, Any], matchup: Mapping[str, A
     }
 
 
-def _domain(*, domain: str, season: Any, week: Any, identity: Mapping[str, Any], value: Any, source: Any, retrieved_at: Any, freshness_state: str, completeness_state: str, blockers: list[str], lineage: Any, extra: Mapping[str, Any]) -> dict[str, Any]:
+def _domain(*, domain: str, season: Any, week: Any, identity: Mapping[str, Any], value: Any, source: Any, retrieved_at: Any, freshness_state: str, completeness_state: str, blockers: list[str], lineage: Any, extra: Mapping[str, Any], source_authority: Any = None) -> dict[str, Any]:
+    resolved_source_authority = source_authority if source_authority is not None else ("automated" if source and str(source).startswith("automated:") else "UNVERIFIED")
     return {
         "domain": domain, "season": season, "week": week, "identity": identity,
-        "value": value, "source": source or "UNVERIFIED", "source_authority": "automated" if source and str(source).startswith("automated:") else "UNVERIFIED",
+        "value": value, "source": source or "UNVERIFIED", "source_authority": resolved_source_authority,
         "source_recorded_at": None, "retrieved_at": retrieved_at, "imported_at": None,
         "age": None, "freshness_threshold_id": f"{domain}.freshness.v1", "freshness_state": freshness_state,
         "completeness_state": completeness_state, "blockers": list(dict.fromkeys(blockers)), "lineage": deepcopy(lineage),
