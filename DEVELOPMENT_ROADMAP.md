@@ -3,7 +3,7 @@
 ####### Last recorded repository checkpoint
 - Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: 4b464f4ab0808ae2678588825d009221b3c61fb9
+- HEAD: a428cccc37f110f7da6b1051d4f6bd333a44534d
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -188,7 +188,7 @@ The visual system has since been applied to My Team, Waivers, and Trades. My Tea
 The following systems remain planned and deferred, not abandoned:
 - A.11 VOR Engine
 - A.12 Floor / Median / Ceiling Model
-- A.13 Opportunity Metrics Engine: evidence foundation implemented; authoritative ingestion remains deferred
+- A.13 Opportunity Metrics Engine: automated nflverse target-share, carry-share, and touch-share ingestion and atomic publication are implemented; role evidence (snap share, route participation, red-zone usage, role classification) remains incomplete, no consumer integration exists, the operational freshness threshold remains unapproved, and the milestone is not complete
 - A.14 Schedule and Matchup Forecaster
 - A.15 Correlation Engine
 - A.16 Vegas Integration
@@ -296,6 +296,17 @@ The following systems remain planned and deferred, not abandoned:
 - Focused authority, Team Accuracy, template, and route-matrix validation completed with one pre-existing unrelated failure retained outside the changed boundary (`test_team_template_wires_accuracy_partial`). Related-suite validation passed 118 of 120 tests (2 pre-existing unrelated matchup-calculation staleness failures). Python compilation, `git diff --check`, and `git diff --cached --check` passed.
 - Rendered `/team` verification at desktop and 390px confirmed no primary horizontal overflow, no clipped content, all technical diagnostics collapsed by default, and visually distinct authoritative versus unavailable matchup states.
 - Production readiness, PostgreSQL parity, and recovery validation remain unclaimed.
+
+####### Automated player-opportunity ingestion boundary (2026-09-17)
+- Automated nflverse weekly-stat retrieval (reusing existing artifact, checksum, and version conventions), target-share/carry-share/touch-share calculation, and atomic PostgreSQL publication are implemented and committed (commit a428ccc, "Add fail-closed nflverse player opportunity publication").
+- Deterministic batch reconciliation accounts for every input row as published, unresolved, duplicate, or contradictory. Publication is blocked when accounting does not reconcile, when a duplicate or contradictory player-week identity exists, or when source, checksum, retrieved_at, or the opportunity freshness threshold is missing or unverified.
+- Publication replaces only the season/week scope present in the batch; it does not delete other weeks or other seasons. A blocked or failed refresh writes zero rows and preserves the prior valid automated publication. Verified against the real database: successful publish, deterministic rerun without duplication, atomic rollback on a blocked batch, cross-week preservation, and cross-season preservation.
+- Persisted fields: targets, carries, target_share, carry_share, touch_share, source, source authority, source_recorded_at, retrieved_at, artifact_id, version, checksum, freshness_threshold_id, freshness_state, completeness_state, lineage (including reconciliation detail), and publication_state.
+- snap_share, route_participation, red_zone_share, and role_classification remain explicitly NULL/unavailable; no supporting nflverse dataset is ingested for them.
+- The opportunity freshness threshold (OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS) remains unset by default. No operator has approved a value, so live publication remains blocked until one is configured.
+- No consumer (Dashboard, My Team, Waivers, Trades, Weekly Lineup, Decision Center) reads this evidence yet. No recommendation, confidence, ranking, score, route, template, or transaction behavior changed.
+- Focused opportunity calculation, ingestion, publication, evidence, and consumer-contract validation passed. Python compilation, git diff --check, and git diff --cached --check passed.
+- Role evidence, consumer integration, operational threshold approval, and the multi-week What Changed engine remain unimplemented. Production readiness, full PostgreSQL parity, and recovery validation are not claimed.
 
 ####### FantasyPros projection consumption boundary (2026-09-16)
 - FantasyPros automated source integration, live endpoint validation, deterministic identity overlap, non-authoritative evidence publication, and structured blocker metadata are implemented.
