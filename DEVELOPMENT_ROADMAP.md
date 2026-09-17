@@ -3,7 +3,7 @@
 ####### Last recorded repository checkpoint
 - Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: a428cccc37f110f7da6b1051d4f6bd333a44534d
+- HEAD: 11fded7ed6c04a417407018fd3c7fc84ad9e0e13
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -188,7 +188,7 @@ The visual system has since been applied to My Team, Waivers, and Trades. My Tea
 The following systems remain planned and deferred, not abandoned:
 - A.11 VOR Engine
 - A.12 Floor / Median / Ceiling Model
-- A.13 Opportunity Metrics Engine: automated nflverse target-share, carry-share, and touch-share ingestion and atomic publication are implemented; role evidence (snap share, route participation, red-zone usage, role classification) remains incomplete, no consumer integration exists, the operational freshness threshold remains unapproved, and the milestone is not complete
+- A.13 Opportunity Metrics Engine: automated nflverse target-share, carry-share, and touch-share ingestion and atomic publication are implemented; a fail-closed role-evidence contract and a verified, deterministic snap-share identity crosswalk (99.87% resolved, 0 ambiguous) are implemented but unpublished; route participation, red-zone usage, and role classification remain unimplemented; no consumer integration exists; the operational freshness threshold remains unapproved for both opportunity and snap-share evidence; the milestone is not complete
 - A.14 Schedule and Matchup Forecaster
 - A.15 Correlation Engine
 - A.16 Vegas Integration
@@ -302,11 +302,21 @@ The following systems remain planned and deferred, not abandoned:
 - Deterministic batch reconciliation accounts for every input row as published, unresolved, duplicate, or contradictory. Publication is blocked when accounting does not reconcile, when a duplicate or contradictory player-week identity exists, or when source, checksum, retrieved_at, or the opportunity freshness threshold is missing or unverified.
 - Publication replaces only the season/week scope present in the batch; it does not delete other weeks or other seasons. A blocked or failed refresh writes zero rows and preserves the prior valid automated publication. Verified against the real database: successful publish, deterministic rerun without duplication, atomic rollback on a blocked batch, cross-week preservation, and cross-season preservation.
 - Persisted fields: targets, carries, target_share, carry_share, touch_share, source, source authority, source_recorded_at, retrieved_at, artifact_id, version, checksum, freshness_threshold_id, freshness_state, completeness_state, lineage (including reconciliation detail), and publication_state.
-- snap_share, route_participation, red_zone_share, and role_classification remain explicitly NULL/unavailable; no supporting nflverse dataset is ingested for them.
+- snap_share, route_participation, red_zone_share, and role_classification remain explicitly NULL/unavailable in the published opportunity table; a supporting nflverse dataset now exists for snap_share (see the snap-share foundation boundary below) but is not yet published, and no supporting dataset is ingested for route_participation, red_zone_share, or role_classification.
 - The opportunity freshness threshold (OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS) remains unset by default. No operator has approved a value, so live publication remains blocked until one is configured.
 - No consumer (Dashboard, My Team, Waivers, Trades, Weekly Lineup, Decision Center) reads this evidence yet. No recommendation, confidence, ranking, score, route, template, or transaction behavior changed.
 - Focused opportunity calculation, ingestion, publication, evidence, and consumer-contract validation passed. Python compilation, git diff --check, and git diff --cached --check passed.
 - Role evidence, consumer integration, operational threshold approval, and the multi-week What Changed engine remain unimplemented. Production readiness, full PostgreSQL parity, and recovery validation are not claimed.
+
+####### Player role-evidence contract and snap-share foundation boundary (2026-09-17)
+- A fail-closed player role-evidence contract is implemented and committed (commit e07bcd2, "Add fail-closed player role evidence contract"); snap share, route participation, red-zone usage, and role classification each report `SOURCE_UNAVAILABLE` by default with `decision_effect = INFORMATIONAL_ONLY`.
+- The official nflverse `snap_counts` artifact is retrieved and normalized, reusing the existing generic retrieval/checksum helper; offense_pct is verified as a provider-supplied 0-1 ratio, not a percentage.
+- A deterministic `pfr_id -> gsis_id` identity crosswalk is built from the official nflverse `players` release and verified against real 2026 data: 1490 of 1492 snap_counts rows resolve (99.87%), 2 remain unresolved, and 0 are ambiguous. Unresolved, ambiguous, and cross-batch contradictory identity mappings fail closed and are never guessed.
+- snap_share values remain in-memory evidence only; no publication writer, migration, or database table exists for them. `player_opportunity_evidence` was reviewed and found unsuitable for reuse: its single provenance, checksum, and completeness columns per player-week cannot host an independently-sourced, independently-reconciled snap_counts batch without provenance collision or completeness ambiguity, so a new, separate publication path is required if snap_share is published.
+- route_participation, red_zone_share, and role_classification remain unimplemented; no supporting nflverse dataset is ingested for them.
+- `SNAP_SHARE_FRESHNESS_THRESHOLD_UNVERIFIED` remains active; no operator has approved a snap-share freshness threshold.
+- No consumer (Dashboard, My Team, Waivers, Trades, Weekly Lineup, Decision Center) reads snap-share evidence. No recommendation, ranking, confidence, route, template, or transaction behavior changed.
+- Focused snap-share foundation and crosswalk validation passed (36 tests). Python compilation, `git diff --check`, and `git diff --cached --check` passed.
 
 ####### FantasyPros projection consumption boundary (2026-09-16)
 - FantasyPros automated source integration, live endpoint validation, deterministic identity overlap, non-authoritative evidence publication, and structured blocker metadata are implemented.
