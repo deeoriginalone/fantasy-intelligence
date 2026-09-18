@@ -47,7 +47,7 @@ def publish_player_opportunity(conn: Any, evidence: Mapping[str, Any]) -> int:
     artifact_id = f"stats_player_week_{evidence['season']}"
     cursor = conn.cursor()
     try:
-        weeks = evidence.get("weeks") or sorted({row["week"] for row in evidence["rows"]})
+        weeks = sorted({int(week) for week in (evidence.get("weeks") or [row["week"] for row in evidence["rows"]])})
         # Opportunity evidence is published per player-week; only the weeks in this
         # batch are replaced so refreshing one week never removes another week's rows.
         cursor.execute(

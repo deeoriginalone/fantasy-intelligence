@@ -21,14 +21,20 @@ def build_evidence(path: str | Path, *, season: int, threshold_environment=None)
         missing = sorted(OPPORTUNITY_REQUIRED_COLUMNS.difference(rows[0] if rows else set()))
         raise ValueError(f"NFLVERSE_OPPORTUNITY_SCHEMA_UNVERIFIED: {missing}")
     filtered = [row for row in rows if str(row.get("season")) == str(season)]
-    is_remote = str(path).startswith(("http://", "https://"))
-    source = NFLVERSE_RELEASE_URL.format(season=season) if is_remote else f"fixture:{Path(path).name}"
-    source_recorded_at = urlopen(NFLVERSE_RELEASE_TIMESTAMP_URL, timeout=30).read().decode("utf-8").strip() if is_remote else None
-    return calculate_player_opportunity(
+    path_text = str(path)
+    verified_source_url = NFLVERSE_RELEASE_URL.format(season=season)
+    is_verified_remote = path_text == verified_source_url
+    is_remote = path_text.startswith(("http://", "https://"))
+    source = "automated:nflverse" if is_verified_remote else (f"remote:unverified:{path_text}" if is_remote else f"fixture:{Path(path).name}")
+    source_recorded_at = urlopen(NFLVERSE_RELEASE_TIMESTAMP_URL, timeout=30).read().decode("utf-8").strip() if is_verified_remote else None
+    evidence = calculate_player_opportunity(
         filtered, season=season, threshold_environment=threshold_environment,
         source=source, version=f"stats_player_week_{season}", checksum=checksum,
         source_recorded_at=source_recorded_at, retrieved_at=datetime.now(timezone.utc).isoformat(),
     )
+    evidence["provenance"]["source_location"] = path_text
+    evidence["provenance"]["source_authority"] = "automated:nflverse" if is_verified_remote else "UNVERIFIED"
+    return evidence
 
 
 def main() -> None:

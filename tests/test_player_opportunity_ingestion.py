@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+import imports.import_nflverse_opportunity as opportunity_import
 from imports.import_nflverse_opportunity import build_evidence
 from services.player_opportunity_calculation import calculate_player_opportunity
 from services.player_opportunity_publication import publish_player_opportunity
@@ -102,6 +103,30 @@ def test_missing_required_columns_raises_before_calculation(tmp_path):
         build_evidence(path, season=2026)
 
 
+def test_verified_nflverse_url_emits_automated_authority_and_preserves_location(monkeypatch):
+    source_url = opportunity_import.NFLVERSE_RELEASE_URL.format(season=2026)
+
+    monkeypatch.setattr(opportunity_import, "load_weekly_stats", lambda path: (rows(), "sha256:test"))
+    monkeypatch.setattr(opportunity_import, "urlopen", lambda *args, **kwargs: type("Response", (), {"read": lambda self: b"2026-09-18T00:00:00Z"})())
+    evidence = build_evidence(source_url, season=2026, threshold_environment=FRESH_ENV)
+    assert evidence["provenance"]["source"] == "automated:nflverse"
+    assert evidence["provenance"]["source_authority"] == "automated:nflverse"
+    assert evidence["provenance"]["source_location"] == source_url
+
+
+def test_arbitrary_remote_url_does_not_claim_automated_authority(monkeypatch):
+    monkeypatch.setattr(opportunity_import, "load_weekly_stats", lambda path: (rows(), "sha256:test"))
+    evidence = build_evidence("https://example.invalid/weekly.csv.gz", season=2026, threshold_environment=FRESH_ENV)
+    assert evidence["provenance"]["source"] != "automated:nflverse"
+    assert evidence["provenance"]["source_authority"] == "UNVERIFIED"
+
+
+def test_local_fixture_does_not_claim_automated_authority(tmp_path):
+    path = write_fixture(tmp_path)
+    evidence = build_evidence(path, season=2026, threshold_environment=FRESH_ENV)
+    assert evidence["provenance"]["source_authority"] == "UNVERIFIED"
+
+
 # 2/3/4/5. target/carry/touch evidence, source/retrieval metadata, checksum/version, threshold/freshness persisted
 def test_publish_persists_metrics_and_full_provenance():
     evidence = evidence_from_rows()
@@ -146,7 +171,7 @@ def test_replacement_is_scoped_to_season_and_specific_weeks_only():
     assert "DELETE FROM player_opportunity_evidence" in delete_sql
     assert "week = ANY(%s)" in delete_sql
     assert "source LIKE 'automated:nflverse%%'" in delete_sql
-    assert delete_params == (2026, ["3"])
+    assert delete_params == (2026, [3])
 
 
 def test_one_week_refresh_does_not_scope_delete_to_other_weeks():
@@ -155,7 +180,7 @@ def test_one_week_refresh_does_not_scope_delete_to_other_weeks():
     conn = FakeConnection()
     publish_player_opportunity(conn, evidence)
     delete_sql, delete_params = conn.cursor_instance.statements[0]
-    assert delete_params == (2026, ["5"])
+    assert delete_params == (2026, [5])
 
 
 # 9. missing threshold publishes zero rows
