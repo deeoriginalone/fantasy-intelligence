@@ -231,8 +231,20 @@ def build_what_changed(
     current: Mapping[str, Any] | None,
     previous: Mapping[str, Any] | None,
     rolling_baseline: Mapping[str, Any] | None,
+    *,
+    published_weeks: list[Mapping[str, Any]] | None = None,
+    player_id: Any = None,
+    season: Any = None,
+    requested_week: Any = None,
 ) -> dict[str, Any]:
     """Describe metric movements without drawing player-level conclusions."""
+    if published_weeks is not None:
+        return _build_published_what_changed(
+            published_weeks,
+            player_id=player_id,
+            season=season,
+            requested_week=requested_week,
+        )
     result = {
         "state": "UNAVAILABLE",
         "current_week": dict(current or {}),
@@ -285,6 +297,205 @@ def build_what_changed(
     result["state"] = "AVAILABLE"
     result["blocker"] = None
     return result
+
+
+PUBLISHED_COMPARISON_METRICS = (
+    ("target_volume", "Targets"),
+    ("carry_volume", "Carries"),
+    ("target_share", "Target Share"),
+    ("carry_share", "Carry Share"),
+    ("touch_share", "Touch Share"),
+)
+UNAVAILABLE_PUBLISHED_METRICS = (
+    ("snap_share", "Snap Share"),
+    ("route_participation", "Routes Run"),
+    ("red_zone_share", "Red-Zone Usage"),
+    ("role_classification", "Role Classification"),
+)
+PUBLISHED_REQUIRED_FIELDS = (
+    "player_id", "season", "week", "source", "source_authority",
+    "source_recorded_at", "retrieved_at", "artifact_id", "version",
+    "checksum", "freshness_threshold_id", "freshness_state",
+    "completeness_state", "publication_state", "lineage",
+)
+
+
+def _build_published_what_changed(
+    published_weeks: list[Mapping[str, Any]],
+    *,
+    player_id: Any = None,
+    season: Any = None,
+    requested_week: Any = None,
+) -> dict[str, Any]:
+    """Compare verified published player-week rows without adding conclusions."""
+    result = {
+        "schema_version": "what-changed.v2",
+        "player_id": player_id,
+        "season": season,
+        "current_week": requested_week,
+        "prior_comparison_week": None,
+        "comparison_window_type": "UNAVAILABLE",
+        "state": "UNAVAILABLE",
+        "current_context": {},
+        "prior_context": {},
+        "changes": [],
+        "summary": [],
+        "summaries": [],
+        "blockers": [],
+        "lineage": {},
+        "decision_effect": "INFORMATIONAL_ONLY",
+    }
+    rows = list(published_weeks or [])
+    if not rows:
+        result["blockers"] = ["OPPORTUNITY_CURRENT_EVIDENCE_UNAVAILABLE"]
+        return result
+    if not all(isinstance(row, Mapping) for row in rows):
+        result["blockers"] = ["OPPORTUNITY_PUBLISHED_ROW_INVALID"]
+        return result
+
+    identity_values = {row.get("player_id") for row in rows}
+    if player_id in (None, ""):
+        if len(identity_values) != 1 or None in identity_values or "" in identity_values:
+            result["blockers"] = ["OPPORTUNITY_PLAYER_IDENTITY_AMBIGUOUS"]
+            return result
+        player_id = next(iter(identity_values))
+    result["player_id"] = player_id
+    player_rows = [row for row in rows if row.get("player_id") == player_id]
+    if not player_rows:
+        result["blockers"] = ["OPPORTUNITY_PLAYER_IDENTITY_UNAVAILABLE"]
+        return result
+
+    seasons = {row.get("season") for row in player_rows}
+    if season is None:
+        if len(seasons) != 1 or None in seasons:
+            result["blockers"] = ["OPPORTUNITY_CROSS_SEASON_COMPARISON_UNAUTHORIZED"]
+            return result
+        season = next(iter(seasons))
+    result["season"] = season
+    if any(row.get("season") != season for row in player_rows):
+        result["blockers"] = ["OPPORTUNITY_CROSS_SEASON_COMPARISON_UNAUTHORIZED"]
+        return result
+
+    invalid_rows = [row for row in player_rows if _published_row_blockers(row)]
+    if invalid_rows:
+        result["blockers"] = list(dict.fromkeys(
+            blocker for row in invalid_rows for blocker in _published_row_blockers(row)
+        ))
+        result["state"] = "BLOCKED"
+        return result
+    by_week: dict[Any, Mapping[str, Any]] = {}
+    duplicate_weeks = set()
+    for row in player_rows:
+        week = row["week"]
+        if week in by_week:
+            duplicate_weeks.add(week)
+        by_week[week] = row
+    if duplicate_weeks:
+        result["state"] = "BLOCKED"
+        result["blockers"] = ["OPPORTUNITY_DUPLICATE_PLAYER_WEEK"]
+        return result
+
+    try:
+        current_week = requested_week if requested_week is not None else max(by_week)
+        earlier_weeks = [week for week in by_week if week < current_week]
+    except TypeError:
+        result["state"] = "BLOCKED"
+        result["blockers"] = ["OPPORTUNITY_WEEK_UNAVAILABLE"]
+        return result
+    result["current_week"] = current_week
+    current = by_week.get(current_week)
+    if current is None:
+        result["blockers"] = ["OPPORTUNITY_CURRENT_WEEK_UNAVAILABLE"]
+        return result
+    if not earlier_weeks:
+        result["blockers"] = ["OPPORTUNITY_PRIOR_WEEK_UNAVAILABLE"]
+        return result
+    prior_week = current_week - 1 if current_week - 1 in by_week else max(earlier_weeks)
+    prior = by_week[prior_week]
+    result["prior_comparison_week"] = prior_week
+    result["comparison_window_type"] = "ADJACENT" if prior_week == current_week - 1 else "NON_ADJACENT"
+    result["current_context"] = _published_context(current)
+    result["prior_context"] = _published_context(prior)
+    result["lineage"] = {
+        "current_week": current_week,
+        "prior_week": prior_week,
+        "current_lineage": current.get("lineage"),
+        "prior_lineage": prior.get("lineage"),
+    }
+    for metric, label in PUBLISHED_COMPARISON_METRICS:
+        current_value = current.get(metric)
+        prior_value = prior.get(metric)
+        comparison = {
+            "metric": metric,
+            "label": label,
+            "current_value": current_value,
+            "prior_value": prior_value,
+            "absolute_delta": None,
+            "direction": "UNAVAILABLE",
+            "availability_state": "UNAVAILABLE",
+            "current_week": current_week,
+            "prior_week": prior_week,
+            "blocker": None,
+        }
+        if current_value is None or prior_value is None:
+            comparison["blocker"] = "OPPORTUNITY_METRIC_VALUE_UNAVAILABLE"
+        else:
+            delta = round(current_value - prior_value, 4)
+            comparison.update(
+                absolute_delta=delta,
+                direction="INCREASED" if delta > 0 else "DECREASED" if delta < 0 else "UNCHANGED",
+                availability_state="AVAILABLE",
+            )
+            result["summary"].append(
+                f"{label} {comparison['direction'].lower()} from the verified Week {prior_week} value to the verified Week {current_week} value."
+            )
+        result["changes"].append(comparison)
+    for metric, label in UNAVAILABLE_PUBLISHED_METRICS:
+        result["changes"].append({
+            "metric": metric,
+            "label": label,
+            "current_value": None,
+            "prior_value": None,
+            "absolute_delta": None,
+            "direction": "UNAVAILABLE",
+            "availability_state": "UNAVAILABLE",
+            "current_week": current_week,
+            "prior_week": prior_week,
+            "blocker": "OPPORTUNITY_METRIC_SOURCE_UNAVAILABLE",
+        })
+    result["summaries"] = list(result["summary"])
+    result["state"] = "AVAILABLE"
+    return result
+
+
+def _published_row_blockers(row: Mapping[str, Any]) -> list[str]:
+    blockers = [
+        f"OPPORTUNITY_PUBLISHED_FIELD_UNAVAILABLE:{field}"
+        for field in PUBLISHED_REQUIRED_FIELDS
+        if row.get(field) in (None, "", {})
+    ]
+    if row.get("source_authority") != "automated":
+        blockers.append("OPPORTUNITY_SOURCE_AUTHORITY_UNSUPPORTED")
+    if not str(row.get("source") or "").startswith("automated:nflverse"):
+        blockers.append("OPPORTUNITY_SOURCE_UNSUPPORTED")
+    if row.get("freshness_state") not in {"FRESH", "AGING"}:
+        blockers.append("OPPORTUNITY_EVIDENCE_NOT_CURRENT")
+    if row.get("completeness_state") != "COMPLETE":
+        blockers.append("OPPORTUNITY_INCOMPLETE")
+    if row.get("publication_state") != "PUBLISHED":
+        blockers.append("OPPORTUNITY_PUBLICATION_STATE_INVALID")
+    reconciliation = (row.get("lineage") or {}).get("reconciliation")
+    if not isinstance(reconciliation, Mapping) or reconciliation.get("reconciled") is not True:
+        blockers.append("OPPORTUNITY_RECONCILIATION_UNVERIFIED")
+    return list(dict.fromkeys(blockers))
+
+
+def _published_context(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {field: row.get(field) for field in (
+        "source", "source_authority", "source_recorded_at", "retrieved_at",
+        "artifact_id", "version", "checksum", "freshness_threshold_id",
+        "freshness_state", "completeness_state", "publication_state",
+    )}
 
 
 def classify_opportunity_trend(
