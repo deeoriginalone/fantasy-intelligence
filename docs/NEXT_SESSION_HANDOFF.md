@@ -235,15 +235,14 @@ A synchronization PASS confirms documentation consistency only. It does not prov
 - Production readiness, PostgreSQL parity, and recovery validation remain unclaimed.
 
 ###### Automated player-opportunity ingestion boundary (2026-09-17)
-- Automated nflverse weekly-stat retrieval (reusing existing artifact, checksum, and version conventions), target-share/carry-share/touch-share calculation, and atomic PostgreSQL publication are implemented and committed (commit a428ccc, "Add fail-closed nflverse player opportunity publication").
-- Deterministic batch reconciliation accounts for every input row as published, unresolved, duplicate, or contradictory. Publication is blocked when accounting does not reconcile, when a duplicate or contradictory player-week identity exists, or when source, checksum, retrieved_at, or the opportunity freshness threshold is missing or unverified.
-- Publication replaces only the season/week scope present in the batch; it does not delete other weeks or other seasons. A blocked or failed refresh writes zero rows and preserves the prior valid automated publication. Verified against the real database: successful publish, deterministic rerun without duplication, atomic rollback on a blocked batch, cross-week preservation, and cross-season preservation.
-- Persisted fields: targets, carries, target_share, carry_share, touch_share, source, source authority, source_recorded_at, retrieved_at, artifact_id, version, checksum, freshness_threshold_id, freshness_state, completeness_state, lineage (including reconciliation detail), and publication_state.
+- Automated nflverse weekly-stat retrieval, target-share/carry-share/touch-share calculation, deterministic reconciliation, and atomic PostgreSQL publication are operational. The verified 2026 publication contains 1,188 rows across Weeks 1 and 2 for 1,122 distinct players; rows are FRESH, COMPLETE, PUBLISHED, and carry reconciled lineage.
+- Publication preserves source authority, source-recorded time, retrieved-at time, artifact identity, version, checksum, freshness threshold, completeness, lineage, and publication state. The publication path retains exact season/week scope and atomic rollback behavior.
 - snap_share, route_participation, red_zone_share, and role_classification remain explicitly NULL/unavailable in the published opportunity table; a supporting nflverse dataset now exists for snap_share (see the snap-share foundation boundary below) but is not yet published, and no supporting dataset is ingested for route_participation, red_zone_share, or role_classification.
-- The opportunity freshness threshold (OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS) remains unset by default. No operator has approved a value, so live publication remains blocked until one is configured.
-- No consumer (Dashboard, My Team, Waivers, Trades, Weekly Lineup, Decision Center) reads this evidence yet. No recommendation, confidence, ranking, score, route, template, or transaction behavior changed.
+- The approved opportunity freshness threshold is `OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS=86400`. The verified 2026 publication contains 1,188 rows across Weeks 1 and 2 for 1,122 distinct players; rows are FRESH, COMPLETE, PUBLISHED, and carry reconciled lineage.
+- GSIS-first roster identity resolution with scoped ESPN fallback is operational. Six roster identities resolve; eight remain unavailable and fail closed.
+- The published opportunity reader, multi-week What Changed engine, and My Team informational consumer are operational. All six resolved identities have Week 1 evidence; none has a Week 2 source row in the official artifact, so Week 2 comparison evidence remains `SOURCE_REASON_UNAVAILABLE`.
 - Focused opportunity calculation, ingestion, publication, evidence, and consumer-contract validation passed. Python compilation, `git diff --check`, and `git diff --cached --check` passed.
-- Role evidence, consumer integration, operational threshold approval, and the multi-week What Changed engine remain unimplemented. Production readiness, full PostgreSQL parity, and recovery validation are not claimed.
+- Role evidence beyond the current snap-share foundation, production readiness, full PostgreSQL parity, and recovery validation remain unclaimed. No recommendation, confidence, ranking, score, route, template, waiver, trade, or transaction behavior is changed by this informational evidence.
 
 ###### Player role-evidence contract and snap-share foundation boundary (2026-09-17)
 - A fail-closed player role-evidence contract is implemented and committed (commit e07bcd2, "Add fail-closed player role evidence contract"); snap share, route participation, red-zone usage, and role classification each report `SOURCE_UNAVAILABLE` by default with `decision_effect = INFORMATIONAL_ONLY`.
@@ -265,8 +264,10 @@ A synchronization PASS confirms documentation consistency only. It does not prov
 
 ## Next milestone
 
-**Establish automated player opportunity and role evidence, then build a multi-week What Changed engine.**
+**Complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**
 
-Opportunity publication is the next evidence foundation. Snap share, target share, touch share, routes, and role change require supported source and identity evidence. Buy Low, Sell High, Breakout, and Regression labels remain deferred until opportunity history and market evidence support them. No new recommendation behavior is authorized by this documentation update.
+Verified opportunity publication, GSIS-first identity resolution with scoped ESPN fallback, the published opportunity reader, the multi-week What Changed foundation, and the My Team informational consumer are operational at their verified boundaries.
 
-Navigation reconciliation supports this milestone but does not outrank decision quality. Opportunity detection is the next competitive advantage after weekly trust; Decision Center, Process versus Results, manager development, and season strategy follow in that order. UX.8 retains its recorded in-progress boundary. Existing defects retain their evidence-supported statuses; production readiness, PostgreSQL parity, recovery, and defect closure remain unclaimed.
+Preserve fail-closed behavior and SOURCE_REASON_UNAVAILABLE for unsupported source omissions.
+
+Defer Buy Low, Sell High, Breakout, Regression, recommendation authority, ranking authority, confidence authority, score authority, and transaction behavior until the required evidence contracts are complete.

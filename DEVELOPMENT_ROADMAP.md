@@ -188,7 +188,7 @@ The visual system has since been applied to My Team, Waivers, and Trades. My Tea
 The following systems remain planned and deferred, not abandoned:
 - A.11 VOR Engine
 - A.12 Floor / Median / Ceiling Model
-- A.13 Opportunity Metrics Engine: automated nflverse target-share, carry-share, and touch-share ingestion and atomic publication are implemented; a fail-closed role-evidence contract and a verified, deterministic snap-share identity crosswalk (99.87% resolved, 0 ambiguous) are implemented but unpublished; route participation, red-zone usage, and role classification remain unimplemented; no consumer integration exists; the operational freshness threshold remains unapproved for both opportunity and snap-share evidence; the milestone is not complete
+- A.13 Opportunity Metrics Engine: automated nflverse target-share, carry-share, and touch-share retrieval, calculation, deterministic reconciliation, and atomic publication are operational. The verified 2026 publication contains 1,188 FRESH, COMPLETE, PUBLISHED rows across Weeks 1 and 2 for 1,122 players with reconciled lineage. GSIS-first identity resolution with scoped ESPN fallback, the published reader, the multi-week What Changed foundation, and the My Team informational consumer are operational. Six roster identities resolve; eight remain unavailable. All six resolved identities have Week 1 evidence, while Week 2 source evidence is absent and remains `SOURCE_REASON_UNAVAILABLE`. Snap-share publication, route participation, red-zone usage, and role classification remain incomplete; recommendation, ranking, confidence, score, and transaction authority remain deferred.
 - A.14 Schedule and Matchup Forecaster
 - A.15 Correlation Engine
 - A.16 Vegas Integration
@@ -303,10 +303,8 @@ The following systems remain planned and deferred, not abandoned:
 - Publication replaces only the season/week scope present in the batch; it does not delete other weeks or other seasons. A blocked or failed refresh writes zero rows and preserves the prior valid automated publication. Verified against the real database: successful publish, deterministic rerun without duplication, atomic rollback on a blocked batch, cross-week preservation, and cross-season preservation.
 - Persisted fields: targets, carries, target_share, carry_share, touch_share, source, source authority, source_recorded_at, retrieved_at, artifact_id, version, checksum, freshness_threshold_id, freshness_state, completeness_state, lineage (including reconciliation detail), and publication_state.
 - snap_share, route_participation, red_zone_share, and role_classification remain explicitly NULL/unavailable in the published opportunity table; a supporting nflverse dataset now exists for snap_share (see the snap-share foundation boundary below) but is not yet published, and no supporting dataset is ingested for route_participation, red_zone_share, or role_classification.
-- The opportunity freshness threshold (OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS) remains unset by default. No operator has approved a value, so live publication remains blocked until one is configured.
-- No consumer (Dashboard, My Team, Waivers, Trades, Weekly Lineup, Decision Center) reads this evidence yet. No recommendation, confidence, ranking, score, route, template, or transaction behavior changed.
 - Focused opportunity calculation, ingestion, publication, evidence, and consumer-contract validation passed. Python compilation, git diff --check, and git diff --cached --check passed.
-- Role evidence, consumer integration, operational threshold approval, and the multi-week What Changed engine remain unimplemented. Production readiness, full PostgreSQL parity, and recovery validation are not claimed.
+- Role evidence beyond the current snap-share foundation, production readiness, full PostgreSQL parity, and recovery validation remain unclaimed. No recommendation, confidence, ranking, score, route, template, waiver, trade, or transaction behavior is changed by this informational evidence.
 
 ####### Player role-evidence contract and snap-share foundation boundary (2026-09-17)
 - A fail-closed player role-evidence contract is implemented and committed (commit e07bcd2, "Add fail-closed player role evidence contract"); snap share, route participation, red-zone usage, and role classification each report `SOURCE_UNAVAILABLE` by default with `decision_effect = INFORMATIONAL_ONLY`.
@@ -328,8 +326,10 @@ The following systems remain planned and deferred, not abandoned:
 
 ## Next milestone
 
-**Establish automated player opportunity and role evidence, then build a multi-week What Changed engine.**
+**Complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**
 
-Opportunity publication is the next evidence foundation. Snap share, target share, touch share, routes, and role change require supported source and identity evidence. Buy Low, Sell High, Breakout, and Regression labels remain deferred until opportunity history and market evidence support them. No new recommendation behavior is authorized by this documentation update.
+Verified opportunity publication, GSIS-first identity resolution with scoped ESPN fallback, the published opportunity reader, the multi-week What Changed foundation, and the My Team informational consumer are operational at their verified boundaries.
 
-Navigation reconciliation supports this milestone but does not outrank decision quality. Opportunity detection is the next competitive advantage after weekly trust; Decision Center, Process versus Results, manager development, and season strategy follow in that order. UX.8 retains its recorded in-progress boundary. Existing defects retain their evidence-supported statuses; production readiness, PostgreSQL parity, recovery, and defect closure remain unclaimed.
+Preserve fail-closed behavior and SOURCE_REASON_UNAVAILABLE for unsupported source omissions.
+
+Defer Buy Low, Sell High, Breakout, Regression, recommendation authority, ranking authority, confidence authority, score authority, and transaction behavior until the required evidence contracts are complete.
