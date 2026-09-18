@@ -19,6 +19,7 @@ from services.team_priority import build_team_priority_action
 from services.team_hardening import build_bench_decisions, build_bench_plan, build_lineup_snapshot, build_roster_outlook, build_team_trust_summary, build_weekly_risks
 from services.player_opportunity_reader import read_player_what_changed
 from services.gsis_identity_crosswalk import attach_opportunity_player_ids
+from services.nflverse_player_metadata import acquire_nflverse_player_metadata
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
@@ -548,13 +549,20 @@ def create_owner_operations_blueprint(
                 health_source = "Season Sandbox"
             team_health = team_health_contract(roster, source=health_source, **health_meta)
             team_accuracy = build_team_accuracy_contract(roster, starters, league_settings, team_needs, team_health)
+            nflverse_records = current_app.config.get("NFLVERSE_PLAYER_METADATA")
+            nflverse_lineage = current_app.config.get("NFLVERSE_PLAYER_METADATA_LINEAGE")
+            if nflverse_records is None and not current_app.testing:
+                metadata = acquire_nflverse_player_metadata()
+                if metadata["state"] == "AVAILABLE":
+                    nflverse_records = metadata["rows"]
+                    nflverse_lineage = metadata["lineage"]
             opportunity_changes = build_team_opportunity_changes(
                 conn,
                 roster,
                 season=meta.get("season"),
                 week=meta.get("week"),
-                nflverse_records=current_app.config.get("NFLVERSE_PLAYER_METADATA"),
-                nflverse_lineage=current_app.config.get("NFLVERSE_PLAYER_METADATA_LINEAGE"),
+                nflverse_records=nflverse_records,
+                nflverse_lineage=nflverse_lineage,
             )
         finally:
             cur.close(); conn.close()
