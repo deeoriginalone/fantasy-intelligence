@@ -17,9 +17,54 @@ from services.team_health import team_health_contract, apply_player_health_to_re
 from services.ux2_team_accuracy import build_team_accuracy_contract
 from services.team_priority import build_team_priority_action
 from services.team_hardening import build_bench_decisions, build_bench_plan, build_lineup_snapshot, build_roster_outlook, build_team_trust_summary, build_weekly_risks
+from services.player_opportunity_reader import read_player_what_changed
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
+
+
+def build_team_opportunity_changes(connection, roster, *, season, week):
+    """Build informational What Changed evidence for explicitly linked players."""
+    result = {"state": "UNAVAILABLE", "players": [], "blockers": [], "decision_effect": "INFORMATIONAL_ONLY"}
+    if not isinstance(season, int) or isinstance(season, bool) or season <= 0:
+        result["blockers"] = ["OPPORTUNITY_SEASON_INVALID"]
+        return result
+    if not isinstance(week, int) or isinstance(week, bool) or week <= 0:
+        result["blockers"] = ["OPPORTUNITY_WEEK_INVALID"]
+        return result
+    for player in roster or []:
+        name = player.get("player") or "Unnamed player"
+        opportunity_player_id = player.get("opportunity_player_id")
+        if not isinstance(opportunity_player_id, str) or not opportunity_player_id.strip():
+            result["players"].append({
+                "player": name,
+                "state": "UNAVAILABLE",
+                "blockers": ["OPPORTUNITY_PLAYER_IDENTITY_UNAVAILABLE"],
+                "decision_effect": "INFORMATIONAL_ONLY",
+            })
+            continue
+        comparison = read_player_what_changed(
+            connection,
+            player_id=opportunity_player_id,
+            season=season,
+            week=week,
+        )
+        result["players"].append({"player": name, "opportunity_player_id": opportunity_player_id, **comparison})
+    if not result["players"]:
+        result["blockers"] = ["OPPORTUNITY_ROSTER_EMPTY"]
+    elif all(item["state"] == "AVAILABLE" for item in result["players"]):
+        result["state"] = "AVAILABLE"
+    elif any(item["state"] == "BLOCKED" for item in result["players"]):
+        result["state"] = "BLOCKED"
+        result["blockers"] = list(dict.fromkeys(
+            blocker for item in result["players"] for blocker in item.get("blockers", [])
+        ))
+    else:
+        result["state"] = "UNAVAILABLE"
+        result["blockers"] = list(dict.fromkeys(
+            blocker for item in result["players"] for blocker in item.get("blockers", [])
+        ))
+    return result
 
 
 def waiver_projection_contribution(candidate):
@@ -219,6 +264,7 @@ def create_owner_operations_blueprint(
 
     def current_roster(cur):
         context = data_context(cur)
+        season = 2026
         if context["mode"] == "MOCK":
             cur.execute(
                 "SELECT draft_name, strategy, draft_position FROM mock_drafts WHERE id = %s",
@@ -226,21 +272,27 @@ def create_owner_operations_blueprint(
             )
             row = cur.fetchone()
             roster = mock_roster(cur, context["draft_id"], row[2] if row else 5)
-            roster = enrich_players(cur, roster, current_week(cur))
+            week = current_week(cur)
+            roster = enrich_players(cur, roster, week)
             return context, roster, {
                 "team_name": "My Mock Team",
                 "league_name": "Season Sandbox",
                 "strategy": row[1] if row else "WR_HEAVY",
                 "draft_name": row[0] if row else f"Mock #{context['draft_id']}",
+                "season": season,
+                "week": week,
                 "shared_facts": shared_league_facts({}, source="Season Sandbox", blocker="LIVE_LEAGUE_FACTS_NOT_APPLICABLE"),
             }
         roster, league = live_roster(cur)
-        roster = enrich_players(cur, roster, current_week(cur), allow_local_weekly_data=True, allow_local_health_fallback=False, require_automated_weekly_evidence=True)
+        week = current_week(cur)
+        roster = enrich_players(cur, roster, week, allow_local_weekly_data=True, allow_local_health_fallback=False, require_automated_weekly_evidence=True)
         return context, roster, {
             "team_name": "DiE-HaRd-9eRs-FaN",
             "league_name": league.get("name") or "Fantasy Intelligence Champions League",
             "strategy": "LIVE",
             "draft_name": None,
+            "season": season,
+            "week": week,
             "shared_facts": shared_league_facts(league),
         }
 
@@ -485,6 +537,12 @@ def create_owner_operations_blueprint(
                 health_source = "Season Sandbox"
             team_health = team_health_contract(roster, source=health_source, **health_meta)
             team_accuracy = build_team_accuracy_contract(roster, starters, league_settings, team_needs, team_health)
+            opportunity_changes = build_team_opportunity_changes(
+                conn,
+                roster,
+                season=meta.get("season"),
+                week=meta.get("week"),
+            )
         finally:
             cur.close(); conn.close()
         weekly_defaults = {
@@ -521,7 +579,7 @@ def create_owner_operations_blueprint(
         roster_outlook = build_roster_outlook(team_needs, team_health)
         lineup_intelligence = build_lineup_intelligence(roster)
         decisions_by_slot = {d.get("slot"): d for d in lineup_intelligence.get("start_sit_decisions", [])}
-        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_intelligence=lineup_intelligence, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context, opportunity_view=opportunity_view)
+        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_intelligence=lineup_intelligence, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context, opportunity_view=opportunity_view, opportunity_changes=opportunity_changes)
 
     @bp.route("/lineup")
     def lineup_page():
