@@ -25,7 +25,7 @@ POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
 
 
-def build_team_opportunity_changes(connection, roster, *, season, week, nflverse_records=None, nflverse_lineage=None):
+def build_team_opportunity_changes(connection, roster, *, season, week, nflverse_records=None, nflverse_lineage=None, sleeper_records=None):
     """Build informational What Changed evidence for explicitly linked players."""
     result = {"state": "UNAVAILABLE", "players": [], "blockers": [], "decision_effect": "INFORMATIONAL_ONLY"}
     if not isinstance(season, int) or isinstance(season, bool) or season <= 0:
@@ -38,6 +38,7 @@ def build_team_opportunity_changes(connection, roster, *, season, week, nflverse
         roster or [],
         nflverse_records or [],
         nflverse_lineage=nflverse_lineage,
+        sleeper_records=sleeper_records,
     ) if nflverse_records is not None else [dict(player) for player in (roster or [])]
     for player in mapped_roster:
         name = player.get("player") or "Unnamed player"
@@ -179,7 +180,7 @@ def create_owner_operations_blueprint(
             None,
         )
         if not owner_roster:
-            return [], league
+            return [], league, all_players
         player_ids = [str(pid) for pid in (owner_roster.get("players") or [])]
         local_names = []
         for pid in player_ids:
@@ -222,7 +223,9 @@ def create_owner_operations_blueprint(
                 player=row_to_player(row, row[9] if len(row) > 9 else None, row[10] if len(row) > 10 else None)
                 player["source_player_id"] = sleeper_player_id
                 player["sleeper_gsis_id"] = raw.get("gsis_id")
+                player["sleeper_espn_id"] = raw.get("espn_id")
                 player["sleeper_metadata_retrieved_at"] = sleeper_retrieved_at
+                player["sleeper_metadata_coverage_state"] = "COMPLETE"
                 player["normalized_name"] = normalize_player_name(name)
                 player["identity_match_method"] = "UNIQUE_NORMALIZED_NAME"
                 player["identity_state"] = "RESOLVED"
@@ -259,7 +262,9 @@ def create_owner_operations_blueprint(
                 player["injury_source"] = "Sleeper API"
                 player["source_player_id"] = sleeper_player_id
                 player["sleeper_gsis_id"] = raw.get("gsis_id")
+                player["sleeper_espn_id"] = raw.get("espn_id")
                 player["sleeper_metadata_retrieved_at"] = sleeper_retrieved_at
+                player["sleeper_metadata_coverage_state"] = "COMPLETE"
                 player["normalized_name"] = normalize_player_name(name)
                 player["identity_match_method"] = "LOCAL_PLAYER_UNAVAILABLE"
                 player["identity_state"] = "UNRESOLVED"
@@ -272,7 +277,7 @@ def create_owner_operations_blueprint(
                     player["health_fetched_at"] = sleeper_retrieved_at
                     player["injury_updated_at"] = sleeper_retrieved_at
                 result.append(player)
-        return result, league
+        return result, league, all_players
 
     def current_roster(cur):
         context = data_context(cur)
@@ -295,7 +300,7 @@ def create_owner_operations_blueprint(
                 "week": week,
                 "shared_facts": shared_league_facts({}, source="Season Sandbox", blocker="LIVE_LEAGUE_FACTS_NOT_APPLICABLE"),
             }
-        roster, league = live_roster(cur)
+        roster, league, sleeper_catalog = live_roster(cur)
         week = current_week(cur)
         roster = enrich_players(cur, roster, week, allow_local_weekly_data=True, allow_local_health_fallback=False, require_automated_weekly_evidence=True)
         return context, roster, {
@@ -471,13 +476,18 @@ def create_owner_operations_blueprint(
         decision_evidence = weekly_evidence_contract(
             domain="waiver ranking inputs", source=None, freshness_state="UNAVAILABLE", completeness_state="UNAVAILABLE",
             blocker="WAIVER_RANKING_SOURCE_UNVERIFIED", fallback_used="local player projections/rankings",
-            recommendation_impact="Waiver candidates remain visible only as unranked research until automated ranking and projection evidence is available.",
+            recommendation_impact="Waiver candidates use locally supplied projections/rankings; automated ranking source is unverified.",
         )
         result["decision_evidence"] = decision_evidence
         if not decision_evidence["authoritative"]:
-            result["allowed"] = False
-            result["candidates"] = []
-            result["blockers"] = list(dict.fromkeys([*(result.get("blockers") or []), decision_evidence["blocker"]]))
+            # Ownership and eligibility are already fail-closed above (see
+            # evaluate_waiver_availability). Ranking source is informational:
+            # surface it as a visible warning instead of re-blocking
+            # already-verified, fresh, complete waiver candidates.
+            result["warnings"] = list(dict.fromkeys([*(result.get("warnings") or []), decision_evidence["blocker"]]))
+            result["ranking_confidence"] = "UNVERIFIED"
+        else:
+            result["ranking_confidence"] = "VERIFIED"
         availability["identity_diagnostics"].update(
             rostered_exclusion_count=sum(
                 item.get("resolved_player_id") in owned_ids
