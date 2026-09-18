@@ -25,6 +25,7 @@ Every season-management page should help answer at least one of these questions:
 - **Action before diagnostics:** the recommended team-management action and expected impact come before technical evidence.
 - **Explain every metric:** scores, ranks, grades, baselines, confidence, and roster-fit values require a definition, scale, inputs, and decision use.
 - **One shared league truth:** Dashboard, My Team, Lineup, Waivers, Trades, and Weekly Command Center should use the same roster, league-settings, ownership, and team-needs contracts.
+- **One unified manager workflow:** Decision Center, My Team, Waivers, Trades, NFL Intelligence, and Survivor are primary in-season destinations within one read-only decision-support ecosystem. Shared ownership, freshness, roster-truth, and explanation contracts should be reused where applicable.
 - **Read-only decision support:** the application may recommend actions but must not submit external fantasy transactions automatically.
 
 ## All-Season Page Quality Standard

@@ -8,6 +8,7 @@
 - Explain every displayed score, rank, baseline, grade, fit, confidence, and impact value.
 - Put recommended action and fantasy impact before technical diagnostics.
 - Preserve read-only decision support.
+- Do not require a manager-maintained CSV or manual upload for routine weekly decisions. CSV-backed evidence is a disclosed last-resort bootstrap or recovery input and must fail closed when stale.
 
 ## All-Season Page Quality Standard
 
@@ -111,7 +112,7 @@ Each page must earn advancement independently. Technical tests are necessary but
 
 ## Survivor Intelligence (UX.8)
 
-Survivor Intelligence is not one of the six season-management pages above but reuses the shared requirements (freshness, fail-closed, explainability, action-first ordering, read-only decision support).
+Survivor Intelligence is a primary in-season destination within the same manager workflow as Decision Center, My Team, Waivers, Trades, and NFL Intelligence. It is not one of the six season-management pages listed above, but it reuses the shared requirements (freshness, fail-closed behavior, explainability, action-first ordering, and read-only decision support).
 
 ### Must show
 - Verified survivor season and week; never a guessed or hard-coded active week
