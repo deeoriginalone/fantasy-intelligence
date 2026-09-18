@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-09-13T13:02:17.414380+00:00",
+  "generated_at_utc": "2026-09-18T11:15:49.990023+00:00",
   "passed": true,
   "repository": {
-    "branch": "feature/evidence-bundle-pipeline",
-    "head": "0ae48334b64a13b980a07947009df0de501a263d",
-    "short_head": "0ae4833"
+    "branch": "test-weekly-evidence-trust",
+    "head": "2ca15b5bf1ee05cdc7791cf65694a95eada8dc7a",
+    "short_head": "2ca15b5"
   },
   "checks": {
     "canonical_files_present": true,
@@ -18,35 +18,35 @@
   "files": {
     "PROJECT_STATUS.md": {
       "exists": true,
-      "bytes": 9008,
+      "bytes": 33396,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**finalize ux.5 formal completion review and canonical continuity validation.**"
+      "next_milestone": "**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**"
     },
     "PROJECT_STATE.md": {
       "exists": true,
-      "bytes": 10575,
+      "bytes": 34685,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**finalize ux.5 formal completion review and canonical continuity validation.**"
+      "next_milestone": "**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**"
     },
     "DEVELOPMENT_ROADMAP.md": {
       "exists": true,
-      "bytes": 14446,
+      "bytes": 38863,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**finalize ux.5 formal completion review and canonical continuity validation.**"
+      "next_milestone": "**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**"
     },
     "NEXT_SESSION_HANDOFF.md": {
       "exists": true,
-      "bytes": 11289,
+      "bytes": 35616,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**finalize ux.5 formal completion review and canonical continuity validation.**"
+      "next_milestone": "**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**"
     }
   },
   "missing_files": [],
@@ -55,7 +55,7 @@
   "head_mismatches": [],
   "missing_milestones": [],
   "unique_milestones": [
-    "**finalize ux.5 formal completion review and canonical continuity validation.**"
+    "**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**"
   ],
   "sensitive_findings": []
 }

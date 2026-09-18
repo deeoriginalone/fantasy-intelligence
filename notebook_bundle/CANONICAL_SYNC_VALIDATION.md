@@ -1,9 +1,9 @@
 # Canonical Memory Sync Validation
 
-- Generated UTC: `2026-09-13T13:02:17.414380+00:00`
+- Generated UTC: `2026-09-18T11:15:49.990023+00:00`
 - Result: `PASS`
-- Current branch: `feature/evidence-bundle-pipeline`
-- Current HEAD: `0ae48334b64a13b980a07947009df0de501a263d`
+- Current branch: `test-weekly-evidence-trust`
+- Current HEAD: `2ca15b5bf1ee05cdc7791cf65694a95eada8dc7a`
 
 ## Checks
 
@@ -23,7 +23,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**finalize ux.5 formal completion review and canonical continuity validation.**`
+- Next milestone: `**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**`
 
 ### PROJECT_STATE.md
 
@@ -31,7 +31,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**finalize ux.5 formal completion review and canonical continuity validation.**`
+- Next milestone: `**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**`
 
 ### DEVELOPMENT_ROADMAP.md
 
@@ -39,7 +39,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**finalize ux.5 formal completion review and canonical continuity validation.**`
+- Next milestone: `**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**`
 
 ### NEXT_SESSION_HANDOFF.md
 
@@ -47,8 +47,8 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**finalize ux.5 formal completion review and canonical continuity validation.**`
+- Next milestone: `**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**`
 
 ## Extracted Milestones
 
-- `**finalize ux.5 formal completion review and canonical continuity validation.**`
+- `**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**`
