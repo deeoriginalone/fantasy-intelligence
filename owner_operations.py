@@ -18,12 +18,13 @@ from services.ux2_team_accuracy import build_team_accuracy_contract
 from services.team_priority import build_team_priority_action
 from services.team_hardening import build_bench_decisions, build_bench_plan, build_lineup_snapshot, build_roster_outlook, build_team_trust_summary, build_weekly_risks
 from services.player_opportunity_reader import read_player_what_changed
+from services.gsis_identity_crosswalk import attach_opportunity_player_ids
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
 
 
-def build_team_opportunity_changes(connection, roster, *, season, week):
+def build_team_opportunity_changes(connection, roster, *, season, week, nflverse_records=None, nflverse_lineage=None):
     """Build informational What Changed evidence for explicitly linked players."""
     result = {"state": "UNAVAILABLE", "players": [], "blockers": [], "decision_effect": "INFORMATIONAL_ONLY"}
     if not isinstance(season, int) or isinstance(season, bool) or season <= 0:
@@ -32,13 +33,19 @@ def build_team_opportunity_changes(connection, roster, *, season, week):
     if not isinstance(week, int) or isinstance(week, bool) or week <= 0:
         result["blockers"] = ["OPPORTUNITY_WEEK_INVALID"]
         return result
-    for player in roster or []:
+    mapped_roster = attach_opportunity_player_ids(
+        roster or [],
+        nflverse_records or [],
+        nflverse_lineage=nflverse_lineage,
+    ) if nflverse_records is not None else [dict(player) for player in (roster or [])]
+    for player in mapped_roster:
         name = player.get("player") or "Unnamed player"
         opportunity_player_id = player.get("opportunity_player_id")
         if not isinstance(opportunity_player_id, str) or not opportunity_player_id.strip():
             result["players"].append({
                 "player": name,
                 "state": "UNAVAILABLE",
+                "opportunity_identity_state": player.get("opportunity_identity_state", "UNRESOLVED"),
                 "blockers": ["OPPORTUNITY_PLAYER_IDENTITY_UNAVAILABLE"],
                 "decision_effect": "INFORMATIONAL_ONLY",
             })
@@ -213,6 +220,8 @@ def create_owner_operations_blueprint(
             if row:
                 player=row_to_player(row, row[9] if len(row) > 9 else None, row[10] if len(row) > 10 else None)
                 player["source_player_id"] = sleeper_player_id
+                player["sleeper_gsis_id"] = raw.get("gsis_id")
+                player["sleeper_metadata_retrieved_at"] = sleeper_retrieved_at
                 player["normalized_name"] = normalize_player_name(name)
                 player["identity_match_method"] = "UNIQUE_NORMALIZED_NAME"
                 player["identity_state"] = "RESOLVED"
@@ -248,6 +257,8 @@ def create_owner_operations_blueprint(
                 }
                 player["injury_source"] = "Sleeper API"
                 player["source_player_id"] = sleeper_player_id
+                player["sleeper_gsis_id"] = raw.get("gsis_id")
+                player["sleeper_metadata_retrieved_at"] = sleeper_retrieved_at
                 player["normalized_name"] = normalize_player_name(name)
                 player["identity_match_method"] = "LOCAL_PLAYER_UNAVAILABLE"
                 player["identity_state"] = "UNRESOLVED"
@@ -542,6 +553,8 @@ def create_owner_operations_blueprint(
                 roster,
                 season=meta.get("season"),
                 week=meta.get("week"),
+                nflverse_records=current_app.config.get("NFLVERSE_PLAYER_METADATA"),
+                nflverse_lineage=current_app.config.get("NFLVERSE_PLAYER_METADATA_LINEAGE"),
             )
         finally:
             cur.close(); conn.close()

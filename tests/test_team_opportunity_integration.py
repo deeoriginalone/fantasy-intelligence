@@ -50,6 +50,45 @@ def test_team_opportunity_changes_forwards_verified_identity_season_and_week(mon
     assert result["decision_effect"] == "INFORMATIONAL_ONLY"
 
 
+def test_team_opportunity_changes_resolves_gsis_identity_before_adapter(monkeypatch):
+    calls = []
+
+    def fake_adapter(connection, *, player_id, season, week):
+        calls.append(player_id)
+        return comparison()
+
+    monkeypatch.setattr(owner_operations, "read_player_what_changed", fake_adapter)
+    result = owner_operations.build_team_opportunity_changes(
+        object(),
+        [{"player": "A", "source_player_id": "sleeper-1", "sleeper_gsis_id": "gsis-1", "sleeper_metadata_retrieved_at": "2026-09-18T10:00:00Z"}],
+        season=2026,
+        week=3,
+        nflverse_records=[{"gsis_id": "gsis-1"}],
+        nflverse_lineage={"source": "nflverse.players", "source_authority": "nflverse", "artifact_id": "players.csv", "version": "players", "retrieved_at": "2026-09-18T10:00:00Z"},
+    )
+    assert calls == ["gsis-1"]
+    assert result["players"][0]["opportunity_player_id"] == "gsis-1"
+    assert result["players"][0]["state"] == "AVAILABLE"
+
+
+def test_team_opportunity_changes_keeps_gsis_mapping_failures_unavailable(monkeypatch):
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("unresolved identity must not reach the opportunity adapter")
+
+    monkeypatch.setattr(owner_operations, "read_player_what_changed", fail_if_called)
+    result = owner_operations.build_team_opportunity_changes(
+        object(),
+        [{"player": "A", "source_player_id": "sleeper-1", "sleeper_gsis_id": "missing", "sleeper_metadata_retrieved_at": "2026-09-18T10:00:00Z"}],
+        season=2026,
+        week=3,
+        nflverse_records=[{"gsis_id": "other"}],
+        nflverse_lineage={"source": "nflverse.players", "source_authority": "nflverse", "artifact_id": "players.csv", "version": "players", "retrieved_at": "2026-09-18T10:00:00Z"},
+    )
+    assert result["players"][0]["state"] == "UNAVAILABLE"
+    assert result["players"][0]["opportunity_identity_state"] == "UNRESOLVED"
+    assert "opportunity_player_id" not in result["players"][0]
+
+
 def test_team_opportunity_changes_isolates_one_blocked_player(monkeypatch):
     def fake_adapter(connection, *, player_id, season, week):
         return comparison("BLOCKED", blockers=["OPPORTUNITY_READER_QUERY_FAILED"]) if player_id == "bad" else comparison()
