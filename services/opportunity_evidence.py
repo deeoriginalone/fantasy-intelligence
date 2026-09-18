@@ -490,6 +490,11 @@ def _published_row_blockers(row: Mapping[str, Any]) -> list[str]:
     return list(dict.fromkeys(blockers))
 
 
+def published_opportunity_row_blockers(row: Mapping[str, Any]) -> list[str]:
+    """Expose the publication-row validation used by What Changed readers."""
+    return _published_row_blockers(row)
+
+
 def _published_context(row: Mapping[str, Any]) -> dict[str, Any]:
     return {field: row.get(field) for field in (
         "source", "source_authority", "source_recorded_at", "retrieved_at",
