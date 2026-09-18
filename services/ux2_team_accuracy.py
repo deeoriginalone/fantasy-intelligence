@@ -3,6 +3,19 @@ from __future__ import annotations
 REQUIRED_POSITIONS = ("QB", "RB", "WR", "TE", "FLEX", "K", "DEF")
 
 
+def _directionality_explanation(directionality, population, population_size):
+    """Plain-language rank meaning for the actual supplied population; never invents a size."""
+    if directionality == "LOWER_IS_HARDER":
+        best_end, worst_end = "hardest", "easiest"
+    elif directionality == "LOWER_IS_EASIER":
+        best_end, worst_end = "easiest", "hardest"
+    else:
+        return None
+    high_end = f"rank {population_size} is {worst_end}" if population_size else f"the highest rank is {worst_end}"
+    explanation = f"Rank 1 is {best_end}; {high_end}"
+    return f"{explanation} within {population}." if population else f"{explanation}."
+
+
 def _matchup_row(player):
     player = dict(player or {})
     is_bye = bool(player.get("is_bye"))
@@ -16,6 +29,8 @@ def _matchup_row(player):
             "opponent": player.get("opponent"),
             "opponent_name": player.get("opponent_name"),
             "matchup_rank": None,
+            "comparison_population": None,
+            "matchup_context": None,
             "blockers": [],
         }
     if not is_bye and not player.get("opponent"):
@@ -24,22 +39,26 @@ def _matchup_row(player):
         gaps.append("MATCHUP_RANK_MISSING")
     if not is_bye and player.get("matchup_modifier") is None:
         gaps.append("MATCHUP_MODIFIER_MISSING")
+    # Matchup Rank authority is decided once, by the shared build_matchup_evidence
+    # contract already computed during enrichment; this consumer never re-derives it.
+    matchup_evidence = (player.get("lineup_evidence") or {}).get("matchup") or {}
+    matchup_authoritative = bool(matchup_evidence.get("authoritative"))
+    shared_blockers = list(matchup_evidence.get("blockers") or [])
+    matchup_rank = None
+    comparison_population = None
+    matchup_context = None
+    if matchup_authoritative:
+        matchup_rank = matchup_evidence.get("value")
+        comparison_population = matchup_evidence.get("comparison_population")
+        matchup_context = _directionality_explanation(
+            matchup_evidence.get("rank_directionality"),
+            comparison_population,
+            matchup_evidence.get("comparison_population_size"),
+        )
+    elif not is_bye:
+        gaps.extend(shared_blockers or ["MATCHUP_RANK_CONTRACT_INCOMPLETE"])
     gaps = sorted(set(gaps))
     state = "NOT_APPLICABLE" if is_bye else "UNAVAILABLE" if gaps else "AVAILABLE"
-    matchup_rank = player.get("matchup_rank")
-    matchup_contract_complete = all(
-        player.get(field) not in (None, "")
-        for field in (
-            "matchup_population",
-            "matchup_directionality",
-            "matchup_source",
-            "matchup_updated_at",
-        )
-    )
-    if not matchup_contract_complete:
-        matchup_rank = None
-        if not is_bye:
-            gaps.append("MATCHUP_RANK_CONTRACT_INCOMPLETE")
     return {
         "player": player.get("player"),
         "position": position,
@@ -47,6 +66,8 @@ def _matchup_row(player):
         "opponent": player.get("opponent"),
         "opponent_name": player.get("opponent_name"),
         "matchup_rank": matchup_rank,
+        "comparison_population": comparison_population,
+        "matchup_context": matchup_context,
         "blockers": sorted(set(gaps)),
     }
 

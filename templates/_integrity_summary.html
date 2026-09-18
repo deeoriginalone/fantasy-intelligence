@@ -14,6 +14,17 @@
   {% if integrity.blockers %}
   <div class="warn"><strong>Integrity blockers:</strong> {{ integrity.blockers|join(', ') }}</div>
   {% endif %}
+  {% set manager_explanation_state = 'AVAILABLE' if integrity.recommendation_ready else 'BLOCKED' %}
+  {% set manager_explanation = namespace(available=[], missing=[]) %}
+  {% for domain_name, domain in integrity.freshness.domains.items() %}
+    {% if domain.source and domain.status not in ('UNAVAILABLE', 'BLOCKED', 'INCOMPLETE') %}{% set manager_explanation.available = manager_explanation.available + [domain_name|title ~ ' evidence is ' ~ (domain.status|default('available')) ~ '.'] %}{% endif %}
+    {% if not domain.source or domain.status in ('UNAVAILABLE', 'BLOCKED', 'INCOMPLETE') %}{% set manager_explanation.missing = manager_explanation.missing + [domain_name|title ~ ' evidence (' ~ (domain.blocker|default(domain.completeness_state|default('not verified'))) ~ ').'] %}{% endif %}
+  {% endfor %}
+  {% set manager_explanation_available = manager_explanation.available|join(' ') %}
+  {% set manager_explanation_missing = manager_explanation.missing %}
+  {% set manager_explanation_impact = 'No recommendation blocker is active.' if integrity.recommendation_ready else 'The affected recommendation remains blocked by the integrity gate.' %}
+  {% set manager_explanation_action = 'Review the supported recommendation and its evidence.' if integrity.recommendation_ready else 'Refresh or verify the missing domains before setting a lineup, evaluating a trade, or acting on a waiver.' %}
+  {% include '_manager_blocker_explanation.html' %}
   <div class="table-wrap">
     <table>
       <thead><tr><th>Domain</th><th>Source</th><th>Status</th><th>Completeness</th><th>Impact</th><th>Score</th><th>Timestamp</th><th>Age (sec)</th></tr></thead>

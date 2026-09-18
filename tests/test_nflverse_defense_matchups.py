@@ -34,6 +34,35 @@ def test_directionality_and_completeness():
     assert evidence["completeness"]["defense_count"] == 32
 
 
+def test_publication_contracts_are_explicit_and_implementation_owned():
+    evidence = calculate_defense_matchups(complete_rows(), season=2026, sample_threshold=1, retrieved_at=NOW)
+    contracts = evidence["publication_contracts"]
+    assert contracts["threshold"] == {
+        "identifier": "matchup.sample.v1", "value": 1, "state": "VERIFIED",
+        "source": "MATCHUP_MIN_COMPLETED_GAMES",
+        "owner": "services.integrity.integrity_service.matchup_sample_threshold",
+        "lineage": {"registry": "services.integrity.integrity_service.matchup_sample_threshold", "environment": "MATCHUP_MIN_COMPLETED_GAMES"},
+        "schema_version": "nflverse-matchup-publication-contracts.v1",
+    }
+    assert contracts["population"]["name"] == "ALL_DEFENSES_BY_POSITION"
+    assert contracts["population"]["size"] == 32
+    assert contracts["population"]["position_scope"] == ["QB", "RB", "WR", "TE"]
+    assert contracts["population"]["scoring_context"] == "FULL_PPR"
+    assert contracts["directionality"] == {
+        "value": "LOWER_IS_HARDER",
+        "owner": "services.defense_matchup_calculation.values.sort",
+        "lineage": {"ordering": "values.sort", "rank": "enumerate(values, 1)"},
+        "schema_version": "nflverse-matchup-publication-contracts.v1",
+    }
+    assert evidence["provenance"]["publication_contracts"] == contracts
+
+
+def test_missing_threshold_contract_remains_unavailable_and_blocked():
+    evidence = calculate_defense_matchups(complete_rows(), season=2026, threshold_environment={"MATCHUP_MIN_COMPLETED_GAMES": ""}, retrieved_at=NOW)
+    assert evidence["publication_contracts"]["threshold"]["state"] == "UNAVAILABLE"
+    assert evidence["blocker"] == "MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED"
+
+
 def test_zero_and_insufficient_samples_fail_closed():
     assert calculate_defense_matchups([], season=2026, sample_threshold=1)["status"] == "UNAVAILABLE"
     assert calculate_defense_matchups(complete_rows(), season=2026, sample_threshold=2, retrieved_at=NOW)["status"] == "INSUFFICIENT_SAMPLE"

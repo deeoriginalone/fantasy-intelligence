@@ -6,6 +6,7 @@ from flask import Flask
 import owner_operations
 import services.weekly_lineup_intelligence as weekly_lineup_intelligence
 from owner_operations import create_owner_operations_blueprint
+from services.lineup_evidence import build_matchup_evidence
 
 
 POSITIONS = ("QB", "RB", "RB", "WR", "WR", "TE", "WR", "K", "DEF")
@@ -66,7 +67,7 @@ def health_payload(state="AVAILABLE", freshness="FRESH", blocker=None, last_veri
     }
 
 
-def make_app(monkeypatch, health, weekly_score=None, league_available=True, unknown_player=None, unknown_players=None, authoritative_matchup=False, no_needs=False, trade_partner=False, trade_enrichment=None, trade_scenario=None):
+def make_app(monkeypatch, health, weekly_score=None, league_available=True, unknown_player=None, unknown_players=None, authoritative_matchup=False, matchup_overrides=None, no_needs=False, trade_partner=False, trade_enrichment=None, trade_scenario=None):
     unknown_players = set(unknown_players or ())
     names = [f"P{index}" for index in range(len(POSITIONS))]
     players = {}
@@ -90,6 +91,8 @@ def make_app(monkeypatch, health, weekly_score=None, league_available=True, unkn
                 "vacant": False,
                 "is_bye": False,
                 "opponent": "SF",
+                "source_player_id": f"sleeper-{index}",
+                "local_player_id": index,
                 "matchup_rank": 10,
                 "matchup_modifier": 0.1,
                 "weekly_baseline": 10.0,
@@ -100,7 +103,17 @@ def make_app(monkeypatch, health, weekly_score=None, league_available=True, unkn
                 "evidence_gaps": [],
             })
             if authoritative_matchup:
-                row.update({"matchup_population": "Controlled population", "matchup_directionality": "LOWER_IS_EASIER", "matchup_source": "Controlled source", "matchup_updated_at": "2026-09-12T12:00:00+00:00"})
+                row.update({
+                    "matchup_population": "ALL_DEFENSES_BY_POSITION",
+                    "matchup_directionality": "LOWER_IS_HARDER",
+                    "matchup_source": "automated:nflverse",
+                    "matchup_source_authority": "automated",
+                    "matchup_sample_threshold_id": "matchup.sample.v1",
+                    "matchup_retrieved_at": "2999-01-01T00:00:00+00:00",
+                })
+            if matchup_overrides:
+                row.update(matchup_overrides)
+            row["lineup_evidence"] = {"matchup": build_matchup_evidence(row, season=2026, week=1)}
             if row.get("player") == unknown_player or row.get("player") in unknown_players:
                 row["injury_status"] = "Unknown"
             output.append(row)
@@ -219,6 +232,48 @@ def test_no_urgent_risk_state_uses_calm_action(monkeypatch):
     html = response.get_data(as_text=True)
     assert "Review lineup before lock" in html
     assert "No material supported risks identified." in html
+
+
+AUTHORITATIVE_MATCHUP_FIELDS = {
+    "matchup_population": "ALL_DEFENSES_BY_POSITION",
+    "matchup_directionality": "LOWER_IS_HARDER",
+    "matchup_source": "automated:nflverse",
+    "matchup_source_authority": "automated",
+    "matchup_sample_threshold_id": "matchup.sample.v1",
+    "matchup_retrieved_at": "2999-01-01T00:00:00+00:00",
+}
+
+
+@pytest.mark.parametrize(
+    "scenario,overrides,expect_rank_visible,expected_blocker",
+    [
+        ("authoritative", AUTHORITATIVE_MATCHUP_FIELDS, True, None),
+        ("unverified_threshold", {**AUTHORITATIVE_MATCHUP_FIELDS, "matchup_sample_threshold_id": None}, False, "MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED"),
+        ("missing_population", {**AUTHORITATIVE_MATCHUP_FIELDS, "matchup_population": None}, False, "MATCHUP_POPULATION_UNVERIFIED"),
+        ("missing_directionality", {**AUTHORITATIVE_MATCHUP_FIELDS, "matchup_directionality": None}, False, "MATCHUP_DIRECTIONALITY_UNVERIFIED"),
+        ("stale", {**AUTHORITATIVE_MATCHUP_FIELDS, "matchup_retrieved_at": "2020-01-01T00:00:00+00:00"}, False, "MATCHUP_DATA_STALE"),
+        ("csv_non_automated", {**AUTHORITATIVE_MATCHUP_FIELDS, "matchup_source": "csv:defense-fp-against-2025.csv", "matchup_source_authority": None}, False, "MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE"),
+        ("missing_source_authority_on_display_formatted_source", {**AUTHORITATIVE_MATCHUP_FIELDS, "matchup_source": "nfl_schedule + automated:nflverse", "matchup_source_authority": None}, False, "MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE"),
+        ("missing_identity", {**AUTHORITATIVE_MATCHUP_FIELDS, "source_player_id": None, "local_player_id": None}, False, "MATCHUP_PLAYER_IDENTITY_UNAVAILABLE"),
+        ("missing_opponent", {**AUTHORITATIVE_MATCHUP_FIELDS, "opponent": None}, False, "MATCHUP_OPPONENT_IDENTITY_UNAVAILABLE"),
+    ],
+)
+def test_active_team_route_matchup_authority_matrix(monkeypatch, scenario, overrides, expect_rank_visible, expected_blocker):
+    response = make_app(
+        monkeypatch, health_payload(last_verified="2026-09-12T12:00:00+00:00", age=60),
+        weekly_score=12.0, matchup_overrides=overrides, no_needs=True,
+    ).test_client().get("/team")
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "<details open" not in html
+    if expect_rank_visible:
+        assert ">10<" in html
+        assert "Rank 1 is hardest" in html
+        assert "ALL_DEFENSES_BY_POSITION" in html
+    else:
+        assert ">10<" not in html
+        assert "Unavailable" in html
+        assert expected_blocker in html
 
 
 def test_trades_route_renders_blocked_integrity_when_partner_is_unavailable(monkeypatch):

@@ -8,6 +8,13 @@ UX.2 My Team Accuracy, Explainability, and League-Settings Validation is validat
 
 UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, disclosure, health-source, and matchup-applicability repairs. Acceptance: `APPROVED: MY TEAM UI`. UX.3 is validated at its supported, read-only waiver-publication boundary. UX.4.1 through UX.4.12 are validated at focused implementation, controlled-browser, and live nine-partner dropdown boundaries. The shared action-first visual system is now applied across Lineup, My Team, Waivers, and Trades. UX.5 has the formalized implementation and evidence boundary; formal definition-of-done review remains pending.
 
+###### Current evidence-layer foundation (validated 2026-09-15)
+- Opportunity Evidence, What Changed, Opportunity Classification, Market Value, Market Signal, Buy/Sell Candidate, and Trade Opportunity contracts are implemented as pure fail-closed evidence layers.
+- Dashboard Decision Center summarizes existing evidence into the required informational panels without generating recommendations or priority.
+- Dashboard, `/team`, `/waivers`, and `/trades` retain their existing decision payloads. No lineup, waiver, trade, matchup, ranking, confidence, Weekly Score, or transaction behavior consumes these layers.
+- Focused validation passed 16 tests; compilation and both whitespace checks passed. Fresh route checks returned HTTP 200 at desktop and 390px with default evidence fail-closed.
+- No live market or candidate source is configured. Buy Low, Sell High, Breakout, Regression, and trade-action recommendations remain deferred.
+
 ###### Current UX.5 boundary
 - Weekly Lineup Intelligence emits explicit `START`, `FLEX`, `MONITOR`, and bench `SIT` decisions; `HOLD` and `SWAP` are not rendered.
 - Bench Order is deterministic and labeled. Explanations include reason, confidence, opponent, health, weekly value, and metric definitions.
@@ -39,9 +46,9 @@ UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, 
 - Focused UX.4 validation passed 90 tests; compilation and both whitespace checks passed. Do not claim transaction acceptance, negotiation, rest-of-season impact, production readiness, or defect closure.
 
 ###### Last recorded repository checkpoint
-- Date: 2026-09-13
+- Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: f55650376339abaa701a6c9ab84e2ed47d190355
+- HEAD: 11fded7ed6c04a417407018fd3c7fc84ad9e0e13
 - Repository: /home/deeoriginalone/fantasy-intelligence
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
@@ -168,7 +175,7 @@ A synchronization PASS confirms documentation consistency only. It does not prov
 - Verified current coverage: Week 1 has 16 scheduled games and 7 provider-matched predictions; Week 2 has 16 scheduled games and 0 provider-matched predictions. The complete 2026 source schedule (`nfl_schedule`) contains Weeks 1-18, but only Weeks 1-2 are currently seeded into `yahoo_pickem_games`.
 - Matching uses the complete provider full-name-to-standard-abbreviation map and exact away/home pairs. Recorded runs show Week 1 received/matched/wrote 7/7/7; Week 2 received 6 provider games and matched/wrote 0/0. This is a current provider-slate versus stored-schedule mismatch, not a verified naming failure.
 - Focused NFL Intelligence validation: 29 passed. Python compilation for `nfl_intelligence.py` and `nfl_intelligence_routes.py`, whitespace validation, and live Week 1/Week 2 rendering passed. Desktop and 390px renders had no horizontal overflow.
-- Current repository checkpoint: 2026-09-14, branch `feature/evidence-bundle-pipeline`, HEAD `e5285b1918a97e6df7b9e74cd94385ecf489b721`. NFL Intelligence implementation and canonical documentation were committed; preserve unrelated working-tree changes.
+- Current repository checkpoint: 2026-09-16, branch `test-weekly-evidence-trust`, HEAD `0e01c27530f312149cb4d8554faf795c7185365a`. Preserve unrelated working-tree changes.
 
 ###### Verified product architecture and roadmap
 
@@ -210,8 +217,57 @@ A synchronization PASS confirms documentation consistency only. It does not prov
 - Use source `stats_player` and artifact pattern `stats_player_week_{season}.csv.gz`. Refreshed real 2026 Week 1 calculation produced 128 rows and 32-of-32 defense coverage for QB, RB, WR, and TE; `KC` and `DEN` are present. Preliminary context is fresh, complete, Full-PPR, sample-disclosed, informational-only, and does not change recommendations.
 - Authority remains BLOCKED by `MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED`. Automated 2026 rows remain 0; 136 historical 2025 CSV rows remain preserved and historical-only. Current consumers keep authoritative Matchup Rank unavailable while preliminary context remains informational-only; production readiness and full current matchup authority remain unclaimed.
 
+###### Current verified matchup authority boundary (2026-09-16)
+- Automated NFLverse matchup calculation and publication are present. Publication metadata propagation is complete for source authority, source-recorded time, retrieved-at time, version, checksum, lineage, and completed games.
+- Implementation-backed informational publication contracts now exist for threshold metadata, population metadata, and directionality metadata. They do not grant Matchup Rank authority.
+- Matchup Rank remains non-authoritative. The blockers `MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED`, `MATCHUP_POPULATION_UNVERIFIED`, and `MATCHUP_DIRECTIONALITY_UNVERIFIED` remain active in shared lineup evidence.
+- Snapshot capture remains blocked. Recommendation behavior remains unchanged, including START, SIT, FLEX, MONITOR, Weekly Score, confidence, waiver, trade, matchup, and transaction behavior.
+- Focused authority tests passed 37 tests; focused evidence and consumer regression validation passed 146 tests. Python compilation, `git diff --check`, and `git diff --cached --check` passed.
+
+###### Team Accuracy matchup authority consumer completion (2026-09-17)
+- Team Accuracy (`services/ux2_team_accuracy.py`) now consumes the shared `services/lineup_evidence.py::build_matchup_evidence` contract as its sole Matchup Rank authority result. The prior duplicate four-field presence check (population, directionality, source, updated-at only) is removed; no second authority calculation exists.
+- Matchup Rank on `/team` is fail-closed through the same contract already governing other consumers: verified sample threshold, verified population, verified directionality, structured automated source authority, current freshness, resolved player identity, and resolved opponent are all required before a rank is shown.
+- Comparison population and a plain-language directionality explanation (for example, "Rank 1 is hardest; rank 32 is easiest") are now manager-visible next to Matchup Rank. Population size is shown only when the automated publication contract supplies it and is never invented.
+- Recommendation, projection, waiver, trade, ranking, confidence, and transaction behavior are unchanged by this batch.
+- Automated 2026 matchup rows remain 0 in the database. The blockers remain active whenever authoritative automated matchup evidence is unavailable. The consumer now correctly honors those blockers through the shared matchup contract; this batch changed the consumer, not the underlying data availability.
+- Focused authority, Team Accuracy, template, and route-matrix validation completed with one pre-existing unrelated failure retained outside the changed boundary (`test_team_template_wires_accuracy_partial`). Related-suite validation passed 118 of 120 tests (2 pre-existing unrelated matchup-calculation staleness failures). Python compilation, `git diff --check`, and `git diff --cached --check` passed.
+- Rendered `/team` verification at desktop and 390px confirmed no primary horizontal overflow, no clipped content, all technical diagnostics collapsed by default, and visually distinct authoritative versus unavailable matchup states.
+- Production readiness, PostgreSQL parity, and recovery validation remain unclaimed.
+
+###### Automated player-opportunity ingestion boundary (2026-09-17)
+- Automated nflverse weekly-stat retrieval, target-share/carry-share/touch-share calculation, deterministic reconciliation, and atomic PostgreSQL publication are operational. The verified 2026 publication contains 1,188 rows across Weeks 1 and 2 for 1,122 distinct players; rows are FRESH, COMPLETE, PUBLISHED, and carry reconciled lineage.
+- Publication preserves source authority, source-recorded time, retrieved-at time, artifact identity, version, checksum, freshness threshold, completeness, lineage, and publication state. The publication path retains exact season/week scope and atomic rollback behavior.
+- snap_share, route_participation, red_zone_share, and role_classification remain explicitly NULL/unavailable in the published opportunity table; a supporting nflverse dataset now exists for snap_share (see the snap-share foundation boundary below) but is not yet published, and no supporting dataset is ingested for route_participation, red_zone_share, or role_classification.
+- The approved opportunity freshness threshold is `OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS=86400`. The verified 2026 publication contains 1,188 rows across Weeks 1 and 2 for 1,122 distinct players; rows are FRESH, COMPLETE, PUBLISHED, and carry reconciled lineage.
+- GSIS-first roster identity resolution with scoped ESPN fallback is operational. Six roster identities resolve; eight remain unavailable and fail closed.
+- The published opportunity reader, multi-week What Changed engine, and My Team informational consumer are operational. All six resolved identities have Week 1 evidence; none has a Week 2 source row in the official artifact, so Week 2 comparison evidence remains `SOURCE_REASON_UNAVAILABLE`.
+- Focused opportunity calculation, ingestion, publication, evidence, and consumer-contract validation passed. Python compilation, `git diff --check`, and `git diff --cached --check` passed.
+- Role evidence beyond the current snap-share foundation, production readiness, full PostgreSQL parity, and recovery validation remain unclaimed. No recommendation, confidence, ranking, score, route, template, waiver, trade, or transaction behavior is changed by this informational evidence.
+
+###### Player role-evidence contract and snap-share foundation boundary (2026-09-17)
+- A fail-closed player role-evidence contract is implemented and committed (commit e07bcd2, "Add fail-closed player role evidence contract"); snap share, route participation, red-zone usage, and role classification each report `SOURCE_UNAVAILABLE` by default with `decision_effect = INFORMATIONAL_ONLY`.
+- The official nflverse `snap_counts` artifact is retrieved and normalized, reusing the existing generic retrieval/checksum helper; offense_pct is verified as a provider-supplied 0-1 ratio, not a percentage.
+- A deterministic `pfr_id -> gsis_id` identity crosswalk is built from the official nflverse `players` release and verified against real 2026 data: 1490 of 1492 snap_counts rows resolve (99.87%), 2 remain unresolved, and 0 are ambiguous. Unresolved, ambiguous, and cross-batch contradictory identity mappings fail closed and are never guessed.
+- snap_share values remain in-memory evidence only; no publication writer, migration, or database table exists for them. `player_opportunity_evidence` was reviewed and found unsuitable for reuse: its single provenance, checksum, and completeness columns per player-week cannot host an independently-sourced, independently-reconciled snap_counts batch without provenance collision or completeness ambiguity, so a new, separate publication path is required if snap_share is published.
+- route_participation, red_zone_share, and role_classification remain unimplemented; no supporting nflverse dataset is ingested for them.
+- `SNAP_SHARE_FRESHNESS_THRESHOLD_UNVERIFIED` remains active; no operator has approved a snap-share freshness threshold.
+- No consumer (Dashboard, My Team, Waivers, Trades, Weekly Lineup, Decision Center) reads snap-share evidence. No recommendation, ranking, confidence, route, template, or transaction behavior changed.
+- Focused snap-share foundation and crosswalk validation passed (36 tests). Python compilation, `git diff --check`, and `git diff --cached --check` passed.
+
+###### FantasyPros projection consumption boundary (2026-09-16)
+- FantasyPros automated source integration, live endpoint validation, deterministic identity overlap, non-authoritative evidence publication, and structured blocker metadata are implemented.
+- Present, resolved, retrieved projection evidence may contribute to weekly lineup intelligence and trade evidence readiness. Projection authority concerns remain visible warnings; missing projections and hard-blocked non-projection evidence remain fail-closed.
+- Present projection evidence may contribute as a deterministic secondary comparison input for verified-unrostered waiver candidates. Existing ownership, roster coverage, eligibility, stable identity, and `WAIVER_RANKING_SOURCE_UNVERIFIED` protections remain unchanged.
+- `authority_state = NON_AUTHORITATIVE` and `decision_effect = NONE` remain unchanged. No projection persistence, snapshot capture, external transaction, transaction acceptance, or production-readiness claim exists.
+- The five projection warnings remain active and structured: `PROJECTION_SOURCE_USE_UNVERIFIED`, `PROJECTION_UNIT_UNVERIFIED`, `PROJECTION_SOURCE_TIMESTAMP_UNAVAILABLE`, `PROJECTION_FRESHNESS_THRESHOLD_UNVERIFIED`, and `PROJECTION_LINEAGE_VERSION_UNAVAILABLE`.
+- Lineup/trade projection-consumption validation passed 44 tests; waiver projection-contribution validation passed 70 tests. Python compilation and both diff checks passed for each batch.
+
 ## Next milestone
 
-**Make weekly lineup, waiver/drop, and trade decisions trustworthy with automated, timestamped evidence or explicit unavailable states.**
+**Complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**
 
-Navigation reconciliation supports this milestone but does not outrank decision quality. Opportunity detection is the next competitive advantage after weekly trust; Decision Center, Process versus Results, manager development, and season strategy follow in that order. UX.8 retains its recorded in-progress boundary. Existing defects retain their evidence-supported statuses; production readiness, PostgreSQL parity, recovery, and defect closure remain unclaimed.
+Verified opportunity publication, GSIS-first identity resolution with scoped ESPN fallback, the published opportunity reader, the multi-week What Changed foundation, and the My Team informational consumer are operational at their verified boundaries.
+
+Preserve fail-closed behavior and SOURCE_REASON_UNAVAILABLE for unsupported source omissions.
+
+Defer Buy Low, Sell High, Breakout, Regression, recommendation authority, ranking authority, confidence authority, score authority, and transaction behavior until the required evidence contracts are complete.

@@ -1,21 +1,10 @@
-from flask import Blueprint,flash,redirect,render_template,request,url_for
+from flask import Blueprint,abort,current_app,flash,redirect,render_template,request,url_for
 from auth import csrf_required
 from survivor_intelligence import build_recommendations,build_status,determine_week_state,next_verified_week,summarize,team_universe
 from survivor_store import (migrate,ensure_pool,used_teams,current_predictions,all_schedule,future_predictions,
     save_selection,delete_selection,history,save_run,week_selection,SurvivorConflictError,SurvivorHistoryReadError)
 from services.ux_evidence import format_pacific_datetime
-from services.sleeper_service import get_nfl_state
 survivor_bp=Blueprint('survivor',__name__)
-
-def _verified_current_week(season):
-    """Sleeper-verified current NFL week for this season; None (never guessed) if unavailable or mismatched."""
-    try:
-        state=get_nfl_state()
-        if str(state.get('season'))!=str(season): return None
-        week=int(state.get('week') or 0)
-        return week if week>0 else None
-    except Exception:
-        return None
 
 def _context(season,week,pool_key,strategy):
     migrate();ensure_pool(pool_key,'My Survivor Pool',season)
@@ -52,12 +41,27 @@ def home():
     season=request.args.get('season',2026,type=int)
     week=request.args.get('week',type=int)
     if week is None:
-        week=_verified_current_week(season) or 1
+        acquire_week=current_app.config.get("WEEK_AUTHORITY_ACQUIRER")
+        if acquire_week is None:
+            context={"state":"UNAVAILABLE","blockers":["WEEK_AUTHORITY_ACQUISITION_UNAVAILABLE"]}
+        else:
+            context=acquire_week(season)
+        if not context["authoritative"]:
+            return render_template(
+                "survivor_intelligence.html",
+                survivor_season=season, survivor_week=None, pool_key=request.args.get("pool", "default"),
+                strategy=request.args.get("strategy", "balanced"), used_teams=[], candidates=[],
+                survivor_summary={"primary": None, "fallbacks": [], "risks": [], "save_for_later": []},
+                survivor_status={"state":"UNAVAILABLE", "season":season, "active_week":None, "history_status":"unavailable", "week_state":"UNAVAILABLE", "used_team_count":None, "remaining_team_count":None, "evidence_state":"UNAVAILABLE", "freshness_state":"UNAVAILABLE", "blocker_reason":(context.get("blockers") or ["WEEK_AUTHORITY_UNAVAILABLE"])[0], "degrade_reason":None, "last_verified":None},
+                existing_selection=None, result_label=None, next_week=None, eligible_teams=[], last_verified_pacific=None,
+            )
+        week=context["week"]
     return render_template('survivor_intelligence.html',**_context(season,week,request.args.get('pool','default'),request.args.get('strategy','balanced')))
 @survivor_bp.post('/survivor/select')
 @csrf_required
 def select():
-    season=request.form.get('season',2026,type=int);week=request.form.get('week',1,type=int);pool=request.form.get('pool','default');team=(request.form.get('team') or '').strip().upper()
+    season=request.form.get('season',2026,type=int);week=request.form.get('week',type=int);pool=request.form.get('pool','default');team=(request.form.get('team') or '').strip().upper()
+    if week is None: abort(400,description='week is required')
     prob=request.form.get('probability',type=float);score=request.form.get('score',type=float)
     if not team:
         flash('Choose a team before recording a pick.','error')
@@ -76,7 +80,8 @@ def select():
 @survivor_bp.post('/survivor/status')
 @csrf_required
 def status():
-    season=request.form.get('season',2026,type=int);week=request.form.get('week',1,type=int);pool=request.form.get('pool','default');team=request.form['team']
+    season=request.form.get('season',2026,type=int);week=request.form.get('week',type=int);pool=request.form.get('pool','default');team=request.form['team']
+    if week is None: abort(400,description='week is required')
     try:
         save_selection(pool,season,week,team,request.form['status'],request.form.get('probability',type=float),request.form.get('score',type=float),request.form.get('notes',''))
     except SurvivorConflictError as e:
@@ -85,7 +90,8 @@ def status():
 @survivor_bp.post('/survivor/reset')
 @csrf_required
 def reset():
-    season=request.form.get('season',2026,type=int);week=request.form.get('week',1,type=int);pool=request.form.get('pool','default');team=request.form['team']
+    season=request.form.get('season',2026,type=int);week=request.form.get('week',type=int);pool=request.form.get('pool','default');team=request.form['team']
+    if week is None: abort(400,description='week is required')
     deleted=delete_selection(pool,season,week,team)
     if deleted:
         flash(f'Cleared the Week {week} {team} pick. A fresh recommendation will show once evidence is available.','success')

@@ -17,9 +17,80 @@ from services.team_health import team_health_contract, apply_player_health_to_re
 from services.ux2_team_accuracy import build_team_accuracy_contract
 from services.team_priority import build_team_priority_action
 from services.team_hardening import build_bench_decisions, build_bench_plan, build_lineup_snapshot, build_roster_outlook, build_team_trust_summary, build_weekly_risks
+from services.player_opportunity_reader import read_player_what_changed
+from services.gsis_identity_crosswalk import attach_opportunity_player_ids
+from services.nflverse_player_metadata import acquire_nflverse_player_metadata
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
+
+
+def build_team_opportunity_changes(connection, roster, *, season, week, nflverse_records=None, nflverse_lineage=None, sleeper_records=None):
+    """Build informational What Changed evidence for explicitly linked players."""
+    result = {"state": "UNAVAILABLE", "players": [], "blockers": [], "decision_effect": "INFORMATIONAL_ONLY"}
+    if not isinstance(season, int) or isinstance(season, bool) or season <= 0:
+        result["blockers"] = ["OPPORTUNITY_SEASON_INVALID"]
+        return result
+    if not isinstance(week, int) or isinstance(week, bool) or week <= 0:
+        result["blockers"] = ["OPPORTUNITY_WEEK_INVALID"]
+        return result
+    mapped_roster = attach_opportunity_player_ids(
+        roster or [],
+        nflverse_records or [],
+        nflverse_lineage=nflverse_lineage,
+        sleeper_records=sleeper_records,
+    ) if nflverse_records is not None else [dict(player) for player in (roster or [])]
+    for player in mapped_roster:
+        name = player.get("player") or "Unnamed player"
+        opportunity_player_id = player.get("opportunity_player_id")
+        if not isinstance(opportunity_player_id, str) or not opportunity_player_id.strip():
+            result["players"].append({
+                "player": name,
+                "state": "UNAVAILABLE",
+                "opportunity_identity_state": player.get("opportunity_identity_state", "UNRESOLVED"),
+                "blockers": ["OPPORTUNITY_PLAYER_IDENTITY_UNAVAILABLE"],
+                "decision_effect": "INFORMATIONAL_ONLY",
+            })
+            continue
+        comparison = read_player_what_changed(
+            connection,
+            player_id=opportunity_player_id,
+            season=season,
+            week=week,
+        )
+        result["players"].append({"player": name, "opportunity_player_id": opportunity_player_id, **comparison})
+    if not result["players"]:
+        result["blockers"] = ["OPPORTUNITY_ROSTER_EMPTY"]
+    elif all(item["state"] == "AVAILABLE" for item in result["players"]):
+        result["state"] = "AVAILABLE"
+    elif any(item["state"] == "BLOCKED" for item in result["players"]):
+        result["state"] = "BLOCKED"
+        result["blockers"] = list(dict.fromkeys(
+            blocker for item in result["players"] for blocker in item.get("blockers", [])
+        ))
+    else:
+        result["state"] = "UNAVAILABLE"
+        result["blockers"] = list(dict.fromkeys(
+            blocker for item in result["players"] for blocker in item.get("blockers", [])
+        ))
+    return result
+
+
+def waiver_projection_contribution(candidate):
+    """Return optional projection evidence without treating warnings as authority."""
+    candidate = dict(candidate or {})
+    identity = candidate.get("identity_resolution") or {}
+    available = (
+        candidate.get("projection") is not None
+        and bool(candidate.get("projection_retrieved_at"))
+        and identity.get("resolution_state") in {None, "RESOLVED"}
+    )
+    evidence = candidate.get("projection_evidence") or {}
+    return {
+        "value": candidate.get("projection") if available else None,
+        "state": "AVAILABLE" if available else "UNAVAILABLE",
+        "warnings": list(evidence.get("blockers") or []),
+    }
 
 
 def create_owner_operations_blueprint(
@@ -109,7 +180,7 @@ def create_owner_operations_blueprint(
             None,
         )
         if not owner_roster:
-            return [], league
+            return [], league, all_players
         player_ids = [str(pid) for pid in (owner_roster.get("players") or [])]
         local_names = []
         for pid in player_ids:
@@ -151,6 +222,10 @@ def create_owner_operations_blueprint(
             if row:
                 player=row_to_player(row, row[9] if len(row) > 9 else None, row[10] if len(row) > 10 else None)
                 player["source_player_id"] = sleeper_player_id
+                player["sleeper_gsis_id"] = raw.get("gsis_id")
+                player["sleeper_espn_id"] = raw.get("espn_id")
+                player["sleeper_metadata_retrieved_at"] = sleeper_retrieved_at
+                player["sleeper_metadata_coverage_state"] = "COMPLETE"
                 player["normalized_name"] = normalize_player_name(name)
                 player["identity_match_method"] = "UNIQUE_NORMALIZED_NAME"
                 player["identity_state"] = "RESOLVED"
@@ -186,6 +261,10 @@ def create_owner_operations_blueprint(
                 }
                 player["injury_source"] = "Sleeper API"
                 player["source_player_id"] = sleeper_player_id
+                player["sleeper_gsis_id"] = raw.get("gsis_id")
+                player["sleeper_espn_id"] = raw.get("espn_id")
+                player["sleeper_metadata_retrieved_at"] = sleeper_retrieved_at
+                player["sleeper_metadata_coverage_state"] = "COMPLETE"
                 player["normalized_name"] = normalize_player_name(name)
                 player["identity_match_method"] = "LOCAL_PLAYER_UNAVAILABLE"
                 player["identity_state"] = "UNRESOLVED"
@@ -198,10 +277,11 @@ def create_owner_operations_blueprint(
                     player["health_fetched_at"] = sleeper_retrieved_at
                     player["injury_updated_at"] = sleeper_retrieved_at
                 result.append(player)
-        return result, league
+        return result, league, all_players
 
     def current_roster(cur):
         context = data_context(cur)
+        season = 2026
         if context["mode"] == "MOCK":
             cur.execute(
                 "SELECT draft_name, strategy, draft_position FROM mock_drafts WHERE id = %s",
@@ -209,21 +289,27 @@ def create_owner_operations_blueprint(
             )
             row = cur.fetchone()
             roster = mock_roster(cur, context["draft_id"], row[2] if row else 5)
-            roster = enrich_players(cur, roster, current_week(cur))
+            week = current_week(cur)
+            roster = enrich_players(cur, roster, week)
             return context, roster, {
                 "team_name": "My Mock Team",
                 "league_name": "Season Sandbox",
                 "strategy": row[1] if row else "WR_HEAVY",
                 "draft_name": row[0] if row else f"Mock #{context['draft_id']}",
+                "season": season,
+                "week": week,
                 "shared_facts": shared_league_facts({}, source="Season Sandbox", blocker="LIVE_LEAGUE_FACTS_NOT_APPLICABLE"),
             }
-        roster, league = live_roster(cur)
-        roster = enrich_players(cur, roster, current_week(cur), allow_local_weekly_data=True, allow_local_health_fallback=False, require_automated_weekly_evidence=True)
+        roster, league, sleeper_catalog = live_roster(cur)
+        week = current_week(cur)
+        roster = enrich_players(cur, roster, week, allow_local_weekly_data=True, allow_local_health_fallback=False, require_automated_weekly_evidence=True)
         return context, roster, {
             "team_name": "DiE-HaRd-9eRs-FaN",
             "league_name": league.get("name") or "Fantasy Intelligence Champions League",
             "strategy": "LIVE",
             "draft_name": None,
+            "season": season,
+            "week": week,
             "shared_facts": shared_league_facts(league),
         }
 
@@ -390,13 +476,18 @@ def create_owner_operations_blueprint(
         decision_evidence = weekly_evidence_contract(
             domain="waiver ranking inputs", source=None, freshness_state="UNAVAILABLE", completeness_state="UNAVAILABLE",
             blocker="WAIVER_RANKING_SOURCE_UNVERIFIED", fallback_used="local player projections/rankings",
-            recommendation_impact="Waiver candidates remain visible only as unranked research until automated ranking and projection evidence is available.",
+            recommendation_impact="Waiver candidates use locally supplied projections/rankings; automated ranking source is unverified.",
         )
         result["decision_evidence"] = decision_evidence
         if not decision_evidence["authoritative"]:
-            result["allowed"] = False
-            result["candidates"] = []
-            result["blockers"] = list(dict.fromkeys([*(result.get("blockers") or []), decision_evidence["blocker"]]))
+            # Ownership and eligibility are already fail-closed above (see
+            # evaluate_waiver_availability). Ranking source is informational:
+            # surface it as a visible warning instead of re-blocking
+            # already-verified, fresh, complete waiver candidates.
+            result["warnings"] = list(dict.fromkeys([*(result.get("warnings") or []), decision_evidence["blocker"]]))
+            result["ranking_confidence"] = "UNVERIFIED"
+        else:
+            result["ranking_confidence"] = "VERIFIED"
         availability["identity_diagnostics"].update(
             rostered_exclusion_count=sum(
                 item.get("resolved_player_id") in owned_ids
@@ -422,8 +513,10 @@ def create_owner_operations_blueprint(
             bid = max(0, min(35, round(score / 6)))
             if player["position"] in {"K", "DEF"}:
                 bid = min(bid, 3)
-            recs.append({**player, "priority_score": round(score, 1), "faab": bid, "bid_low": max(0, bid - 3), "bid_high": min(40, bid + 4), "need": need})
-        return sorted(recs, key=lambda p: (-p["priority_score"], p["rank"] or 9999))
+            projection_info = waiver_projection_contribution(player)
+            projection_contribution = projection_info["value"]
+            recs.append({**player, "priority_score": round(score, 1), "faab": bid, "bid_low": max(0, bid - 3), "bid_high": min(40, bid + 4), "need": need, "projection_contribution": projection_contribution, "projection_contribution_state": projection_info["state"], "projection_warnings": projection_info["warnings"]})
+        return sorted(recs, key=lambda p: (-p["priority_score"], -(p["projection_contribution"] if p["projection_contribution"] is not None else float("-inf")), p["rank"] or 9999))
 
     def other_mock_teams(cur, draft_id):
         cur.execute(
@@ -466,6 +559,21 @@ def create_owner_operations_blueprint(
                 health_source = "Season Sandbox"
             team_health = team_health_contract(roster, source=health_source, **health_meta)
             team_accuracy = build_team_accuracy_contract(roster, starters, league_settings, team_needs, team_health)
+            nflverse_records = current_app.config.get("NFLVERSE_PLAYER_METADATA")
+            nflverse_lineage = current_app.config.get("NFLVERSE_PLAYER_METADATA_LINEAGE")
+            if nflverse_records is None and not current_app.testing:
+                metadata = acquire_nflverse_player_metadata()
+                if metadata["state"] == "AVAILABLE":
+                    nflverse_records = metadata["rows"]
+                    nflverse_lineage = metadata["lineage"]
+            opportunity_changes = build_team_opportunity_changes(
+                conn,
+                roster,
+                season=meta.get("season"),
+                week=meta.get("week"),
+                nflverse_records=nflverse_records,
+                nflverse_lineage=nflverse_lineage,
+            )
         finally:
             cur.close(); conn.close()
         weekly_defaults = {
@@ -502,7 +610,7 @@ def create_owner_operations_blueprint(
         roster_outlook = build_roster_outlook(team_needs, team_health)
         lineup_intelligence = build_lineup_intelligence(roster)
         decisions_by_slot = {d.get("slot"): d for d in lineup_intelligence.get("start_sit_decisions", [])}
-        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_intelligence=lineup_intelligence, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context, opportunity_view=opportunity_view)
+        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_intelligence=lineup_intelligence, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context, opportunity_view=opportunity_view, opportunity_changes=opportunity_changes)
 
     @bp.route("/lineup")
     def lineup_page():
