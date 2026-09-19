@@ -11,6 +11,11 @@ def connect():
 def games(conn,season,week):
  sql='SELECT game_id,away_team,home_team,kickoff,away_moneyline,home_moneyline,market_home_probability,projected_total,market_source,market_updated_at FROM yahoo_pickem_games WHERE season=%s AND week=%s ORDER BY kickoff'
  with conn.cursor() as c:c.execute(sql,(season,week));names=[x[0] for x in c.description];return [dict(zip(names,r)) for r in c.fetchall()]
+def canonical_schedule_games(conn,season,week):
+ sql='SELECT season,week,match_number,game_time_utc,home_team,away_team FROM nfl_schedule WHERE season=%s AND week=%s ORDER BY game_time_utc,match_number'
+ with conn.cursor() as c:
+  c.execute(sql,(season,week)); rows=c.fetchall()
+ return [{"season":row[0],"week":row[1],"game_id":f"{row[0]}-w{row[1]}-{row[5].lower()}-{row[4].lower()}","match_number":row[2],"scheduled_at":row[3],"home_team":row[4],"away_team":row[5]} for row in rows]
 def fp(r):return hashlib.sha256(json.dumps(r,sort_keys=True,default=str).encode()).hexdigest()
 def store(conn,source,records,season,week,label):
  run=str(uuid.uuid4())

@@ -103,24 +103,20 @@ def test_after_reset_the_team_can_be_recorded_again():
 
 
 def test_verified_current_week_never_guesses_on_sleeper_failure(monkeypatch):
-    import survivor_routes
+    from services.authoritative_week import build_sleeper_week_contract
 
-    def _boom():
-        raise RuntimeError("network unavailable")
-
-    monkeypatch.setattr(survivor_routes, "get_nfl_state", _boom)
-    assert survivor_routes._verified_current_week(2026) is None
+    assert build_sleeper_week_contract(None, season=2026)["authoritative"] is False
 
 
 def test_verified_current_week_rejects_season_mismatch(monkeypatch):
-    import survivor_routes
+    from services.authoritative_week import build_sleeper_week_contract
 
-    monkeypatch.setattr(survivor_routes, "get_nfl_state", lambda: {"season": "2025", "week": 3})
-    assert survivor_routes._verified_current_week(2026) is None
+    assert build_sleeper_week_contract({"season": "2025", "week": 3}, season=2026)["authoritative"] is False
 
 
 def test_verified_current_week_returns_sleeper_week_on_season_match(monkeypatch):
-    import survivor_routes
+    from services.authoritative_week import build_sleeper_week_contract
 
-    monkeypatch.setattr(survivor_routes, "get_nfl_state", lambda: {"season": "2026", "week": 4})
-    assert survivor_routes._verified_current_week(2026) == 4
+    result = build_sleeper_week_contract({"season": "2026", "week": 4}, season=2026)
+    assert result["authoritative"] is True
+    assert result["week"] == 4

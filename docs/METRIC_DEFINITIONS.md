@@ -17,6 +17,8 @@ Required definition fields:
 - Owner service or contract
 - Validation tests
 
+Multi-source corroboration does not authorize a metric by itself. For every metric, document the source owner, permitted secondary sources, agreement rule, conflict behavior, identity join, freshness requirement, missing-data behavior, and recommendation effect. Source disagreement must remain visible and fail closed; values must not be averaged away. Yahoo-derived evidence is `UNKNOWN PENDING API VERIFICATION` and cannot change a metric, score, ranking, confidence, or recommendation until its consumer contract and tests authorize that effect.
+
 ## Weekly Score
 
 - Status: DEFINITION REQUIRED BEFORE AUTHORITATIVE DISPLAY

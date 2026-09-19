@@ -3,7 +3,7 @@ from pathlib import Path
 from services.opportunity_evidence import build_opportunity_view
 
 
-METRICS = ("snap_share", "route_participation", "target_share", "rush_share", "red_zone_share", "goal_line_share", "role_stability")
+METRICS = ("snap_share", "route_participation", "target_share", "touch_share", "rush_share", "red_zone_share", "goal_line_share", "role_stability")
 
 
 def period(offset=0.0):

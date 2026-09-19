@@ -95,6 +95,24 @@ def test_future_value_is_normalized_to_0_to_1():
     assert result[0]["future_preservation"] == pytest.approx(1.0 - future_value)
 
 
+def test_future_value_accepts_persisted_prediction_shape():
+    rows = [make_row(game_id="g1", home_team="H", away_team="A", model_probability=0.70)]
+    schedule = [{"week": 2, "away_team": "A", "home_team": "H"}]
+    predictions_by_game = {(2, "A", "H"): {"model_probability": 0.80, "model_pick": "H"}}
+    result = build_recommendations(rows, schedule, [], predictions_by_game, strategy="balanced")
+    assert result[0]["future_available"] is True
+    assert result[0]["future_value"] == pytest.approx(0.80)
+
+
+def test_future_value_is_unavailable_for_missing_probability_shape():
+    rows = [make_row(game_id="g1", home_team="H", away_team="A", model_probability=0.70)]
+    schedule = [{"week": 2, "away_team": "A", "home_team": "H"}]
+    predictions_by_game = {(2, "A", "H"): {"model_pick": "H"}}
+    result = build_recommendations(rows, schedule, [], predictions_by_game, strategy="balanced")
+    assert result[0]["future_available"] is False
+    assert result[0]["future_value"] is None
+
+
 def test_missing_future_evidence_is_none_not_fifty_percent():
     rows = [make_row(game_id="g1", home_team="H", away_team="A", model_probability=0.70)]
     result = build_recommendations(rows, [], [], {}, strategy="balanced")

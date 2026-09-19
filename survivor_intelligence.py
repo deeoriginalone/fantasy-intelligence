@@ -94,8 +94,13 @@ def build_status(*,season,week,history_status,used_teams,schedule_rows,current_r
 def clamp(v,lo=0.0,hi=1.0): return min(hi,max(lo,float(v)))
 
 def team_probability(row,team):
-    hp=float(row['model_home_probability'])
-    return hp if team==row['home_team'] else 1-hp
+    if row.get('model_home_probability') is not None:
+        home_probability=float(row['model_home_probability'])
+        return home_probability if team==row['home_team'] else 1-home_probability
+    if row.get('model_probability') is not None and row.get('model_pick'):
+        selected_probability=float(row['model_probability'])
+        return selected_probability if team==row['model_pick'] else 1-selected_probability
+    return None
 
 def remaining_schedule_value(schedule_rows,team,current_week,predictions_by_game):
     """Returns an explicit future-value contract; never fabricates a neutral value when future evidence is missing."""
@@ -107,8 +112,10 @@ def remaining_schedule_value(schedule_rows,team,current_week,predictions_by_game
         game_key=(int(row['week']),row['away_team'],row['home_team'])
         prediction=predictions_by_game.get(game_key)
         if prediction:
-            future.append(team_probability(prediction,team))
-            weeks.append(int(row['week']))
+            probability=team_probability(prediction,team)
+            if probability is not None:
+                future.append(probability)
+                weeks.append(int(row['week']))
     if not future:
         return {'available':False,'value':None,'weeks':[],'missing_reason':'SURVIVOR_FUTURE_EVIDENCE_UNAVAILABLE'}
     # High future probability means the team is valuable to preserve.

@@ -227,6 +227,53 @@ def test_ready_state_shows_primary_pick_and_no_neutral_fallback(app, client):
     assert "50.0%" not in html
 
 
+def test_limited_evidence_primary_is_not_presented_as_unpublished(app, client):
+    primary = {"team": "SF", "opponent": "BAL", "home_away": "HOME", "current_probability": 0.71,
+               "stability_available": True, "stability": 0.9, "future_available": False, "future_value": None,
+               "future_missing_reason": "SURVIVOR_FUTURE_EVIDENCE_UNAVAILABLE", "survivor_score": 0.7,
+               "survivor_score_basis": "current_stability_only", "reason": "high current-week win probability"}
+    summary = {**base_context()["survivor_summary"], "primary": primary, "fallbacks": []}
+    status = {**base_context()["survivor_status"], "week_state": "OPEN", "state": "BLOCKED",
+              "blocker_reason": "SURVIVOR_EVIDENCE_STALE"}
+    html = render(app, client, survivor_summary=summary, survivor_status=status).get_data(as_text=True)
+    assert "LIMITED_EVIDENCE" in html
+    assert "No supported Survivor pick is published" not in html
+    assert "Current evidence is stale" in html
+
+
+def test_primary_explains_alternative_gap_and_change_condition(app, client):
+    primary = {"team": "SF", "opponent": "BAL", "home_away": "HOME", "current_probability": 0.71,
+               "stability_available": True, "stability": 0.9, "future_available": False, "future_value": None,
+               "future_missing_reason": "SURVIVOR_FUTURE_EVIDENCE_UNAVAILABLE", "survivor_score": 0.70,
+               "survivor_score_basis": "current_stability_only", "reason": "high current-week win probability"}
+    fallback = {"team": "BAL", "opponent": "SF", "home_away": "AWAY", "current_probability": 0.62,
+                "stability_available": True, "stability": 0.8, "future_available": False, "future_value": None,
+                "survivor_score": 0.64, "reason": "positive current-week edge"}
+    summary = {**base_context()["survivor_summary"], "primary": primary, "fallbacks": [fallback]}
+    status = {**base_context()["survivor_status"], "week_state": "OPEN", "state": "READY", "blocker_reason": None}
+    html = render(app, client, survivor_summary=summary, survivor_status=status).get_data(as_text=True)
+    assert "Probability gap: 9.0 points" in html
+    assert "Score gap: 6.0 points" in html
+    assert "What would change the recommendation" in html
+
+
+def test_decision_summary_translates_confidence_and_future_state(app, client):
+    primary = {"team": "SF", "opponent": "BAL", "home_away": "HOME", "current_probability": 0.71,
+               "stability_available": True, "stability": 0.90, "future_available": False, "future_value": None,
+               "future_missing_reason": "SURVIVOR_FUTURE_EVIDENCE_UNAVAILABLE", "survivor_score": 0.70,
+               "survivor_score_basis": "current_stability_only", "reason": "high current-week win probability"}
+    fallback = {"team": "BAL", "opponent": "SF", "home_away": "AWAY", "current_probability": 0.62,
+                "stability_available": True, "stability": 0.80, "future_available": False, "future_value": None,
+                "survivor_score": 0.64, "reason": "positive current-week edge"}
+    summary = {**base_context()["survivor_summary"], "primary": primary, "fallbacks": [fallback]}
+    status = {**base_context()["survivor_status"], "week_state": "OPEN", "state": "READY", "blocker_reason": None}
+    html = render(app, client, survivor_summary=summary, survivor_status=status).get_data(as_text=True)
+    assert "Evidence confidence:</strong> HIGH" in html
+    assert "Future Value state:</strong> UNAVAILABLE" in html
+    assert "save-for-later tradeoff cannot be assessed" in html
+    assert "Why choose it:</strong> positive current-week edge" in html
+
+
 def test_completed_week_loss_shows_result(app, client):
     status = {**base_context()["survivor_status"], "week_state": "COMPLETED", "state": "COMPLETED"}
     html = render(app, client, survivor_status=status, existing_selection={"team": "JAX", "status": "lost"}, result_label="Loss").get_data(as_text=True)

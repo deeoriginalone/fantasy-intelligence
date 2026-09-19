@@ -2,6 +2,7 @@
 {% set changes = (opportunity_view|default({})).what_changed|default({}) %}
 {% set market_value = (opportunity_view|default({})).market_value|default({}) %}
 {% set market_signal = (opportunity_view|default({})).market_signal|default({}) %}
+{% set trade_opportunity = (opportunity_view|default({})).trade_opportunity|default({}) %}
 <section class="evidence-panel opportunity-evidence" aria-labelledby="opportunity-evidence-title">
   <h2 id="opportunity-evidence-title">Opportunity Evidence</h2>
   {% if opportunity.authoritative %}
@@ -37,5 +38,15 @@
     <p>BLOCKED: Market signal evidence is not verified.</p>
   {% else %}
     <p>UNAVAILABLE: Market signal evidence is not available.</p>
+  {% endif %}
+  <h3>Trade Opportunity Evidence</h3>
+  {% if trade_opportunity.authoritative %}
+    <p>State: {{ trade_opportunity.trade_opportunity_state }}</p>
+  {% elif trade_opportunity.trade_opportunity_state == "INSUFFICIENT_EVIDENCE" %}
+    <p>INSUFFICIENT_EVIDENCE: Trade opportunity history is incomplete.</p>
+  {% elif trade_opportunity.blocker %}
+    <p>BLOCKED: Trade opportunity evidence is not verified.</p>
+  {% else %}
+    <p>UNAVAILABLE: Trade opportunity evidence is not available.</p>
   {% endif %}
 </section>
