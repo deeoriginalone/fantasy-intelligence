@@ -104,8 +104,7 @@ def team_probability(row,team):
 
 def remaining_schedule_value(schedule_rows,team,current_week,predictions_by_game):
     """Returns an explicit future-value contract; never fabricates a neutral value when future evidence is missing."""
-    future=[]
-    weeks=[]
+    found=[]
     for row in schedule_rows:
         if int(row['week'])<=int(current_week): continue
         if team not in (row['away_team'],row['home_team']): continue
@@ -114,14 +113,21 @@ def remaining_schedule_value(schedule_rows,team,current_week,predictions_by_game
         if prediction:
             probability=team_probability(prediction,team)
             if probability is not None:
-                future.append(probability)
-                weeks.append(int(row['week']))
-    if not future:
-        return {'available':False,'value':None,'weeks':[],'missing_reason':'SURVIVOR_FUTURE_EVIDENCE_UNAVAILABLE'}
+                opponent=row['away_team'] if team==row['home_team'] else row['home_team']
+                home_away='HOME' if team==row['home_team'] else 'AWAY'
+                found.append({'week':int(row['week']),'probability':probability,'opponent':opponent,'home_away':home_away})
+    if not found:
+        return {'available':False,'value':None,'weeks':[],'missing_reason':'SURVIVOR_FUTURE_EVIDENCE_UNAVAILABLE',
+                'game_count':0,'best_game':None}
     # High future probability means the team is valuable to preserve.
-    ranked=sorted(zip(future,weeks),reverse=True)[:3]
-    value=sum(p for p,_ in ranked)/len(ranked)
-    return {'available':True,'value':value,'weeks':sorted(w for _,w in ranked),'missing_reason':None}
+    ranked=sorted(found,key=lambda g:(g['probability'],g['week']),reverse=True)
+    top=ranked[:3]
+    value=sum(g['probability'] for g in top)/len(top)
+    best=ranked[0]
+    return {'available':True,'value':value,'weeks':sorted(g['week'] for g in top),'missing_reason':None,
+            'game_count':len(found),
+            'best_game':{'week':best['week'],'opponent':best['opponent'],'home_away':best['home_away'],'probability':best['probability']}}
+
 
 def stability_score(row):
     """Evidence agreement across market/Elo/situational signals. None (Unavailable) when any component is missing, never a fabricated spread."""
@@ -132,6 +138,33 @@ def stability_score(row):
         return None
     spread=max(float(market),float(elo),float(situation))-min(float(market),float(elo),float(situation))
     return clamp(1-spread*2)
+
+def component_breakdown(row,pick):
+    """Informational-only, team-perspective view of the same market/Elo/situational inputs stability_score reads. Never changes stability or score."""
+    home_team=row.get('home_team')
+    def to_team(value):
+        if value is None: return None
+        value=float(value)
+        return value if pick==home_team else 1-value
+    components={'Market':to_team(row.get('market_home_probability')),
+                'Elo':to_team(row.get('elo_home_probability')),
+                'Situational':to_team(row.get('situation_home_probability'))}
+    present={label:value for label,value in components.items() if value is not None}
+    missing=[label for label,value in components.items() if value is None]
+    if present:
+        highest_component=max(present,key=present.get)
+        lowest_component=min(present,key=present.get)
+        disagreement_range=max(present.values())-min(present.values()) if len(present)>1 else 0.0
+        highest_component_value=present[highest_component]
+        lowest_component_value=present[lowest_component]
+    else:
+        highest_component=None;lowest_component=None;disagreement_range=None
+        highest_component_value=None;lowest_component_value=None
+    return {'market_probability':components['Market'],'elo_probability':components['Elo'],
+            'situation_probability':components['Situational'],'missing_components':missing,
+            'highest_component':highest_component,'lowest_component':lowest_component,
+            'highest_component_value':highest_component_value,'lowest_component_value':lowest_component_value,
+            'disagreement_range':disagreement_range}
 
 def build_recommendations(current_rows,schedule_rows,used_teams,predictions_by_game,strategy='balanced'):
     candidates=[]
@@ -164,15 +197,22 @@ def build_recommendations(current_rows,schedule_rows,used_teams,predictions_by_g
             # Evidence agreement is unavailable; do not fabricate a confidence value or fold it into the score.
             score=clamp(current)
             score_basis='current_only'
+        projected_total=row.get('projected_total')
         candidates.append({
           'team':pick,'opponent':row['away_team'] if pick==row['home_team'] else row['home_team'],
           'home_away':'HOME' if pick==row['home_team'] else 'AWAY','week':int(row['week']),
           'current_probability':current,
           'future_available':future_available,'future_value':future_value,'future_weeks':future_info['weeks'],
           'future_missing_reason':future_info['missing_reason'],'future_preservation':future_preservation,
+          'future_game_count':future_info.get('game_count',0),'future_best_game':future_info.get('best_game'),
           'stability_available':stability_available,'stability':stability,
           'survivor_score':score,'survivor_score_basis':score_basis,'signal':row.get('signal',''),
           'game_id':row['game_id'],'market_updated_at':row.get('market_updated_at'),
+          'kickoff':row.get('kickoff'),'away_moneyline':row.get('away_moneyline'),
+          'home_moneyline':row.get('home_moneyline'),
+          'projected_total':float(projected_total) if projected_total is not None else None,
+          'prediction_generated_at':row.get('generated_at'),
+          **component_breakdown(row,pick),
           'reason':_reason(current,future_available,future_value,stability_available,stability)
         })
     return sorted(candidates,key=lambda x:(x['survivor_score'],x['current_probability']),reverse=True)

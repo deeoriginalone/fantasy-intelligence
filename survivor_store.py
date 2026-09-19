@@ -77,7 +77,23 @@ def current_predictions(season,week,strategy):
     conn=connect()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute('''SELECT p.*,g.season,g.week,g.away_team,g.home_team,g.kickoff,g.market_updated_at FROM market_intelligence_predictions p JOIN yahoo_pickem_games g USING(game_id) WHERE g.season=%s AND g.week=%s AND p.strategy=%s ORDER BY p.confidence_points DESC''',(season,week,strategy));return [dict(r) for r in cur.fetchall()]
+            cur.execute('''SELECT p.*,g.season,g.week,g.away_team,g.home_team,g.kickoff,g.market_updated_at,g.away_moneyline,g.home_moneyline,g.projected_total FROM market_intelligence_predictions p JOIN yahoo_pickem_games g USING(game_id) WHERE g.season=%s AND g.week=%s AND p.strategy=%s ORDER BY p.confidence_points DESC''',(season,week,strategy));return [dict(r) for r in cur.fetchall()]
+    finally:conn.close()
+def latest_market_refresh_run(season,week):
+    """Read-only lookup of the existing market_intelligence_runs contract; never blocks the page if the table/run is unavailable."""
+    try:
+        conn=connect()
+    except Exception:
+        return {'latest':None,'last_success':None}
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute('SELECT * FROM market_intelligence_runs WHERE season=%s AND week=%s ORDER BY started_at DESC LIMIT 1',(season,week))
+            latest=cur.fetchone()
+            cur.execute("SELECT * FROM market_intelligence_runs WHERE season=%s AND week=%s AND status='success' ORDER BY finished_at DESC LIMIT 1",(season,week))
+            last_success=cur.fetchone()
+        return {'latest':dict(latest) if latest else None,'last_success':dict(last_success) if last_success else None}
+    except Exception:
+        return {'latest':None,'last_success':None}
     finally:conn.close()
 def all_schedule(season):
     conn=connect()
