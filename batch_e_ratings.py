@@ -5,6 +5,7 @@ import os
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from math import isfinite
+from pathlib import Path
 from typing import Any, Mapping
 
 import requests
@@ -13,6 +14,8 @@ from batch_e_common import canonical_schedule_games, ready, store
 from imports.import_weekly_intelligence import TEAMS, abbr
 
 DEFAULT = "https://github.com/nflverse/nfldata/raw/master/data/games.csv"
+ELO_SOURCE_DOMAIN = "model_only_future_elo"
+ELO_SOURCE_IDENTIFIER = "nflverse_games"
 MODEL_NAME = "nflverse-historical-elo"
 MODEL_VERSION = "nflverse-historical-elo-v2.0.0"
 INITIAL_RATING = 1500.0
@@ -388,26 +391,113 @@ def build_evidence_batch(*, season, week, scheduled_games, historical_rows, sour
         "lineage": {**lineage, "completed_game_cutoff": cutoff, "historical_identity_lineage": identity_lineage, "source_recorded_raw": source_recorded_raw},
     }
 
+def migrate(conn):
+    """Idempotent, additive: creates the append-only Elo source observation table if absent.
+    Does not commit; callers include this DDL in the same transaction as their write."""
+    cur = conn.cursor()
+    cur.execute((Path(__file__).parent / "migrations" / "016_model_only_elo_source_observations.sql").read_text())
+    cur.close()
+
+def _latest_elo_observation(conn, source_identifier):
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT source_checksum, retrieved_at FROM model_only_elo_source_observations "
+        "WHERE source_identifier=%s AND observation_state='OBSERVED' ORDER BY retrieved_at DESC LIMIT 1",
+        (source_identifier,),
+    )
+    row = cur.fetchone()
+    cur.close()
+    return row
+
+def record_elo_source_observation(conn, *, source_identifier, source_url, retrieved_at, source_recorded_at,
+                                   source_checksum, etag, content_length_header, content_length_actual, http_status):
+    """Append-only history of a real, successful Elo source retrieval. Evidence collection only; never authorizes freshness."""
+    retrieved_value = _timestamp(retrieved_at)
+    source_recorded_value = _timestamp(source_recorded_at)
+    try:
+        migrate(conn)
+        prior = _latest_elo_observation(conn, source_identifier)
+        previous_checksum, previous_retrieved_at = (prior[0], prior[1]) if prior else (None, None)
+        changed_from_previous = None if prior is None else (source_checksum != previous_checksum)
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO model_only_elo_source_observations
+               (domain, source_identifier, source_url, retrieved_at, source_recorded_at, source_recorded_at_available,
+                source_checksum, etag, content_length_header, content_length_actual, http_status,
+                changed_from_previous, previous_checksum, previous_retrieved_at, observation_state, blocker_reason)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+               RETURNING id""",
+            (ELO_SOURCE_DOMAIN, source_identifier, source_url, retrieved_value, source_recorded_value,
+             source_recorded_value is not None, source_checksum, etag, content_length_header,
+             content_length_actual, http_status, changed_from_previous, previous_checksum, previous_retrieved_at,
+             "OBSERVED", None),
+        )
+        observation_id = cur.fetchone()[0]
+        cur.close()
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return {"id": observation_id, "changed_from_previous": changed_from_previous,
+            "previous_checksum": previous_checksum, "previous_retrieved_at": previous_retrieved_at}
+
+def record_elo_source_retrieval_failure(conn, *, source_identifier, source_url, http_status, blocker_reason):
+    """Append-only failure observation. Never replaces or blocks prior successful evidence."""
+    try:
+        migrate(conn)
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO model_only_elo_source_observations
+               (domain, source_identifier, source_url, retrieved_at, source_recorded_at, source_recorded_at_available,
+                source_checksum, etag, content_length_header, content_length_actual, http_status,
+                changed_from_previous, previous_checksum, previous_retrieved_at, observation_state, blocker_reason)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+               RETURNING id""",
+            (ELO_SOURCE_DOMAIN, source_identifier, source_url, datetime.now(timezone.utc), None, False,
+             None, None, None, None, http_status, None, None, None, "RETRIEVAL_FAILED", blocker_reason),
+        )
+        observation_id = cur.fetchone()[0]
+        cur.close()
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return {"id": observation_id}
+
 def run(conn, season, week, dry=False, freshness_threshold_id=None, freshness_threshold_seconds=None):
     url = os.getenv("NFLVERSE_GAMES_URL", DEFAULT)
-    response = requests.get(url, timeout=90)
-    response.raise_for_status()
+    try:
+        response = requests.get(url, timeout=90)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        record_elo_source_retrieval_failure(
+            conn, source_identifier=ELO_SOURCE_IDENTIFIER, source_url=url,
+            http_status=getattr(getattr(exc, "response", None), "status_code", None), blocker_reason=str(exc),
+        )
+        raise
     retrieved_at = datetime.now(timezone.utc)
     source_recorded_at, source_recorded_raw = _source_timestamp(response)
+    source_checksum = hashlib.sha256(response.content).hexdigest()
+    record_elo_source_observation(
+        conn, source_identifier=ELO_SOURCE_IDENTIFIER, source_url=url, retrieved_at=retrieved_at,
+        source_recorded_at=source_recorded_at, source_checksum=source_checksum,
+        etag=response.headers.get("ETag"), content_length_header=response.headers.get("Content-Length"),
+        content_length_actual=len(response.content), http_status=response.status_code,
+    )
     scheduled_games = canonical_schedule_games(conn, season, week)
     evidence_batch = build_evidence_batch(
         season=season,
         week=week,
         scheduled_games=scheduled_games,
         historical_rows=list(csv.DictReader(io.StringIO(response.text))),
-        source_identifier="nflverse_games",
+        source_identifier=ELO_SOURCE_IDENTIFIER,
         source_url=url,
         retrieved_at=retrieved_at,
         generated_at=datetime.now(timezone.utc),
         model_version=MODEL_VERSION,
         freshness_threshold_id=freshness_threshold_id,
         freshness_threshold_seconds=freshness_threshold_seconds,
-        source_checksum=hashlib.sha256(response.content).hexdigest(),
+        source_checksum=source_checksum,
         source_recorded_at=source_recorded_at,
         source_recorded_raw=source_recorded_raw,
     )
