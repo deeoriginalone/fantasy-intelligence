@@ -4,32 +4,39 @@
 
 This reference tells Copilot when to trigger a project-memory review during Fantasy Intelligence development. It exists so milestone completion, validation evidence, completion boundaries, and next-work decisions are carried into durable repository documents instead of depending on historical chat memory.
 
-Repository evidence remains the source of truth. Chat history may help identify what to inspect, but it must never be the only evidence used to mark work complete or update a milestone.
+Repository evidence remains the source of truth. Chat history may help identify what to inspect, but it must never be the only evidence used to mark work complete or update a milestone. Project-memory work is proportional: a changed boundary may be recorded at session close without triggering repeated repository-wide review loops.
+
+Project-memory review is Class C work and is not a default step for Class A read-only investigation or Class B focused implementation. Use proportional rigor: the fewest searches, reads, tool calls, tests, browser checks, and output tokens that can truthfully prove the requested boundary. Stop when the boundary is proven or precise missing evidence is identified.
 
 ## Trigger Conditions
 
-Copilot must initiate a project-memory review when any of the following occurs during a development conversation:
+Project-memory review is triggered when:
 
-- A milestone, QA milestone, roadmap item, batch, gate, or definition of done is reported as complete.
-- Focused tests and required validation for a milestone pass.
-- A defect moves to VALIDATED, CLOSED, or NOT REPRODUCIBLE.
-- The active milestone or exact next milestone changes.
-- New repository evidence changes the verified implementation boundary.
-- Work previously listed as outstanding is completed, removed, deferred, or replaced.
-- A large coherent implementation batch is completed.
-- The user says phrases such as:
-  - "milestone complete"
-  - "UX-QA.1 is complete"
-  - "gate passed"
-  - "validation passed"
-  - "definition of done is met"
-  - "ready to commit"
-  - "update project memory"
-  - "run project-memory review"
-  - "run repository reconciliation"
-  - "prepare the handoff"
+1. Canonical milestone state changes.
+2. The verified completion boundary changes.
+3. Defect status changes.
+4. The exact next milestone changes.
+5. The user explicitly requests one of:
+   - update project memory
+   - prepare handoff
+   - project-memory review
+   - repository reconciliation
 
-A trigger starts a review. It does not prove completion by itself.
+Focused tests passing alone is not a trigger.
+
+A completed implementation batch alone is not a trigger.
+
+"Ready to commit" is not a trigger.
+
+Commit creation alone is not a trigger.
+
+A new project-memory review is required only when canonical project memory would change.
+
+## Review Reuse Rule
+
+If the previous review already completed, canonical documents remain correct, milestone wording remains unchanged, and the completion boundary remains unchanged, reuse the previous review.
+
+Do not perform another Class C review.
 
 ## Evidence Required Before Updating Completion Status
 
@@ -137,7 +144,7 @@ If the user says, "UX-QA.1 is complete," Copilot must not immediately mark it co
 
 ## Update Output Expected From Copilot
 
-When the trigger fires, Copilot should produce a project-memory update package or precise proposed changes containing:
+When a project-memory update is intentionally requested or required at session close, Copilot should produce a project-memory update package or precise proposed changes containing:
 
 1. What triggered the review.
 2. Evidence inspected.
@@ -154,7 +161,7 @@ When file-generation capability is available, prefer downloadable files or a det
 
 ## Continuity Workflow
 
-After the canonical source documents are updated and reviewed, run the repository's documented continuity sequence:
+After the canonical source documents are updated and reviewed at session close, run the repository's documented continuity sequence:
 
 ```bash
 python scripts/update_canonical_head.py
@@ -192,12 +199,12 @@ This reference does not make Notebook references automatically writable and does
 
 ## Final Rule
 
-When a milestone appears complete:
+When a milestone appears complete and the session is ready to close:
 
 1. Trigger the review.
 2. Verify repository evidence.
 3. Determine the supported completion boundary.
 4. Update canonical source documents consistently.
-5. Regenerate continuity artifacts.
+5. Regenerate continuity artifacts once at session close.
 6. Review the exact staged scope.
 7. Never rely on chat memory alone.

@@ -49,3 +49,30 @@ Rules:
 10. Keep implementation, audits, docs, bundles, and generated outputs separated.
 11. Update canonical project-memory files only after validation.
 12. Prefer repository evidence over historical chat memory.
+
+Efficiency and proportional rigor:
+
+- Use the fewest searches, reads, tool calls, tests, browser checks, and output tokens that can truthfully prove the requested boundary.
+- Stop when the question is answered, the boundary is proven, or precise missing evidence is identified. A missing input is a valid read-only result.
+- Do not use the Class C reconciliation workflow for ordinary Class A investigation or Class B focused implementation. Use it at deliberate session close when canonical memory or milestone state changed.
+- Do not repeat searches or successful validation without a changed input or distinct evidence question.
+- Before a substantial foundation batch, identify its manager-facing decision, current consumer, prevented error, shortest evidence path, and deferral option. Prefer a reduced-scope informational result when authority is blocked and the result can remain clearly non-authoritative.
+
+Delivery rules:
+
+- Delivery-first and solution-first development are the default after the owning abstraction and a cheap discriminating check are known.
+- Fail-closed applies to authority, not usefulness: unavailable evidence may still support disclosed informational context.
+- Apply one more local step before stopping at unavailable when it may expose a useful subset; then stop after the exact missing evidence is proven.
+- Use a source feasibility gate before building source-dependent consumers.
+- Maintain an active batch manifest rather than repeatedly rebuilding repository inventories.
+- Run continuity and HEAD synchronization only at session close.
+- Prefer a Survivor vertical slice and apply the manager-value override when process overhead would delay a safe, useful decision improvement.
+
+80/20 Value Rule:
+
+- When two valid paths exist, prefer approximately 80% of manager-facing value with the least process overhead.
+- Pursue the theoretically ideal path first only when required for correctness, security, freshness correctness, identity correctness, ownership correctness, or corruption prevention.
+- Prefer manager-facing value now over infrastructure needed only for the final 20%.
+- Optimize for faster delivery, fewer investigation loops, fewer foundation-only batches, and more vertical slices while preserving fail-closed authority, recommendation safety, freshness safety, ownership correctness, identity correctness, security, and source truth.
+
+The primary measure of progress is improved fantasy-football decision quality for the owner. A foundation with no identified near-term consumer is normally deferred. If a read-only investigation has identified the exact missing evidence, stop unless repository evidence supports a specific unsearched location likely to contain it. Before executing a test path, verify it exists; locate the actual owning test once when it does not, report the missing path separately, and do not execute it.
