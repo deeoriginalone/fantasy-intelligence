@@ -19,5 +19,18 @@
 @media(max-width:900px){.sv header,.sv-grid{display:grid}.sv-grid{grid-template-columns:1fr}.history{grid-template-columns:1fr}.sv-alternatives,.sv-risks,.sv-save-later{grid-template-columns:1fr}}
 @media(max-width:420px){.sv{padding:14px}.sv-hero,.sv-primary-card,.sv-state{padding:12px}}
 .sv-reset-btn{background:#fff;color:#991b1b;border:1px solid #991b1b}
+.sv-state-banner{font-size:1.1rem;font-weight:800;padding:10px 14px;border-radius:9px;margin:10px 0}
+.sv-state-banner-ready{background:#dcfce7;color:#166534}
+.sv-state-banner-limited{background:#fef3c7;color:#92400e}
+.sv-state-banner-blocked{background:#fde8e8;color:#991b1b}
+.sv-why{margin:16px 0;padding:18px;border-radius:12px;background:#fff;border:1px solid #dbe4ee}
+.sv-why table{margin-top:10px}
+.sv-data-quality{margin:16px 0;padding:18px;border-radius:12px;background:#f8fafc;border:1px solid #dbe4ee}
+.sv-bar{display:inline-block;width:60px;height:8px;background:#e5e7eb;border-radius:5px;overflow:hidden;vertical-align:middle;margin-right:6px}
+.sv-bar-fill{display:block;height:100%;background:#0759c7}
+.sv-row-detail summary{cursor:pointer;font-weight:700}
+.sv-row-detail p{margin:4px 0}
+.sv-compact-line{color:#334155;font-size:.92rem}
+@media(max-width:420px){.sv-why table{font-size:.85rem}.sv-bar{width:40px}}
 .sv-manual-pick{margin:16px 0;padding:18px;border-radius:12px;background:#fff;border:1px dashed #cbd5e1}
 .sv-manual-pick form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
