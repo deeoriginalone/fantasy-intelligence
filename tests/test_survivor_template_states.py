@@ -330,6 +330,48 @@ def test_manual_pick_control_hidden_when_no_eligible_teams(app, client):
     assert "PICK A DIFFERENT TEAM" not in html
 
 
+def test_populated_future_opportunities_render_informational_only(app, client):
+    primary = {"team": "NE", "opponent": "SEA", "home_away": "HOME", "current_probability": 0.71,
+               "stability_available": True, "stability": 0.9, "future_available": True, "future_value": 0.62,
+               "future_weeks": [5, 7], "future_preservation": 0.38, "future_missing_reason": None,
+               "future_game_count": 4, "future_best_game": {"week": 7, "opponent": "MIA", "home_away": "AWAY", "probability": 0.66},
+               "survivor_score": 0.7, "survivor_score_basis": "current_future_stability",
+               "reason": "high current-week win probability"}
+    save_for_later = [{"team": "BUF", "future_value": 0.72, "future_weeks": [6],
+                        "future_best_game": {"week": 6, "opponent": "NYJ", "home_away": "HOME", "probability": 0.72},
+                        "future_game_count": 2}]
+    summary = {**base_context()["survivor_summary"], "primary": primary, "fallbacks": [], "save_for_later": save_for_later}
+    status = {**base_context()["survivor_status"], "week_state": "OPEN", "state": "READY", "blocker_reason": None}
+    html = render(app, client, survivor_summary=summary, survivor_status=status).get_data(as_text=True)
+    assert "Future opportunities" in html
+    assert "Strongest future opportunity" in html
+    assert "Current-versus-later" in html
+    assert "4 supported future game" in html
+    assert "Week 7 vs MIA (AWAY)" in html
+    assert "66.0%" in html
+    assert "This week: 71.0%" in html
+    assert "strongest future week: 66.0%" in html
+    assert "not used to authorize the current pick" in html
+    assert html.count("informational only") >= 2
+
+
+def test_unavailable_future_evidence_renders_no_fabricated_game(app, client):
+    primary = {"team": "NE", "opponent": "SEA", "home_away": "HOME", "current_probability": 0.71,
+               "stability_available": True, "stability": 0.9, "future_available": False, "future_value": None,
+               "future_missing_reason": "SURVIVOR_FUTURE_EVIDENCE_UNAVAILABLE",
+               "survivor_score": 0.7, "survivor_score_basis": "current_stability_only",
+               "reason": "high current-week win probability"}
+    summary = {**base_context()["survivor_summary"], "primary": primary, "fallbacks": []}
+    status = {**base_context()["survivor_status"], "week_state": "OPEN", "state": "READY", "blocker_reason": None}
+    html = render(app, client, survivor_summary=summary, survivor_status=status).get_data(as_text=True)
+    assert "Unavailable; no supported future opportunities exist for NE" in html
+    assert "Unavailable; no supported future comparison exists" in html
+    assert "Week 7" not in html
+    assert "MIA" not in html
+    assert "strongest is Week" not in html
+    assert "undefined" not in html.lower()
+
+
 def test_manual_pick_control_hidden_for_locked_week(app, client):
     html = render(app, client, eligible_teams=["DET", "KC"]).get_data(as_text=True)
     assert "PICK A DIFFERENT TEAM" not in html
