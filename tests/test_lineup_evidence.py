@@ -107,3 +107,73 @@ def test_missing_and_stale_evidence_fail_closed_without_values():
 def test_identity_missing_is_blocked():
     result = build_matchup_evidence(player(source_player_id=None, local_player_id=None), season=2026, week=3, now=NOW)
     assert "MATCHUP_PLAYER_IDENTITY_UNAVAILABLE" in result["blockers"]
+
+
+def test_display_formatted_matchup_source_does_not_override_structured_authority():
+    result = build_matchup_evidence(player(
+        matchup_source="nfl_schedule + automated:nflverse:weekly-w3",
+        matchup_source_authority="automated",
+        matchup_sample_threshold_id="matchup.sample.v1",
+        matchup_population="ALL_DEFENSES_BY_POSITION",
+        matchup_directionality="LOWER_IS_HARDER",
+    ), season=2026, week=3, now=NOW)
+    assert "MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE" not in result["blockers"]
+    assert result["source_authority"] == "automated"
+
+
+def test_missing_structured_source_authority_fails_closed_on_display_formatted_source():
+    result = build_matchup_evidence(player(
+        matchup_source="nfl_schedule + automated:nflverse:weekly-w3",
+    ), season=2026, week=3, now=NOW)
+    assert "MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE" in result["blockers"]
+    assert result["source_authority"] == "UNVERIFIED"
+
+
+def test_missing_population_blocker_persists_with_other_contract_fields_present():
+    result = build_matchup_evidence(player(
+        matchup_source_authority="automated",
+        matchup_sample_threshold_id="matchup.sample.v1",
+        matchup_directionality="LOWER_IS_HARDER",
+    ), season=2026, week=3, now=NOW)
+    assert "MATCHUP_POPULATION_UNVERIFIED" in result["blockers"]
+    assert "MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED" not in result["blockers"]
+    assert "MATCHUP_DIRECTIONALITY_UNVERIFIED" not in result["blockers"]
+    assert result["authoritative"] is False
+
+
+def test_missing_directionality_blocker_persists_with_other_contract_fields_present():
+    result = build_matchup_evidence(player(
+        matchup_source_authority="automated",
+        matchup_sample_threshold_id="matchup.sample.v1",
+        matchup_population="ALL_DEFENSES_BY_POSITION",
+    ), season=2026, week=3, now=NOW)
+    assert "MATCHUP_DIRECTIONALITY_UNVERIFIED" in result["blockers"]
+    assert "MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED" not in result["blockers"]
+    assert "MATCHUP_POPULATION_UNVERIFIED" not in result["blockers"]
+    assert result["authoritative"] is False
+
+
+def test_fully_authoritative_matchup_evidence_when_all_contract_fields_verified():
+    result = build_matchup_evidence(player(
+        matchup_source_authority="automated",
+        matchup_sample_threshold_id="matchup.sample.v1",
+        matchup_population="ALL_DEFENSES_BY_POSITION",
+        matchup_directionality="LOWER_IS_HARDER",
+    ), season=2026, week=3, now=NOW)
+    assert result["blockers"] == []
+    assert result["authoritative"] is True
+    assert result["comparison_population"] == "ALL_DEFENSES_BY_POSITION"
+    assert result["rank_directionality"] == "LOWER_IS_HARDER"
+
+
+def test_unrelated_blockers_remain_intact_when_matchup_authority_is_verified():
+    result = build_matchup_evidence(player(
+        opponent=None,
+        matchup_source_authority="automated",
+        matchup_sample_threshold_id="matchup.sample.v1",
+        matchup_population="ALL_DEFENSES_BY_POSITION",
+        matchup_directionality="LOWER_IS_HARDER",
+    ), season=2026, week=3, now=NOW)
+    assert "MATCHUP_OPPONENT_IDENTITY_UNAVAILABLE" in result["blockers"]
+    assert "MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE" not in result["blockers"]
+    assert result["authoritative"] is False

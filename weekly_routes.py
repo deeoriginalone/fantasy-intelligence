@@ -1,4 +1,4 @@
-from flask import Blueprint, redirect, render_template, request, url_for
+from flask import Blueprint, abort, redirect, render_template, request, url_for
 from auth import admin_required
 from weekly_intelligence import current_week,set_current_week
 from pickem_pg_context import build_pickem_context
@@ -10,6 +10,8 @@ def create_weekly_blueprint(get_db_connection):
         c=get_db_connection(); cur=c.cursor()
         try:
             week=current_week(cur)
+            if week is None:
+                abort(503, description='authoritative week unavailable')
             cur.execute("""SELECT s.week,s.game_time_pacific,h.team_name,a.team_name,s.home_team,s.away_team
                            FROM nfl_schedule s JOIN nfl_teams h ON h.team_abbr=s.home_team JOIN nfl_teams a ON a.team_abbr=s.away_team
                            WHERE s.season=2026 AND s.week=%s ORDER BY s.game_time_pacific""",(week,)); games=cur.fetchall()
@@ -21,7 +23,10 @@ def create_weekly_blueprint(get_db_connection):
     @bp.route('/weekly/set',methods=['POST'])
     @admin_required
     def set_week():
-        week=max(1,min(18,int(request.form.get('week',1)))); c=get_db_connection(); cur=c.cursor()
+        week=request.form.get('week',type=int)
+        if week is None or not 1 <= week <= 18:
+            abort(400, description='week must be between 1 and 18')
+        c=get_db_connection(); cur=c.cursor()
         try: set_current_week(cur,week); c.commit()
         except Exception: c.rollback(); raise
         finally: cur.close(); c.close()

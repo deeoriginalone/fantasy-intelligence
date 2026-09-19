@@ -141,6 +141,17 @@ def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True
         p["matchup_publication_lineage"] = m[9] if m and len(m)>9 else None
         p["matchup_sample_size"] = m[10] if m and len(m)>10 else None
         p["matchup_retrieved_at"]=matchup_retrieved_at
+        p["matchup_updated_at"]=matchup_retrieved_at
+        # Population/directionality/threshold are only trusted from the automated
+        # nflverse publication contract embedded at publish time (never invented here).
+        publication_contracts = p["matchup_publication_lineage"].get("publication_contracts") if isinstance(p["matchup_publication_lineage"], dict) else None
+        publication_contracts = publication_contracts or {}
+        threshold_contract = publication_contracts.get("threshold") or {}
+        population_contract = publication_contracts.get("population") or {}
+        directionality_contract = publication_contracts.get("directionality") or {}
+        p["matchup_sample_threshold_id"] = threshold_contract.get("identifier") if threshold_contract.get("state") == "VERIFIED" else None
+        p["matchup_population"] = population_contract.get("name") or None
+        p["matchup_directionality"] = directionality_contract.get("value") or None
         p["matchup_lineage"]={"source":p["matchup_source"],"source_recorded_at":p["matchup_source_recorded_at"],"retrieved_at":matchup_retrieved_at,"publication":p["matchup_publication_lineage"]}
         p["matchup_completeness"]="COMPLETE" if sched and m and matchup_retrieved_at else "UNAVAILABLE"
         if not m or not sched:
@@ -164,12 +175,15 @@ def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True
                 "matchup": weekly_evidence_contract(domain="matchup", blocker="MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE"),
                 "projection": weekly_evidence_contract(domain="projection", blocker="PROJECTION_AUTOMATED_SOURCE_UNAVAILABLE"),
             }
+            # Matchup is informational only: roster (schedule/bye) and
+            # projection evidence remain the hard blockers for weekly values.
             hard_evidence_blocked = any(
                 not item["authoritative"]
-                and domain != "projection"
+                and domain not in ("projection", "matchup")
                 for domain, item in p["weekly_evidence"].items()
             )
             projection_missing = p.get("projection") is None or not p.get("projection_retrieved_at")
+            p["matchup_confidence_reduced"] = not p["weekly_evidence"]["matchup"]["authoritative"]
             if hard_evidence_blocked or projection_missing:
                 p["weekly_baseline"] = None
                 p["weekly_score"] = None
