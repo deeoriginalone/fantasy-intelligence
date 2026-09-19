@@ -14,6 +14,14 @@
 
 Each page must earn advancement independently. Technical tests are necessary but insufficient: the current page must also be trustworthy, action-oriented, explainable, useful in unavailable or degraded states, readable on desktop and mobile, and valuable during normal weekly use before work moves to another page.
 
+## Product usefulness gate
+
+Every substantial page or evidence batch must name the manager-facing decision it enables or protects, the current workflow that consumes it, the incorrect decision it prevents, the next useful personal-season outcome, and the smallest safe implementation. A foundation without a planned near-term consumer is normally deferred unless it repairs a demonstrated correctness, privacy, security, data-integrity, or repository-recovery risk.
+
+At least one active priority must materially improve a manager-facing START, SIT, FLEX, MONITOR, ADD, DROP, TRADE FOR, TRADE AWAY, or Survivor decision. Infrastructure-only work may not indefinitely displace those outcomes.
+
+The primary measure of progress is improved fantasy-football decision quality for the owner. A foundation with no identified near-term consumer is normally deferred. If the required usefulness questions cannot be answered, defer unless the work protects repository integrity, security, ownership correctness, freshness correctness, identity correctness, or prevents major data corruption.
+
 ## Fantasy Intelligence Dashboard
 
 ### Must show
