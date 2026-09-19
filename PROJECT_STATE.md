@@ -11,7 +11,7 @@ UX.2.1C is owner-accepted as of 2026-09-13 (`APPROVED: MY TEAM UI`). UX.3 is val
 ####### Last recorded repository checkpoint
 - Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: 11fded7ed6c04a417407018fd3c7fc84ad9e0e13
+- HEAD: 4643f136f12101f51894dd28c09b383b82b5310c
 
 ####### Current evidence-layer foundation (validated 2026-09-15)
 - Pure fail-closed contracts now exist for Opportunity Evidence, What Changed, Opportunity Classification, Market Value, Market Signal, Buy/Sell Candidates, and Trade Opportunity evidence.
@@ -109,7 +109,7 @@ The revised UX.2 product-completion criteria are validated at the focused, contr
 - Trades uses a trade verdict, partner selector, roster-fit summary, one-for-one/two-for-one package cards, feasibility visibility, and collapsed integrity/identity diagnostics. Focused validation passed 27 tests; live `/trades` returned HTTP 200 and passed desktop/390px overflow checks.
 - These pages remain read-only. No route, database, ownership, eligibility, health, matchup, trade, waiver, or transaction logic was changed by the visual rollout.
 
-####### UX.8 Survivor Intelligence progress (in-progress, not complete)
+####### UX.8 Survivor Intelligence completion boundary (VALIDATED)
 
 - History/eligibility contract implemented: Week 1 JAX (season 2026) recorded through a conflict-safe write (`SurvivorConflictError`) and a distinct history-read-failure signal (`SurvivorHistoryReadError`); used-team exclusion verified live and by test.
 - Week-state contract implemented (`OPEN` / `PENDING_RESULT` / `COMPLETED` / `UNAVAILABLE` / `BLOCKED`); the occupied-week contradiction is fixed — a locked week no longer offers another actionable pick or “Record… pick” control.
@@ -125,7 +125,9 @@ The revised UX.2 product-completion criteria are validated at the focused, contr
 - Added CSRF protection to `/survivor/select` and `/survivor/status` (previously unprotected, same class of gap fixed earlier on the market-refresh endpoint).
 - Added `_verified_current_week()` using Sleeper's `get_nfl_state()` to replace the hardcoded default week only when no week is explicitly requested; fails closed (never guesses) on network error or season mismatch.
 - Focused survivor + security tests: 84 passed, 1 xfailed (up from 68 earlier this session).
-- UX.8 is not yet formally complete; remaining boundary work is tracked under the Next milestone below.
+- UX.8 completion review satisfied the current Survivor page and metric requirements. The verified boundary includes history-read blocking, used-team exclusion, all required week states, one OPEN-week selection workflow with eligible manual override, separated win probability and evidence agreement, fail-closed future evidence, truthful roadmap unavailability, exact blocker effects, read-only external behavior, collapsed lineage, and desktop/390px rendering without primary overflow.
+- Future prediction contract repair accepts calculated and persisted prediction shapes without changing ranking, score, or confidence formulas. Focused Survivor validation passed 63 tests with 1 expected xfail; compilation, whitespace checks, and live `/survivor?season=2026&week=1` desktop/390px verification passed.
+- UX.8 is VALIDATED at the current read-only boundary. Yahoo Survivor capabilities remain UNKNOWN_PENDING_VERIFICATION and do not authorize recommendation behavior. Production readiness, external transactions, and continuity closure remain unclaimed.
 
 ####### UX.9 My Team + Weekly Lineup Consolidation (complete at verified boundary)
 
@@ -157,6 +159,9 @@ The revised UX.2 product-completion criteria are validated at the focused, contr
 - Opportunity trends, buy/sell labels, post-week grades, Manager Report Card grades, and playoff strategy are blocked by missing automated source, freshness, identifier, historical-baseline, metric-authority, or decision-time snapshot evidence. Do not infer them from box scores or stale CSV inputs.
 
 ####### Decision-first priority override
+
+- The primary measure of progress is improved fantasy-football decision quality for the owner. Infrastructure is secondary to trustworthy decision support and must have a current consumer or an explicit integrity, security, ownership, freshness, identity, or data-corruption purpose.
+- Missing evidence is a valid audit outcome. After the exact missing evidence is identified, stop broad discovery unless a specific unsearched location is supported by repository evidence.
 
 - Priority 1: make weekly START, SIT, FLEX, MONITOR, ADD, DROP, TRADE FOR, and TRADE AWAY decisions trustworthy with current, league-specific, explained evidence. This outranks navigation work, dashboards, new models, and season strategy.
 - Priority 2: establish automated player opportunity and role evidence, then build What Changed from documented multi-week baselines. Breakout, regression, Buy Low, and Sell High labels remain blocked until source, identifier, history, freshness, metric authority, and market evidence are verified.
@@ -230,9 +235,18 @@ The revised UX.2 product-completion criteria are validated at the focused, contr
 - The five projection warnings remain active and structured: `PROJECTION_SOURCE_USE_UNVERIFIED`, `PROJECTION_UNIT_UNVERIFIED`, `PROJECTION_SOURCE_TIMESTAMP_UNAVAILABLE`, `PROJECTION_FRESHNESS_THRESHOLD_UNVERIFIED`, and `PROJECTION_LINEAGE_VERSION_UNAVAILABLE`.
 - Lineup/trade projection-consumption validation passed 44 tests; waiver projection-contribution validation passed 70 tests. Python compilation and both diff checks passed for each batch.
 
+####### Repository reality reconciliation (2026-09-19)
+
+- UX.8 Survivor future evidence is structurally complete for live 2026 Week 3: 16/16 canonical games, 32/32 scheduled-team ratings, no scheduled identity or duplicate blockers, and a reconciled 7,548-row NFLverse replay. `validated_games` is producer-owned and per-game keyed.
+- Model-only probability compatibility is proven structurally and live: numeric home/away probabilities complement to 1, remain `MODEL_ONLY` and `INFORMATIONAL_ONLY`, and have `decision_effect=NONE`. Freshness-only unavailability remains explicit and blocks availability/authority; no Survivor consumer is wired.
+- The remaining future-probability blocker is evidence, not calculation: no approved Elo threshold owner, identifier, value, documented source cadence, repeated retrieval history, or consumer use window supports a threshold.
+- Existing NFL Intelligence, Opportunity Evidence, schedule/bye provenance, shared Decision Center/evidence contracts, pre-decision snapshot foundation, and unified decision context remain informational or fail-closed at their recorded boundaries. Unsupported opportunity metrics, missing weekly comparisons, missing market predictions, and matchup authority remain unavailable or blocked.
+- Yahoo OAuth foundation exists for authorization, token refresh, redacted storage, authenticated access, and capability inventory, but Yahoo Survivor state/history/eligibility/selection/contest truth remains unverified and `UNKNOWN_PENDING_VERIFICATION`.
+- Repository checkpoint: branch `test-weekly-evidence-trust`, HEAD `4643f136f12101f51894dd28c09b383b82b5310c`; worktree contains unrelated and generated changes. No staging or commit occurred.
+
 ## Next milestone
 
-**Complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**
+**Collect direct operational evidence for an implementation-owned model-only future Elo freshness threshold, then separately review a read-only Survivor Future Value consumer; keep Yahoo Survivor capability verification fail-closed and non-authoritative.**
 
 Verified opportunity publication, GSIS-first identity resolution with scoped ESPN fallback, the published opportunity reader, the multi-week What Changed foundation, and the My Team informational consumer are operational at their verified boundaries.
 
