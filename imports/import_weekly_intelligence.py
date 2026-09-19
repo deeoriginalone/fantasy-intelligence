@@ -7,7 +7,7 @@ import psycopg2
 
 TEAMS={
 "Arizona Cardinals":"ARI","Atlanta Falcons":"ATL","Baltimore Ravens":"BAL","Buffalo Bills":"BUF","Carolina Panthers":"CAR","Chicago Bears":"CHI","Cincinnati Bengals":"CIN","Cleveland Browns":"CLE","Dallas Cowboys":"DAL","Denver Broncos":"DEN","Detroit Lions":"DET","Green Bay Packers":"GB","Houston Texans":"HOU","Indianapolis Colts":"IND","Jacksonville Jaguars":"JAX","Kansas City Chiefs":"KC","Los Angeles Chargers":"LAC","Los Angeles Rams":"LAR","Las Vegas Raiders":"LV","Miami Dolphins":"MIA","Minnesota Vikings":"MIN","New England Patriots":"NE","New Orleans Saints":"NO","New York Giants":"NYG","New York Jets":"NYJ","Philadelphia Eagles":"PHI","Pittsburgh Steelers":"PIT","San Francisco 49ers":"SF","Seattle Seahawks":"SEA","Tampa Bay Buccaneers":"TB","Tennessee Titans":"TEN","Washington Commanders":"WAS"}
-ALIASES={"JAC":"JAX","JAX":"JAX","KAN":"KC","KC":"KC","LVR":"LV","LV":"LV","NEP":"NE","NWE":"NE","NE":"NE","NOS":"NO","NOR":"NO","NO":"NO","SFO":"SF","SF":"SF","TAM":"TB","TB":"TB","WSH":"WAS","WAS":"WAS","GNB":"GB","GB":"GB"}
+ALIASES={"JAC":"JAX","JAX":"JAX","KAN":"KC","KC":"KC","LVR":"LV","LV":"LV","NEP":"NE","NWE":"NE","NE":"NE","NOS":"NO","NOR":"NO","NO":"NO","SFO":"SF","SF":"SF","TAM":"TB","TB":"TB","WSH":"WAS","WAS":"WAS","GNB":"GB","GB":"GB","OAK":"LV","SD":"LAC","LA":"LAR","STL":"LAR"}
 
 def abbr(v):
     v=(v or '').strip()
@@ -22,12 +22,12 @@ def main():
       with (d/'nfl-2026-UTC.csv').open(newline='',encoding='utf-8-sig') as f:
         for r in csv.DictReader(f):
           naive=datetime.strptime(r['Date'],'%d/%m/%Y %H:%M'); utc=naive.replace(tzinfo=timezone.utc); pac=utc.astimezone(ZoneInfo('America/Los_Angeles')).replace(tzinfo=None)
-          cur.execute("""INSERT INTO nfl_schedule(season,week,match_number,game_time_utc,game_time_pacific,location,home_team,away_team,result)
-                         VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                         ON CONFLICT(season,match_number) DO UPDATE SET week=EXCLUDED.week,game_time_utc=EXCLUDED.game_time_utc,game_time_pacific=EXCLUDED.game_time_pacific,location=EXCLUDED.location,home_team=EXCLUDED.home_team,away_team=EXCLUDED.away_team,result=EXCLUDED.result""",
+          cur.execute("""INSERT INTO nfl_schedule(season,week,match_number,game_time_utc,game_time_pacific,location,home_team,away_team,result,source,imported_at)
+                         VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,'csv:nfl-2026-UTC.csv',NOW())
+                         ON CONFLICT(season,match_number) DO UPDATE SET week=EXCLUDED.week,game_time_utc=EXCLUDED.game_time_utc,game_time_pacific=EXCLUDED.game_time_pacific,location=EXCLUDED.location,home_team=EXCLUDED.home_team,away_team=EXCLUDED.away_team,result=EXCLUDED.result,imported_at=EXCLUDED.imported_at WHERE nfl_schedule.source LIKE 'csv:%'""",
                       (args.season,int(r['Round Number']),int(r['Match Number']),utc,pac,r['Location'],abbr(r['Home Team']),abbr(r['Away Team']),r.get('Result') or None))
       with (d/'nfl-2026-bye-weeks.csv').open(newline='',encoding='utf-8-sig') as f:
-        for r in csv.DictReader(f): cur.execute("INSERT INTO bye_weeks(season,team,bye_week,source) VALUES(%s,%s,%s,%s) ON CONFLICT(season,team) DO UPDATE SET bye_week=EXCLUDED.bye_week,source=EXCLUDED.source",(args.season,abbr(r['team_abbr']),int(r['bye_week']),r.get('source')))
+        for r in csv.DictReader(f): cur.execute("INSERT INTO bye_weeks(season,team,bye_week,source,imported_at) VALUES(%s,%s,%s,'csv:nfl-2026-bye-weeks.csv',NOW()) ON CONFLICT(season,team) DO UPDATE SET bye_week=EXCLUDED.bye_week,imported_at=EXCLUDED.imported_at WHERE bye_weeks.source LIKE 'csv:%'",(args.season,abbr(r['team_abbr']),int(r['bye_week']),r.get('source')))
       with (d/'nfl-injury-report.csv').open(newline='',encoding='utf-8-sig') as f:
         for r in csv.DictReader(f): cur.execute("""INSERT INTO injury_reports(season,report_date,player_name,team,position,injury,status,estimated_return)
           VALUES(%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(season,report_date,player_name) DO UPDATE SET team=EXCLUDED.team,position=EXCLUDED.position,injury=EXCLUDED.injury,status=EXCLUDED.status,estimated_return=EXCLUDED.estimated_return""",(args.season,args.report_date,r['Player'],abbr(r['Team']),r['Pos'].upper(),r['Injury'],r['Status'],r.get('Est. Return')))
