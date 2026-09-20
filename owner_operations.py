@@ -28,6 +28,25 @@ from services.sleeper_service import get_trending_adds, get_trending_drops
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
+def build_gm_waiver_watch_actions(waivers, ranking_confidence):
+    if ranking_confidence == "UNVERIFIED":
+        return []
+    return [
+        build_action(
+            action_id=f"waiver-watch:{index}:{candidate['player']}",
+            category="waiver",
+            title=f"Review {candidate['player']}",
+            action=f"Review {candidate['player']} at ${candidate['faab']} FAAB",
+            reason=f"Priority score {candidate['priority_score']:.1f}; roster need {candidate['need']}.",
+            urgency="HIGH" if candidate.get("need") else "MEDIUM",
+            confidence={"label": "MEDIUM", "score": 70},
+            risk_reduction=min(100, float(candidate.get("need") or 0) * 25),
+            source="waiver_watch",
+            metadata={"faab": candidate.get("faab")},
+        )
+        for index, candidate in enumerate(waivers[:3], 1)
+    ]
+
 SNAP_SHARE_DISPLAY_MAX_AGE_SECONDS = 86400
 
 
@@ -1005,8 +1024,7 @@ def create_owner_operations_blueprint(
                 extra_actions.append(build_action(action_id=f"roster:vacancy:{vacancy}", category="lineup", title=f"Fill {vacancy}", action=f"Fill vacant {vacancy} starter slot", reason="A vacant starter slot has a zero-point baseline until filled.", urgency="CRITICAL", confidence={"label":"HIGH","score":100}, risk_reduction=100, source="roster_analysis", metadata={"slot":vacancy}))
             for index, need in enumerate(needs[:5], 1):
                 extra_actions.append(build_action(action_id=f"team-health:{index}", category="waiver", title="Address roster need", action=need, reason=need, urgency="HIGH", confidence={"label":"MEDIUM","score":70}, risk_reduction=50, source="roster_analysis"))
-            for index, candidate in enumerate(waivers[:3], 1):
-                extra_actions.append(build_action(action_id=f"waiver-watch:{index}:{candidate['player']}", category="waiver", title=f"Review {candidate['player']}", action=f"Review {candidate['player']} at ${candidate['faab']} FAAB", reason=f"Priority score {candidate['priority_score']:.1f}; roster need {candidate['need']}.", urgency="HIGH" if candidate.get("need") else "MEDIUM", confidence={"label":"MEDIUM","score":70}, risk_reduction=min(100,float(candidate.get("need") or 0)*25), source="waiver_watch", metadata={"faab":candidate.get("faab")}))
+            extra_actions.extend(build_gm_waiver_watch_actions(waivers, pool_evidence.get("ranking_confidence")))
             incomplete = [p for p in roster if p.get("evidence_gaps")]
             if incomplete:
                 extra_actions.append(build_action(action_id="data-integrity:weekly-evidence", category="matchup", title="Resolve weekly evidence", action=f"Resolve weekly evidence for {len(incomplete)} roster player(s)", reason="Schedule, bye, health, or matchup evidence is incomplete.", urgency="CRITICAL", confidence={"label":"LOW","score":0}, evidence_complete=False, blockers=sorted({gap for p in incomplete for gap in p.get("evidence_gaps",[])}), source="weekly_intelligence"))
