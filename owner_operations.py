@@ -222,6 +222,16 @@ def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
     """Build display-only context from already-authoritative waiver inputs."""
     candidate = dict(candidate or {})
     position = str(candidate.get("position") or "").upper().replace("DST", "DEF")
+    ownership_state = candidate.get("ownership_state") or "UNAVAILABLE"
+    eligibility_state = candidate.get("eligibility_state") or "UNAVAILABLE"
+    if candidate.get("health_status_available") is True:
+        raw_health = str(candidate.get("injury_status") or "UNKNOWN").upper()
+        health_state = "OUT" if "OUT" in raw_health or "IR" in raw_health else "QUESTIONABLE" if "QUESTION" in raw_health or "DOUBTFUL" in raw_health else "ACTIVE"
+    elif candidate.get("injury_status") not in (None, "", "Unknown"):
+        health_state = str(candidate.get("injury_status")).upper()
+    else:
+        health_state = "UNAVAILABLE"
+    identity_state = candidate.get("opportunity_identity_state") or (candidate.get("identity_resolution") or {}).get("resolution_state")
     need = dict((team_needs or {}).get(position) or {})
     if need.get("state") == "AVAILABLE":
         strategic_need = need.get("strategic_need")
@@ -273,17 +283,48 @@ def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
     if stability.get("state") == "INSUFFICIENT_EVIDENCE" and (usage_row or snap_row):
         stability["reason"] = "One supported week is available. A second published week is required for usage stability and trend."
     trend = opportunity_trend(strength=strength, stability=stability)
+    if identity_state in {"AMBIGUOUS", "CONFLICTING", "BLOCKED"}:
+        context_state = "BLOCKED"
+        context_reason = "Identity evidence is blocked or contradictory; no source evidence is consumed."
+    elif not candidate.get("opportunity_player_id"):
+        non_opportunity_evidence = (
+            roster_fit.get("state") == "AVAILABLE"
+            or candidate.get("projection") is not None
+            or bool(candidate.get("projection_retrieved_at"))
+            or candidate.get("health_status_available") is True
+            or candidate.get("injury_status") not in (None, "", "Unknown", "Healthy / Not listed")
+        )
+        context_state = "PARTIAL_CONTEXT" if non_opportunity_evidence else "IDENTITY_LIMITED"
+        context_reason = (
+            "Ownership, eligibility, roster fit, or projection evidence is available; opportunity evidence remains unavailable because no deterministic GSIS identity is available."
+            if non_opportunity_evidence else
+            "Opportunity evidence unavailable for this source because no deterministic GSIS identity is available."
+        )
+    elif usage.get("state") == "AVAILABLE":
+        context_state = "FULL_CONTEXT"
+        context_reason = "Supported identity and published opportunity evidence are available."
+    elif candidate.get("projection") is not None or recent.get("state") == "AVAILABLE":
+        context_state = "PARTIAL_CONTEXT"
+        context_reason = "Useful roster, projection, or production evidence is available; published opportunity evidence is unavailable."
+    else:
+        context_state = "SOURCE_LIMITED"
+        context_reason = "Identity resolves, but no published opportunity source row is available."
     if usage_row:
         snap_text = " Snap share: %s." % ((snap.get("rows") or [{}])[-1].get("snap_share")) if snap.get("state") == "AVAILABLE" else " Snap share unavailable."
         opportunity = {"state": "AVAILABLE", "reason": "Targets: %s; carries: %s; target share: %s; carry share: %s; touch share: %s.%s" % (usage_row.get("targets"), usage_row.get("carries"), usage_row.get("target_share"), usage_row.get("carry_share"), usage_row.get("touch_share"), snap_text)}
     else:
         opportunity = {"state": "UNAVAILABLE", "reason": "Opportunity context unavailable because no candidate-linked published usage row exists."}
     return {
+        "ownership_state": ownership_state,
+        "eligibility_state": eligibility_state,
+        "health_state": health_state,
         "roster_fit": roster_fit,
         "snap_share": snap,
         "opportunity_strength": strength,
         "usage_stability": stability,
         "opportunity_trend": trend,
+        "context_state": context_state,
+        "context_reason": context_reason,
         "evidence_gaps": ["Second published week required for usage stability and trend"] if stability.get("state") == "INSUFFICIENT_EVIDENCE" and (usage_row or snap_row) else [],
         "suggested_drop": suggested_drop,
         "opportunity": opportunity,
@@ -850,6 +891,8 @@ def create_owner_operations_blueprint(
             for player in roster:
                 player["recent_production"] = waiver_recent_production(conn, player, meta.get("season"))
             for candidate in recommendations:
+                candidate["ownership_state"] = "VERIFIED" if pool_evidence.get("allowed") else "UNAVAILABLE"
+                candidate["eligibility_state"] = "VERIFIED" if pool_evidence.get("allowed") else "UNAVAILABLE"
                 candidate["recent_production"] = waiver_recent_production(conn, candidate, meta.get("season"))
                 candidate["snap_share"] = waiver_snap_share(conn, candidate, meta.get("season"))
                 candidate["opportunity_metrics"] = waiver_opportunity_metrics(conn, candidate, meta.get("season"))

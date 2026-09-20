@@ -692,6 +692,50 @@ def test_waiver_candidate_context_preserves_unavailable_news_and_role_reasons():
     assert "no supported drop-value comparison" in context["suggested_drop"]["reason"]
 
 
+def test_waiver_candidate_context_states_preserve_identity_and_source_limits():
+    identity_limited = waiver_candidate_context({"player": "A", "position": "WR", "projection": 100.0}, [], {"WR": {"state": "AVAILABLE", "strategic_need": "ADD_DEPTH", "drivers": []}}, "UNVERIFIED")
+    assert identity_limited["context_state"] == "PARTIAL_CONTEXT"
+
+    source_limited = waiver_candidate_context({"player": "B", "position": "WR", "opportunity_player_id": "gsis-b", "projection": None}, [], {"WR": {"state": "AVAILABLE", "strategic_need": "ADD_DEPTH", "drivers": []}}, "UNVERIFIED")
+    assert source_limited["context_state"] == "SOURCE_LIMITED"
+
+    full = waiver_candidate_context({"player": "C", "position": "WR", "opportunity_player_id": "gsis-c", "opportunity_metrics": {"state": "AVAILABLE", "rows": [{"target_share": 0.2, "carry_share": 0.1, "touch_share": 0.15}]}, "recent_production": {"state": "AVAILABLE"}}, [], {"WR": {"state": "AVAILABLE", "strategic_need": "ADD_DEPTH", "drivers": []}}, "VERIFIED")
+    assert full["context_state"] == "FULL_CONTEXT"
+
+
+def test_identity_limited_candidate_with_projection_emits_partial_context():
+    result = waiver_candidate_context(
+        {"player": "Projection Candidate", "position": "WR", "projection": 120.0},
+        [],
+        {"WR": {"state": "AVAILABLE", "strategic_need": "ADD_DEPTH", "drivers": ["Depth target is unmet."]}},
+        "UNVERIFIED",
+    )
+    assert result["context_state"] == "PARTIAL_CONTEXT"
+    assert "roster fit" in result["context_reason"]
+
+
+def test_identity_limited_candidate_without_non_opportunity_evidence_remains_identity_limited():
+    result = waiver_candidate_context(
+        {"player": "Unknown Candidate", "position": "WR"},
+        [],
+        {"WR": {"state": "BLOCKED"}},
+        "UNVERIFIED",
+    )
+    assert result["context_state"] == "IDENTITY_LIMITED"
+
+
+def test_waiver_candidate_context_surfaces_existing_contract_states():
+    result = waiver_candidate_context(
+        {"player": "Healthy Add", "position": "WR", "ownership_state": "VERIFIED", "eligibility_state": "VERIFIED", "health_status_available": True, "injury_status": "Healthy"},
+        [],
+        {"WR": {"state": "AVAILABLE", "strategic_need": "ADD_DEPTH", "drivers": []}},
+        "UNVERIFIED",
+    )
+    assert result["ownership_state"] == "VERIFIED"
+    assert result["eligibility_state"] == "VERIFIED"
+    assert result["health_state"] == "ACTIVE"
+
+
 def test_waiver_candidate_context_exposes_raw_opportunity_metrics_without_thresholds():
     context = waiver_candidate_context(
         {"player": "Add", "position": "WR", "projection": 120.0, "recent_production": {"state": "AVAILABLE"}, "snap_share": {"state": "AVAILABLE", "rows": [{"snap_share": 0.75}]}},
