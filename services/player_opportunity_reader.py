@@ -9,6 +9,7 @@ from services.opportunity_evidence import (
     build_what_changed,
     published_opportunity_row_blockers,
 )
+from services.snap_share_reader import read_snap_share
 
 READER_SCHEMA_VERSION = "player-opportunity-reader.v1"
 TABLE_NAME = "player_opportunity_evidence"
@@ -121,6 +122,13 @@ def read_player_what_changed(
     comparison["reader_state"] = reader["state"]
     comparison["reader_lineage"] = reader["lineage"]
     comparison["decision_effect"] = "INFORMATIONAL_ONLY"
+    comparison["snap_share_history"] = read_snap_share(
+        db_connection() if callable(db_connection) else db_connection,
+        player_id=player_id,
+        season=season,
+        week_start=week_start,
+        week_end=week_end,
+    )
     return comparison
 
 

@@ -206,10 +206,17 @@ def test_missing_checksum_fails_closed():
 # 20. unverified freshness threshold blocks authority (always, in this batch)
 def test_freshness_threshold_always_unverified_and_blocks_authority():
     result = batch()
-    assert "SNAP_SHARE_FRESHNESS_THRESHOLD_UNVERIFIED" in result["blockers"]
+    assert "SNAP_SHARE_FRESHNESS_THRESHOLD_UNAVAILABLE" in result["blockers"]
     assert result["freshness_state"] == "UNAVAILABLE"
     assert result["authoritative"] is False
     assert all(not row["authoritative"] for row in result["rows"])
+
+
+@pytest.mark.parametrize("value", ["not-a-number", "0", "-1"])
+def test_malformed_or_non_positive_threshold_blocks(value):
+    result = batch(threshold_environment={"SNAP_SHARE_EVIDENCE_MAX_AGE_SECONDS": value})
+    assert result["freshness_state"] == "BLOCKED"
+    assert any("SNAP_SHARE_FRESHNESS_THRESHOLD_BLOCKED" == blocker for blocker in result["blockers"])
 
 
 # CSV source cannot claim automated authority

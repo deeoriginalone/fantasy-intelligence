@@ -105,6 +105,31 @@
             contextSections(player);
         }
       });
+      function escapeHtml(value){
+        return String(value == null ? '' : value).replace(/[&<>"']/g, function(character){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]; });
+      }
+      document.addEventListener('DOMContentLoaded', function(){
+        document.querySelectorAll('.candidate-card').forEach(function(card, index){
+          var evidence = (candidateData[index] || {}).evidence_context || {};
+          var fit = evidence.roster_fit || {};
+          var opportunity = evidence.opportunity || {};
+          var role = evidence.role || {};
+          var duration = evidence.duration || {};
+          var drop = evidence.suggested_drop || {};
+          var news = evidence.news || {};
+          var summary = document.createElement('div');
+          summary.className = 'candidate-evidence-summary';
+          summary.innerHTML = '<p><strong>Roster Fit:</strong> ' + escapeHtml(fit.label || 'Roster fit unavailable') + (fit.reason ? ' · ' + escapeHtml(fit.reason) : '') + '</p>' +
+            '<p><strong>Opportunity:</strong> ' + escapeHtml(opportunity.reason || 'Opportunity unavailable.') + '</p>' +
+            '<p><strong>Role:</strong> ' + escapeHtml(role.reason || 'Role classification unavailable.') + '</p>' +
+            '<p><strong>Duration:</strong> ' + escapeHtml(duration.reason || 'Opportunity duration unavailable because no verified duration source exists.') + '</p>' +
+            '<p><strong>Confidence:</strong> ' + escapeHtml(evidence.confidence || 'Unavailable') + '</p>' +
+            '<p><strong>Risk:</strong> ' + escapeHtml((evidence.risk || ['Unavailable']).join('; ')) + '</p>' +
+            '<p><strong>Suggested Drop:</strong> ' + escapeHtml(drop.player ? 'Review ' + drop.player + ' · ' + drop.reason : (drop.reason || 'Suggested drop unavailable because no supported drop-value comparison exists.')) + '</p>' +
+            '<p><strong>Latest News:</strong> ' + escapeHtml(news.reason || 'Latest news unavailable because no verified player-news source is configured.') + '</p>';
+          card.appendChild(summary);
+        });
+      });
     })();
     </script>
     {% endif %}
@@ -114,12 +139,15 @@
   <details class="waiver-card"><summary>▶ Browse Available Players</summary><p class="eyebrow">Make the claim decision</p><h2>Browse Available Players</h2><div class="candidate-grid">{% for p in recommendations %}<article class="candidate-card"><div class="candidate-top"><span class="rank">#{{ loop.index }}</span><span class="muted">{{ p.position }}</span></div><h3>{{ p.player }}</h3><p class="muted">Priority score {{ p.priority_score }} · Tier {{ p.tier or 'Unavailable' }}</p><div class="candidate-value"><div><strong>{{ p.projection if p.projection is not none else '—' }}</strong><small>Season projection</small></div><div><strong>{{ ('$' ~ p.faab) if p.faab is not none else '—' }}</strong><small>Suggested FAAB</small></div></div><p class="candidate-reason">{{ p.need if p.need is not none and p.need > 0 else 'Best supported value available for review.' }}{% if p.need is not none and p.need > 0 %} roster need position(s).{% endif %}</p><div class="candidate-evidence"><div><small>Need</small><strong>{{ p.need if p.need is not none else 'Unavailable' }}</strong></div><div><small>FAAB range</small><strong>{{ ('$' ~ p.bid_low ~ '–$' ~ p.bid_high) if p.bid_low is not none else 'Unavailable' }}</strong></div></div><details class="recent-performance-details"><summary>▶ Recent Performance</summary>{% set recent = p.recent_production|default({}) %}{% set recent_rows = recent.rows|default([]) %}{% if recent_rows %}<ul class="recent-performance">{% for row in recent_rows[:3] %}<li><span>Wk {{ row.week }}</span><strong>{{ '%.1f'|format(row.fantasy_points_ppr) }}</strong></li>{% endfor %}</ul>{% elif p.position == 'K' %}<p>Recent performance unavailable.</p><p>Authoritative K production unavailable.</p>{% elif p.position in ('DEF', 'DST') %}<p>Recent performance unavailable.</p><p>Authoritative DEF production unavailable.</p>{% else %}<p>Recent performance unavailable.</p>{% endif %}</details></article>{% else %}<p>No supported waiver candidates are available.</p>{% endfor %}</div></details>
   {% if waiver_evidence and not waiver_evidence.allowed %}<section class="blocked"><strong>Recommendations blocked.</strong> Ownership or eligibility evidence is not sufficient to publish waiver candidates. {% for blocker in waiver_evidence.blockers %}<span>{{ blocker }}</span>{% if not loop.last %}, {% endif %}{% endfor %}<p>Ownership source: {{ waiver_evidence.ownership.source if waiver_evidence.ownership else 'UNVERIFIED' }}; freshness: {{ waiver_evidence.ownership.freshness_state if waiver_evidence.ownership else 'UNAVAILABLE' }}.</p><p>Eligibility source: {{ waiver_evidence.eligibility.source if waiver_evidence.eligibility else 'UNVERIFIED' }}; freshness: {{ waiver_evidence.eligibility.freshness_state if waiver_evidence.eligibility else 'UNAVAILABLE' }}.</p><p><strong>Evidence available:</strong> The waiver request and configured ownership/eligibility contracts were evaluated.</p><p><strong>Evidence missing:</strong> {% if waiver_evidence.ownership and waiver_evidence.ownership.freshness_state not in ('FRESH', 'AGING') %}verified ownership freshness{% endif %}{% if waiver_evidence.eligibility and waiver_evidence.eligibility.freshness_state not in ('FRESH', 'AGING') %}{% if waiver_evidence.ownership and waiver_evidence.ownership.freshness_state not in ('FRESH', 'AGING') %}; {% endif %}verified eligibility freshness{% endif %}.</p><p><strong>Recommendation affected:</strong> Waiver candidates and FAAB guidance remain unpublished.</p><p><strong>Manager action:</strong> Refresh Sleeper ownership and eligibility evidence, then review this page again before acting.</p></section>{% endif %}
   {% if waiver_evidence and waiver_evidence.allowed and waiver_evidence.ranking_confidence == 'UNVERIFIED' %}<div class="warning"><strong>Ranking confidence: low.</strong> Ownership and eligibility are verified, but automated waiver ranking source evidence is unverified ({{ waiver_evidence.warnings|join(', ') if waiver_evidence.warnings else 'WAIVER_RANKING_SOURCE_UNVERIFIED' }}). Candidates below use local player projections/rankings; treat priority order as research, not a verified ranking.</div>{% endif %}
+  <section class="warning"><strong>Evidence boundary:</strong> Recent Performance is informational only. Opportunity, market value, market signal, and trade opportunity evidence remain blocked or unavailable when their source, freshness, completeness, or authority contract is missing; none changes ranking or FAAB.</section>
   <details class="waiver-card"><summary>▶ Opportunity, Market &amp; Trade Evidence</summary>
   {% include "_opportunity_evidence.html" %}
   </details>
   <details class="waiver-card"><summary>▶ Availability &amp; Identity Evidence</summary>
   {% set waiver_candidates = recommendations %}{% include '_waiver_trust_panel.html' %}
   </details>
+  <section class="waiver-card waiver-evidence-summary"><p class="eyebrow">Evidence summary</p><h2>Roster Fit and Context</h2><div class="candidate-grid">{% for p in recommendations %}{% set evidence = p.evidence_context|default({}) %}{% set fit = evidence.get('roster_fit') or {} %}{% set opportunity = evidence.get('opportunity') or {} %}{% set role = evidence.get('role') or {} %}{% set duration = evidence.get('duration') or {} %}{% set drop = evidence.get('suggested_drop') or {} %}{% set news = evidence.get('news') or {} %}<article class="waiver-panel"><h3>{{ p.player }} <span class="muted">{{ p.position }}</span></h3><p><strong>Roster Fit:</strong> {{ fit.get('label', 'Roster fit unavailable') }}{% if fit.get('reason') %} · {{ fit.get('reason') }}{% endif %}</p><p><strong>Opportunity:</strong> {{ opportunity.get('reason', 'Opportunity unavailable.') }}</p><p><strong>Role:</strong> {{ role.get('reason', 'Role classification unavailable.') }}</p><p><strong>Duration:</strong> {{ duration.get('reason', 'Opportunity duration unavailable because no verified duration source exists.') }}</p><p><strong>Confidence:</strong> {{ evidence.get('confidence', 'Unavailable') }}</p><p><strong>Risk:</strong> {{ (evidence.get('risk') or ['Unavailable'])|join('; ') }}</p><p><strong>Suggested Drop:</strong> {% if drop.get('player') %}Review {{ drop.get('player') }} · {{ drop.get('reason') }}{% else %}{{ drop.get('reason', 'Suggested drop unavailable because no supported drop-value comparison exists.') }}{% endif %}</p><p><strong>Latest News:</strong> {{ news.get('reason', 'Latest news unavailable because no verified player-news source is configured.') }}</p></article>{% endfor %}</div></section>
+  <section class="waiver-card"><p class="eyebrow">Informational evidence</p><h2>Snap Share</h2><p>Published snap-share evidence is informational only and does not change ranking or FAAB. Current candidate rows are shown in the collapsed evidence context when available; otherwise Snap Share is unavailable.</p></section>
   {% set ux_evidence = ux_route_evidence('waivers', recommendations|length) %}{% set ux_title = 'Waiver Availability Evidence' %}{% include '_ux_completion_panel.html' %}
 </main>
 {% endblock %}
