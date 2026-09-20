@@ -11,7 +11,7 @@ UX.2.1C is owner-accepted as of 2026-09-13 (`APPROVED: MY TEAM UI`). UX.3 is val
 ####### Last recorded repository checkpoint
 - Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: 4643f136f12101f51894dd28c09b383b82b5310c
+- HEAD: a9421eebb94d43338c90f20bfb28bffa53bc2896
 
 ####### Current evidence-layer foundation (validated 2026-09-15)
 - Pure fail-closed contracts now exist for Opportunity Evidence, What Changed, Opportunity Classification, Market Value, Market Signal, Buy/Sell Candidates, and Trade Opportunity evidence.
@@ -209,7 +209,9 @@ The revised UX.2 product-completion criteria are validated at the focused, contr
 - Production readiness, PostgreSQL parity, and recovery validation remain unclaimed.
 
 ####### Automated player-opportunity ingestion boundary (2026-09-17)
-- Automated nflverse weekly-stat retrieval, target-share/carry-share/touch-share calculation, deterministic reconciliation, and atomic PostgreSQL publication are operational. The verified 2026 publication contains 1,188 rows across Weeks 1 and 2 for 1,122 distinct players; rows are FRESH, COMPLETE, PUBLISHED, and carry reconciled lineage.
+- Direct opportunity-importer execution now loads repository `.env` with dotenv's default `override=False` behavior. The approved `OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS=86400` threshold is runtime-available; exported values retain precedence and malformed or missing values remain fail-closed.
+- Automated nflverse weekly-stat retrieval, target-share/carry-share/touch-share calculation, deterministic reconciliation, and atomic PostgreSQL publication are operational. The current verified 2026 production publication contains 379 rows for 357 distinct players across Weeks 1 and 2; rows are FRESH, COMPLETE, PUBLISHED, and carry reconciled lineage. The source batch contained 1,190 rows, with 811 inclusive excluded rows and 2 unresolved identities; duplicate and contradictory counts were 0.
+- Waiver Recent Performance remains informational-only and improved active coverage from `AVAILABLE=0`, `BLOCKED=3`, `UNAVAILABLE=7`, `UNSUPPORTED=0` to `AVAILABLE=3`, `BLOCKED=0`, `UNAVAILABLE=7`, `UNSUPPORTED=0`. Ranking, FAAB, confidence, ordering, ownership, eligibility, and transaction behavior are unchanged. GSIS-first identity and fail-closed unavailable states remain preserved.
 - The approved opportunity freshness threshold is `OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS=86400`. Publication preserves source authority, source-recorded time, retrieved-at time, artifact identity, version, checksum, threshold ID, completeness, lineage, and publication state.
 - GSIS-first roster identity resolution with scoped ESPN fallback is operational. Six roster identities resolve; eight remain unavailable and fail closed.
 - The published opportunity reader, multi-week What Changed engine, and My Team informational consumer are operational. All six resolved identities have Week 1 evidence; none has a Week 2 source row in the official artifact, so Week 2 comparison evidence remains `SOURCE_REASON_UNAVAILABLE`.

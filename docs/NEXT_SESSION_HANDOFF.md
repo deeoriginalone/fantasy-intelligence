@@ -48,7 +48,7 @@ UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, 
 ###### Last recorded repository checkpoint
 - Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: 4643f136f12101f51894dd28c09b383b82b5310c
+- HEAD: a9421eebb94d43338c90f20bfb28bffa53bc2896
 - Repository: /home/deeoriginalone/fantasy-intelligence
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
@@ -237,10 +237,12 @@ A synchronization PASS confirms documentation consistency only. It does not prov
 - Production readiness, PostgreSQL parity, and recovery validation remain unclaimed.
 
 ###### Automated player-opportunity ingestion boundary (2026-09-17)
-- Automated nflverse weekly-stat retrieval, target-share/carry-share/touch-share calculation, deterministic reconciliation, and atomic PostgreSQL publication are operational. The verified 2026 publication contains 1,188 rows across Weeks 1 and 2 for 1,122 distinct players; rows are FRESH, COMPLETE, PUBLISHED, and carry reconciled lineage.
+- Direct opportunity-importer execution now loads repository `.env` with dotenv's default `override=False` behavior. The approved `OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS=86400` threshold is runtime-available and exported values retain precedence; missing or malformed values remain fail-closed.
+- Automated nflverse weekly-stat retrieval, target-share/carry-share/touch-share calculation, deterministic reconciliation, and atomic PostgreSQL publication are operational. The current verified 2026 production publication contains 379 rows for 357 distinct players across Weeks 1 and 2; rows are FRESH, COMPLETE, PUBLISHED, and carry reconciled lineage. The source batch contained 1,190 rows, with 811 inclusive excluded rows and 2 unresolved identities; duplicate and contradictory counts were 0.
+- Waiver Recent Performance consumes the existing reader informationally. Active coverage improved from `AVAILABLE=0`, `BLOCKED=3`, `UNAVAILABLE=7`, `UNSUPPORTED=0` to `AVAILABLE=3`, `BLOCKED=0`, `UNAVAILABLE=7`, `UNSUPPORTED=0`; GSIS-first identity and fail-closed states remain preserved, with no ranking, FAAB, confidence, ordering, or transaction authority change.
 - Publication preserves source authority, source-recorded time, retrieved-at time, artifact identity, version, checksum, freshness threshold, completeness, lineage, and publication state. The publication path retains exact season/week scope and atomic rollback behavior.
 - snap_share, route_participation, red_zone_share, and role_classification remain explicitly NULL/unavailable in the published opportunity table; a supporting nflverse dataset now exists for snap_share (see the snap-share foundation boundary below) but is not yet published, and no supporting dataset is ingested for route_participation, red_zone_share, or role_classification.
-- The approved opportunity freshness threshold is `OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS=86400`. The verified 2026 publication contains 1,188 rows across Weeks 1 and 2 for 1,122 distinct players; rows are FRESH, COMPLETE, PUBLISHED, and carry reconciled lineage.
+- The approved opportunity freshness threshold is `OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS=86400`. The current validated 2026 publication reconciles 1,190 input rows into 379 PUBLISHED/FRESH rows, 811 inclusive excluded rows, and 2 unresolved identities across Weeks 1 and 2 for 357 players.
 - GSIS-first roster identity resolution with scoped ESPN fallback is operational. Six roster identities resolve; eight remain unavailable and fail closed.
 - The published opportunity reader, multi-week What Changed engine, and My Team informational consumer are operational. All six resolved identities have Week 1 evidence; none has a Week 2 source row in the official artifact, so Week 2 comparison evidence remains `SOURCE_REASON_UNAVAILABLE`.
 - Focused opportunity calculation, ingestion, publication, evidence, and consumer-contract validation passed. Python compilation, `git diff --check`, and `git diff --cached --check` passed.

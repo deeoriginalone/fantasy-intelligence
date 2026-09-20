@@ -3,7 +3,7 @@
 ####### Last recorded repository checkpoint
 - Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: 4643f136f12101f51894dd28c09b383b82b5310c
+- HEAD: a9421eebb94d43338c90f20bfb28bffa53bc2896
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -217,7 +217,7 @@ Record only delivered value and supported outcomes. The register is the authorit
 The following systems remain planned and deferred, not abandoned:
 - A.11 VOR Engine
 - A.12 Floor / Median / Ceiling Model
-- A.13 Opportunity Metrics Engine: automated nflverse target-share, carry-share, and touch-share retrieval, calculation, deterministic reconciliation, and atomic publication are operational. The verified 2026 publication contains 1,188 FRESH, COMPLETE, PUBLISHED rows across Weeks 1 and 2 for 1,122 players with reconciled lineage. GSIS-first identity resolution with scoped ESPN fallback, the published reader, the multi-week What Changed foundation, and the My Team informational consumer are operational. Six roster identities resolve; eight remain unavailable. All six resolved identities have Week 1 evidence, while Week 2 source evidence is absent and remains `SOURCE_REASON_UNAVAILABLE`. Snap-share publication, route participation, red-zone usage, and role classification remain incomplete; recommendation, ranking, confidence, score, and transaction authority remain deferred.
+- A.13 Opportunity Metrics Engine: automated nflverse target-share, carry-share, and touch-share retrieval, calculation, deterministic reconciliation, and atomic publication are operational. The current validated 2026 publication reconciles 1,190 input rows into 379 PUBLISHED/FRESH rows, 811 inclusive excluded rows, and 2 unresolved identities across Weeks 1 and 2 for 357 players. GSIS-first identity resolution with scoped ESPN fallback, the published reader, the multi-week What Changed foundation, and the My Team informational consumer are operational. Six roster identities resolve; eight remain unavailable. All six resolved identities have Week 1 evidence, while Week 2 source evidence is absent and remains `SOURCE_REASON_UNAVAILABLE`. Snap-share publication, route participation, red-zone usage, and role classification remain incomplete; recommendation, ranking, confidence, score, and transaction authority remain deferred.
 - A.14 Schedule and Matchup Forecaster
 - A.15 Correlation Engine
 - A.16 Vegas Integration
@@ -329,7 +329,9 @@ The following systems remain planned and deferred, not abandoned:
 - Production readiness, PostgreSQL parity, and recovery validation remain unclaimed.
 
 ####### Automated player-opportunity ingestion boundary (2026-09-17)
-- Automated nflverse weekly-stat retrieval (reusing existing artifact, checksum, and version conventions), target-share/carry-share/touch-share calculation, and atomic PostgreSQL publication are implemented and committed (commit a428ccc, "Add fail-closed nflverse player opportunity publication").
+- Direct opportunity-importer execution now loads repository `.env` with dotenv's default `override=False` behavior. The approved `OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS=86400` threshold is runtime-available; exported values retain precedence and malformed or missing values remain fail-closed.
+- Automated nflverse weekly-stat retrieval (reusing existing artifact, checksum, and version conventions), target-share/carry-share/touch-share calculation, and atomic PostgreSQL publication are operational. The current verified 2026 production publication contains 379 rows for 357 distinct players across Weeks 1 and 2; rows are FRESH, COMPLETE, PUBLISHED, and carry reconciled lineage. The source batch contained 1,190 rows, with 811 inclusive excluded rows and 2 unresolved identities; duplicate and contradictory counts were 0.
+- Waiver Recent Performance consumes the published reader informationally. Active coverage improved from `AVAILABLE=0`, `BLOCKED=3`, `UNAVAILABLE=7`, `UNSUPPORTED=0` to `AVAILABLE=3`, `BLOCKED=0`, `UNAVAILABLE=7`, `UNSUPPORTED=0`; no waiver ranking, FAAB, confidence, ordering, or transaction authority changed.
 - Deterministic batch reconciliation accounts for every input row as published, unresolved, duplicate, or contradictory. Publication is blocked when accounting does not reconcile, when a duplicate or contradictory player-week identity exists, or when source, checksum, retrieved_at, or the opportunity freshness threshold is missing or unverified.
 - Publication replaces only the season/week scope present in the batch; it does not delete other weeks or other seasons. A blocked or failed refresh writes zero rows and preserves the prior valid automated publication. Verified against the real database: successful publish, deterministic rerun without duplication, atomic rollback on a blocked batch, cross-week preservation, and cross-season preservation.
 - Persisted fields: targets, carries, target_share, carry_share, touch_share, source, source authority, source_recorded_at, retrieved_at, artifact_id, version, checksum, freshness_threshold_id, freshness_state, completeness_state, lineage (including reconciliation detail), and publication_state.
