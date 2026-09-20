@@ -1,27 +1,30 @@
 {% extends "base.html" %}{% block content %}<section class="sv">
 <header><div><p class="sv-eye">Market Intelligence</p><h1>Survivor Intelligence</h1><p>Action-first weekly survivor guidance. Read-only: no picks are submitted to any external platform.</p></div>
-<form method="get"><input type="number" name="season" value="{{ survivor_season }}"><input type="number" name="week" value="{{ survivor_week }}" min="1" max="25"><input type="hidden" name="pool" value="{{ pool_key }}"><select name="strategy"><option value="protect-lead" {% if strategy=='protect-lead' %}selected{% endif %}>Protect Lead</option><option value="balanced" {% if strategy=='balanced' %}selected{% endif %}>Balanced</option><option value="gain-ground" {% if strategy=='gain-ground' %}selected{% endif %}>Gain Ground</option></select><button>Load</button></form></header>
+<form method="get"><input type="number" name="season" value="{{ survivor_season }}"><input type="number" name="week" value="{{ survivor_week }}" min="1" max="25"><input type="hidden" name="pool" value="{{ pool_key }}"><select name="strategy"><option value="protect-lead" {% if strategy=='protect-lead' %}selected{% endif %}>Protect Lead</option><option value="balanced" {% if strategy=='balanced' %}selected{% endif %}>Balanced</option><option value="gain-ground" {% if strategy=='gain-ground' %}selected{% endif %}>Gain Ground</option></select><button>Load</button></form>
+<p class="sv-header-stats">Week {{ survivor_status.active_week }}{% if survivor_status.used_team_count is not none %} &middot; Used: {{ survivor_status.used_team_count }}{% endif %}{% if survivor_status.remaining_team_count is not none %} &middot; Eligible: {{ survivor_status.remaining_team_count }}{% endif %}</p>
+</header>
 {% with messages=get_flashed_messages(with_categories=true) %}{% for c,m in messages %}<div class="sv-alert sv-alert-{{ c }}" role="{% if c=='error' %}alert{% else %}status{% endif %}">{{ m }}</div>{% endfor %}{% endwith %}
 
 <div class="sv-hero" role="{% if survivor_status.state=='BLOCKED' %}alert{% else %}region{% endif %}" aria-label="Survivor status">
-<h2>SURVIVOR STATUS <span class="sv-badge sv-badge-{{ survivor_status.state|lower }}">{{ survivor_status.state }}</span></h2>
-<p class="sv-state-banner sv-state-banner-{% if survivor_status.state == 'READY' %}ready{% elif survivor_status.state == 'DEGRADED' %}limited{% else %}blocked{% endif %}">
-{%- if survivor_status.state == 'READY' %}&#x1F7E2; DECISION READY &mdash; a recommendation exists and is currently actionable.
-{%- elif survivor_status.state == 'DEGRADED' %}&#x1F7E1; PROVISIONAL RECOMMENDATION &mdash; a recommendation exists but carries a disclosed limitation before you act on it.
-{%- elif survivor_summary.primary %}&#x1F7E1; PROVISIONAL RECOMMENDATION &mdash; a recommendation exists but is not fully decision-ready.
-{%- else %}&#x1F534; REFRESH REQUIRED &mdash; no recommendation is currently actionable.
+{% set lifecycle = 'COMPLETE' if survivor_status.week_state in ('PENDING_RESULT','COMPLETED') else ('READY' if survivor_status.state == 'READY' else (('PROVISIONAL' if survivor_summary.primary else 'REFRESH_REQUIRED'))) %}
+<h2>SURVIVOR STATUS</h2>
+<p class="sv-state-banner sv-state-banner-{{ lifecycle|lower }}">
+{%- if lifecycle == 'READY' %}&#x1F7E2; DECISION READY
+{%- elif lifecycle == 'PROVISIONAL' %}&#x1F7E1; PROVISIONAL RECOMMENDATION
+{%- elif lifecycle == 'REFRESH_REQUIRED' %}&#x1F534; REFRESH REQUIRED
+{%- else %}&#x2705; WEEK COMPLETE
 {%- endif %}</p>
-<p>Season {{ survivor_status.season }} &middot; Week {{ survivor_status.active_week }}</p>
-{% if survivor_status.used_team_count is not none %}<p>Used teams: {{ survivor_status.used_team_count }}{% if survivor_status.remaining_team_count is not none %} &middot; Remaining eligible: {{ survivor_status.remaining_team_count }}{% endif %}</p>{% endif %}
-{% if last_verified_pacific %}<p class="sv-verified">Last verified: {{ last_verified_pacific }} (oldest current-week market evidence timestamp; informational only, not a freshness authority for Future Value).</p>{% endif %}
-{% if survivor_status.blocker_reason %}<p class="sv-blocker">Blocker: {{ survivor_status.blocker_reason }}</p>{% endif %}
-{% if not survivor_status.blocker_reason and not survivor_status.degrade_reason and survivor_status.state == 'DEGRADED' and survivor_status.freshness_state == 'AGING' %}<p class="sv-blocker"><strong>Evidence age: AGING.</strong> Current-week market evidence is between the fresh and stale thresholds. The recommendation remains published; a refresh before you lock in a pick is recommended.</p>{% endif %}
-{% if survivor_summary.primary and survivor_status.state in ('BLOCKED','DEGRADED') %}<p class="sv-blocker"><strong>LIMITED_EVIDENCE:</strong> A provisional recommendation is shown, but the disclosed blocker means the evidence is not fully decision-ready.</p>{% elif survivor_status.state in ('BLOCKED','UNAVAILABLE') %}<p class="sv-blocker"><strong>No supported Survivor pick is published.</strong> Resolve the blocker before recording a decision.</p>{% endif %}
-{% if page_rendered_at_pacific %}<p class="sv-page-loaded">Page loaded: {{ page_rendered_at_pacific }} (this is when the page was rendered, not when evidence was refreshed; loading this page never refreshes evidence).</p>{% endif %}
+<div class="sv-state-explanation">
+{%- if lifecycle == 'READY' %}<p>The recommendation is supported by current verified evidence.</p><p><strong>Recommended selection:</strong> {{ survivor_summary.primary.team }}</p>
+{%- elif lifecycle == 'PROVISIONAL' %}<p>Recommendation available. Some supporting evidence is unavailable.</p><p><strong>Recommendation available with limitations.</strong></p>
+{%- elif lifecycle == 'REFRESH_REQUIRED' %}<p>Current evidence freshness requires refresh before acting.</p><p><strong>Refresh before recording a pick.</strong></p>
+{%- else %}<p>A Survivor selection has already been recorded for this week.</p>
+{%- endif %}</div>
 </div>
 
 {% if survivor_status.history_status == 'read_failed' %}
 <div class="sv-state sv-state-blocked" role="alert"><h2>ELIGIBILITY BLOCKED</h2>
+<p class="sv-primary-action">Primary action: Resolve blocker.</p>
 <p>We could not verify your previously used teams, so no survivor recommendation is being published. Recommending from an unverified team pool could repeat a team that is no longer eligible.</p>
 <p><strong>Evidence available:</strong> The requested season and week context is loaded.</p>
 <p><strong>Evidence missing:</strong> Verified survivor selection history and the resulting eligible-team set.</p>
@@ -30,6 +33,7 @@
 
 {% elif survivor_status.week_state in ('PENDING_RESULT','COMPLETED') %}
 <div class="sv-state sv-state-locked"><h2>WEEK {{ survivor_week }} SELECTION RECORDED</h2>
+<p class="sv-primary-action">Primary action: {% if survivor_status.week_state == 'PENDING_RESULT' %}Wait for result.{% else %}View next week.{% endif %}</p>
 <p class="sv-matchup">{{ existing_selection.team }}</p>
 <p>Result: {{ result_label }}</p>
 <p>Your Week {{ survivor_week }} team is already recorded. No additional Week {{ survivor_week }} recommendation is available.</p>
@@ -39,6 +43,7 @@
 
 {% elif survivor_status.week_state == 'UNAVAILABLE' %}
 <div class="sv-state sv-state-unavailable"><h2>NEXT WEEK UNAVAILABLE</h2>
+<p class="sv-primary-action">Primary action: No supported recommendation available.</p>
 <p>The application could not verify Week {{ survivor_week }} against the supported schedule.</p>
 <p><strong>Evidence available:</strong> The requested season and week context is loaded.</p>
 <p><strong>Evidence missing:</strong> A verified supported schedule for Week {{ survivor_week }}.</p>
@@ -47,6 +52,7 @@
 
 {% elif not survivor_summary.primary %}
 <div class="sv-state sv-state-unavailable"><h2>SURVIVOR RECOMMENDATION UNAVAILABLE</h2>
+<p class="sv-primary-action">Primary action: {% if survivor_status.state == 'BLOCKED' %}Resolve blocker.{% else %}No supported recommendation available.{% endif %}</p>
 <p>Missing or stale evidence: {{ survivor_status.blocker_reason or 'insufficient supported evidence for this week' }}. This blocks this week's primary recommendation.</p>
 <p><strong>Evidence available:</strong> Verified history and eligible-team context are shown where available. JAX is {% if 'JAX' in used_teams %}confirmed used and excluded{% else %}not recorded as used in verified history{% endif %}.</p>
 <p><strong>Evidence missing:</strong> Supported current-week market evidence needed to rank a primary survivor option.</p>
@@ -79,8 +85,17 @@ if(svRefreshBtn){svRefreshBtn.addEventListener('click',function(){
 </script>
 
 {% else %}
-<div class="sv-primary-card"><h2>PICK THIS WEEK</h2>
+<div class="sv-primary-card sv-hero-card"><h2>PICK THIS WEEK</h2>
+<p class="sv-primary-action">Primary action: Pick a team.</p>
 <p class="sv-matchup">{{ survivor_summary.primary.team }} vs {{ survivor_summary.primary.opponent }} ({{ survivor_summary.primary.home_away }})</p>
+<p class="sv-hero-probability">{{ '%.1f%%'|format(survivor_summary.primary.current_probability*100) }}</p>
+<p class="sv-hero-stat-label">Win probability</p>
+<p class="sv-hero-score">Score: {{ '%.1f'|format(survivor_summary.primary.survivor_score*100) }}</p>
+<p class="sv-hero-confidence">Confidence: {% if survivor_summary.primary.stability_available %}{% if survivor_summary.primary.stability >= 0.85 %}HIGH{% elif survivor_summary.primary.stability >= 0.65 %}MEDIUM{% else %}LOW{% endif %}{% else %}Unavailable{% endif %}</p>
+<form method="post" action="{{ url_for('survivor.select') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="season" value="{{ survivor_season }}"><input type="hidden" name="week" value="{{ survivor_week }}"><input type="hidden" name="pool" value="{{ pool_key }}"><input type="hidden" name="team" value="{{ survivor_summary.primary.team }}"><input type="hidden" name="probability" value="{{ survivor_summary.primary.current_probability }}"><input type="hidden" name="score" value="{{ survivor_summary.primary.survivor_score }}"><button class="sv-record-btn">Record {{ survivor_summary.primary.team }} as my Week {{ survivor_week }} pick</button></form>
+</div>
+
+<details class="sv-recommendation-details"><summary>More about this recommendation</summary>
 <p><strong>Recommended team:</strong> {{ survivor_summary.primary.team }}</p>
 <p><strong>Win probability:</strong> {{ '%.1f%%'|format(survivor_summary.primary.current_probability*100) }}</p>
 <p><strong>Market signal (informational only):</strong> {{ survivor_summary.primary.signal or 'Unavailable' }}</p>
@@ -100,23 +115,34 @@ if(svRefreshBtn){svRefreshBtn.addEventListener('click',function(){
 {% if survivor_status.blocker_reason or survivor_status.degrade_reason %}<p><strong>Missing evidence:</strong> {% if survivor_status.blocker_reason == 'SURVIVOR_EVIDENCE_STALE' %}Current evidence is stale; refresh it before treating this recommendation as fully supported.{% elif survivor_summary.primary.future_missing_reason %}Future-opportunity evidence is unavailable; the current-week recommendation is limited to supported current evidence.{% else %}{{ survivor_status.blocker_reason or survivor_status.degrade_reason }}{% endif %}</p>{% endif %}
 <p><strong>What would change the recommendation:</strong> A currently shown alternative would need to exceed {{ survivor_summary.primary.team }} on the existing Survivor Score, or supported probability or future evidence would need to change the comparison. No unsupported threshold is assumed.</p>
 <p><strong>What could change before kickoff:</strong> {% if survivor_summary.primary.kickoff %}A market refresh before {{ survivor_summary.primary.kickoff.strftime('%a %b %d, %I:%M %p UTC') }} kickoff could shift the win probability, evidence agreement, or an alternative's Survivor Score; this page does not auto-refresh.{% else %}Kickoff time is unavailable, so no supported cutoff can be shown.{% endif %}</p>
-<form method="post" action="{{ url_for('survivor.select') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="season" value="{{ survivor_season }}"><input type="hidden" name="week" value="{{ survivor_week }}"><input type="hidden" name="pool" value="{{ pool_key }}"><input type="hidden" name="team" value="{{ survivor_summary.primary.team }}"><input type="hidden" name="probability" value="{{ survivor_summary.primary.current_probability }}"><input type="hidden" name="score" value="{{ survivor_summary.primary.survivor_score }}"><button>Record {{ survivor_summary.primary.team }} as my Week {{ survivor_week }} pick</button></form>
-</div>
+</details>
 
 {% if survivor_summary.fallbacks %}<div class="sv-why" aria-label="Recommendation comparison">
 <h2>WHY {{ survivor_summary.primary.team }}?</h2>
 <p>{{ survivor_summary.primary.team }} leads {{ survivor_summary.fallbacks[0].team }} by {{ '%.1f'|format((survivor_summary.primary.current_probability-survivor_summary.fallbacks[0].current_probability)*100) }} probability points and {{ '%.1f'|format((survivor_summary.primary.survivor_score-survivor_summary.fallbacks[0].survivor_score)*100) }} Survivor Score points.</p>
-<table><thead><tr><th></th><th>{{ survivor_summary.primary.team }} (recommended)</th><th>{{ survivor_summary.fallbacks[0].team }} (strongest alternative)</th></tr></thead><tbody>
-<tr><td>Win probability</td><td>{{ '%.1f%%'|format(survivor_summary.primary.current_probability*100) }}</td><td>{{ '%.1f%%'|format(survivor_summary.fallbacks[0].current_probability*100) }}</td></tr>
-<tr><td>Survivor Score</td><td>{{ '%.1f%%'|format(survivor_summary.primary.survivor_score*100) }}</td><td>{{ '%.1f%%'|format(survivor_summary.fallbacks[0].survivor_score*100) }}</td></tr>
-<tr><td>Market signal</td><td>{{ survivor_summary.primary.signal or 'Unavailable' }}</td><td>{{ survivor_summary.fallbacks[0].signal or 'Unavailable' }}</td></tr>
-<tr><td>Evidence agreement</td><td>{% if survivor_summary.primary.stability_available %}{{ '%.1f%%'|format(survivor_summary.primary.stability*100) }}{% else %}Unavailable{% endif %}</td><td>{% if survivor_summary.fallbacks[0].stability_available %}{{ '%.1f%%'|format(survivor_summary.fallbacks[0].stability*100) }}{% else %}Unavailable{% endif %}</td></tr>
-<tr><td>Future Value state (informational only)</td><td>{% if survivor_summary.primary.future_available %}AVAILABLE{% else %}UNAVAILABLE{% endif %}</td><td>{% if survivor_summary.fallbacks[0].future_available %}AVAILABLE{% else %}UNAVAILABLE{% endif %}</td></tr>
-</tbody></table>
+<div class="sv-compare-grid">
+<div class="sv-compare-card sv-compare-recommended"><span class="sv-compare-label">Recommended</span><strong>{{ survivor_summary.primary.team }}</strong>
+<dl><div><dt>Win probability</dt><dd>{{ '%.1f%%'|format(survivor_summary.primary.current_probability*100) }}</dd></div>
+<div><dt>Survivor Score</dt><dd>{{ '%.1f%%'|format(survivor_summary.primary.survivor_score*100) }}</dd></div>
+<div><dt>Signal</dt><dd>{{ survivor_summary.primary.signal or 'Unavailable' }}</dd></div>
+<div><dt>Evidence agreement</dt><dd>{% if survivor_summary.primary.stability_available %}{{ '%.1f%%'|format(survivor_summary.primary.stability*100) }}{% else %}Unavailable{% endif %}</dd></div></dl>
+</div>
+<span class="sv-compare-vs">vs</span>
+<div class="sv-compare-card sv-compare-alternative"><span class="sv-compare-label">Best alternative</span><strong>{{ survivor_summary.fallbacks[0].team }}</strong>
+<dl><div><dt>Win probability</dt><dd>{{ '%.1f%%'|format(survivor_summary.fallbacks[0].current_probability*100) }}</dd></div>
+<div><dt>Survivor Score</dt><dd>{{ '%.1f%%'|format(survivor_summary.fallbacks[0].survivor_score*100) }}</dd></div>
+<div><dt>Signal</dt><dd>{{ survivor_summary.fallbacks[0].signal or 'Unavailable' }}</dd></div>
+<div><dt>Evidence agreement</dt><dd>{% if survivor_summary.fallbacks[0].stability_available %}{{ '%.1f%%'|format(survivor_summary.fallbacks[0].stability*100) }}{% else %}Unavailable{% endif %}</dd></div></dl>
+</div>
+</div>
+<p class="sv-compact-line">Future Value state (informational only): {{ survivor_summary.primary.team }} {% if survivor_summary.primary.future_available %}AVAILABLE{% else %}UNAVAILABLE{% endif %} &middot; {{ survivor_summary.fallbacks[0].team }} {% if survivor_summary.fallbacks[0].future_available %}AVAILABLE{% else %}UNAVAILABLE{% endif %}</p>
 </div>{% endif %}
 
 <div class="sv-alternatives"><h2>ALTERNATIVES</h2>
-{% for c in survivor_summary.fallbacks %}<article><span>Alternative {{ loop.index }}</span><strong>{{ c.team }}</strong><small>vs {{ c.opponent }} &middot; {{ '%.1f%%'|format(c.current_probability*100) }}{% if c.signal %} &middot; {{ c.signal }}{% endif %}</small><p><strong>Why choose it:</strong> {{ c.reason }}</p><p><strong>Why choose {{ survivor_summary.primary.team }} instead:</strong> {{ survivor_summary.primary.team }} leads by {{ '%.1f'|format((survivor_summary.primary.current_probability-c.current_probability)*100) }} probability points and {{ '%.1f'|format((survivor_summary.primary.survivor_score-c.survivor_score)*100) }} Survivor Score points.</p><p>Probability gap: {{ '%.1f'|format((survivor_summary.primary.current_probability-c.current_probability)*100) }} points. Score gap: {{ '%.1f'|format((survivor_summary.primary.survivor_score-c.survivor_score)*100) }} points behind the recommendation.</p><p class="sv-compact-line">Future Value (informational only): {% if c.future_available %}{{ '%.1f%%'|format(c.future_value*100) }}{% else %}Unavailable{% endif %}{% if c.kickoff %} &middot; Kickoff {{ c.kickoff.strftime('%a %b %d, %I:%M %p UTC') }}{% endif %}{% if c.home_moneyline is defined and c.home_moneyline is not none and c.away_moneyline is defined and c.away_moneyline is not none %} &middot; Moneyline {{ c.away_moneyline }}/{{ c.home_moneyline }} (away/home){% endif %}</p></article>{% else %}<p>No supported alternatives this week.</p>{% endfor %}
+{% for c in survivor_summary.fallbacks %}<article><span>Alternative {{ loop.index }}</span><strong>{{ c.team }}</strong>
+<dl class="sv-stat-row"><div><dt>Opponent</dt><dd>{{ c.opponent }}</dd></div><div><dt>Probability</dt><dd>{{ '%.1f%%'|format(c.current_probability*100) }}</dd></div><div><dt>Score</dt><dd>{{ '%.1f%%'|format(c.survivor_score*100) }}</dd></div><div><dt>Gap</dt><dd>{{ '%.1f'|format((survivor_summary.primary.current_probability-c.current_probability)*100) }}/{{ '%.1f'|format((survivor_summary.primary.survivor_score-c.survivor_score)*100) }} pts</dd></div></dl>
+<details class="sv-row-detail"><summary>Why</summary><p><strong>Why choose it:</strong> {{ c.reason }}</p><p><strong>Why choose {{ survivor_summary.primary.team }} instead:</strong> {{ survivor_summary.primary.team }} leads by {{ '%.1f'|format((survivor_summary.primary.current_probability-c.current_probability)*100) }} probability points and {{ '%.1f'|format((survivor_summary.primary.survivor_score-c.survivor_score)*100) }} Survivor Score points.</p><p>Probability gap: {{ '%.1f'|format((survivor_summary.primary.current_probability-c.current_probability)*100) }} points. Score gap: {{ '%.1f'|format((survivor_summary.primary.survivor_score-c.survivor_score)*100) }} points behind the recommendation.</p><p class="sv-compact-line">Future Value (informational only): {% if c.future_available %}{{ '%.1f%%'|format(c.future_value*100) }}{% else %}Unavailable{% endif %}{% if c.kickoff %} &middot; Kickoff {{ c.kickoff.strftime('%a %b %d, %I:%M %p UTC') }}{% endif %}{% if c.home_moneyline is defined and c.home_moneyline is not none and c.away_moneyline is defined and c.away_moneyline is not none %} &middot; Moneyline {{ c.away_moneyline }}/{{ c.home_moneyline }} (away/home){% endif %}</p></details>
+</article>{% else %}<p>No supported alternatives this week.</p>{% endfor %}
 </div>
 
 <div class="sv-risks"><h2>SURVIVOR RISK CENTER</h2>
@@ -124,9 +150,15 @@ if(svRefreshBtn){svRefreshBtn.addEventListener('click',function(){
 {% for r in survivor_summary.risks %}<article><strong>{{ r.affected_recommendation }}</strong><p>{{ r.risk }}</p><p>{{ r.manager_response }}</p></article>{% else %}<p>No elevated risks identified from supported evidence.</p>{% endfor %}
 <div class="sv-component-breakdown"><h3>MODEL COMPONENT BREAKDOWN (informational only)</h3>
 <p>Evidence Agreement Score &ne; Win Probability: the score below measures how closely the market, Elo, and situational signals agree with each other, not how likely the team is to win.</p>
-<table><thead><tr><th>Team</th><th>Market</th><th>Elo</th><th>Situational</th><th>Highest</th><th>Lowest</th><th>Disagreement range</th><th>Missing</th></tr></thead><tbody>
-{% for c in ([survivor_summary.primary] if survivor_summary.primary else []) + survivor_summary.fallbacks %}<tr><td><strong>{{ c.team }}</strong></td><td>{% if c.market_probability is defined and c.market_probability is not none %}<span class="sv-bar" role="img" aria-label="Market {{ '%.1f%%'|format(c.market_probability*100) }}"><span class="sv-bar-fill" style="width:{{ (c.market_probability*100)|round(1) }}%"></span></span> {{ '%.1f%%'|format(c.market_probability*100) }}{% else %}Unavailable{% endif %}</td><td>{% if c.elo_probability is defined and c.elo_probability is not none %}<span class="sv-bar" role="img" aria-label="Elo {{ '%.1f%%'|format(c.elo_probability*100) }}"><span class="sv-bar-fill" style="width:{{ (c.elo_probability*100)|round(1) }}%"></span></span> {{ '%.1f%%'|format(c.elo_probability*100) }}{% else %}Unavailable{% endif %}</td><td>{% if c.situation_probability is defined and c.situation_probability is not none %}<span class="sv-bar" role="img" aria-label="Situational {{ '%.1f%%'|format(c.situation_probability*100) }}"><span class="sv-bar-fill" style="width:{{ (c.situation_probability*100)|round(1) }}%"></span></span> {{ '%.1f%%'|format(c.situation_probability*100) }}{% else %}Unavailable{% endif %}</td><td>{{ c.highest_component or 'Unavailable' }}</td><td>{{ c.lowest_component or 'Unavailable' }}</td><td>{% if c.disagreement_range is defined and c.disagreement_range is not none %}{{ '%.1f%%'|format(c.disagreement_range*100) }}{% else %}Unavailable{% endif %}</td><td>{% if c.missing_components %}{{ c.missing_components|join(', ') }}{% else %}None{% endif %}</td></tr>{% else %}<tr><td colspan="8">No supported candidates to break down.</td></tr>{% endfor %}
-</tbody></table>
+<div class="sv-risk-cards">
+{% for c in ([survivor_summary.primary] if survivor_summary.primary else []) + survivor_summary.fallbacks %}<article class="sv-risk-card"><strong>{{ c.team }}</strong>
+<p class="sv-risk-row"><span>Market</span>{% if c.market_probability is defined and c.market_probability is not none %}<span class="sv-bar" role="img" aria-label="Market {{ '%.1f%%'|format(c.market_probability*100) }}"><span class="sv-bar-fill" style="width:{{ (c.market_probability*100)|round(1) }}%"></span></span> {{ '%.1f%%'|format(c.market_probability*100) }}{% else %}Unavailable{% endif %}</p>
+<p class="sv-risk-row"><span>Elo</span>{% if c.elo_probability is defined and c.elo_probability is not none %}<span class="sv-bar" role="img" aria-label="Elo {{ '%.1f%%'|format(c.elo_probability*100) }}"><span class="sv-bar-fill" style="width:{{ (c.elo_probability*100)|round(1) }}%"></span></span> {{ '%.1f%%'|format(c.elo_probability*100) }}{% else %}Unavailable{% endif %}</p>
+<p class="sv-risk-row"><span>Situational</span>{% if c.situation_probability is defined and c.situation_probability is not none %}<span class="sv-bar" role="img" aria-label="Situational {{ '%.1f%%'|format(c.situation_probability*100) }}"><span class="sv-bar-fill" style="width:{{ (c.situation_probability*100)|round(1) }}%"></span></span> {{ '%.1f%%'|format(c.situation_probability*100) }}{% else %}Unavailable{% endif %}</p>
+<p class="sv-risk-spread"><strong>Disagreement spread:</strong> {% if c.disagreement_range is defined and c.disagreement_range is not none %}{{ '%.1f%%'|format(c.disagreement_range*100) }}{% else %}Unavailable{% endif %}</p>
+<p class="sv-compact-line">Highest: {{ c.highest_component or 'Unavailable' }} &middot; Lowest: {{ c.lowest_component or 'Unavailable' }}{% if c.missing_components %} &middot; Missing: {{ c.missing_components|join(', ') }}{% endif %}</p>
+</article>{% else %}<p>No supported candidates to break down.</p>{% endfor %}
+</div>
 <p class="sv-disagreement-cause">Primary cause of elevated disagreement: {% if survivor_summary.primary and survivor_summary.primary.stability_available and survivor_summary.primary.disagreement_range and survivor_summary.primary.disagreement_range >= 0.20 %}for {{ survivor_summary.primary.team }}, the widest split is between {{ survivor_summary.primary.highest_component }} ({{ '%.1f%%'|format(survivor_summary.primary.highest_component_value*100) }}) and {{ survivor_summary.primary.lowest_component }} ({{ '%.1f%%'|format(survivor_summary.primary.lowest_component_value*100) }}).{% elif survivor_summary.primary and not survivor_summary.primary.stability_available %}unavailable for {{ survivor_summary.primary.team }}; a supported model component is missing ({{ survivor_summary.primary.missing_components|join(', ') if survivor_summary.primary.missing_components else 'unspecified' }}).{% else %}no elevated disagreement identified from supported evidence.{% endif %}</p>
 </div>
 </div>
@@ -142,8 +174,13 @@ if(svRefreshBtn){svRefreshBtn.addEventListener('click',function(){
 </div>
 {% endif %}
 
-<div class="sv-data-quality" aria-label="Data quality">
-<h2>DATA QUALITY</h2>
+<details class="sv-data-quality" aria-label="Data quality">
+<summary>Data Quality</summary>
+{% if last_verified_pacific %}<p class="sv-verified">Last verified: {{ last_verified_pacific }} (oldest current-week market evidence timestamp; informational only, not a freshness authority for Future Value).</p>{% endif %}
+{% if page_rendered_at_pacific %}<p class="sv-page-loaded">Page loaded: {{ page_rendered_at_pacific }} (this is when the page was rendered, not when evidence was refreshed; loading this page never refreshes evidence).</p>{% endif %}
+<p><strong>Internal recommendation state:</strong> <span class="sv-badge sv-badge-{{ survivor_status.state|lower }}">{{ survivor_status.state }}</span>{% if survivor_status.blocker_reason %} &middot; Blocker: {{ survivor_status.blocker_reason }}{% endif %}{% if survivor_status.degrade_reason %} &middot; Degrade reason: {{ survivor_status.degrade_reason }}{% endif %}</p>
+{% if not survivor_status.blocker_reason and not survivor_status.degrade_reason and survivor_status.state == 'DEGRADED' and survivor_status.freshness_state == 'AGING' %}<p><strong>Evidence age: AGING.</strong> Current-week market evidence is between the fresh and stale thresholds. The recommendation remains published; a refresh before you lock in a pick is recommended.</p>{% endif %}
+{% if survivor_summary.primary and survivor_status.state in ('BLOCKED','DEGRADED') %}<p><strong>LIMITED_EVIDENCE:</strong> A provisional recommendation is shown, but the disclosed blocker means the evidence is not fully decision-ready.</p>{% elif survivor_status.state in ('BLOCKED','UNAVAILABLE') %}<p><strong>No supported Survivor pick is published.</strong> Resolve the blocker before recording a decision.</p>{% endif %}
 <p><strong>Recommendation usability:</strong> {% if survivor_status.state == 'READY' %}Ready to use as shown.{% elif survivor_status.state == 'DEGRADED' %}Usable, but shown with a disclosed limitation (see below).{% elif survivor_status.state == 'BLOCKED' %}Not usable; evidence is blocked (see below).{% elif survivor_status.state == 'UNAVAILABLE' %}Not usable; no recommendation is published.{% else %}{{ survivor_status.state }}{% endif %}</p>
 <p><strong>Evidence freshness:</strong> {{ survivor_status.freshness_state }}{% if survivor_status.freshness_state == 'STALE' %} &mdash; refresh before trusting this recommendation.{% elif survivor_status.freshness_state == 'AGING' %} &mdash; a refresh is recommended before you lock in a pick.{% elif survivor_status.freshness_state == 'FRESH' %} &mdash; evidence is within the fresh threshold.{% elif survivor_status.freshness_state == 'UNAVAILABLE' %} &mdash; no supported evidence timestamp exists yet.{% endif %}</p>
 <p><strong>Should I refresh first?</strong> {% if survivor_status.freshness_state in ('STALE','UNAVAILABLE') %}Yes &mdash; refresh before recording a pick.{% elif survivor_status.freshness_state == 'AGING' %}Optional, but recommended before locking in.{% else %}Not required; evidence is fresh.{% endif %}</p>
@@ -158,7 +195,7 @@ if(svRefreshBtn){svRefreshBtn.addEventListener('click',function(){
 {% if survivor_status.remaining_team_count is not none %}<p><strong>Remaining eligible teams:</strong> {{ survivor_status.remaining_team_count }}</p>{% endif %}
 {% if survivor_status.week_state != 'OPEN' %}<p>This week is locked; eligibility is informational and no second selection can be recorded.</p>{% elif not eligible_teams %}<p class="sv-blocker">No eligible teams remain in the verified team universe.</p>{% endif %}
 </section>{% endif %}
-</div>
+</details>
 
 {% if survivor_status.week_state == 'OPEN' and eligible_teams %}
 <div class="sv-manual-pick"><h2>PICK A DIFFERENT TEAM</h2>
