@@ -4,7 +4,7 @@ import pytest
 from services.ux_evidence import derived_waiver_availability, evaluate_waiver_availability, resolve_waiver_candidate_identity, waiver_evidence_contract, waiver_ownership_freshness, waiver_roster_coverage
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
-from owner_operations import waiver_projection_contribution
+from owner_operations import waiver_projection_contribution, waiver_recent_production
 
 
 def evidence(domain, state="FRESH", completeness="COMPLETE", blocker=None):
@@ -553,6 +553,145 @@ def test_active_template_explains_blocked_evidence():
     assert "Recommendations blocked" in rendered
     assert "Sleeper API" in rendered
     assert "WAIVER_OWNERSHIP_RETRIEVAL_FAILED" in rendered
+
+
+def render_waivers(**overrides):
+    template = Environment(loader=FileSystemLoader(Path(__file__).parents[1] / "templates")).from_string(
+        "{% extends 'waivers.html' %}"
+    )
+    context = {
+        "title": "Waivers",
+        "url_for": lambda endpoint, **kwargs: "#",
+        "ux_route_evidence": lambda page, count: {"fields": {}},
+        "recommendations": [],
+        "needs": [],
+        "vacancies": [],
+        "roster": [{"player": "Current Player", "position": "WR"}],
+        "grades": {"WR": "B"},
+        "wda_roster": [{"player": "Current Player", "position": "WR", "projection": 100.0}],
+        "wda_candidates": [{"player": "Waiver Candidate", "position": "WR", "projection": 120.0, "need": 1}],
+        "waiver_evidence": {
+            "allowed": True, "blockers": [], "ranking_confidence": "VERIFIED",
+            "ownership": {"source": "Sleeper API", "freshness_state": "FRESH"},
+            "eligibility": {"source": "local player catalog", "freshness_state": "FRESH"},
+        },
+    }
+    context.update(overrides)
+    return template.render(**context)
+
+
+def test_decision_assistant_dropdown_populated_from_roster():
+    rendered = render_waivers()
+    assert 'id="wda-player-select"' in rendered
+    assert '<option value="0">Current Player (WR)</option>' in rendered
+
+
+def test_decision_assistant_blocked_when_evidence_blocked():
+    rendered = render_waivers(waiver_evidence={
+        "allowed": False, "blockers": ["WAIVER_OWNERSHIP_RETRIEVAL_FAILED"],
+        "ownership": {"source": "Sleeper API", "freshness_state": "BLOCKED"},
+        "eligibility": {"source": "local player catalog", "freshness_state": "UNAVAILABLE"},
+    })
+    assert "DECISION ASSISTANT BLOCKED" in rendered
+    assert "WAIVER_OWNERSHIP_RETRIEVAL_FAILED" in rendered
+    assert 'id="wda-player-select"' not in rendered
+
+
+def test_decision_assistant_unavailable_when_roster_missing():
+    rendered = render_waivers(roster=[])
+    assert "DECISION ASSISTANT UNAVAILABLE" in rendered
+    assert 'id="wda-player-select"' not in rendered
+
+
+def test_decision_assistant_states_use_potential_upgrade_wording():
+    rendered = render_waivers()
+    assert "POTENTIAL UPGRADE" in rendered
+    assert "NO PROJECTED UPGRADE FOUND" in rendered
+    assert "COMPARISON UNAVAILABLE" in rendered
+
+
+def test_decision_assistant_no_upgrade_disclosure_present():
+    rendered = render_waivers()
+    assert "Keeping this player is the supported default because no projected same-position upgrade was found." in rendered
+
+
+def test_decision_assistant_missing_projection_handled_client_side():
+    rendered = render_waivers()
+    assert "player.projection == null" in rendered
+    assert "c.projection != null" in rendered
+
+
+def test_decision_assistant_informational_disclosure_present():
+    rendered = render_waivers()
+    assert "Informational comparison only. This does not yet use an authoritative drop-value model. Projection evidence is a secondary comparison input." in rendered
+
+
+def test_decision_assistant_never_uses_authoritative_drop_or_keep_wording():
+    rendered = render_waivers()
+    assert "DROP PLAYER" not in rendered
+    assert "KEEP PLAYER" not in rendered
+    assert "meaningful improvement" not in rendered
+
+
+def test_decision_assistant_projection_zero_treated_as_missing():
+    from owner_operations import wda_projection_or_none
+    assert wda_projection_or_none(0.0) is None
+    assert wda_projection_or_none(None) is None
+    assert wda_projection_or_none(18.4) == 18.4
+
+
+def test_waiver_recent_production_prefers_gsis_identity(monkeypatch):
+    observed = {}
+
+    def fake_reader(connection, **kwargs):
+        observed.update(kwargs)
+        return {"state": "AVAILABLE", "rows": [{"week": 3, "fantasy_points_ppr": 14.8}]}
+
+    monkeypatch.setattr("owner_operations.read_player_production", fake_reader)
+    result = waiver_recent_production(
+        object(),
+        {"player_id": "5045", "sleeper_gsis_id": "00-0034348", "position": "WR"},
+        2026,
+    )
+    assert observed["player_id"] == "00-0034348"
+    assert result["state"] == "AVAILABLE"
+
+
+def test_waiver_recent_production_drops_rows_when_reader_is_blocked(monkeypatch):
+    monkeypatch.setattr(
+        "owner_operations.read_player_production",
+        lambda connection, **kwargs: {"state": "BLOCKED", "rows": [{"week": 3, "fantasy_points_ppr": None}], "blockers": ["PLAYER_WEEK_PRODUCTION_VALUE_UNAVAILABLE"]},
+    )
+    result = waiver_recent_production(object(), {"player_id": "00-1", "position": "WR"}, 2026)
+    assert result["state"] == "BLOCKED"
+    assert result["rows"] == []
+
+
+def test_browse_candidates_render_recent_production_newest_first_and_preserve_zero():
+    rendered = render_waivers(
+        recommendations=[{
+            "player": "Recent Player", "position": "WR", "priority_score": 10,
+            "tier": 2, "projection": 120.0, "faab": 4, "need": 1,
+            "bid_low": 1, "bid_high": 8,
+            "recent_production": {"state": "AVAILABLE", "rows": [
+                {"week": 3, "fantasy_points_ppr": 0.0},
+                {"week": 2, "fantasy_points_ppr": 14.8},
+            ]},
+        }]
+    )
+    assert '▶ Recent Performance' in rendered
+    assert rendered.index('Wk 3') < rendered.index('Wk 2')
+    assert '>0.0<' in rendered
+
+
+def test_browse_candidates_render_k_and_def_fail_closed_messages():
+    recommendations = [
+        {"player": "Kicker", "position": "K", "priority_score": 10, "tier": 2, "projection": 10.0, "faab": 1, "need": 0, "bid_low": 0, "bid_high": 4, "recent_production": {"state": "UNSUPPORTED", "rows": []}},
+        {"player": "Defense", "position": "DEF", "priority_score": 9, "tier": 2, "projection": 8.0, "faab": 1, "need": 0, "bid_low": 0, "bid_high": 4, "recent_production": {"state": "UNSUPPORTED", "rows": []}},
+    ]
+    rendered = render_waivers(recommendations=recommendations)
+    assert 'Authoritative K production unavailable.' in rendered
+    assert 'Authoritative DEF production unavailable.' in rendered
 
 
 def test_waiver_trust_panel_renders_evidence_and_unavailable_fields():

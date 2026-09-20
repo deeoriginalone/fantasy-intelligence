@@ -18,8 +18,10 @@ from services.ux2_team_accuracy import build_team_accuracy_contract
 from services.team_priority import build_team_priority_action
 from services.team_hardening import build_bench_decisions, build_bench_plan, build_lineup_snapshot, build_roster_outlook, build_team_trust_summary, build_weekly_risks
 from services.player_opportunity_reader import read_player_what_changed
+from services.player_opportunity_reader import read_player_production
 from services.gsis_identity_crosswalk import attach_opportunity_player_ids
 from services.nflverse_player_metadata import acquire_nflverse_player_metadata
+from services.sleeper_service import get_trending_adds, get_trending_drops
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
@@ -91,6 +93,53 @@ def waiver_projection_contribution(candidate):
         "state": "AVAILABLE" if available else "UNAVAILABLE",
         "warnings": list(evidence.get("blockers") or []),
     }
+
+
+def wda_projection_or_none(value):
+    """Decision-assistant-only: row_to_player collapses a missing projection to 0.0;
+    treat 0 as unavailable here so the assistant never fabricates an upgrade signal."""
+    return value or None
+
+
+def waiver_trending_evidence(mode):
+    """Fail-closed Sleeper trending evidence; only applicable to LIVE waiver candidates."""
+    if mode != "LIVE":
+        return {"state": "UNAVAILABLE", "blocker": "WAIVER_TRENDING_NOT_APPLICABLE", "add_ids": set(), "drop_ids": set()}
+    try:
+        adds = get_trending_adds(24, 300)
+        drops = get_trending_drops(24, 300)
+    except Exception:
+        return {"state": "UNAVAILABLE", "blocker": "WAIVER_TRENDING_RETRIEVAL_FAILED", "add_ids": set(), "drop_ids": set()}
+    if not isinstance(adds, list) or not isinstance(drops, list):
+        return {"state": "UNAVAILABLE", "blocker": "WAIVER_TRENDING_DATA_INVALID", "add_ids": set(), "drop_ids": set()}
+    add_ids = {str(item.get("player_id")) for item in adds if isinstance(item, dict) and item.get("player_id")}
+    drop_ids = {str(item.get("player_id")) for item in drops if isinstance(item, dict) and item.get("player_id")}
+    return {"state": "AVAILABLE", "blocker": None, "add_ids": add_ids, "drop_ids": drop_ids}
+
+
+def wda_trending_state(player_id, trending_evidence):
+    """Return 'UP'/'DOWN' only when Sleeper trending evidence directly supports it; else None."""
+    trending_evidence = trending_evidence or {}
+    if trending_evidence.get("state") != "AVAILABLE" or not player_id:
+        return None
+    pid = str(player_id)
+    if pid in trending_evidence.get("add_ids", set()):
+        return "UP"
+    if pid in trending_evidence.get("drop_ids", set()):
+        return "DOWN"
+    return None
+
+
+def waiver_recent_production(connection, player, season, limit=3):
+    """Expose only published production rows for waiver research; never calculate on read."""
+    player = dict(player or {})
+    player_id = player.get("opportunity_player_id") or player.get("sleeper_gsis_id") or player.get("player_id") or player.get("source_player_id")
+    position = str(player.get("position") or "").upper().replace("DST", "DEF")
+    if not player_id or not season:
+        return {"state": "UNAVAILABLE", "rows": [], "blockers": ["PLAYER_WEEK_PRODUCTION_IDENTITY_UNAVAILABLE"]}
+    result = read_player_production(connection, player_id=str(player_id), season=season, position=position)
+    result["rows"] = list(result.get("rows") or [])[:limit] if result.get("state") == "AVAILABLE" else []
+    return result
 
 
 def create_owner_operations_blueprint(
@@ -310,6 +359,7 @@ def create_owner_operations_blueprint(
             "draft_name": None,
             "season": season,
             "week": week,
+            "sleeper_catalog": sleeper_catalog,
             "shared_facts": shared_league_facts(league),
         }
 
@@ -438,6 +488,7 @@ def create_owner_operations_blueprint(
             {
                 **row,
                 "player_id": resolution.get("resolved_player_id"),
+                "opportunity_player_id": (catalog or {}).get(str(resolution.get("resolved_player_id")), {}).get("gsis_id") if resolution.get("resolved_player_id") else None,
                 "identity_resolution": resolution,
             }
             for row, resolution in zip(rows, resolutions)
@@ -573,6 +624,7 @@ def create_owner_operations_blueprint(
                 week=meta.get("week"),
                 nflverse_records=nflverse_records,
                 nflverse_lineage=nflverse_lineage,
+                sleeper_records=meta.get("sleeper_catalog"),
             )
         finally:
             cur.close(); conn.close()
@@ -625,9 +677,18 @@ def create_owner_operations_blueprint(
             counts, grades, needs, overall, score = roster_analysis(roster, vacancies)
             pool_evidence = waiver_pool_with_evidence(cur, context, roster)
             recommendations = faab_recommendations(pool_evidence["candidates"], counts)[:25]
+            for player in roster:
+                player["recent_production"] = waiver_recent_production(conn, player, meta.get("season"))
+            for candidate in recommendations:
+                candidate["recent_production"] = waiver_recent_production(conn, candidate, meta.get("season"))
         finally:
             cur.close(); conn.close()
-        return render_template("waivers.html", title="Waiver and FAAB Center", context=context, meta=meta, recommendations=recommendations, needs=needs, vacancies=vacancies, faab_budget=100, waiver_evidence=pool_evidence, opportunity_view=build_opportunity_view(current_app.config.get("OPPORTUNITY_EVIDENCE")))
+        # row_to_player collapses a missing projected_points value to 0.0; treat 0 as
+        # "no supported projection" here so the assistant never fabricates an upgrade signal.
+        trending_evidence = waiver_trending_evidence(context.get("mode"))
+        wda_roster = [{"player": p.get("player"), "position": p.get("position"), "projection": wda_projection_or_none(p.get("projection")), "trending": wda_trending_state(p.get("source_player_id"), trending_evidence), "recent_production": p.get("recent_production", {"state": "UNAVAILABLE", "rows": []})} for p in roster]
+        wda_candidates = [{"player": r.get("player"), "position": r.get("position"), "projection": wda_projection_or_none(r.get("projection")), "need": r.get("need"), "trending": wda_trending_state(r.get("player_id"), trending_evidence), "recent_production": r.get("recent_production", {"state": "UNAVAILABLE", "rows": []})} for r in recommendations]
+        return render_template("waivers.html", title="Waiver and FAAB Center", context=context, meta=meta, recommendations=recommendations, needs=needs, vacancies=vacancies, faab_budget=100, waiver_evidence=pool_evidence, opportunity_view=build_opportunity_view(current_app.config.get("OPPORTUNITY_EVIDENCE")), roster=roster, grades=grades, counts=counts, wda_roster=wda_roster, wda_candidates=wda_candidates, trending_evidence_state=trending_evidence.get("state"))
 
     @bp.route("/trades")
     def trades_page():

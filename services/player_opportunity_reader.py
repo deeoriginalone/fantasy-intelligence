@@ -244,6 +244,11 @@ def _normalize_row(row: Mapping[str, Any]) -> dict[str, Any]:
     normalized = dict(row)
     normalized["target_volume"] = _number(row.get("targets"))
     normalized["carry_volume"] = _number(row.get("carries"))
+    if row.get("fantasy_points_ppr") is not None:
+        try:
+            normalized["fantasy_points_ppr"] = float(row["fantasy_points_ppr"])
+        except (TypeError, ValueError):
+            normalized["fantasy_points_ppr"] = row["fantasy_points_ppr"]
     for field in ("target_share", "carry_share", "touch_share", "snap_share", "route_participation", "red_zone_share"):
         normalized[field] = _number(row.get(field))
     lineage = row.get("lineage")
