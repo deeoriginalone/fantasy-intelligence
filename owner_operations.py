@@ -19,6 +19,7 @@ from services.team_priority import build_team_priority_action
 from services.team_hardening import build_bench_decisions, build_bench_plan, build_lineup_snapshot, build_roster_outlook, build_team_trust_summary, build_weekly_risks
 from services.player_opportunity_reader import read_player_opportunity, read_player_what_changed
 from services.snap_share_reader import read_snap_share
+from services.opportunity_context import opportunity_strength, usage_stability
 from services.player_opportunity_reader import read_player_production
 from services.gsis_identity_crosswalk import attach_opportunity_player_ids
 from services.nflverse_player_metadata import acquire_nflverse_player_metadata
@@ -75,6 +76,10 @@ def build_team_opportunity_changes(connection, roster, *, season, week, nflverse
             }
         else:
             comparison["snap_share_change"] = {"state": "UNAVAILABLE", "reason": "Snap-share comparison unavailable because prior and current published rows are not both present."}
+            usage_result = read_player_opportunity(connection, player_id=opportunity_player_id, season=season, week_start=1, week_end=week)
+            usage_rows = usage_result.get("rows") or []
+            comparison["opportunity_strength"] = opportunity_strength(usage_row=(usage_rows[-1] if usage_rows else None), snap_row=(snap_rows[0] if snap_rows else None))
+            comparison["usage_stability"] = usage_stability(current_usage=(usage_rows[-1] if usage_rows else None), prior_usage=(usage_rows[-2] if len(usage_rows) > 1 else None), current_snap=(snap_rows[0] if snap_rows else None), prior_snap=(snap_rows[1] if len(snap_rows) > 1 else None))
         result["players"].append({"player": name, "opportunity_player_id": opportunity_player_id, **comparison})
     if not result["players"]:
         result["blockers"] = ["OPPORTUNITY_ROSTER_EMPTY"]
@@ -224,6 +229,11 @@ def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
     snap = candidate.get("snap_share") or {}
     usage = candidate.get("opportunity_metrics") or {}
     usage_row = (usage.get("rows") or [])[-1] if usage.get("state") == "AVAILABLE" else None
+    prior_usage_row = (usage.get("rows") or [])[-2] if usage.get("state") == "AVAILABLE" and len(usage.get("rows") or []) > 1 else None
+    snap_row = (snap.get("rows") or [])[-1] if snap.get("state") == "AVAILABLE" else None
+    prior_snap_row = (snap.get("rows") or [])[-2] if snap.get("state") == "AVAILABLE" and len(snap.get("rows") or []) > 1 else None
+    strength = opportunity_strength(usage_row=usage_row, snap_row=snap_row)
+    stability = usage_stability(current_usage=usage_row, prior_usage=prior_usage_row, current_snap=snap_row, prior_snap=prior_snap_row)
     if usage_row:
         snap_text = " Snap share: %s." % ((snap.get("rows") or [{}])[-1].get("snap_share")) if snap.get("state") == "AVAILABLE" else " Snap share unavailable."
         opportunity = {"state": "AVAILABLE", "reason": "Targets: %s; carries: %s; target share: %s; carry share: %s; touch share: %s.%s" % (usage_row.get("targets"), usage_row.get("carries"), usage_row.get("target_share"), usage_row.get("carry_share"), usage_row.get("touch_share"), snap_text)}
@@ -232,6 +242,8 @@ def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
     return {
         "roster_fit": roster_fit,
         "snap_share": snap,
+        "opportunity_strength": strength,
+        "usage_stability": stability,
         "suggested_drop": suggested_drop,
         "opportunity": opportunity,
         "role": {"state": "UNAVAILABLE", "reason": "Role classification unavailable because no verified role contract is published."},

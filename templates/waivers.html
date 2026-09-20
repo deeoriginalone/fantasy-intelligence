@@ -113,6 +113,8 @@
           var evidence = (candidateData[index] || {}).evidence_context || {};
           var fit = evidence.roster_fit || {};
           var opportunity = evidence.opportunity || {};
+          var strength = evidence.opportunity_strength || {};
+          var stability = evidence.usage_stability || {};
           var metrics = (candidateData[index] || {}).opportunity_metrics || {};
           var usage = (metrics.rows || [])[0] || {};
           var snap = evidence.snap_share || {};
@@ -127,6 +129,8 @@
           summary.className = 'candidate-evidence-summary';
           summary.innerHTML = '<p><strong>Roster Fit:</strong> ' + escapeHtml(fit.label || 'Roster fit unavailable') + (fit.reason ? ' · ' + escapeHtml(fit.reason) : '') + '</p>' +
             '<p><strong>Opportunity:</strong> ' + escapeHtml(opportunity.reason || 'Opportunity unavailable.') + '</p>' +
+            '<p><strong>Opportunity Strength:</strong> ' + escapeHtml(strength.state || 'UNAVAILABLE') + '</p>' +
+            '<p><strong>Usage Stability:</strong> ' + escapeHtml(stability.state || 'INSUFFICIENT_EVIDENCE') + '</p>' +
             '<p><strong>Opportunity Context:</strong> ' + escapeHtml(metricText + ' · ' + snapText) + '</p>' +
             '<p><strong>Role:</strong> ' + escapeHtml(role.reason || 'Role classification unavailable.') + '</p>' +
             '<p><strong>Duration:</strong> ' + escapeHtml(duration.reason || 'Opportunity duration unavailable because no verified duration source exists.') + '</p>' +
