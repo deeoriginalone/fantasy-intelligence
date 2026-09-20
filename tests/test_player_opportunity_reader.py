@@ -1,11 +1,12 @@
 import pytest
 
-from services.player_opportunity_reader import read_player_opportunity, read_player_what_changed
+from services.player_opportunity_reader import read_player_opportunity, read_player_production, read_player_what_changed
 
 
 NOW = "2026-09-17T12:00:00+00:00"
 COLUMNS = (
-    "season", "week", "player_id", "team", "targets", "carries",
+    "season", "week", "player_id", "team", "position", "opponent_team", "targets", "carries",
+    "fantasy_points_ppr", "scoring_format", "calculation_version",
     "target_share", "carry_share", "touch_share", "snap_share",
     "route_participation", "red_zone_share", "role_classification", "source",
     "source_authority", "source_recorded_at", "retrieved_at", "artifact_id",
@@ -16,8 +17,9 @@ COLUMNS = (
 
 def row(week, *, target_share=0.2, carry_share=0.1, touch_share=0.15, **updates):
     values = {
-        "season": 2026, "week": week, "player_id": "p1", "team": "KC",
+        "season": 2026, "week": week, "player_id": "p1", "team": "KC", "position": "WR", "opponent_team": "DEN",
         "targets": 4, "carries": 2, "target_share": target_share,
+        "fantasy_points_ppr": 10.3, "scoring_format": "FULL_PPR", "calculation_version": "full-ppr.v1",
         "carry_share": carry_share, "touch_share": touch_share,
         "snap_share": None, "route_participation": None, "red_zone_share": None,
         "role_classification": None, "source": "automated:nflverse",
@@ -89,12 +91,35 @@ def test_reader_supports_exact_week_filtering():
     assert "week = %s" in query
 
 
+def test_production_reader_returns_newest_supported_week_first_and_contract_metadata():
+    connection = ReaderConnection([row(1, fantasy_points_ppr=10.3), row(2, fantasy_points_ppr=14.8)])
+    result = read_player_production(connection, player_id="p1", season=2026)
+    assert result["state"] == "AVAILABLE"
+    assert [item["week"] for item in result["rows"]] == [2, 1]
+    assert result["rows"][0]["fantasy_points_ppr"] == 14.8
+    assert result["rows"][0]["scoring_format"] == "FULL_PPR"
+    assert result["rows"][0]["calculation_version"] == "full-ppr.v1"
+    assert result["rows"][0]["freshness_state"] == "FRESH"
+    assert result["rows"][0]["publication_state"] == "PUBLISHED"
+    assert result["rows"][0]["lineage"]
+
+
+def test_production_reader_fails_closed_for_k_and_def():
+    for position in ("K", "DEF", "DST"):
+        result = read_player_production(ReaderConnection(), player_id="p1", season=2026, position=position)
+        assert result["state"] == "UNSUPPORTED"
+        assert result["blockers"] == ["PLAYER_WEEK_PRODUCTION_POSITION_UNSUPPORTED"]
+
+
 def test_reader_preserves_zero_and_null_and_role_metrics_unavailable():
     result = read_player_opportunity(db_connection=ReaderConnection([row(1, target_share=0, carry_share=None)]), player_id="p1", season=2026)
     assert result["rows"][0]["target_share"] == 0.0
     assert result["rows"][0]["carry_share"] is None
     assert result["rows"][0]["snap_share"] is None
     assert result["rows"][0]["role_classification"] is None
+    zero = read_player_production(ReaderConnection([row(1, fantasy_points_ppr=0.0)]), player_id="p1", season=2026)
+    assert zero["state"] == "AVAILABLE"
+    assert zero["rows"][0]["fantasy_points_ppr"] == 0.0
 
 
 def test_reader_fails_closed_for_empty_failed_and_invalid_scope_reads():

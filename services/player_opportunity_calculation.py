@@ -12,15 +12,25 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timezone
+import math
 from typing import Any, Mapping, Sequence
 
+from services.defense_matchup_calculation import full_ppr_points
 from services.integrity.integrity_service import opportunity_evidence_threshold
 from services.opportunity_evidence import build_nflverse_usage_evidence
 
 CONTRACT_SCHEMA_VERSION = "nflverse-opportunity-publication-contracts.v1"
+PRODUCTION_CALCULATION_VERSION = "full-ppr.v1"
+SUPPORTED_PRODUCTION_POSITIONS = {"QB", "RB", "WR", "TE"}
+UNSUPPORTED_PRODUCTION_POSITIONS = {"K", "DEF", "DST"}
 UNAVAILABLE_METRICS = ("snap_share", "route_participation", "red_zone_share", "role_classification")
 UNAVAILABLE_METRIC_BLOCKER = "OPPORTUNITY_METRIC_SOURCE_UNAVAILABLE"
 THRESHOLD_OWNER = "services.integrity.integrity_service.opportunity_evidence_threshold"
+PRODUCTION_INPUT_GROUPS = (
+    ("passing_interceptions", "interceptions"),
+    ("two_point_conversions", "passing_2pt_conversions", "rushing_2pt_conversions", "receiving_2pt_conversions"),
+    ("fumbles_lost", "rushing_fumbles_lost", "receiving_fumbles_lost"),
+)
 
 
 def _float(value: Any) -> float:
@@ -59,6 +69,19 @@ def _opportunity_freshness(retrieved_at: Any, now: Any, threshold_seconds: int |
     return "STALE", "OPPORTUNITY_DATA_STALE", age
 
 
+def _production_input_blockers(row: Mapping[str, Any]) -> list[str]:
+    required = ("passing_yards", "passing_tds", "rushing_yards", "rushing_tds", "receiving_yards", "receiving_tds", "receptions")
+    blockers = [f"PLAYER_WEEK_PRODUCTION_INPUT_UNAVAILABLE:{field}" for field in required if field not in row]
+    for group in PRODUCTION_INPUT_GROUPS:
+        if not any(field in row for field in group):
+            blockers.append(f"PLAYER_WEEK_PRODUCTION_INPUT_UNAVAILABLE:{group[0]}")
+    return blockers
+
+
+def _production_position(row: Mapping[str, Any]) -> str:
+    return str(row.get("position") or row.get("position_group") or "").upper().replace("DST", "DEF")
+
+
 def calculate_player_opportunity(
     weekly_stats: Sequence[Mapping[str, Any]],
     *,
@@ -77,6 +100,8 @@ def calculate_player_opportunity(
 
     input_row_count = len(weekly_stats)
     unresolved: list[dict[str, Any]] = []
+    unsupported_positions: list[dict[str, Any]] = []
+    production_blockers: list[dict[str, Any]] = []
     eligible_rows: list[dict[str, Any]] = []
     for row in weekly_stats:
         player_id = str(row.get("player_id") or "").strip()
@@ -84,11 +109,26 @@ def calculate_player_opportunity(
         if not player_id or not team:
             unresolved.append({"row": dict(row), "reason": "OPPORTUNITY_PLAYER_IDENTITY_UNAVAILABLE"})
             continue
+        position = _production_position(row)
+        if position not in SUPPORTED_PRODUCTION_POSITIONS:
+            reason = "PLAYER_WEEK_PRODUCTION_POSITION_UNSUPPORTED" if position in UNSUPPORTED_PRODUCTION_POSITIONS else "PLAYER_WEEK_PRODUCTION_POSITION_UNAVAILABLE"
+            unsupported_positions.append({"player_id": player_id, "week": row.get("week"), "position": position or None, "reason": reason})
+            continue
+        input_blockers = _production_input_blockers(row)
+        if input_blockers:
+            production_blockers.append({"player_id": player_id, "week": row.get("week"), "blockers": input_blockers})
+            continue
+        production_points = full_ppr_points(row)
+        if not math.isfinite(production_points):
+            production_blockers.append({"player_id": player_id, "week": row.get("week"), "blockers": ["PLAYER_WEEK_PRODUCTION_NONFINITE"]})
+            continue
         week = row.get("week")
         game_id = row.get("game_id") or f"{row.get('season')}:{week}:{team}:{row.get('opponent_team')}"
         eligible_rows.append({
             "player_id": player_id, "team": team, "week": week, "game_id": game_id,
+            "position": position, "opponent_team": row.get("opponent_team"),
             "targets": _float(row.get("targets")), "carries": _float(row.get("carries")),
+            "fantasy_points_ppr": production_points,
         })
 
     # Group by player-week identity to detect duplicate rows and contradictory team
@@ -140,13 +180,18 @@ def calculate_player_opportunity(
         )
         evidence["age"] = age
         evidence["team"] = row["team"]
+        evidence["position"] = row["position"]
+        evidence["opponent_team"] = row["opponent_team"]
+        evidence["fantasy_points_ppr"] = row["fantasy_points_ppr"]
+        evidence["scoring_format"] = "FULL_PPR"
+        evidence["calculation_version"] = PRODUCTION_CALCULATION_VERSION
         evidence["unavailable_metrics"] = list(UNAVAILABLE_METRICS)
         evidence["unavailable_metric_blocker"] = UNAVAILABLE_METRIC_BLOCKER
         published.append(evidence)
 
     published_row_count = len(published)
     unresolved_identity_count = len(unresolved)
-    excluded_row_count = unresolved_identity_count + duplicate_row_count + contradictory_row_count
+    excluded_row_count = unresolved_identity_count + duplicate_row_count + contradictory_row_count + len(unsupported_positions) + len(production_blockers)
     reconciliation = {
         "input_row_count": input_row_count,
         "eligible_input_count": len(eligible_rows),
@@ -174,9 +219,17 @@ def calculate_player_opportunity(
         "weeks": sorted({row["week"] for row in published}),
         "rows": published,
         "unresolved_identities": unresolved,
+        "unsupported_positions": unsupported_positions,
+        "production_blockers": production_blockers,
         "reconciliation": reconciliation,
         "unavailable_metrics": list(UNAVAILABLE_METRICS),
         "unavailable_metric_blocker": UNAVAILABLE_METRIC_BLOCKER,
+        "production_contract": {
+            "supported_positions": sorted(SUPPORTED_PRODUCTION_POSITIONS),
+            "unsupported_positions": sorted(UNSUPPORTED_PRODUCTION_POSITIONS),
+            "scoring_format": "FULL_PPR",
+            "calculation_version": PRODUCTION_CALCULATION_VERSION,
+        },
         "freshness_state": freshness_state,
         "blocker": freshness_blocker,
         "publication_contracts": publication_contracts,

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 from typing import Any, Mapping
 
 from services.opportunity_evidence import (
@@ -12,7 +13,8 @@ from services.opportunity_evidence import (
 READER_SCHEMA_VERSION = "player-opportunity-reader.v1"
 TABLE_NAME = "player_opportunity_evidence"
 COLUMNS = (
-    "season", "week", "player_id", "team", "targets", "carries",
+    "season", "week", "player_id", "team", "position", "opponent_team", "targets", "carries",
+    "fantasy_points_ppr", "scoring_format", "calculation_version",
     "target_share", "carry_share", "touch_share", "snap_share",
     "route_participation", "red_zone_share", "role_classification", "source",
     "source_authority", "source_recorded_at", "retrieved_at", "artifact_id",
@@ -63,6 +65,7 @@ def read_player_opportunity(
     blockers = _scope_row_blockers(normalized_rows, player_id, season, week, week_start, week_end)
     for row in normalized_rows:
         blockers.extend(published_opportunity_row_blockers(row))
+        blockers.extend(_production_row_blockers(row))
     blockers = list(dict.fromkeys(blockers))
     duplicate_weeks = _duplicate_weeks(normalized_rows)
     if duplicate_weeks:
@@ -119,6 +122,66 @@ def read_player_what_changed(
     comparison["reader_lineage"] = reader["lineage"]
     comparison["decision_effect"] = "INFORMATIONAL_ONLY"
     return comparison
+
+
+def read_player_production(
+    db_connection: Any,
+    *,
+    player_id: Any,
+    season: Any,
+    week: Any = None,
+    week_start: Any = None,
+    week_end: Any = None,
+    position: Any = None,
+) -> dict[str, Any]:
+    """Read published historical Full-PPR production without calculating during reads."""
+    normalized_position = str(position or "").upper().replace("DST", "DEF")
+    if normalized_position in {"K", "DEF"}:
+        return {
+            "schema_version": "player-production-reader.v1",
+            "state": "UNSUPPORTED",
+            "rows": [],
+            "supported_weeks": [],
+            "blockers": ["PLAYER_WEEK_PRODUCTION_POSITION_UNSUPPORTED"],
+            "reason": "Authoritative scoring inputs are unavailable for this position.",
+            "decision_effect": "INFORMATIONAL_ONLY",
+        }
+    result = read_player_opportunity(
+        db_connection,
+        player_id=player_id,
+        season=season,
+        week=week,
+        week_start=week_start,
+        week_end=week_end,
+    )
+    production = {
+        "schema_version": "player-production-reader.v1",
+        "state": result["state"],
+        "rows": [
+            {
+                "season": row["season"], "week": row["week"], "player_id": row["player_id"],
+                "team": row.get("team"), "position": row.get("position"), "opponent_team": row.get("opponent_team"),
+                "fantasy_points_ppr": row.get("fantasy_points_ppr"),
+                "scoring_format": row.get("scoring_format"),
+                "calculation_version": row.get("calculation_version"),
+                "source": row.get("source"), "source_authority": row.get("source_authority"),
+                "source_recorded_at": row.get("source_recorded_at"), "retrieved_at": row.get("retrieved_at"),
+                "artifact_id": row.get("artifact_id"), "version": row.get("version"),
+                "checksum": row.get("checksum"), "freshness_threshold_id": row.get("freshness_threshold_id"),
+                "freshness_state": row.get("freshness_state"), "completeness_state": row.get("completeness_state"),
+                "lineage": row.get("lineage"), "publication_state": row.get("publication_state"),
+            }
+            for row in reversed(result.get("rows") or [])
+        ],
+        "supported_weeks": sorted(result.get("supported_weeks") or [], reverse=True),
+        "blockers": list(result.get("blockers") or []),
+        "lineage": result.get("lineage"),
+        "decision_effect": "INFORMATIONAL_ONLY",
+    }
+    if production["state"] == "AVAILABLE" and not production["rows"]:
+        production["state"] = "UNAVAILABLE"
+        production["blockers"] = ["PLAYER_WEEK_PRODUCTION_UNAVAILABLE"]
+    return production
 
 
 def _base_result(*, player_id: Any, season: Any, week: Any, week_start: Any, week_end: Any) -> dict[str, Any]:
@@ -190,6 +253,27 @@ def _normalize_row(row: Mapping[str, Any]) -> dict[str, Any]:
         except (TypeError, ValueError):
             normalized["lineage"] = lineage
     return normalized
+
+
+def _production_row_blockers(row: Mapping[str, Any]) -> list[str]:
+    blockers = []
+    position = str(row.get("position") or "").upper().replace("DST", "DEF")
+    if position not in {"QB", "RB", "WR", "TE"}:
+        blockers.append("PLAYER_WEEK_PRODUCTION_POSITION_UNSUPPORTED")
+    value = row.get("fantasy_points_ppr")
+    if value is None:
+        blockers.append("PLAYER_WEEK_PRODUCTION_VALUE_UNAVAILABLE")
+    else:
+        try:
+            if not math.isfinite(float(value)):
+                blockers.append("PLAYER_WEEK_PRODUCTION_NONFINITE")
+        except (TypeError, ValueError):
+            blockers.append("PLAYER_WEEK_PRODUCTION_VALUE_INVALID")
+    if row.get("scoring_format") != "FULL_PPR":
+        blockers.append("PLAYER_WEEK_PRODUCTION_SCORING_FORMAT_UNAVAILABLE")
+    if not row.get("calculation_version"):
+        blockers.append("PLAYER_WEEK_PRODUCTION_CALCULATION_VERSION_UNAVAILABLE")
+    return blockers
 
 
 def _scope_row_blockers(rows: list[Mapping[str, Any]], player_id: Any, season: Any, week: Any, week_start: Any, week_end: Any) -> list[str]:
