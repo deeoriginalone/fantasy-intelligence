@@ -115,6 +115,7 @@
           var opportunity = evidence.opportunity || {};
           var strength = evidence.opportunity_strength || {};
           var stability = evidence.usage_stability || {};
+          var trend = evidence.opportunity_trend || {};
           var metrics = (candidateData[index] || {}).opportunity_metrics || {};
           var usage = (metrics.rows || [])[0] || {};
           var snap = evidence.snap_share || {};
@@ -125,19 +126,23 @@
           var duration = evidence.duration || {};
           var drop = evidence.suggested_drop || {};
           var news = evidence.news || {};
+          var ranking = evidence.ranking || {};
           var summary = document.createElement('div');
           summary.className = 'candidate-evidence-summary';
           summary.innerHTML = '<p><strong>Roster Fit:</strong> ' + escapeHtml(fit.label || 'Roster fit unavailable') + (fit.reason ? ' · ' + escapeHtml(fit.reason) : '') + '</p>' +
             '<p><strong>Opportunity:</strong> ' + escapeHtml(opportunity.reason || 'Opportunity unavailable.') + '</p>' +
             '<p><strong>Opportunity Strength:</strong> ' + escapeHtml(strength.state || 'UNAVAILABLE') + '</p>' +
             '<p><strong>Usage Stability:</strong> ' + escapeHtml(stability.state || 'INSUFFICIENT_EVIDENCE') + '</p>' +
+            '<p><strong>Opportunity Trend:</strong> ' + escapeHtml(trend.state || 'INSUFFICIENT_EVIDENCE') + '</p>' +
+            '<p><strong>Opportunity Drivers:</strong> ' + escapeHtml((trend.drivers || ['Insufficient comparison evidence']).join('; ')) + '</p>' +
             '<p><strong>Opportunity Context:</strong> ' + escapeHtml(metricText + ' · ' + snapText) + '</p>' +
             '<p><strong>Role:</strong> ' + escapeHtml(role.reason || 'Role classification unavailable.') + '</p>' +
             '<p><strong>Duration:</strong> ' + escapeHtml(duration.reason || 'Opportunity duration unavailable because no verified duration source exists.') + '</p>' +
             '<p><strong>Confidence:</strong> ' + escapeHtml(evidence.confidence || 'Unavailable') + '</p>' +
             '<p><strong>Risk:</strong> ' + escapeHtml((evidence.risk || ['Unavailable']).join('; ')) + '</p>' +
             '<p><strong>Suggested Drop:</strong> ' + escapeHtml(drop.player ? 'Review ' + drop.player + ' · ' + drop.reason : (drop.reason || 'Suggested drop unavailable because no supported drop-value comparison exists.')) + '</p>' +
-            '<p><strong>Latest News:</strong> ' + escapeHtml(news.reason || 'Latest news unavailable because no verified player-news source is configured.') + '</p>';
+            '<p><strong>Latest News:</strong> ' + escapeHtml(news.reason || 'Latest news unavailable because no verified player-news source is configured.') + '</p>' +
+            '<p><strong>Ranking:</strong> ' + escapeHtml(ranking.reason || 'Waiver ranking source is unverified; candidate order remains informational.') + '</p>';
           card.appendChild(summary);
         });
       });

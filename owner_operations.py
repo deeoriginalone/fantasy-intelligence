@@ -19,7 +19,7 @@ from services.team_priority import build_team_priority_action
 from services.team_hardening import build_bench_decisions, build_bench_plan, build_lineup_snapshot, build_roster_outlook, build_team_trust_summary, build_weekly_risks
 from services.player_opportunity_reader import read_player_opportunity, read_player_what_changed
 from services.snap_share_reader import read_snap_share
-from services.opportunity_context import opportunity_strength, usage_stability
+from services.opportunity_context import opportunity_strength, opportunity_trend, usage_stability
 from services.player_opportunity_reader import read_player_production
 from services.gsis_identity_crosswalk import attach_opportunity_player_ids
 from services.nflverse_player_metadata import acquire_nflverse_player_metadata
@@ -80,6 +80,7 @@ def build_team_opportunity_changes(connection, roster, *, season, week, nflverse
             usage_rows = usage_result.get("rows") or []
             comparison["opportunity_strength"] = opportunity_strength(usage_row=(usage_rows[-1] if usage_rows else None), snap_row=(snap_rows[0] if snap_rows else None))
             comparison["usage_stability"] = usage_stability(current_usage=(usage_rows[-1] if usage_rows else None), prior_usage=(usage_rows[-2] if len(usage_rows) > 1 else None), current_snap=(snap_rows[0] if snap_rows else None), prior_snap=(snap_rows[1] if len(snap_rows) > 1 else None))
+            comparison["opportunity_trend"] = opportunity_trend(strength=comparison["opportunity_strength"], stability=comparison["usage_stability"])
         result["players"].append({"player": name, "opportunity_player_id": opportunity_player_id, **comparison})
     if not result["players"]:
         result["blockers"] = ["OPPORTUNITY_ROSTER_EMPTY"]
@@ -211,7 +212,7 @@ def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
             "reason": "Projection-only same-position comparison; no authoritative drop-value model is used.",
         }
     else:
-        suggested_drop = {"state": "UNAVAILABLE", "reason": "Suggested drop unavailable because no supported drop-value comparison exists."}
+        suggested_drop = {"state": "UNAVAILABLE", "reason": "Suggested drop unavailable because no supported drop-value comparison exists.", "prerequisite": "AUTHORITY_CONTRACT_REQUIRED"}
 
     recent = candidate.get("recent_production") or {}
     confidence = "limited evidence: waiver ranking source is unverified"
@@ -230,10 +231,13 @@ def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
     usage = candidate.get("opportunity_metrics") or {}
     usage_row = (usage.get("rows") or [])[-1] if usage.get("state") == "AVAILABLE" else None
     prior_usage_row = (usage.get("rows") or [])[-2] if usage.get("state") == "AVAILABLE" and len(usage.get("rows") or []) > 1 else None
-    snap_row = (snap.get("rows") or [])[-1] if snap.get("state") == "AVAILABLE" else None
-    prior_snap_row = (snap.get("rows") or [])[-2] if snap.get("state") == "AVAILABLE" and len(snap.get("rows") or []) > 1 else None
+    snap_row = (snap.get("rows") or [])[0] if snap.get("state") == "AVAILABLE" else None
+    prior_snap_row = (snap.get("rows") or [])[1] if snap.get("state") == "AVAILABLE" and len(snap.get("rows") or []) > 1 else None
     strength = opportunity_strength(usage_row=usage_row, snap_row=snap_row)
     stability = usage_stability(current_usage=usage_row, prior_usage=prior_usage_row, current_snap=snap_row, prior_snap=prior_snap_row)
+    if stability.get("state") == "INSUFFICIENT_EVIDENCE" and (usage_row or snap_row):
+        stability["reason"] = "One supported week is available. A second published week is required for usage stability and trend."
+    trend = opportunity_trend(strength=strength, stability=stability)
     if usage_row:
         snap_text = " Snap share: %s." % ((snap.get("rows") or [{}])[-1].get("snap_share")) if snap.get("state") == "AVAILABLE" else " Snap share unavailable."
         opportunity = {"state": "AVAILABLE", "reason": "Targets: %s; carries: %s; target share: %s; carry share: %s; touch share: %s.%s" % (usage_row.get("targets"), usage_row.get("carries"), usage_row.get("target_share"), usage_row.get("carry_share"), usage_row.get("touch_share"), snap_text)}
@@ -244,13 +248,16 @@ def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
         "snap_share": snap,
         "opportunity_strength": strength,
         "usage_stability": stability,
+        "opportunity_trend": trend,
+        "evidence_gaps": ["Second published week required for usage stability and trend"] if stability.get("state") == "INSUFFICIENT_EVIDENCE" and (usage_row or snap_row) else [],
         "suggested_drop": suggested_drop,
         "opportunity": opportunity,
         "role": {"state": "UNAVAILABLE", "reason": "Role classification unavailable because no verified role contract is published."},
-        "duration": {"state": "UNAVAILABLE", "reason": "Opportunity duration unavailable because no verified duration source exists."},
+        "duration": {"state": "UNAVAILABLE", "reason": "Opportunity duration unavailable because no verified duration source exists.", "prerequisite": "EXTERNAL_SOURCE_REQUIRED"},
         "confidence": confidence,
         "risk": risk,
-        "news": {"state": "UNAVAILABLE", "reason": "Latest news unavailable because no verified player-news source is configured."},
+        "news": {"state": "UNAVAILABLE", "reason": "Latest news unavailable because no verified player-news source is configured.", "prerequisite": "EXTERNAL_SOURCE_REQUIRED"},
+        "ranking": {"state": "UNVERIFIED", "reason": "Waiver ranking source is unverified; candidate order remains informational.", "prerequisite": "AUTHORITY_CONTRACT_REQUIRED"},
     }
 
 
@@ -805,7 +812,7 @@ def create_owner_operations_blueprint(
         # "no supported projection" here so the assistant never fabricates an upgrade signal.
         trending_evidence = waiver_trending_evidence(context.get("mode"))
         wda_roster = [{"player": p.get("player"), "position": p.get("position"), "projection": wda_projection_or_none(p.get("projection")), "trending": wda_trending_state(p.get("source_player_id"), trending_evidence), "recent_production": p.get("recent_production", {"state": "UNAVAILABLE", "rows": []})} for p in roster]
-        wda_candidates = [{"player": r.get("player"), "position": r.get("position"), "projection": wda_projection_or_none(r.get("projection")), "need": r.get("need"), "trending": wda_trending_state(r.get("player_id"), trending_evidence), "recent_production": r.get("recent_production", {"state": "UNAVAILABLE", "rows": []}), "evidence_context": r.get("evidence_context", {})} for r in recommendations]
+        wda_candidates = [{"player": r.get("player"), "position": r.get("position"), "projection": wda_projection_or_none(r.get("projection")), "need": r.get("need"), "trending": wda_trending_state(r.get("player_id"), trending_evidence), "recent_production": r.get("recent_production", {"state": "UNAVAILABLE", "rows": []}), "opportunity_metrics": r.get("opportunity_metrics", {"state": "UNAVAILABLE", "rows": []}), "snap_share": r.get("snap_share", {"state": "UNAVAILABLE", "rows": []}), "evidence_context": r.get("evidence_context", {})} for r in recommendations]
         return render_template("waivers.html", title="Waiver and FAAB Center", context=context, meta=meta, recommendations=recommendations, needs=needs, vacancies=vacancies, faab_budget=100, waiver_evidence=pool_evidence, opportunity_view=build_opportunity_view(current_app.config.get("OPPORTUNITY_EVIDENCE")), roster=roster, grades=grades, counts=counts, wda_roster=wda_roster, wda_candidates=wda_candidates, trending_evidence_state=trending_evidence.get("state"))
 
     @bp.route("/trades")

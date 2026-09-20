@@ -40,3 +40,21 @@ def usage_stability(*, current_usage: Mapping[str, Any] | None, prior_usage: Map
     mean_delta = sum(deltas) / len(deltas)
     state = "INCREASING" if mean_delta > STABILITY_DELTA_THRESHOLD else "DECREASING" if mean_delta < -STABILITY_DELTA_THRESHOLD else "STABLE"
     return {"state": state, "current": current, "prior": prior, "mean_delta": mean_delta, "compared_metrics": sorted(pairs), "reason": "Informational comparison of published current and prior usage evidence; it does not infer future performance."}
+
+
+def opportunity_trend(*, strength: Mapping[str, Any] | None, stability: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Summarize published opportunity movement without predicting performance."""
+    stability = dict(stability or {})
+    strength = dict(strength or {})
+    if stability.get("state") == "INSUFFICIENT_EVIDENCE":
+        return {"state": "INSUFFICIENT_EVIDENCE", "drivers": [], "evidence": {"strength": strength.get("inputs", {}), "stability": stability}, "reason": "Opportunity trend requires valid current and prior published comparisons."}
+    current = stability.get("current") or {}
+    prior = stability.get("prior") or {}
+    deltas = {metric: float(current[metric]) - float(prior[metric]) for metric in stability.get("compared_metrics", []) if current.get(metric) is not None and prior.get(metric) is not None}
+    if not deltas:
+        return {"state": "INSUFFICIENT_EVIDENCE", "drivers": [], "evidence": {"strength": strength.get("inputs", {}), "stability": stability}, "reason": "Opportunity trend requires valid current and prior published comparisons."}
+    mean_delta = sum(deltas.values()) / len(deltas)
+    state = "IMPROVING" if mean_delta > STABILITY_DELTA_THRESHOLD else "DECLINING" if mean_delta < -STABILITY_DELTA_THRESHOLD else "STABLE"
+    labels = {"snap_share": "Snap Share", "target_share": "Target Share", "carry_share": "Carry Share", "touch_share": "Touch Share"}
+    drivers = [f"{labels[metric]} {'+' if delta >= 0 else ''}{delta * 100:.1f}%" for metric, delta in deltas.items() if abs(delta) > 0]
+    return {"state": state, "drivers": drivers, "deltas": deltas, "evidence": {"strength": strength.get("inputs", {}), "stability": stability}, "reason": "Published opportunity movement only; no future-performance or role inference is made."}
