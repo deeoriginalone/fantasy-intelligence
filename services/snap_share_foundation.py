@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from services.player_role_evidence import DECISION_EFFECT, ROLE_CLASSIFICATION_BLOCKER
+from services.integrity.integrity_service import snap_share_evidence_threshold, calculate_freshness
 
 SNAP_COUNTS_ARTIFACT_ID = "snap_counts"
 SNAP_SHARE_SCHEMA_VERSION = "nflverse-snap-share-foundation.v1"
@@ -65,6 +66,8 @@ def normalize_snap_counts_batch(
     checksum: str | None = None,
     version: str | None = None,
     identity_crosswalk: Mapping[str, Any] | None = None,
+    threshold_environment: Mapping[str, str] | None = None,
+    now: Any = None,
 ) -> dict[str, Any]:
     """Parse and reconcile one snap_counts artifact batch; never persists or scores it.
 
@@ -195,7 +198,15 @@ def normalize_snap_counts_batch(
         batch_blockers.append("SNAP_SHARE_CHECKSUM_UNAVAILABLE")
     # No repository evidence establishes that snap_counts shares the opportunity
     # cadence/threshold semantics; a dedicated threshold is never assumed or invented.
-    batch_blockers.append("SNAP_SHARE_FRESHNESS_THRESHOLD_UNVERIFIED")
+    threshold = snap_share_evidence_threshold(threshold_environment)
+    freshness = calculate_freshness(
+        {"snap_share_retrieved_at": retrieved_at, "snap_share_source": source},
+        "snap_share", now=now, max_age_seconds=threshold.get("seconds"),
+    ) if threshold.get("seconds") else {"status": "UNKNOWN", "age_seconds": None, "blocker": "SNAP_SHARE_FRESHNESS_THRESHOLD_BLOCKED" if threshold.get("state") == "BLOCKED" else "SNAP_SHARE_FRESHNESS_THRESHOLD_UNAVAILABLE"}
+    if threshold.get("state") != "VERIFIED":
+        batch_blockers.append(f"SNAP_SHARE_FRESHNESS_THRESHOLD_{threshold.get('state', 'UNAVAILABLE')}")
+    elif freshness.get("status") in {"UNKNOWN", "STALE", "EXPIRED"}:
+        batch_blockers.append(f"SNAP_SHARE_DATA_{freshness.get('status', 'UNAVAILABLE')}")
     if not reconciled:
         batch_blockers.append("SNAP_SHARE_BATCH_INCOMPLETE")
     if duplicate_row_count:
@@ -207,9 +218,9 @@ def normalize_snap_counts_batch(
         "season": season,
         "rows": normalized_rows,
         "reconciliation": reconciliation,
-        "freshness_state": "UNAVAILABLE",
+        "freshness_state": "FRESH" if freshness.get("status") == "FRESH" and threshold.get("state") == "VERIFIED" else "AGING" if freshness.get("status") == "AGING" and threshold.get("state") == "VERIFIED" else "BLOCKED" if threshold.get("state") == "BLOCKED" else "UNAVAILABLE",
         "blockers": list(dict.fromkeys(batch_blockers)),
-        "authoritative": False,
+        "authoritative": not batch_blockers and resolved_row_count == len(normalized_rows) and bool(normalized_rows),
         "decision_effect": DECISION_EFFECT,
         "role_classification": None,
         "role_classification_blocker": ROLE_CLASSIFICATION_BLOCKER,
@@ -221,6 +232,9 @@ def normalize_snap_counts_batch(
             "artifact_identifier": SNAP_COUNTS_ARTIFACT_ID,
             "version": version,
             "checksum": checksum,
+            "freshness_threshold_id": threshold.get("id"),
+            "freshness_threshold_seconds": threshold.get("seconds"),
+            "age": freshness.get("age_seconds"),
             "attribution": "NFLverse data, licensed under CC BY 4.0.",
         },
         "schema_version": SNAP_SHARE_SCHEMA_VERSION,

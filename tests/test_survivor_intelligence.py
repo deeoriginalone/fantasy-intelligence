@@ -1,6 +1,6 @@
 import pytest
 
-from survivor_intelligence import build_recommendations, stability_score, summarize
+from survivor_intelligence import build_recommendations, remaining_schedule_value, stability_score, summarize
 
 
 def make_row(game_id="g1", week=1, home_team="H", away_team="A", model_probability=0.70):
@@ -134,6 +134,66 @@ def test_future_preservation_reduces_willingness_for_higher_future_value():
     low_score = build_recommendations(rows_low, schedule, [], low_future, strategy="balanced")[0]["survivor_score"]
     high_score = build_recommendations(rows_high, schedule, [], high_future, strategy="balanced")[0]["survivor_score"]
     assert low_score > high_score
+
+
+def test_remaining_schedule_value_reports_game_count_and_best_game():
+    schedule = [
+        {"week": 2, "away_team": "A", "home_team": "H"},
+        {"week": 3, "away_team": "H", "home_team": "B"},
+        {"week": 4, "away_team": "C", "home_team": "H"},
+    ]
+    predictions_by_game = {
+        (2, "A", "H"): {"model_home_probability": 0.55, "home_team": "H", "away_team": "A"},
+        (3, "H", "B"): {"model_home_probability": 0.40, "home_team": "B", "away_team": "H"},
+        (4, "C", "H"): {"model_home_probability": 0.82, "home_team": "H", "away_team": "C"},
+    }
+    result = remaining_schedule_value(schedule, "H", current_week=1, predictions_by_game=predictions_by_game)
+    assert result["available"] is True
+    assert result["game_count"] == 3
+    assert result["best_game"] == {"week": 4, "opponent": "C", "home_away": "HOME", "probability": 0.82}
+
+
+def test_remaining_schedule_value_best_game_tie_break_is_deterministic():
+    schedule = [
+        {"week": 3, "away_team": "A", "home_team": "H"},
+        {"week": 5, "away_team": "H", "home_team": "B"},
+    ]
+    predictions_by_game = {
+        (3, "A", "H"): {"model_home_probability": 0.75, "home_team": "H", "away_team": "A"},
+        (5, "H", "B"): {"model_home_probability": 0.25, "home_team": "B", "away_team": "H"},
+    }
+    first = remaining_schedule_value(schedule, "H", current_week=1, predictions_by_game=predictions_by_game)
+    second = remaining_schedule_value(schedule, "H", current_week=1, predictions_by_game=predictions_by_game)
+    assert first == second
+    assert first["best_game"]["week"] == 5
+    assert first["best_game"]["probability"] == pytest.approx(0.75)
+
+
+def test_remaining_schedule_value_missing_evidence_defaults():
+    result = remaining_schedule_value([], "H", current_week=1, predictions_by_game={})
+    assert result == {
+        "available": False, "value": None, "weeks": [], "missing_reason": "SURVIVOR_FUTURE_EVIDENCE_UNAVAILABLE",
+        "game_count": 0, "best_game": None,
+    }
+
+
+def test_build_recommendations_exposes_future_game_count_and_best_game():
+    rows = [make_row(game_id="g1", home_team="H", away_team="A", model_probability=0.70)]
+    schedule = [{"week": 2, "away_team": "A", "home_team": "H"}, {"week": 3, "away_team": "H", "home_team": "B"}]
+    predictions_by_game = {
+        (2, "A", "H"): {"model_home_probability": 0.55, "home_team": "H", "away_team": "A"},
+        (3, "H", "B"): {"model_home_probability": 0.20, "home_team": "B", "away_team": "H"},
+    }
+    result = build_recommendations(rows, schedule, [], predictions_by_game, strategy="balanced")
+    assert result[0]["future_game_count"] == 2
+    assert result[0]["future_best_game"] == {"week": 3, "opponent": "B", "home_away": "AWAY", "probability": pytest.approx(0.80)}
+
+
+def test_build_recommendations_missing_future_evidence_zero_count_and_no_best_game():
+    rows = [make_row(game_id="g1", home_team="H", away_team="A", model_probability=0.70)]
+    result = build_recommendations(rows, [], [], {}, strategy="balanced")
+    assert result[0]["future_game_count"] == 0
+    assert result[0]["future_best_game"] is None
 
 
 def test_empty_candidate_input_is_handled_safely():

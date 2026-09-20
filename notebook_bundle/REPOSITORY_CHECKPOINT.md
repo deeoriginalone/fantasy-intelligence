@@ -1,29 +1,29 @@
 # Repository Checkpoint
 
-Generated: Fri Sep 18 11:15:50 AM UTC 2026
+Generated: Sun Sep 20 12:17:55 PM UTC 2026
 
 ## Branch
 test-weekly-evidence-trust
 
 ## HEAD
-2ca15b5bf1ee05cdc7791cf65694a95eada8dc7a
+bc1acb6a56524e5e6c281937c7bc2a422d45e2f4
 
 ## Recent Commits
-2ca15b5 (HEAD -> test-weekly-evidence-trust) Synchronize project memory with opportunity and identity foundations
-49e6fd0 Repair nflverse opportunity publication handoff
-8400a33 Enforce full-catalog uniqueness for opportunity identity
-68d4144 Configure verified nflverse player metadata for My Team
-5070307 Add fail-closed GSIS opportunity identity resolution
-b197e79 Integrate published What Changed evidence into My Team
-d6330b4 Add fail-closed published opportunity reader
-626f870 Add fail-closed multi-week What Changed comparisons
-5ef4e37 Align Survivor documentation with unified manager workflow:
-aa4b79c (origin/test-weekly-evidence-trust) Document verified snap-share foundation and identity crosswalk boundary
-11fded7 Integrate deterministic nflverse pfr_id-to-gsis_id snap-share identity resolution
-e07bcd2 Add fail-closed player role evidence contract
-0fe6b01 Document automated player opportunity ingestion boundary
-a428ccc Add fail-closed nflverse player opportunity publication
-f607adf Document Team Accuracy matchup authority consumer completion (2026-09-17)
+bc1acb6 (HEAD -> test-weekly-evidence-trust) Deliver informational snap share to waiver evidence
+9ccdf95 Surface waiver usage evidence and collapse repeated blockers
+c535916 Publish informational snap-share evidence
+51c8e67 Expose waiver evidence source provenance
+b3a342b Expose projection freshness in waiver evidence
+e4a578f Compress waiver evidence presentation
+7ae4b81 Surface waiver ownership eligibility and health evidence
+88f7b5f Reuse deterministic ESPN fallback for waiver evidence
+7a9336c Expand waiver evidence coverage
+f9011a7 Add informational opportunity strength and usage stability
+56d9316 Add informational snap-share role context
+0b018b4 Publish informational snap-share evidence
+6d41154 Update opportunity publication and survivor validation records
+a9421ee Load dotenv configuration in opportunity importer
+1418e76 Show recent Full-PPR production in waiver research
 
 ## Repository Status
 ## test-weekly-evidence-trust
@@ -32,15 +32,17 @@ f607adf Document Team Accuracy matchup authority consumer completion (2026-09-17
  M DEVELOPMENT_ROADMAP.md
  M PROJECT_STATE.md
  M PROJECT_STATUS.md
- M app.py
  M docs/DATA_FRESHNESS_POLICY.md
  M docs/NEXT_SESSION_HANDOFF.md
+ M docs/PLATFORM_MATURITY.md
+ M docs/PRODUCT_VISION.md
  M docs/REPOSITORY_CHECKPOINT.md
+ M docs/SEASON_MANAGEMENT_STRATEGY.md
  M docs/database/MIGRATIONS.md
  M docs/database/PARITY_STATUS.md
  M docs/database/SCHEMA.md
- M imports/import_weekly_intelligence.py
  M market_refresh.py
+ M notebook_bundle.tar.gz
  M notebook_bundle/BUNDLE_MANIFEST.json
  M notebook_bundle/BUNDLE_VALIDATION.json
  M notebook_bundle/BUNDLE_VALIDATION.md
@@ -52,30 +54,22 @@ f607adf Document Team Accuracy matchup authority consumer completion (2026-09-17
  M notebook_bundle/IMPLEMENTATION_INVENTORY.md
  M notebook_bundle/MIGRATIONS.md
  M notebook_bundle/NEXT_SESSION_HANDOFF.md
- M notebook_bundle/PARITY_STATUS.md
  M notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json
  M notebook_bundle/PROJECT_STATE.md
  M notebook_bundle/PROJECT_STATUS.md
  M notebook_bundle/REPOSITORY_CHECKPOINT.md
- M notebook_bundle/SCHEMA.md
  M notebook_bundle/SESSION_START.json
  M notebook_bundle/SESSION_START.md
  M notebook_bundle/TEST_INVENTORY.md
- M owner_operations.py
  M pickem_auto_feed.py
  M pickem_inputs_routes.py
+ M requirements.txt
  M services/nflverse_player_metadata.py
  M services/trade_intelligence.py
  M services/ux_evidence.py
- M templates/_opportunity_evidence.html
  M templates/gm.html
- M templates/waivers.html
- M tests/test_lineup_evidence.py
- M tests/test_opportunity_consumer_contract.py
- M tests/test_survivor_persistence_contract.py
- M tests/test_weekly_evidence_trust_contract.py
- M weekly_intelligence.py
- M weekly_routes.py
+ M tests/test_player_opportunity_calculation.py
+ M tests/test_snap_share_foundation.py
 ?? ", subprocess, base64"
 ?? .batch_backups/
 ?? .reference_backups/
@@ -88,29 +82,23 @@ f607adf Document Team Accuracy matchup authority consumer completion (2026-09-17
 ?? batch_inputs/
 ?? collect_batch_b_evidence.sh
 ?? data_integrity_cycle_inputs.tar.gz
-?? docs/CREDIT_EFFICIENT_PROMPT_CREATION_RULES.md
+?? docs/LARGE_BATCH_CREDIT_EFFICIENT_EXECUTION_PROMPT.md
 ?? "e_matchups exists: {exists}')"
 ?? "ion | numeric_scale | nullable')"
 ?? ion','checksum','source_recorded_at','completeness_state','blocker','lineage','attribution','completed_games']
 ?? migrations/012_schedule_bye_evidence_provenance.sql
-?? migrations/014_pre_decision_snapshots.sql
-?? notebook_bundle.tar.gz
 ?? "or() as cur:"
 ?? "ql, params=None):"
 ?? "ql,p=None): cur.execute(sql,p); return cur.fetchall()"
 ?? reference_exports/
 ?? restore-needs.patch
 ?? scripts/rollback_013_nflverse_defense_matchups.sql
-?? scripts/update_canonical_head.py
 ?? scripts/watch_nflverse_artifact.py
-?? services/pre_decision_snapshots.py
-?? services/unified_decision_context.py
+?? ssl/
 ?? sync_references.py
 ?? "t=-s py_compile=-s diff_check=-sn' \"$pytest_status\" \"$compile_status\" \"$diff_status\""
 ?? templates/_waiver_trust_panel.html
 ?? tests/helpers/
-?? tests/test_pre_decision_snapshots.py
-?? tests/test_unified_decision_context.py
 ?? "ts = query(\"SELECT to_regclass('public.defense_matchups') IS NOT NULL\")[0][0]"
 ?? ts():
 ?? ux17_source_bundle.tar.gz
@@ -121,53 +109,47 @@ f607adf Document Team Accuracy matchup authority consumer completion (2026-09-17
 ?? "ycopg2 import failed: {e}')"
 
 ## Diff Summary
- .continuity/last_bundle_manifest.json          |   42 +-
- .gitignore                                     |    3 +-
- DEVELOPMENT_ROADMAP.md                         |    2 +-
- PROJECT_STATE.md                               |    2 +-
- PROJECT_STATUS.md                              |    2 +-
- app.py                                         |    7 +
- docs/DATA_FRESHNESS_POLICY.md                  |    7 +-
- docs/NEXT_SESSION_HANDOFF.md                   |    2 +-
- docs/REPOSITORY_CHECKPOINT.md                  |  364 ++---
- docs/database/MIGRATIONS.md                    |   53 +-
- docs/database/PARITY_STATUS.md                 |   12 +-
- docs/database/SCHEMA.md                        |    5 +-
- imports/import_weekly_intelligence.py          |    8 +-
- market_refresh.py                              |    8 +-
- notebook_bundle/BUNDLE_MANIFEST.json           |   42 +-
- notebook_bundle/BUNDLE_VALIDATION.json         |    2 +-
- notebook_bundle/BUNDLE_VALIDATION.md           |    2 +-
- notebook_bundle/CANONICAL_SYNC_VALIDATION.json |   26 +-
- notebook_bundle/CANONICAL_SYNC_VALIDATION.md   |   16 +-
- notebook_bundle/CHANGE_REPORT.json             |   68 +-
- notebook_bundle/CHANGE_REPORT.md               |    8 +-
- notebook_bundle/DEVELOPMENT_ROADMAP.md         |  336 ++++-
- notebook_bundle/IMPLEMENTATION_INVENTORY.md    |   53 +-
- notebook_bundle/MIGRATIONS.md                  |   52 +-
- notebook_bundle/NEXT_SESSION_HANDOFF.md        |  339 ++++-
- notebook_bundle/PARITY_STATUS.md               |   12 +-
- notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json  |   42 +-
- notebook_bundle/PROJECT_STATE.md               |  272 +++-
- notebook_bundle/PROJECT_STATUS.md              |  255 +++-
- notebook_bundle/REPOSITORY_CHECKPOINT.md       |  422 ++----
- notebook_bundle/SCHEMA.md                      |    5 +-
- notebook_bundle/SESSION_START.json             |  279 ++--
- notebook_bundle/SESSION_START.md               |  415 ++----
- notebook_bundle/TEST_INVENTORY.md              | 1690 +++++++++++++++++-------
- owner_operations.py                            |    2 +
- pickem_auto_feed.py                            |    8 +-
- pickem_inputs_routes.py                        |   19 +-
- services/nflverse_player_metadata.py           |    2 +
- services/trade_intelligence.py                 |   14 +-
- services/ux_evidence.py                        |  241 +++-
- templates/_opportunity_evidence.html           |   11 +
- templates/gm.html                              |    3 +-
- templates/waivers.html                         |    1 +
- tests/test_lineup_evidence.py                  |   70 +
- tests/test_opportunity_consumer_contract.py    |    2 +-
- tests/test_survivor_persistence_contract.py    |   20 +-
- tests/test_weekly_evidence_trust_contract.py   |   62 +
- weekly_intelligence.py                         |   16 +-
- weekly_routes.py                               |    9 +-
- 49 files changed, 3290 insertions(+), 2043 deletions(-)
+ .continuity/last_bundle_manifest.json          |  34 +--
+ .gitignore                                     |   3 +-
+ DEVELOPMENT_ROADMAP.md                         |  22 +-
+ PROJECT_STATE.md                               |  22 +-
+ PROJECT_STATUS.md                              |  24 +-
+ docs/DATA_FRESHNESS_POLICY.md                  |  13 +-
+ docs/NEXT_SESSION_HANDOFF.md                   |  24 +-
+ docs/PLATFORM_MATURITY.md                      |   6 +
+ docs/PRODUCT_VISION.md                         |  30 ++-
+ docs/REPOSITORY_CHECKPOINT.md                  | 358 +++++--------------------
+ docs/SEASON_MANAGEMENT_STRATEGY.md             |  10 +
+ docs/database/MIGRATIONS.md                    |  55 +---
+ docs/database/PARITY_STATUS.md                 |  12 +-
+ docs/database/SCHEMA.md                        |   5 +-
+ market_refresh.py                              |   8 +-
+ notebook_bundle.tar.gz                         | Bin 95123 -> 98221 bytes
+ notebook_bundle/BUNDLE_MANIFEST.json           |  34 +--
+ notebook_bundle/BUNDLE_VALIDATION.json         |   2 +-
+ notebook_bundle/BUNDLE_VALIDATION.md           |   2 +-
+ notebook_bundle/CANONICAL_SYNC_VALIDATION.json |  24 +-
+ notebook_bundle/CANONICAL_SYNC_VALIDATION.md   |  14 +-
+ notebook_bundle/CHANGE_REPORT.json             |  76 +++---
+ notebook_bundle/CHANGE_REPORT.md               |   8 +-
+ notebook_bundle/DEVELOPMENT_ROADMAP.md         |  70 ++++-
+ notebook_bundle/IMPLEMENTATION_INVENTORY.md    |   5 +
+ notebook_bundle/MIGRATIONS.md                  |   4 +
+ notebook_bundle/NEXT_SESSION_HANDOFF.md        |  58 +++-
+ notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json  |  34 +--
+ notebook_bundle/PROJECT_STATE.md               |  42 ++-
+ notebook_bundle/PROJECT_STATUS.md              |  52 +++-
+ notebook_bundle/REPOSITORY_CHECKPOINT.md       | 191 ++++++-------
+ notebook_bundle/SESSION_START.json             |  68 ++---
+ notebook_bundle/SESSION_START.md               | 156 +++++------
+ notebook_bundle/TEST_INVENTORY.md              |  79 +++++-
+ pickem_auto_feed.py                            |   8 +-
+ pickem_inputs_routes.py                        |  19 +-
+ requirements.txt                               |   1 +
+ services/nflverse_player_metadata.py           |   2 +
+ services/trade_intelligence.py                 |  14 +-
+ services/ux_evidence.py                        | 241 ++++++++++++++++-
+ templates/gm.html                              |   3 +-
+ tests/test_player_opportunity_calculation.py   |   8 +-
+ tests/test_snap_share_foundation.py            |  12 +
+ 43 files changed, 1062 insertions(+), 791 deletions(-)

@@ -1,5 +1,6 @@
 import csv
 import gzip
+from datetime import datetime, timezone
 
 import pytest
 
@@ -206,10 +207,28 @@ def test_missing_checksum_fails_closed():
 # 20. unverified freshness threshold blocks authority (always, in this batch)
 def test_freshness_threshold_always_unverified_and_blocks_authority():
     result = batch()
-    assert "SNAP_SHARE_FRESHNESS_THRESHOLD_UNVERIFIED" in result["blockers"]
+    assert "SNAP_SHARE_FRESHNESS_THRESHOLD_UNAVAILABLE" in result["blockers"]
     assert result["freshness_state"] == "UNAVAILABLE"
     assert result["authoritative"] is False
     assert all(not row["authoritative"] for row in result["rows"])
+
+
+def test_approved_threshold_produces_fresh_aging_and_stale_states():
+    now = datetime(2026, 9, 17, 12, 0, tzinfo=timezone.utc)
+    fresh = batch(threshold_environment={"SNAP_SHARE_EVIDENCE_MAX_AGE_SECONDS": "100"}, now=now)
+    aging = batch(threshold_environment={"SNAP_SHARE_EVIDENCE_MAX_AGE_SECONDS": "100"}, retrieved_at="2026-09-17T11:58:30+00:00", now=now)
+    stale = batch(threshold_environment={"SNAP_SHARE_EVIDENCE_MAX_AGE_SECONDS": "100"}, retrieved_at="2026-09-17T11:57:30+00:00", now=now)
+    assert fresh["freshness_state"] == "FRESH"
+    assert aging["freshness_state"] == "AGING"
+    assert stale["freshness_state"] == "UNAVAILABLE"
+    assert "SNAP_SHARE_DATA_STALE" in stale["blockers"]
+
+
+@pytest.mark.parametrize("value", ["not-a-number", "0", "-1"])
+def test_malformed_or_non_positive_threshold_blocks(value):
+    result = batch(threshold_environment={"SNAP_SHARE_EVIDENCE_MAX_AGE_SECONDS": value})
+    assert result["freshness_state"] == "BLOCKED"
+    assert any("SNAP_SHARE_FRESHNESS_THRESHOLD_BLOCKED" == blocker for blocker in result["blockers"])
 
 
 # CSV source cannot claim automated authority

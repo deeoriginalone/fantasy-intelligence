@@ -17,9 +17,15 @@ This procedure exists because:
 
 Repository evidence is always the source of truth.
 
+This is a Class C procedure. Do not use it for ordinary read-only investigation or focused implementation. For Class A investigation, inspect the known owner and focused tests with one targeted search pass and at most one refined follow-up; stop when the question is answered or required evidence is missing. For Class B implementation, inspect the owner and direct consumers, reuse existing contracts, and run only boundary-appropriate validation. Use the fewest searches, reads, tool calls, tests, browser checks, and output tokens that can truthfully prove the requested boundary. A missing input is a valid final result for Class A, but take one cheap local step first when it could preserve useful informational output.
+
+If a read-only investigation has already identified the exact missing evidence, additional broad discovery is prohibited unless a specific unsearched repository location is supported by repository evidence. Do not repeat repository-wide searches, inventories, or scans of already-inspected locations. Missing evidence is a valid audit outcome: report the missing evidence, record what was inspected, and stop.
+
+Before executing a test path, verify that it exists. If it does not, locate the actual owning test once, do not execute the known-nonexistent path, report the missing path separately, and do not let that missing path invalidate unrelated verified tests.
+
 Trigger Conditions
 
-Run this process whenever one or more of the following are true:
+Run this process when one or more of the following are true and the canonical boundary actually needs reconciliation:
 
 - the roadmap appears behind actual implementation
 - new milestone implementation files exist but the roadmap does not mention them
@@ -30,8 +36,10 @@ Run this process whenever one or more of the following are true:
 - a large batch was completed without a documentation refresh
 - a canonical file contains an old branch, HEAD, milestone, validation result, or completion boundary
 - the same file has both staged and unstaged modifications
-- before creating a major commit
-- before running scripts/end_of_day.sh after extensive development
+- before creating a major commit when branch, milestone, or completion claims are uncertain
+- before running scripts/end_of_day.sh at deliberate session close when extensive development changed canonical state
+
+Do not repeat reconciliation merely because a focused batch completed, a commit was created, or a prior reconciliation already proved the same boundary unchanged.
 
 Required Repository Evidence Collection
 

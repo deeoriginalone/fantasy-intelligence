@@ -17,12 +17,18 @@ from services.team_health import team_health_contract, apply_player_health_to_re
 from services.ux2_team_accuracy import build_team_accuracy_contract
 from services.team_priority import build_team_priority_action
 from services.team_hardening import build_bench_decisions, build_bench_plan, build_lineup_snapshot, build_roster_outlook, build_team_trust_summary, build_weekly_risks
-from services.player_opportunity_reader import read_player_what_changed
+from services.player_opportunity_reader import read_player_opportunity, read_player_what_changed
+from services.snap_share_reader import read_snap_share
+from services.opportunity_context import opportunity_strength, opportunity_trend, usage_stability
+from services.player_opportunity_reader import read_player_production
 from services.gsis_identity_crosswalk import attach_opportunity_player_ids
+from services.gsis_identity_crosswalk import resolve_gsis_crosswalk
 from services.nflverse_player_metadata import acquire_nflverse_player_metadata
+from services.sleeper_service import get_trending_adds, get_trending_drops
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
+SNAP_SHARE_DISPLAY_MAX_AGE_SECONDS = 86400
 
 
 def build_team_opportunity_changes(connection, roster, *, season, week, nflverse_records=None, nflverse_lineage=None, sleeper_records=None):
@@ -58,6 +64,25 @@ def build_team_opportunity_changes(connection, roster, *, season, week, nflverse
             season=season,
             week=week,
         )
+        comparison["snap_share"] = read_snap_share(connection, player_id=opportunity_player_id, season=season, week_start=1, week_end=week)
+        snap_rows = comparison["snap_share"].get("rows") or []
+        if len(snap_rows) >= 2:
+            current_snap, prior_snap = snap_rows[0], snap_rows[1]
+            comparison["snap_share_change"] = {
+                "state": "AVAILABLE",
+                "current_week": current_snap.get("week"),
+                "prior_week": prior_snap.get("week"),
+                "current": current_snap.get("snap_share"),
+                "prior": prior_snap.get("snap_share"),
+                "direction": "UP" if current_snap.get("snap_share") > prior_snap.get("snap_share") else "DOWN" if current_snap.get("snap_share") < prior_snap.get("snap_share") else "UNCHANGED",
+            }
+        else:
+            comparison["snap_share_change"] = {"state": "UNAVAILABLE", "reason": "Snap-share comparison unavailable because prior and current published rows are not both present."}
+            usage_result = read_player_opportunity(connection, player_id=opportunity_player_id, season=season, week_start=1, week_end=week)
+            usage_rows = usage_result.get("rows") or []
+            comparison["opportunity_strength"] = opportunity_strength(usage_row=(usage_rows[-1] if usage_rows else None), snap_row=(snap_rows[0] if snap_rows else None))
+            comparison["usage_stability"] = usage_stability(current_usage=(usage_rows[-1] if usage_rows else None), prior_usage=(usage_rows[-2] if len(usage_rows) > 1 else None), current_snap=(snap_rows[0] if snap_rows else None), prior_snap=(snap_rows[1] if len(snap_rows) > 1 else None))
+            comparison["opportunity_trend"] = opportunity_trend(strength=comparison["opportunity_strength"], stability=comparison["usage_stability"])
         result["players"].append({"player": name, "opportunity_player_id": opportunity_player_id, **comparison})
     if not result["players"]:
         result["blockers"] = ["OPPORTUNITY_ROSTER_EMPTY"]
@@ -90,6 +115,240 @@ def waiver_projection_contribution(candidate):
         "value": candidate.get("projection") if available else None,
         "state": "AVAILABLE" if available else "UNAVAILABLE",
         "warnings": list(evidence.get("blockers") or []),
+    }
+
+
+def wda_projection_or_none(value):
+    """Decision-assistant-only: row_to_player collapses a missing projection to 0.0;
+    treat 0 as unavailable here so the assistant never fabricates an upgrade signal."""
+    return value or None
+
+
+def waiver_trending_evidence(mode):
+    """Fail-closed Sleeper trending evidence; only applicable to LIVE waiver candidates."""
+    if mode != "LIVE":
+        return {"state": "UNAVAILABLE", "blocker": "WAIVER_TRENDING_NOT_APPLICABLE", "add_ids": set(), "drop_ids": set()}
+    try:
+        adds = get_trending_adds(24, 300)
+        drops = get_trending_drops(24, 300)
+    except Exception:
+        return {"state": "UNAVAILABLE", "blocker": "WAIVER_TRENDING_RETRIEVAL_FAILED", "add_ids": set(), "drop_ids": set()}
+    if not isinstance(adds, list) or not isinstance(drops, list):
+        return {"state": "UNAVAILABLE", "blocker": "WAIVER_TRENDING_DATA_INVALID", "add_ids": set(), "drop_ids": set()}
+    add_ids = {str(item.get("player_id")) for item in adds if isinstance(item, dict) and item.get("player_id")}
+    drop_ids = {str(item.get("player_id")) for item in drops if isinstance(item, dict) and item.get("player_id")}
+    return {"state": "AVAILABLE", "blocker": None, "add_ids": add_ids, "drop_ids": drop_ids}
+
+
+def wda_trending_state(player_id, trending_evidence):
+    """Return 'UP'/'DOWN' only when Sleeper trending evidence directly supports it; else None."""
+    trending_evidence = trending_evidence or {}
+    if trending_evidence.get("state") != "AVAILABLE" or not player_id:
+        return None
+    pid = str(player_id)
+    if pid in trending_evidence.get("add_ids", set()):
+        return "UP"
+    if pid in trending_evidence.get("drop_ids", set()):
+        return "DOWN"
+    return None
+
+
+def waiver_recent_production(connection, player, season, limit=3):
+    """Expose only published production rows for waiver research; never calculate on read."""
+    player = dict(player or {})
+    player_id = player.get("opportunity_player_id") or player.get("sleeper_gsis_id") or player.get("player_id") or player.get("source_player_id")
+    position = str(player.get("position") or "").upper().replace("DST", "DEF")
+    if not player_id or not season:
+        return {"state": "UNAVAILABLE", "rows": [], "blockers": ["PLAYER_WEEK_PRODUCTION_IDENTITY_UNAVAILABLE"]}
+    result = read_player_production(connection, player_id=str(player_id), season=season, position=position)
+    result["rows"] = list(result.get("rows") or [])[:limit] if result.get("state") == "AVAILABLE" else []
+    return result
+
+
+def waiver_snap_share(connection, player, season, limit=3):
+    player = dict(player or {})
+    player_id = player.get("opportunity_player_id") or player.get("sleeper_gsis_id") or player.get("player_id") or player.get("source_player_id")
+    if not player_id or not season:
+        return {"state": "UNAVAILABLE", "rows": [], "blockers": ["SNAP_SHARE_PLAYER_IDENTITY_UNAVAILABLE"], "authority_state": "INFORMATIONAL_ONLY", "decision_effect": "NONE", "display_max_age_seconds": SNAP_SHARE_DISPLAY_MAX_AGE_SECONDS}
+    result = read_snap_share(connection, player_id=str(player_id), season=season, limit=limit)
+    result["rows"] = list(result.get("rows") or [])[:limit] if result.get("state") in {"AVAILABLE", "STALE"} else []
+    result["authority_state"] = "INFORMATIONAL_ONLY"
+    result["decision_effect"] = "NONE"
+    result["display_max_age_seconds"] = SNAP_SHARE_DISPLAY_MAX_AGE_SECONDS
+    return result
+
+
+def waiver_opportunity_metrics(connection, player, season):
+    player = dict(player or {})
+    player_id = player.get("opportunity_player_id") or player.get("sleeper_gsis_id") or player.get("player_id") or player.get("source_player_id")
+    if not player_id or not season:
+        return {"state": "UNAVAILABLE", "rows": [], "blockers": ["OPPORTUNITY_PLAYER_IDENTITY_UNAVAILABLE"]}
+    result = read_player_opportunity(connection, player_id=str(player_id), season=season)
+    result["rows"] = list(result.get("rows") or [])[-3:] if result.get("state") == "AVAILABLE" else []
+    return result
+
+
+def attach_waiver_opportunity_identity(candidates, catalog, nflverse_records, nflverse_lineage):
+    """Add only provider-resolved GSIS IDs to waiver candidates; never name-match."""
+    candidates = [dict(candidate) for candidate in candidates or []]
+    if not candidates or not nflverse_records or not nflverse_lineage:
+        return candidates
+    sleeper_records = []
+    for candidate in candidates:
+        player_id = str(candidate.get("player_id") or "")
+        raw = dict((catalog or {}).get(player_id) or {})
+        sleeper_records.append({
+            "source_player_id": player_id,
+            "gsis_id": raw.get("gsis_id"),
+            "espn_id": raw.get("espn_id"),
+        })
+    crosswalk = resolve_gsis_crosswalk(
+        sleeper_records,
+        nflverse_records,
+        sleeper_lineage={"source": "sleeper.players.nfl", "source_authority": "sleeper", "artifact_id": "players.nfl", "version": "live-catalog", "retrieved_at": "waiver-route", "coverage_state": "COMPLETE"},
+        nflverse_lineage=nflverse_lineage,
+        requested_source_player_ids=[row["source_player_id"] for row in sleeper_records if row["source_player_id"]],
+    )
+    mappings = {str(item.get("source_player_id")): item for item in crosswalk.get("mappings") or []}
+    for candidate in candidates:
+        mapping = mappings.get(str(candidate.get("player_id"))) or {}
+        if mapping.get("state") == "RESOLVED":
+            candidate["opportunity_player_id"] = mapping.get("opportunity_player_id")
+            candidate["opportunity_identity_state"] = "RESOLVED"
+            candidate["opportunity_identity_method"] = mapping.get("resolution_authority")
+        else:
+            candidate.setdefault("opportunity_identity_state", mapping.get("state", "UNRESOLVED"))
+            candidate.setdefault("opportunity_identity_blockers", mapping.get("blockers", ["GSIS_IDENTITY_MISSING"]))
+    return candidates
+
+
+def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
+    """Build display-only context from already-authoritative waiver inputs."""
+    candidate = dict(candidate or {})
+    position = str(candidate.get("position") or "").upper().replace("DST", "DEF")
+    ownership_state = candidate.get("ownership_state") or "UNAVAILABLE"
+    eligibility_state = candidate.get("eligibility_state") or "UNAVAILABLE"
+    if candidate.get("health_status_available") is True:
+        raw_health = str(candidate.get("injury_status") or "UNKNOWN").upper()
+        health_state = "OUT" if "OUT" in raw_health or "IR" in raw_health else "QUESTIONABLE" if "QUESTION" in raw_health or "DOUBTFUL" in raw_health else "ACTIVE"
+    elif candidate.get("injury_status") not in (None, "", "Unknown"):
+        health_state = str(candidate.get("injury_status")).upper()
+    else:
+        health_state = "UNAVAILABLE"
+    identity_state = candidate.get("opportunity_identity_state") or (candidate.get("identity_resolution") or {}).get("resolution_state")
+    need = dict((team_needs or {}).get(position) or {})
+    if need.get("state") == "AVAILABLE":
+        strategic_need = need.get("strategic_need")
+        roster_fit = {
+            "state": "AVAILABLE",
+            "label": "addresses an active need" if strategic_need == "ADD_STARTER" else "improves depth" if strategic_need == "ADD_DEPTH" else "speculative depth only",
+            "reason": (need.get("drivers") or ["Shared roster need is satisfied; review as speculative depth."])[0],
+        }
+    else:
+        roster_fit = {"state": "BLOCKED", "label": "Roster fit unavailable", "reason": "Roster fit unavailable because league-settings evidence is unavailable."}
+
+    candidate_projection = candidate.get("projection")
+    comparable = [
+        player for player in (roster or [])
+        if str(player.get("position") or "").upper().replace("DST", "DEF") == position
+        and player.get("projection") is not None
+    ]
+    if candidate_projection is not None and comparable:
+        drop = min(comparable, key=lambda player: (player.get("projection"), player.get("player") or ""))
+        suggested_drop = {
+            "state": "INFORMATIONAL_ONLY",
+            "player": drop.get("player"),
+            "reason": "Projection-only same-position comparison; no authoritative drop-value model is used.",
+        }
+    else:
+        suggested_drop = {"state": "UNAVAILABLE", "reason": "Suggested drop unavailable because no supported drop-value comparison exists.", "prerequisite": "AUTHORITY_CONTRACT_REQUIRED"}
+
+    recent = candidate.get("recent_production") or {}
+    confidence = "limited evidence: waiver ranking source is unverified"
+    if ranking_confidence == "VERIFIED" and recent.get("state") == "AVAILABLE":
+        confidence = "supported evidence"
+    elif recent.get("state") in {"BLOCKED", "UNAVAILABLE", "UNSUPPORTED"}:
+        confidence = "limited evidence: recent production is unavailable"
+    risk = []
+    if recent.get("state") != "AVAILABLE":
+        risk.append("missing recent production")
+    if ranking_confidence != "VERIFIED":
+        risk.append("waiver ranking source unverified")
+    if not risk:
+        risk.append("no additional evidence-backed risk identified")
+    snap = candidate.get("snap_share") or {}
+    usage = candidate.get("opportunity_metrics") or {}
+    usage_row = (usage.get("rows") or [])[-1] if usage.get("state") == "AVAILABLE" else None
+    prior_usage_row = (usage.get("rows") or [])[-2] if usage.get("state") == "AVAILABLE" and len(usage.get("rows") or []) > 1 else None
+    snap_row = (snap.get("rows") or [])[0] if snap.get("state") == "AVAILABLE" else None
+    prior_snap_row = (snap.get("rows") or [])[1] if snap.get("state") == "AVAILABLE" and len(snap.get("rows") or []) > 1 else None
+    strength = opportunity_strength(usage_row=usage_row, snap_row=snap_row)
+    stability = usage_stability(current_usage=usage_row, prior_usage=prior_usage_row, current_snap=snap_row, prior_snap=prior_snap_row)
+    if stability.get("state") == "INSUFFICIENT_EVIDENCE" and (usage_row or snap_row):
+        stability["reason"] = "One supported week is available. A second published week is required for usage stability and trend."
+    trend = opportunity_trend(strength=strength, stability=stability)
+    if identity_state in {"AMBIGUOUS", "CONFLICTING", "BLOCKED"}:
+        context_state = "BLOCKED"
+        context_reason = "Identity evidence is blocked or contradictory; no source evidence is consumed."
+    elif not candidate.get("opportunity_player_id"):
+        non_opportunity_evidence = (
+            roster_fit.get("state") == "AVAILABLE"
+            or candidate.get("projection") is not None
+            or bool(candidate.get("projection_retrieved_at"))
+            or candidate.get("health_status_available") is True
+            or candidate.get("injury_status") not in (None, "", "Unknown", "Healthy / Not listed")
+        )
+        context_state = "PARTIAL_CONTEXT" if non_opportunity_evidence else "IDENTITY_LIMITED"
+        context_reason = (
+            "Ownership, eligibility, roster fit, or projection evidence is available; opportunity evidence remains unavailable because no deterministic GSIS identity is available."
+            if non_opportunity_evidence else
+            "Opportunity evidence unavailable for this source because no deterministic GSIS identity is available."
+        )
+    elif usage.get("state") == "AVAILABLE":
+        context_state = "FULL_CONTEXT"
+        context_reason = "Supported identity and published opportunity evidence are available."
+    elif candidate.get("projection") is not None or recent.get("state") == "AVAILABLE":
+        context_state = "PARTIAL_CONTEXT"
+        context_reason = "Useful roster, projection, or production evidence is available; published opportunity evidence is unavailable."
+    else:
+        context_state = "SOURCE_LIMITED"
+        context_reason = "Identity resolves, but no published opportunity source row is available."
+    if usage_row:
+        snap_text = " Snap share: %s." % ((snap.get("rows") or [{}])[-1].get("snap_share")) if snap.get("state") == "AVAILABLE" else " Snap share unavailable."
+        opportunity = {"state": "AVAILABLE", "reason": "Targets: %s; carries: %s; target share: %s; carry share: %s; touch share: %s.%s" % (usage_row.get("targets"), usage_row.get("carries"), usage_row.get("target_share"), usage_row.get("carry_share"), usage_row.get("touch_share"), snap_text)}
+    else:
+        opportunity = {"state": "UNAVAILABLE", "reason": "Opportunity context unavailable because no candidate-linked published usage row exists."}
+    observed_weeks = sorted({row.get("week") for row in (usage.get("rows") or []) + (snap.get("rows") or []) if row.get("week") is not None})
+    if len(observed_weeks) >= 2:
+        evidence_coverage = {"state": "AVAILABLE", "label": "Two-week comparison available", "weeks": observed_weeks[-2:]}
+    elif len(observed_weeks) == 1:
+        evidence_coverage = {"state": "PARTIAL", "label": "Week %s evidence available; one observation only" % observed_weeks[0], "weeks": observed_weeks}
+    else:
+        evidence_coverage = {"state": "UNAVAILABLE", "label": "No candidate-linked usage observations available", "weeks": []}
+    return {
+        "ownership_state": ownership_state,
+        "eligibility_state": eligibility_state,
+        "health_state": health_state,
+        "health_source": candidate.get("injury_source") or "Sleeper API" if candidate.get("health_status_available") else "UNAVAILABLE",
+        "projection_source": "local player projection" if candidate.get("projection") is not None else "UNAVAILABLE",
+        "roster_fit": roster_fit,
+        "snap_share": snap,
+        "opportunity_strength": strength,
+        "usage_stability": stability,
+        "opportunity_trend": trend,
+        "context_state": context_state,
+        "context_reason": context_reason,
+        "evidence_gaps": ["Second published week required for usage stability and trend"] if stability.get("state") == "INSUFFICIENT_EVIDENCE" and (usage_row or snap_row) else [],
+        "suggested_drop": suggested_drop,
+        "opportunity": opportunity,
+        "evidence_coverage": evidence_coverage,
+        "role": {"state": "UNAVAILABLE", "reason": "Role classification unavailable because no verified role contract is published."},
+        "duration": {"state": "UNAVAILABLE", "reason": "Opportunity duration unavailable because no verified duration source exists.", "prerequisite": "EXTERNAL_SOURCE_REQUIRED"},
+        "confidence": confidence,
+        "risk": risk,
+        "news": {"state": "UNAVAILABLE", "reason": "Latest news unavailable because no verified player-news source is configured.", "prerequisite": "EXTERNAL_SOURCE_REQUIRED"},
+        "ranking": {"state": "UNVERIFIED", "reason": "Waiver ranking source is unverified; candidate order remains informational.", "prerequisite": "AUTHORITY_CONTRACT_REQUIRED"},
+        "projection_retrieved_at": candidate.get("projection_retrieved_at"),
     }
 
 
@@ -310,6 +569,7 @@ def create_owner_operations_blueprint(
             "draft_name": None,
             "season": season,
             "week": week,
+            "sleeper_catalog": sleeper_catalog,
             "shared_facts": shared_league_facts(league),
         }
 
@@ -438,10 +698,24 @@ def create_owner_operations_blueprint(
             {
                 **row,
                 "player_id": resolution.get("resolved_player_id"),
+                "opportunity_player_id": (catalog or {}).get(str(resolution.get("resolved_player_id")), {}).get("gsis_id") if resolution.get("resolved_player_id") else None,
                 "identity_resolution": resolution,
             }
             for row, resolution in zip(rows, resolutions)
         ]
+        nflverse_identity_rows = current_app.config.get("NFLVERSE_PLAYER_METADATA")
+        nflverse_identity_lineage = current_app.config.get("NFLVERSE_PLAYER_METADATA_LINEAGE")
+        if nflverse_identity_rows is None and not current_app.testing:
+            metadata = acquire_nflverse_player_metadata()
+            if metadata["state"] == "AVAILABLE":
+                nflverse_identity_rows = metadata["rows"]
+                nflverse_identity_lineage = metadata["lineage"]
+        candidates = attach_waiver_opportunity_identity(
+            candidates,
+            catalog,
+            nflverse_identity_rows,
+            nflverse_identity_lineage,
+        )
         supported_positions = {
             str(position).upper().replace("DST", "DEF")
             for position in (league or {}).get("roster_positions") or []
@@ -573,6 +847,7 @@ def create_owner_operations_blueprint(
                 week=meta.get("week"),
                 nflverse_records=nflverse_records,
                 nflverse_lineage=nflverse_lineage,
+                sleeper_records=meta.get("sleeper_catalog"),
             )
         finally:
             cur.close(); conn.close()
@@ -625,9 +900,26 @@ def create_owner_operations_blueprint(
             counts, grades, needs, overall, score = roster_analysis(roster, vacancies)
             pool_evidence = waiver_pool_with_evidence(cur, context, roster)
             recommendations = faab_recommendations(pool_evidence["candidates"], counts)[:25]
+            league_payload = get_league(current_app.config.get("SLEEPER_LEAGUE_ID", "")) or {} if context["mode"] == "LIVE" else {}
+            league_settings = league_settings_contract(league_payload, source="Sleeper API" if context["mode"] == "LIVE" else "Season Sandbox", blocker=None if context["mode"] == "LIVE" else "LIVE_LEAGUE_SETTINGS_NOT_APPLICABLE")
+            team_needs = team_needs_contract(roster, league_settings)
+            for player in roster:
+                player["recent_production"] = waiver_recent_production(conn, player, meta.get("season"))
+            for candidate in recommendations:
+                candidate["ownership_state"] = "VERIFIED" if pool_evidence.get("allowed") else "UNAVAILABLE"
+                candidate["eligibility_state"] = "VERIFIED" if pool_evidence.get("allowed") else "UNAVAILABLE"
+                candidate["recent_production"] = waiver_recent_production(conn, candidate, meta.get("season"))
+                candidate["snap_share"] = waiver_snap_share(conn, candidate, meta.get("season"))
+                candidate["opportunity_metrics"] = waiver_opportunity_metrics(conn, candidate, meta.get("season"))
+                candidate["evidence_context"] = waiver_candidate_context(candidate, roster, team_needs, pool_evidence.get("ranking_confidence"))
         finally:
             cur.close(); conn.close()
-        return render_template("waivers.html", title="Waiver and FAAB Center", context=context, meta=meta, recommendations=recommendations, needs=needs, vacancies=vacancies, faab_budget=100, waiver_evidence=pool_evidence, opportunity_view=build_opportunity_view(current_app.config.get("OPPORTUNITY_EVIDENCE")))
+        # row_to_player collapses a missing projected_points value to 0.0; treat 0 as
+        # "no supported projection" here so the assistant never fabricates an upgrade signal.
+        trending_evidence = waiver_trending_evidence(context.get("mode"))
+        wda_roster = [{"player": p.get("player"), "position": p.get("position"), "projection": wda_projection_or_none(p.get("projection")), "trending": wda_trending_state(p.get("source_player_id"), trending_evidence), "recent_production": p.get("recent_production", {"state": "UNAVAILABLE", "rows": []})} for p in roster]
+        wda_candidates = [{"player": r.get("player"), "position": r.get("position"), "projection": wda_projection_or_none(r.get("projection")), "projection_retrieved_at": r.get("projection_retrieved_at"), "need": r.get("need"), "trending": wda_trending_state(r.get("player_id"), trending_evidence), "recent_production": r.get("recent_production", {"state": "UNAVAILABLE", "rows": []}), "opportunity_metrics": r.get("opportunity_metrics", {"state": "UNAVAILABLE", "rows": []}), "snap_share": r.get("snap_share", {"state": "UNAVAILABLE", "rows": []}), "evidence_context": r.get("evidence_context", {})} for r in recommendations]
+        return render_template("waivers.html", title="Waiver and FAAB Center", context=context, meta=meta, recommendations=recommendations, needs=needs, vacancies=vacancies, faab_budget=100, waiver_evidence=pool_evidence, opportunity_view=build_opportunity_view(current_app.config.get("OPPORTUNITY_EVIDENCE")), roster=roster, grades=grades, counts=counts, wda_roster=wda_roster, wda_candidates=wda_candidates, trending_evidence_state=trending_evidence.get("state"))
 
     @bp.route("/trades")
     def trades_page():

@@ -10,19 +10,21 @@ coverage of snap_counts_2026 pfr_player_id values). Any pfr_id absent from the
 crosswalk, or mapping to zero/multiple gsis_id values, is never guessed and
 fails closed in services/snap_share_foundation.py.
 
-Persistence is intentionally not implemented in this batch (see PERSISTENCE
-REVIEW in the owning task); this module only produces in-memory, informational
-evidence.
+Persistence uses the dedicated snap_share_evidence publication table and remains
+informational-only for all consumers.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from urllib.request import urlopen
 
 from imports.import_nflverse_weekly_stats import load_weekly_stats
 from services.snap_share_foundation import normalize_snap_counts_batch
+from services.snap_share_publication import publish_snap_share
+from dotenv import load_dotenv
 
 SNAP_COUNTS_RELEASE_URL = "https://github.com/nflverse/nflverse-data/releases/download/snap_counts/snap_counts_{season}.csv"
 SNAP_COUNTS_RELEASE_TIMESTAMP_URL = "https://github.com/nflverse/nflverse-data/releases/download/snap_counts/timestamp.txt"
@@ -51,7 +53,7 @@ def build_pfr_to_gsis_crosswalk(path: str | Path) -> dict[str, set[str]]:
     return by_pfr
 
 
-def build_snap_share_evidence(path: str | Path, *, season: int, retrieved_at: str, identity_crosswalk=None) -> dict:
+def build_snap_share_evidence(path: str | Path, *, season: int, retrieved_at: str, identity_crosswalk=None, threshold_environment=None, now=None) -> dict:
     """Retrieve/parse the snap_counts artifact and return reconciled, non-authoritative evidence."""
     rows, checksum = load_weekly_stats(path)
     is_remote = str(path).startswith(("http://", "https://"))
@@ -65,17 +67,24 @@ def build_snap_share_evidence(path: str | Path, *, season: int, retrieved_at: st
     return normalize_snap_counts_batch(
         rows, season=season, source=source, source_recorded_at=source_recorded_at,
         retrieved_at=retrieved_at, checksum=checksum, version=f"snap_counts_{season}",
-        identity_crosswalk=identity_crosswalk,
+        identity_crosswalk=identity_crosswalk, threshold_environment=threshold_environment, now=now,
     )
 
 
 def main() -> None:
+    load_dotenv()
     parser = argparse.ArgumentParser()
     parser.add_argument("csv_path")
     parser.add_argument("--season", type=int, required=True)
     parser.add_argument("--retrieved-at", required=True)
+    parser.add_argument("--publish", action="store_true")
     args = parser.parse_args()
-    evidence = build_snap_share_evidence(args.csv_path, season=args.season, retrieved_at=args.retrieved_at)
+    crosswalk = build_pfr_to_gsis_crosswalk(NFLVERSE_PLAYERS_RELEASE_URL) if str(args.csv_path).startswith(("http://", "https://")) else None
+    evidence = build_snap_share_evidence(args.csv_path, season=args.season, retrieved_at=args.retrieved_at, identity_crosswalk=crosswalk, threshold_environment=os.environ)
+    if args.publish:
+        import psycopg2
+        with psycopg2.connect(host=os.getenv("DB_HOST"), port=int(os.getenv("DB_PORT")), dbname=os.getenv("DB_NAME"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD")) as connection:
+            publish_snap_share(connection, evidence)
     print(json.dumps(evidence, default=str, sort_keys=True))
 
 

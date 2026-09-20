@@ -1,8 +1,10 @@
 from flask import Blueprint,abort,current_app,flash,redirect,render_template,request,url_for
+from datetime import datetime,timezone
 from auth import csrf_required
 from survivor_intelligence import build_recommendations,build_status,determine_week_state,next_verified_week,summarize,team_universe
 from survivor_store import (migrate,ensure_pool,used_teams,current_predictions,all_schedule,future_predictions,
-    save_selection,delete_selection,history,save_run,week_selection,SurvivorConflictError,SurvivorHistoryReadError)
+    save_selection,delete_selection,history,save_run,week_selection,SurvivorConflictError,SurvivorHistoryReadError,
+    latest_market_refresh_run)
 from services.ux_evidence import format_pacific_datetime
 survivor_bp=Blueprint('survivor',__name__)
 
@@ -30,10 +32,13 @@ def _context(season,week,pool_key,strategy):
         schedule_rows=schedule,current_rows=current,candidates=candidates,week_state=week_state)
     next_week=next_verified_week(schedule_weeks,week) if history_status=='verified' else None
     eligible_teams=sorted(team_universe(schedule)-set(used)) if history_status=='verified' and week_state=='OPEN' else []
+    refresh_run=latest_market_refresh_run(season,week)
+    now_pacific=format_pacific_datetime(datetime.now(timezone.utc).isoformat())
     return {'survivor_season':season,'survivor_week':week,'pool_key':pool_key,'strategy':strategy,
         'used_teams':used,'candidates':candidates,'survivor_summary':summary,'survivor_status':status,
         'existing_selection':existing_selection,'result_label':result_label,'next_week':next_week,
         'eligible_teams':eligible_teams,
+        'market_refresh_run':refresh_run,'page_rendered_at_pacific':now_pacific,
         'last_verified_pacific':format_pacific_datetime(status.get('last_verified')),
         'survivor_history':history(pool_key,season) if history_status=='verified' else []}
 @survivor_bp.get('/survivor')

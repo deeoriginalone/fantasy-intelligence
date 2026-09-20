@@ -19,5 +19,51 @@
 @media(max-width:900px){.sv header,.sv-grid{display:grid}.sv-grid{grid-template-columns:1fr}.history{grid-template-columns:1fr}.sv-alternatives,.sv-risks,.sv-save-later{grid-template-columns:1fr}}
 @media(max-width:420px){.sv{padding:14px}.sv-hero,.sv-primary-card,.sv-state{padding:12px}}
 .sv-reset-btn{background:#fff;color:#991b1b;border:1px solid #991b1b}
+.sv-state-banner{font-size:1.1rem;font-weight:800;padding:10px 14px;border-radius:9px;margin:10px 0}
+.sv-state-banner-ready{background:#dcfce7;color:#166534}
+.sv-state-banner-provisional{background:#fef3c7;color:#92400e}
+.sv-state-banner-refresh_required{background:#fde8e8;color:#991b1b}
+.sv-state-banner-complete{background:#ede9fe;color:#5b21b6}
+.sv-state-explanation{background:#fff;border-radius:9px;padding:10px 14px;margin:6px 0}
+.sv-state-explanation p{margin:4px 0}
+.sv-why{margin:16px 0;padding:18px;border-radius:12px;background:#fff;border:1px solid #dbe4ee}
+.sv-why table{margin-top:10px}
+.sv-data-quality{margin:16px 0;padding:18px;border-radius:12px;background:#f8fafc;border:1px solid #dbe4ee}
+.sv-data-quality summary{cursor:pointer;font-weight:800;padding:4px 0}
+.sv-bar{display:inline-block;width:60px;height:8px;background:#e5e7eb;border-radius:5px;overflow:hidden;vertical-align:middle;margin-right:6px}
+.sv-bar-fill{display:block;height:100%;background:#0759c7}
+.sv-row-detail summary{cursor:pointer;font-weight:700}
+.sv-row-detail p{margin:4px 0}
+.sv-compact-line{color:#334155;font-size:.92rem}
+@media(max-width:420px){.sv-why table{font-size:.85rem}.sv-bar{width:40px}}
 .sv-manual-pick{margin:16px 0;padding:18px;border-radius:12px;background:#fff;border:1px dashed #cbd5e1}
 .sv-manual-pick form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.sv-header-stats{color:#475569;font-weight:700;margin:4px 0 0}
+.sv-primary-action{display:inline-block;background:#eff6ff;color:#1e40af;font-weight:800;padding:4px 12px;border-radius:999px;margin:4px 0 10px;font-size:.85rem;text-transform:uppercase}
+.sv-hero-card{text-align:center;padding:28px 18px}
+.sv-hero-card .sv-matchup{font-size:1.3rem;font-weight:800;margin:6px 0}
+.sv-hero-probability{font-size:3.2rem;font-weight:900;color:#0d9488;margin:8px 0 0;line-height:1}
+.sv-hero-stat-label{color:#64748b;margin:0 0 10px;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
+.sv-hero-score,.sv-hero-confidence{display:inline-block;font-weight:800;background:#f1f5f9;border-radius:999px;padding:6px 16px;margin:4px 6px}
+.sv-record-btn{font-size:1.1rem;padding:14px 28px;margin-top:14px;border-radius:10px}
+.sv-recommendation-details{margin:10px 0 16px}
+.sv-recommendation-details summary{cursor:pointer;font-weight:700;padding:8px 0}
+.sv-compare-grid{display:flex;align-items:stretch;gap:12px;flex-wrap:wrap;margin:12px 0}
+.sv-compare-card{flex:1;min-width:200px;background:#fff;border:1px solid #dbe4ee;border-radius:12px;padding:14px}
+.sv-compare-recommended{border:2px solid #0d9488}
+.sv-compare-label{display:block;color:#64748b;font-size:.75rem;text-transform:uppercase;font-weight:800}
+.sv-compare-card strong{display:block;font-size:1.3rem;margin:4px 0 8px}
+.sv-compare-card dl{margin:0}
+.sv-compare-card dl div{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f1f5f9}
+.sv-compare-card dt{color:#64748b}
+.sv-compare-vs{align-self:center;font-weight:800;color:#94a3b8}
+.sv-stat-row{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0}
+.sv-stat-row div{background:#f8fafc;border-radius:8px;padding:6px 10px}
+.sv-stat-row dt{color:#64748b;font-size:.75rem;text-transform:uppercase}
+.sv-stat-row dd{margin:0;font-weight:800}
+.sv-risk-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:10px}
+.sv-risk-card{background:#fff;border:1px solid #dbe4ee;border-radius:12px;padding:14px}
+.sv-risk-row{display:flex;align-items:center;gap:8px;margin:4px 0}
+.sv-risk-row span:first-child{width:70px;color:#64748b;font-size:.85rem}
+.sv-risk-spread{font-weight:800;color:#92400e;margin:6px 0 2px}
+@media(max-width:420px){.sv-hero-probability{font-size:2.4rem}.sv-compare-grid{flex-direction:column}.sv-compare-vs{align-self:center}}

@@ -21,12 +21,16 @@ services/injury_health_sync.py
 services/publication_gate.py
 services/weekly_lineup_intelligence.py
 services/unified_decision_context.py
+services/snap_share_publication.py
 services/waiver_action_publication.py
+services/yahoo_oauth.py
 services/fantasypros_projection.py
 services/defense_matchup_calculation.py
+services/snap_share_reader.py
 services/defense_matchup_publication.py
 services/player_opportunity_publication.py
 services/nflverse_ingestion_validator.py
+services/opportunity_context.py
 services/lineup_evidence.py
 services/matchup_enrichment_validator.py
 services/pre_decision_snapshots.py
@@ -36,6 +40,7 @@ services/authoritative_week.py
 services/trade_intelligence.py
 services/team_hardening.py
 services/sleeper_service.py
+services/model_only_future_probability.py
 services/roster_slots.py
 services/nflverse_player_metadata.py
 services/trade_scenarios.py

@@ -25,6 +25,7 @@ tests/test_ux2_1b_presentation.py
 tests/test_f4_d_trade_target_center_contract.py
 tests/test_injury_health_sync.py
 tests/test_mock_draft_synchronization.py
+tests/test_yahoo_oauth.py
 tests/test_integrity_integration.py
 tests/test_roster_reconciliation.py
 tests/test_trade_scenarios.py
@@ -33,6 +34,7 @@ tests/test_opportunity_consumer_contract.py
 tests/test_ux1_dashboard_sleeper_source.py
 tests/test_ux2_team_accuracy_route.py
 tests/test_phase_f_draft_sandbox.py
+tests/test_batch_e_ratings.py
 tests/test_player_role_evidence.py
 tests/test_f3_b3_live_reconciliation.py
 tests/test_survivor_status_contract.py
@@ -82,6 +84,7 @@ tests/test_ux2_lineage_template.py
 tests/test_player_opportunity_ingestion.py
 tests/test_waiver_availability.py
 tests/test_unified_decision_context.py
+tests/test_snap_share_publication.py
 tests/test_draft_recommendation_service.py
 tests/test_f3_b31_migration_contract.py
 tests/test_draftboard_polling.py
@@ -103,6 +106,7 @@ tests/test_trade_intelligence.py
 tests/test_draft_environment_rotation.py
 tests/test_f3_c2_draft_recommendation_publication.py
 tests/test_team_health_routes.py
+tests/test_model_only_future_probability.py
 tests/test_f2r_c_identity_bridge.py
 tests/test_ux2_team_hardening.py
 tests/test_trade_projection_coverage.py
@@ -114,6 +118,7 @@ tests/test_player_opportunity_calculation.py
 tests/test_ux2_batch_a_health_targeting.py
 tests/test_draft_day_readiness.py
 tests/test_pre_decision_snapshots.py
+tests/test_opportunity_context.py
 tests/test_team_health_template.py
 tests/test_f3_b2_reconciliation.py
 tests/test_f3_d2_faab_intelligence.py
@@ -129,7 +134,7 @@ platform linux -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
 rootdir: /home/deeoriginalone/fantasy-intelligence
 configfile: pytest.ini
 testpaths: tests
-collected 111 items / 95 errors
+collected 116 items / 100 errors
 
 <Dir fantasy-intelligence>
   <Dir tests>
@@ -205,12 +210,17 @@ collected 111 items / 95 errors
       <Function test_completed_week_shows_result>
       <Function test_locked_week_rankings_labeled_model_snapshot_non_actionable>
       <Function test_ready_state_shows_primary_pick_and_no_neutral_fallback>
+      <Function test_limited_evidence_primary_is_not_presented_as_unpublished>
+      <Function test_primary_explains_alternative_gap_and_change_condition>
+      <Function test_decision_summary_translates_confidence_and_future_state>
       <Function test_completed_week_loss_shows_result>
       <Function test_stale_evidence_state_renders_unavailable_block_not_a_pick>
       <Function test_degraded_state_still_shows_a_disclosed_primary_pick>
       <Function test_missing_evidence_agreement_shows_unavailable_not_a_number>
       <Function test_manual_pick_control_shown_when_week_open_and_teams_eligible>
       <Function test_manual_pick_control_hidden_when_no_eligible_teams>
+      <Function test_populated_future_opportunities_render_informational_only>
+      <Function test_unavailable_future_evidence_renders_no_fabricated_game>
       <Function test_manual_pick_control_hidden_for_locked_week>
     <Module test_trade_intelligence_template.py>
       <Function test_trade_template_renders_and_has_no_submission_endpoint>
@@ -308,6 +318,16 @@ Traceback:
 tests/test_batch_d_intelligence_operations.py:2: in <module>
     from intelligence.intelligence_explainability import build_explanation
 E   ModuleNotFoundError: No module named 'intelligence'
+________________ ERROR collecting tests/test_batch_e_ratings.py ________________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_batch_e_ratings.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_batch_e_ratings.py:5: in <module>
+    from batch_e_ratings import (
+E   ModuleNotFoundError: No module named 'batch_e_ratings'
 ______________ ERROR collecting tests/test_draft_day_readiness.py ______________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_draft_day_readiness.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -698,6 +718,16 @@ Traceback:
 tests/test_mock_draft_synchronization.py:3: in <module>
     from draft_state_hardening import build_hardened_sync
 E   ModuleNotFoundError: No module named 'draft_state_hardening'
+_________ ERROR collecting tests/test_model_only_future_probability.py _________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_model_only_future_probability.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_model_only_future_probability.py:5: in <module>
+    from services.model_only_future_probability import build_model_only_future_probability
+E   ModuleNotFoundError: No module named 'services'
 _____________ ERROR collecting tests/test_monte_carlo_survival.py ______________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_monte_carlo_survival.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -758,6 +788,16 @@ Traceback:
 tests/test_opportunity_consumer_contract.py:3: in <module>
     from services.opportunity_evidence import build_opportunity_view
 E   ModuleNotFoundError: No module named 'services'
+______________ ERROR collecting tests/test_opportunity_context.py ______________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_opportunity_context.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_opportunity_context.py:1: in <module>
+    from services.opportunity_context import opportunity_strength, opportunity_trend, usage_stability
+E   ModuleNotFoundError: No module named 'services'
 _____________ ERROR collecting tests/test_opportunity_evidence.py ______________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_opportunity_evidence.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -805,7 +845,7 @@ Traceback:
 /usr/lib/python3.14/importlib/__init__.py:88: in import_module
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_player_opportunity_ingestion.py:7: in <module>
+tests/test_player_opportunity_ingestion.py:8: in <module>
     import imports.import_nflverse_opportunity as opportunity_import
 E   ModuleNotFoundError: No module named 'imports'
 ___________ ERROR collecting tests/test_player_opportunity_reader.py ___________
@@ -816,7 +856,7 @@ Traceback:
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 tests/test_player_opportunity_reader.py:3: in <module>
-    from services.player_opportunity_reader import read_player_opportunity, read_player_what_changed
+    from services.player_opportunity_reader import read_player_opportunity, read_player_production, read_player_what_changed
 E   ModuleNotFoundError: No module named 'services'
 _____________ ERROR collecting tests/test_player_role_evidence.py ______________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_player_role_evidence.py'.
@@ -915,9 +955,19 @@ Traceback:
 /usr/lib/python3.14/importlib/__init__.py:88: in import_module
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_snap_share_foundation.py:6: in <module>
+tests/test_snap_share_foundation.py:7: in <module>
     from imports.import_nflverse_snap_counts import build_pfr_to_gsis_crosswalk, build_snap_share_evidence
 E   ModuleNotFoundError: No module named 'imports'
+____________ ERROR collecting tests/test_snap_share_publication.py _____________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_snap_share_publication.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_snap_share_publication.py:3: in <module>
+    from services.snap_share_publication import publish_snap_share
+E   ModuleNotFoundError: No module named 'services'
 _____________ ERROR collecting tests/test_survival_calibration.py ______________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_survival_calibration.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -936,7 +986,7 @@ Traceback:
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 tests/test_survivor_intelligence.py:3: in <module>
-    from survivor_intelligence import build_recommendations, stability_score, summarize
+    from survivor_intelligence import build_recommendations, remaining_schedule_value, stability_score, summarize
 E   ModuleNotFoundError: No module named 'survivor_intelligence'
 _________ ERROR collecting tests/test_survivor_persistence_contract.py _________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_survivor_persistence_contract.py'.
@@ -1208,6 +1258,16 @@ Traceback:
 tests/test_weekly_lineup_intelligence.py:1: in <module>
     from services.weekly_lineup_intelligence import build_lineup_intelligence,optimize_lineup
 E   ModuleNotFoundError: No module named 'services'
+__________________ ERROR collecting tests/test_yahoo_oauth.py __________________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_yahoo_oauth.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_yahoo_oauth.py:4: in <module>
+    from services.yahoo_oauth import YahooOAuthClient
+E   ModuleNotFoundError: No module named 'services'
 _________________ ERROR collecting tests/test_yahoo_pickem.py __________________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_yahoo_pickem.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -1223,6 +1283,7 @@ ERROR tests/test_active_week_degraded_routes.py
 ERROR tests/test_authoritative_week.py
 ERROR tests/test_batch_b_outcome_intelligence.py
 ERROR tests/test_batch_d_intelligence_operations.py
+ERROR tests/test_batch_e_ratings.py
 ERROR tests/test_draft_day_readiness.py
 ERROR tests/test_draft_environment_rotation.py
 ERROR tests/test_draft_event_pipeline.py
@@ -1262,12 +1323,14 @@ ERROR tests/test_lineup_evidence.py
 ERROR tests/test_matchup_enrichment_validator.py
 ERROR tests/test_mock_draft_state_consistency.py
 ERROR tests/test_mock_draft_synchronization.py
+ERROR tests/test_model_only_future_probability.py
 ERROR tests/test_monte_carlo_survival.py
 ERROR tests/test_nfl_intelligence.py
 ERROR tests/test_nflverse_defense_matchups.py
 ERROR tests/test_nflverse_player_metadata.py
 ERROR tests/test_no_csv_live_weekly_fallback.py
 ERROR tests/test_opportunity_consumer_contract.py
+ERROR tests/test_opportunity_context.py
 ERROR tests/test_opportunity_evidence.py
 ERROR tests/test_phase_f2_integration.py
 ERROR tests/test_phase_f_draft_sandbox.py
@@ -1284,6 +1347,7 @@ ERROR tests/test_schedule_bye_source_contract.py
 ERROR tests/test_schedule_bye_threshold_registry.py
 ERROR tests/test_security_and_validation.py
 ERROR tests/test_snap_share_foundation.py
+ERROR tests/test_snap_share_publication.py
 ERROR tests/test_survival_calibration.py
 ERROR tests/test_survivor_intelligence.py
 ERROR tests/test_survivor_persistence_contract.py
@@ -1313,6 +1377,7 @@ ERROR tests/test_waiver_availability.py
 ERROR tests/test_week_authority_consolidation.py
 ERROR tests/test_weekly_evidence_trust_contract.py
 ERROR tests/test_weekly_lineup_intelligence.py
+ERROR tests/test_yahoo_oauth.py
 ERROR tests/test_yahoo_pickem.py
-!!!!!!!!!!!!!!!!!!! Interrupted: 95 errors during collection !!!!!!!!!!!!!!!!!!!
-=================== 111 tests collected, 95 errors in 3.85s ====================
+!!!!!!!!!!!!!!!!!! Interrupted: 100 errors during collection !!!!!!!!!!!!!!!!!!!
+=================== 116 tests collected, 100 errors in 8.44s ===================

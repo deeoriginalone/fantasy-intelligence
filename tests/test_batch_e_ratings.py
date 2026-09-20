@@ -311,3 +311,189 @@ def test_output_is_compatible_with_model_only_probability_contract():
     assert probability["source_type"] == "MODEL_ONLY"
     assert probability["authority_state"] == "INFORMATIONAL_ONLY"
     assert probability["decision_effect"] == "NONE"
+
+
+# --- Elo source observation persistence (append-only, evidence collection only) ---
+
+from batch_e_ratings import record_elo_source_observation, record_elo_source_retrieval_failure
+
+
+class EloObservationCursor:
+    def __init__(self, existing=None, fail_after=None):
+        self.statements = []
+        self.rows = list(existing or [])
+        self.fail_after = fail_after
+        self._next_id = len(self.rows) + 1
+        self._last_result = None
+
+    def execute(self, sql, params=None):
+        self.statements.append((sql, params))
+        if self.fail_after is not None and len(self.statements) > self.fail_after:
+            raise RuntimeError("SIMULATED_TRANSACTION_FAILURE")
+        normalized = " ".join(sql.split())
+        if normalized.startswith("SELECT source_checksum, retrieved_at"):
+            observed = [row for row in self.rows if row["observation_state"] == "OBSERVED"]
+            self._last_result = (observed[-1]["source_checksum"], observed[-1]["retrieved_at"]) if observed else None
+        elif normalized.startswith("INSERT INTO model_only_elo_source_observations"):
+            keys = ["domain", "source_identifier", "source_url", "retrieved_at", "source_recorded_at",
+                    "source_recorded_at_available", "source_checksum", "etag", "content_length_header",
+                    "content_length_actual", "http_status", "changed_from_previous", "previous_checksum",
+                    "previous_retrieved_at", "observation_state", "blocker_reason"]
+            self.rows.append(dict(zip(keys, params)))
+            self._last_result = (self._next_id,)
+            self._next_id += 1
+        else:
+            self._last_result = None
+
+    def fetchone(self):
+        return self._last_result
+
+    def close(self):
+        pass
+
+
+class EloObservationConnection:
+    def __init__(self, existing=None, fail_after=None):
+        self.cursor_instance = EloObservationCursor(existing=existing, fail_after=fail_after)
+        self.commits = 0
+        self.rollbacks = 0
+
+    def cursor(self):
+        return self.cursor_instance
+
+    def commit(self):
+        self.commits += 1
+
+    def rollback(self):
+        self.rollbacks += 1
+
+    @property
+    def rows(self):
+        return self.cursor_instance.rows
+
+
+def observe(conn, checksum="checksum-a", source_recorded_at=None, retrieved_at=NOW):
+    return record_elo_source_observation(
+        conn, source_identifier="nflverse_games", source_url=BASE["source_url"], retrieved_at=retrieved_at,
+        source_recorded_at=source_recorded_at, source_checksum=checksum, etag="etag-1",
+        content_length_header="511630", content_length_actual=2179202, http_status=200,
+    )
+
+
+def test_first_observation_has_no_prior_reference():
+    conn = EloObservationConnection()
+    result = observe(conn)
+    assert result["changed_from_previous"] is None
+    assert result["previous_checksum"] is None
+    assert result["previous_retrieved_at"] is None
+    assert len(conn.rows) == 1
+    assert conn.rows[0]["observation_state"] == "OBSERVED"
+    assert conn.commits == 1 and conn.rollbacks == 0
+
+
+def test_second_observation_with_same_checksum_is_unchanged():
+    conn = EloObservationConnection()
+    observe(conn, checksum="checksum-a", retrieved_at=NOW)
+    result = observe(conn, checksum="checksum-a", retrieved_at=NOW + timedelta(hours=1))
+    assert result["changed_from_previous"] is False
+    assert result["previous_checksum"] == "checksum-a"
+    assert result["previous_retrieved_at"] == NOW
+    assert len(conn.rows) == 2
+
+
+def test_later_observation_with_different_checksum_is_changed():
+    conn = EloObservationConnection()
+    observe(conn, checksum="checksum-a", retrieved_at=NOW)
+    observe(conn, checksum="checksum-a", retrieved_at=NOW + timedelta(hours=1))
+    result = observe(conn, checksum="checksum-b", retrieved_at=NOW + timedelta(hours=2))
+    assert result["changed_from_previous"] is True
+    assert result["previous_checksum"] == "checksum-a"
+    assert result["previous_retrieved_at"] == NOW + timedelta(hours=1)
+    assert len(conn.rows) == 3
+
+
+def test_missing_last_modified_stores_unavailable_not_fabricated():
+    conn = EloObservationConnection()
+    observe(conn, source_recorded_at=None)
+    stored = conn.rows[0]
+    assert stored["source_recorded_at"] is None
+    assert stored["source_recorded_at_available"] is False
+
+
+def test_retrieval_time_is_never_copied_into_source_recorded_at():
+    conn = EloObservationConnection()
+    observe(conn, source_recorded_at=None, retrieved_at=NOW)
+    stored = conn.rows[0]
+    assert stored["retrieved_at"] == NOW
+    assert stored["source_recorded_at"] is None
+    assert stored["source_recorded_at"] != stored["retrieved_at"]
+
+
+def test_etag_is_stored_but_not_treated_as_a_timestamp():
+    conn = EloObservationConnection()
+    observe(conn)
+    stored = conn.rows[0]
+    assert stored["etag"] == "etag-1"
+    assert not isinstance(stored["etag"], datetime)
+
+
+def test_identical_observations_remain_separate_append_only_records():
+    conn = EloObservationConnection()
+    observe(conn, checksum="checksum-a", retrieved_at=NOW)
+    observe(conn, checksum="checksum-a", retrieved_at=NOW + timedelta(hours=1))
+    observe(conn, checksum="checksum-a", retrieved_at=NOW + timedelta(hours=2))
+    assert len(conn.rows) == 3
+    assert len({row["retrieved_at"] for row in conn.rows}) == 3
+    for statement, _ in conn.cursor_instance.statements:
+        normalized = " ".join(statement.split()).upper()
+        assert not normalized.startswith("UPDATE ")
+        assert not normalized.startswith("DELETE ")
+
+
+def test_failed_retrieval_never_replaces_prior_successful_evidence():
+    conn = EloObservationConnection()
+    observe(conn, checksum="checksum-a", retrieved_at=NOW)
+    record_elo_source_retrieval_failure(
+        conn, source_identifier="nflverse_games", source_url=BASE["source_url"],
+        http_status=503, blocker_reason="ELO_SOURCE_RETRIEVAL_FAILED",
+    )
+    assert len(conn.rows) == 2
+    assert conn.rows[0]["observation_state"] == "OBSERVED"
+    assert conn.rows[0]["source_checksum"] == "checksum-a"
+    assert conn.rows[1]["observation_state"] == "RETRIEVAL_FAILED"
+    assert conn.rows[1]["source_checksum"] is None
+    prior = _latest_observation_for_test(conn)
+    assert prior == ("checksum-a", NOW)
+
+
+def _latest_observation_for_test(conn):
+    observed = [row for row in conn.rows if row["observation_state"] == "OBSERVED"]
+    last = observed[-1]
+    return (last["source_checksum"], last["retrieved_at"])
+
+
+def test_observation_persistence_does_not_alter_probability_fail_closed_contract():
+    conn = EloObservationConnection()
+    observe(conn)
+    result = build(freshness_threshold_id=None, freshness_threshold_seconds=None)
+    assert result["available"] is False
+    assert result["freshness_state"] == "UNAVAILABLE"
+    assert result["authority_state"] == "INFORMATIONAL_ONLY"
+    assert result["decision_effect"] == "NONE"
+    assert "ELO_FRESHNESS_THRESHOLD_UNAVAILABLE" in result["blocker_reasons"]
+
+
+def test_transaction_failure_rolls_back_partial_observation_write():
+    conn = EloObservationConnection(fail_after=2)
+    with pytest.raises(RuntimeError):
+        observe(conn)
+    assert conn.rollbacks == 1
+    assert conn.commits == 0
+    assert conn.rows == []
+
+
+def test_existing_rating_publication_behavior_is_unchanged():
+    result = build()
+    assert result["available"] is True
+    assert result["team_ratings"]
+    assert result["validated_games"]

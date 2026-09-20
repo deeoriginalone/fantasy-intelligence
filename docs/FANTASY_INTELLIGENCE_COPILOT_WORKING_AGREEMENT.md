@@ -258,6 +258,56 @@ For implementation work, responses should normally use this sequence:
 
 ### **Final Reminder** 
 
+### **Delivery-First Operating Rules**
+
+#### **1. Delivery-first development**
+- Prefer the smallest useful manager-facing improvement that can be validated in the current batch.
+- Do not delay a useful informational or reduced-scope result solely because a stronger authority boundary is unavailable.
+
+#### **2. Solution-first development**
+- Once the owner, direct consumer, and smallest discriminating check are known, make the smallest reversible edit and validate it.
+- Do not continue broad discovery after the controlling boundary is proven.
+
+#### **3. Fail-closed applies to authority, not usefulness**
+- Missing, stale, or unverified evidence remains unavailable for authoritative recommendations, rankings, scores, confidence, and transactions.
+- The same evidence may support clearly labeled informational output, diagnostics, explanations, or reduced-scope context.
+
+#### **4. Reduced-scope implementation rule**
+- Preserve the supported subset and disclose the exact missing evidence when full capability is blocked.
+- Never substitute neutral values, fabricated confidence, or implied authority.
+
+#### **5. One-more-step rule**
+- Before stopping at `UNAVAILABLE`, take one cheap local step that could expose useful informational output or identify the exact blocker.
+- Stop after that step when the boundary is proven.
+
+#### **6. Source feasibility gate**
+- Verify that a source can provide identity, timestamps, freshness, completeness, and authority inputs before building a source-dependent consumer.
+
+#### **7. Active batch manifest**
+- Maintain a short active manifest of objective, files, validation, blockers, and next action for each substantial batch.
+
+#### **8. Continuity only at session close**
+- Run continuity once at deliberate session close or when canonical memory is intentionally updated.
+
+#### **9. HEAD sync only at session close**
+- Synchronize canonical HEAD fields with closeout continuity, not after every focused batch or commit.
+
+#### **10. Stop after exact missing evidence**
+- Once the exact missing evidence is named and no local path is likely to provide it, stop and report the smallest collection needed.
+
+#### **11. Survivor vertical-slice rule**
+- Prefer one complete read-only Survivor vertical slice from source evidence through manager-facing explanation, with authority and transaction effects unchanged.
+
+#### **12. Manager-value override**
+- When process overhead conflicts with a small safe improvement to a real manager decision, prioritize the improvement while preserving evidence disclosure and fail-closed authority.
+
+#### **80/20 Value Rule**
+- When two valid implementation paths exist, prefer the path that delivers approximately 80% of the manager-facing value with the least repository process overhead.
+- Do not pursue the theoretically ideal implementation first unless it is required for correctness, security, freshness correctness, identity correctness, ownership correctness, or corruption prevention.
+- When choosing between manager-facing value now and additional infrastructure needed only for the final 20%, prefer manager-facing value now by default.
+- The goal is faster delivery, fewer investigation loops, fewer foundation-only batches, and more manager-facing vertical slices.
+- Preserve fail-closed authority, recommendation safety, freshness safety, ownership correctness, identity correctness, security protections, and source-truth requirements.
+
 The guiding principle is: 
 
 _Make the largest safe, evidence-based improvement possible, provide it as downloadable files, explain every step for a non-expert, keep the repository clean, and never guess._ 
@@ -285,4 +335,34 @@ Required product reference documents:
 - PLATFORM_MATURITY.md 
 
 Repository evidence remains the source of truth for implementation reality. If implementation evidence and product reference documentation appear inconsistent, do not guess. Perform repository-reality reconciliation and preserve the verified completion boundary. 
+
+## Proportional rigor and product usefulness
+
+Use the fewest searches, reads, tool calls, test runs, browser checks, and output tokens that can truthfully prove the requested boundary. Preserve production-level rigor for decision-critical behavior, but do not apply production-scale process to low-risk, read-only investigation. Stop when the requested question is answered, the boundary is proven, or the precise missing evidence is identified. A missing input is a valid final result for a read-only investigation.
+
+Classify work before acting:
+
+- **Class A: Read-only investigation or audit.** Inspect the known owner, directly related tests, and one targeted search pass, with at most one refined follow-up when a concrete location is identified. Stop when the question is answered or required input is missing. Do not run continuity, full suites, browser checks, database inventories, or environment inventories unless directly required.
+- **Class B: Focused implementation.** Inspect the owner and direct consumers, reuse existing contracts, and run focused tests, changed-file compilation, and `git diff --check`. Run broader validation only when the changed boundary requires it.
+- **Class C: Milestone, canonical, commit, or continuity work.** Use the full repository-reality reconciliation and canonical synchronization workflow. Do not use Class C procedures for ordinary Class A investigation.
+
+Do not repeat repository-wide searches, test paths already proven missing, successful validations without changed inputs, or inventories without a direct dependency. Preserve exact-path Git staging; never use `git add .` or `git add -A`.
+
+Before a substantial foundation, evidence, provenance, schema, or architecture batch, answer which manager-facing decision it enables or protects, which current page consumes it, which incorrect decision it prevents, whether it is needed for the next useful personal-season outcome, whether a smaller safe implementation is sufficient, the shortest correct evidence path, and whether work should be deferred when no current consumer exists.
+
+At least one active implementation priority must produce or materially improve a manager-facing fantasy decision. Infrastructure-only work may not indefinitely displace useful START, SIT, FLEX, MONITOR, ADD, DROP, TRADE FOR, TRADE AWAY, or Survivor functionality.
+
+The primary measure of progress is improved fantasy-football decision quality for the owner. The project exists to help the owner win fantasy leagues, not to maximize infrastructure completeness. A foundation with no identified near-term consumer is normally deferred.
+
+Before a major foundation, evidence, lineage, provenance, metric, architecture, schema, ingestion, publication, reconciliation, synchronization, or abstraction batch, answer: which manager-facing decision becomes better; which page consumes it; whether the owner can benefit this season; whether it is required for the current roadmap priority; which incorrect fantasy decision it prevents; the smallest safe implementation; and the shortest evidence path. If the first four answers cannot be given, defer by default, except for repository integrity, security, ownership correctness, freshness correctness, identity correctness, or major data-corruption prevention.
+
+If a read-only investigation has already identified the exact missing evidence, additional broad discovery is prohibited unless a specific unsearched repository location is supported by repository evidence. Missing evidence is a valid audit outcome: report it, record what was inspected, and stop.
+
+Before executing a test path, verify that it exists. If the requested path does not exist, locate the actual owning test once, do not execute the known-nonexistent path, report the missing path separately, and do not let it invalidate unrelated verified tests.
+
+Production-level rigor means reliable decision-critical data, defined metrics, freshness, provenance, fail-closed behavior, focused tests, and truthful unsupported states. It does not automatically require production deployment, commercial scalability, multi-user architecture, exhaustive recovery testing, broad observability, or enterprise process for every personal-use investigation.
+
+### Yahoo planning boundary
+
+The owner reports approved Yahoo API access and a Yahoo Survivor league. This is a planning fact, not implementation proof. Approved scopes, authentication, endpoints, fields, rate limits, identifiers, league access, licensing, and source timestamps remain **UNKNOWN PENDING API VERIFICATION** until official documentation, credentials, and controlled live responses are reviewed. Yahoo evaluation is read-only and must not change ranking, score, confidence, recommendation, or transaction behavior before a tested contract authorizes that effect.
 

@@ -1,6 +1,7 @@
 import csv
 import gzip
 import json
+import os
 
 import pytest
 
@@ -13,8 +14,40 @@ NOW = "2026-09-17T12:00:00+00:00"
 FRESH_ENV = {"OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS": "86400"}
 
 
-def stat_row(player_id, team, opponent, week=3, targets=0, carries=0, season=2026):
-    return {"player_id": player_id, "team": team, "opponent_team": opponent, "season": str(season), "week": str(week), "targets": str(targets), "carries": str(carries)}
+def test_direct_importer_loads_dotenv_without_overriding_exported_threshold(monkeypatch):
+    monkeypatch.setenv("OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS", "123")
+
+    def fake_load_dotenv(*args, **kwargs):
+        assert kwargs == {}
+        os.environ.setdefault("OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS", "86400")
+        return True
+
+    monkeypatch.setattr(opportunity_import, "load_dotenv", fake_load_dotenv)
+    opportunity_import.load_runtime_environment()
+    assert os.environ["OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS"] == "123"
+
+
+def test_importer_threshold_override_and_malformed_values_fail_closed():
+    assert opportunity_import.calculate_player_opportunity(
+        rows(), season=2026, retrieved_at=NOW, now=NOW,
+        threshold_environment={"OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS": "123"},
+    )["publication_contracts"]["threshold"]["value"] == 123
+    malformed = opportunity_import.calculate_player_opportunity(
+        rows(), season=2026, retrieved_at=NOW, now=NOW,
+        threshold_environment={"OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS": "not-a-number"},
+    )
+    assert malformed["publication_contracts"]["threshold"]["state"] == "UNAVAILABLE"
+    assert malformed["publication_contracts"]["threshold"]["value"] is None
+
+
+def stat_row(player_id, team, opponent, week=3, targets=0, carries=0, season=2026, position="WR", **stats):
+    return {
+        "player_id": player_id, "team": team, "position": position, "opponent_team": opponent,
+        "season": str(season), "week": str(week), "targets": str(targets), "carries": str(carries),
+        "passing_yards": "0", "passing_tds": "0", "passing_interceptions": "0",
+        "rushing_yards": "0", "rushing_tds": "0", "receiving_yards": "0", "receiving_tds": "0", "receptions": "0",
+        "two_point_conversions": "0", "fumbles_lost": "0", **stats,
+    }
 
 
 def rows():
@@ -28,7 +61,11 @@ def rows():
 
 def write_fixture(tmp_path, gzip_it=False):
     path = tmp_path / ("weekly.csv.gz" if gzip_it else "weekly.csv")
-    fieldnames = ["player_id", "team", "opponent_team", "season", "week", "targets", "carries"]
+    fieldnames = [
+        "player_id", "team", "position", "opponent_team", "season", "week", "targets", "carries",
+        "passing_yards", "passing_tds", "passing_interceptions", "rushing_yards", "rushing_tds",
+        "receiving_yards", "receiving_tds", "receptions", "two_point_conversions", "fumbles_lost",
+    ]
     text_rows = rows()
     if gzip_it:
         with gzip.open(path, "wt", encoding="utf-8", newline="") as handle:
@@ -136,17 +173,51 @@ def test_publish_persists_metrics_and_full_provenance():
     insert_statements = [params for sql, params in conn.cursor_instance.statements if sql.strip().startswith("INSERT")]
     by_player = {params[2]: params for params in insert_statements}
     p1 = by_player["p1"]
-    # season, week, player_id, team, targets, carries, target_share, carry_share, touch_share, ...
+    # season, week, player_id, team, position, opponent_team, targets, carries, production, ...
     assert p1[0] == 2026 and p1[2] == "p1" and p1[3] == "KC"
-    assert p1[6] == 0.8  # target_share
-    assert p1[13] == "automated:nflverse"  # source
-    assert p1[14] == "automated"  # source_authority
-    assert p1[16] == NOW  # retrieved_at
-    assert p1[18] == "stats_player_week_2026"  # version
-    assert p1[19] == "abc123"  # checksum
-    assert p1[20] == "opportunity.evidence.v1"  # freshness_threshold_id
-    assert p1[21] == "FRESH"  # freshness_state
+    assert p1[4] == "WR" and p1[5] == "DEN"
+    assert p1[8] == 0.0 and p1[9] == "FULL_PPR" and p1[10] == "full-ppr.v1"
+    assert p1[11] == 0.8  # target_share
+    assert p1[18] == "automated:nflverse"  # source
+    assert p1[19] == "automated"  # source_authority
+    assert p1[21] == NOW  # retrieved_at
+    assert p1[23] == "stats_player_week_2026"  # version
+    assert p1[24] == "abc123"  # checksum
+    assert p1[25] == "opportunity.evidence.v1"  # freshness_threshold_id
+    assert p1[26] == "FRESH"  # freshness_state
     assert conn.committed is True
+
+
+@pytest.mark.parametrize(
+    ("position", "stats", "expected"),
+    [
+        ("QB", {"passing_yards": "250", "passing_tds": "2", "passing_interceptions": "1"}, 16.0),
+        ("RB", {"rushing_yards": "80", "rushing_tds": "1", "receptions": "3"}, 17.0),
+        ("WR", {"receiving_yards": "100", "receiving_tds": "1", "receptions": "6"}, 22.0),
+        ("TE", {"receiving_yards": "50", "receiving_tds": "1", "receptions": "4"}, 15.0),
+    ],
+)
+def test_supported_positions_publish_deterministic_full_ppr_production(position, stats, expected):
+    evidence = evidence_from_rows()
+    evidence = calculate_player_opportunity(
+        [stat_row("p1", "KC", "DEN", position=position, **stats)],
+        season=2026, retrieved_at=NOW, now=NOW, threshold_environment=FRESH_ENV,
+        source="automated:nflverse", version="stats_player_week_2026", checksum="abc123", source_recorded_at=NOW,
+    )
+    assert evidence["rows"][0]["fantasy_points_ppr"] == expected
+    assert evidence["rows"][0]["scoring_format"] == "FULL_PPR"
+    assert evidence["rows"][0]["calculation_version"] == "full-ppr.v1"
+
+
+def test_k_and_def_are_excluded_as_explicitly_unsupported():
+    evidence = calculate_player_opportunity(
+        [stat_row("k1", "KC", "DEN", position="K"), stat_row("d1", "KC", "DEN", position="DEF")],
+        season=2026, retrieved_at=NOW, now=NOW, threshold_environment=FRESH_ENV,
+        source="automated:nflverse", version="stats_player_week_2026", checksum="abc123", source_recorded_at=NOW,
+    )
+    assert evidence["rows"] == []
+    assert {item["position"] for item in evidence["unsupported_positions"]} == {"K", "DEF"}
+    assert evidence["reconciliation"]["reconciled"] is True
 
 
 # 6/7. rerun is deterministic and does not duplicate rows
@@ -314,10 +385,10 @@ def test_unsupported_metrics_persist_as_null():
     publish_player_opportunity(conn, evidence)
     insert_params = [params for sql, params in conn.cursor_instance.statements if sql.strip().startswith("INSERT")]
     for params in insert_params:
-        assert params[9] is None  # snap_share
-        assert params[10] is None  # route_participation
-        assert params[11] is None  # red_zone_share
-        assert params[12] is None  # role_classification
+        assert params[14] is None  # snap_share
+        assert params[15] is None  # route_participation
+        assert params[16] is None  # red_zone_share
+        assert params[17] is None  # role_classification
 
 
 # 17. zero denominators remain unavailable, not numeric zero

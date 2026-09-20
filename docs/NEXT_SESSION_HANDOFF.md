@@ -48,7 +48,7 @@ UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, 
 ###### Last recorded repository checkpoint
 - Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: 4643f136f12101f51894dd28c09b383b82b5310c
+- HEAD: bc1acb6a56524e5e6c281937c7bc2a422d45e2f4
 - Repository: /home/deeoriginalone/fantasy-intelligence
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
@@ -237,24 +237,28 @@ A synchronization PASS confirms documentation consistency only. It does not prov
 - Production readiness, PostgreSQL parity, and recovery validation remain unclaimed.
 
 ###### Automated player-opportunity ingestion boundary (2026-09-17)
-- Automated nflverse weekly-stat retrieval, target-share/carry-share/touch-share calculation, deterministic reconciliation, and atomic PostgreSQL publication are operational. The verified 2026 publication contains 1,188 rows across Weeks 1 and 2 for 1,122 distinct players; rows are FRESH, COMPLETE, PUBLISHED, and carry reconciled lineage.
+- Direct opportunity-importer execution now loads repository `.env` with dotenv's default `override=False` behavior. The approved `OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS=86400` threshold is runtime-available and exported values retain precedence; missing or malformed values remain fail-closed.
+- Automated nflverse weekly-stat retrieval, target-share/carry-share/touch-share calculation, deterministic reconciliation, and atomic PostgreSQL publication are operational. The current verified 2026 production publication contains 379 rows for 357 distinct players across Weeks 1 and 2; rows are FRESH, COMPLETE, PUBLISHED, and carry reconciled lineage. The source batch contained 1,190 rows, with 811 inclusive excluded rows and 2 unresolved identities; duplicate and contradictory counts were 0.
+- Waiver Recent Performance consumes the existing reader informationally. Active coverage improved from `AVAILABLE=0`, `BLOCKED=3`, `UNAVAILABLE=7`, `UNSUPPORTED=0` to `AVAILABLE=3`, `BLOCKED=0`, `UNAVAILABLE=7`, `UNSUPPORTED=0`; GSIS-first identity and fail-closed states remain preserved, with no ranking, FAAB, confidence, ordering, or transaction authority change.
 - Publication preserves source authority, source-recorded time, retrieved-at time, artifact identity, version, checksum, freshness threshold, completeness, lineage, and publication state. The publication path retains exact season/week scope and atomic rollback behavior.
-- snap_share, route_participation, red_zone_share, and role_classification remain explicitly NULL/unavailable in the published opportunity table; a supporting nflverse dataset now exists for snap_share (see the snap-share foundation boundary below) but is not yet published, and no supporting dataset is ingested for route_participation, red_zone_share, or role_classification.
-- The approved opportunity freshness threshold is `OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS=86400`. The verified 2026 publication contains 1,188 rows across Weeks 1 and 2 for 1,122 distinct players; rows are FRESH, COMPLETE, PUBLISHED, and carry reconciled lineage.
+- The published opportunity table still does not own snap_share, route_participation, red_zone_share, or role_classification. Snap share now has a separate dedicated reader/publication path and waiver consumer; route_participation, red_zone_share, and role_classification remain unavailable because no supporting ingested source contract exists.
+- The approved opportunity freshness threshold is `OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS=86400`. The current validated 2026 publication reconciles 1,190 input rows into 379 PUBLISHED/FRESH rows, 811 inclusive excluded rows, and 2 unresolved identities across Weeks 1 and 2 for 357 players.
 - GSIS-first roster identity resolution with scoped ESPN fallback is operational. Six roster identities resolve; eight remain unavailable and fail closed.
 - The published opportunity reader, multi-week What Changed engine, and My Team informational consumer are operational. All six resolved identities have Week 1 evidence; none has a Week 2 source row in the official artifact, so Week 2 comparison evidence remains `SOURCE_REASON_UNAVAILABLE`.
 - Focused opportunity calculation, ingestion, publication, evidence, and consumer-contract validation passed. Python compilation, `git diff --check`, and `git diff --cached --check` passed.
-- Role evidence beyond the current snap-share foundation, production readiness, full PostgreSQL parity, and recovery validation remain unclaimed. No recommendation, confidence, ranking, score, route, template, waiver, trade, or transaction behavior is changed by this informational evidence.
+- Role evidence beyond the current informational snap-share delivery boundary, production readiness, full PostgreSQL parity, and recovery validation remain unclaimed. No recommendation, confidence, ranking, score, waiver ordering, FAAB, trade, or transaction behavior is changed by this informational evidence.
 
-###### Player role-evidence contract and snap-share foundation boundary (2026-09-17)
+###### Player role-evidence contract and snap-share delivery boundary (2026-09-20)
 - A fail-closed player role-evidence contract is implemented and committed (commit e07bcd2, "Add fail-closed player role evidence contract"); snap share, route participation, red-zone usage, and role classification each report `SOURCE_UNAVAILABLE` by default with `decision_effect = INFORMATIONAL_ONLY`.
 - The official nflverse `snap_counts` artifact is retrieved and normalized, reusing the existing generic retrieval/checksum helper; offense_pct is verified as a provider-supplied 0-1 ratio, not a percentage.
 - A deterministic `pfr_id -> gsis_id` identity crosswalk is built from the official nflverse `players` release and verified against real 2026 data: 1490 of 1492 snap_counts rows resolve (99.87%), 2 remain unresolved, and 0 are ambiguous. Unresolved, ambiguous, and cross-batch contradictory identity mappings fail closed and are never guessed.
-- snap_share values remain in-memory evidence only; no publication writer, migration, or database table exists for them. `player_opportunity_evidence` was reviewed and found unsuitable for reuse: its single provenance, checksum, and completeness columns per player-week cannot host an independently-sourced, independently-reconciled snap_counts batch without provenance collision or completeness ambiguity, so a new, separate publication path is required if snap_share is published.
-- route_participation, red_zone_share, and role_classification remain unimplemented; no supporting nflverse dataset is ingested for them.
-- `SNAP_SHARE_FRESHNESS_THRESHOLD_UNVERIFIED` remains active; no operator has approved a snap-share freshness threshold.
-- No consumer (Dashboard, My Team, Waivers, Trades, Weekly Lineup, Decision Center) reads snap-share evidence. No recommendation, ranking, confidence, route, template, or transaction behavior changed.
-- Focused snap-share foundation and crosswalk validation passed (36 tests). Python compilation, `git diff --check`, and `git diff --cached --check` passed.
+- Snap share has a dedicated publication/reader path separate from `player_opportunity_evidence`. The waiver evidence builder consumes it informationally in Usage Evidence when a candidate has a resolved identity and a published row.
+- The owner-approved display window is `SNAP_SHARE_EVIDENCE_MAX_AGE_SECONDS=86400` with threshold ID `snap_share.evidence.v1`. This is an informational consumer window, not a source-published cadence guarantee.
+- Snap-share display uses `authority_state = INFORMATIONAL_ONLY` and `decision_effect = NONE`. It does not change waiver ranking, ordering, FAAB, confidence, recommendation labels, ownership, eligibility, or transaction behavior.
+- Stale snap-share rows are preserved as factual historical observations with supported week and `STALE` labeling; they are not presented as current. Missing snap value, identity, source metadata, or publication remains `UNAVAILABLE` and never becomes zero.
+- Waiver cards prioritize factual evidence through Recent Production, Usage Evidence, and What Changed. Repeated Role/Duration/Latest News/Ranking unavailable copy is collapsed into one Evidence limitations section.
+- Focused snap-share and waiver validation passed 96 tests. Python compilation for changed Python files, `git diff --check`, `git diff --cached --check`, and `/waivers` desktop plus 390px render verification passed.
+- route_participation, red_zone_share, role_classification, player news, and opportunity duration remain unimplemented and fail closed. No production readiness, recommendation authority, confidence authority, or role-classification completion is claimed.
 
 ###### Usefulness-first continuation rule
 - The primary measure of progress is improved fantasy-football decision quality for the owner. A foundation with no identified near-term consumer is normally deferred.
@@ -286,11 +290,11 @@ Completed milestones must update the Value Delivered Register with supported out
 - Freshness remains deliberately unavailable. No exact Elo/future-probability threshold is supported by a registry or operational evidence series. Preserve `FUTURE_PROBABILITY_FRESHNESS_THRESHOLD_UNAVAILABLE`, `available=false`, `INFORMATIONAL_ONLY`, and `decision_effect=NONE`.
 - Focused Elo/probability validation passed 42 tests; compilation and working-tree/staged diff checks passed. No route, browser, database write, Survivor consumer, or persistence behavior changed.
 - Existing NFL Intelligence, Opportunity Evidence, shared foundation, schedule/bye provenance, snapshot/unified-context, and Yahoo OAuth work remains bounded by its recorded informational, fail-closed, or unverified status. Yahoo OAuth does not verify Yahoo Survivor capabilities.
-- Worktree is intentionally dirty and contains unrelated implementation, canonical, generated, backup, archive, and untracked changes. Branch is `test-weekly-evidence-trust` at HEAD `4643f136f12101f51894dd28c09b383b82b5310c`; do not use broad staging.
+- Worktree is intentionally dirty and contains unrelated implementation, canonical, generated, backup, archive, and untracked changes. Branch is `test-weekly-evidence-trust` at HEAD `bc1acb6a56524e5e6c281937c7bc2a422d45e2f4`; do not use broad staging.
 
 ## Next milestone
 
-**Collect direct operational evidence for an implementation-owned model-only future Elo freshness threshold, then separately review a read-only Survivor Future Value consumer; keep Yahoo Survivor capability verification fail-closed and non-authoritative.**
+**Verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, GSIS identity, timestamps, season/week scope, and permitted use are verified.**
 
 Verified opportunity publication, GSIS-first identity resolution with scoped ESPN fallback, the published opportunity reader, the multi-week What Changed foundation, and the My Team informational consumer are operational at their verified boundaries.
 

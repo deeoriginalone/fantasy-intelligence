@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 from typing import Any, Mapping
 
 
@@ -27,11 +28,20 @@ def _publication_blocker(evidence: Mapping[str, Any]) -> str | None:
         return "OPPORTUNITY_PUBLICATION_CONTRADICTORY_TEAM_IDENTITY"
     if not reconciliation.get("reconciled"):
         return "OPPORTUNITY_PUBLICATION_ACCOUNTING_UNRECONCILED"
+    if evidence.get("production_blockers"):
+        return "PLAYER_WEEK_PRODUCTION_INPUT_UNAVAILABLE"
     rows = evidence.get("rows") or []
     if not rows:
         return "OPPORTUNITY_PUBLICATION_NO_RESOLVED_ROWS"
     if not all(row.get("authoritative") for row in rows):
         return "OPPORTUNITY_PUBLICATION_ROW_NOT_AUTHORITATIVE"
+    for row in rows:
+        if row.get("position") not in {"QB", "RB", "WR", "TE"}:
+            return "PLAYER_WEEK_PRODUCTION_POSITION_UNSUPPORTED"
+        if row.get("fantasy_points_ppr") is None or not math.isfinite(float(row["fantasy_points_ppr"])):
+            return "PLAYER_WEEK_PRODUCTION_VALUE_UNAVAILABLE"
+        if row.get("scoring_format") != "FULL_PPR" or not row.get("calculation_version"):
+            return "PLAYER_WEEK_PRODUCTION_CONTRACT_UNAVAILABLE"
     return None
 
 
@@ -57,17 +67,20 @@ def publish_player_opportunity(conn: Any, evidence: Mapping[str, Any]) -> int:
         for row in evidence["rows"]:
             cursor.execute(
                 """INSERT INTO player_opportunity_evidence(
-                    season, week, player_id, team,
-                    targets, carries, target_share, carry_share, touch_share,
+                    season, week, player_id, team, position, opponent_team,
+                    targets, carries, fantasy_points_ppr, scoring_format, calculation_version,
+                    target_share, carry_share, touch_share,
                     snap_share, route_participation, red_zone_share, role_classification,
                     source, source_authority, source_recorded_at, retrieved_at,
                     artifact_id, version, checksum,
                     freshness_threshold_id, freshness_state, completeness_state,
                     lineage, publication_state
-                ) VALUES (%s,%s,%s,%s, %s,%s,%s,%s,%s, %s,%s,%s,%s, %s,%s,%s,%s, %s,%s,%s, %s,%s,%s, %s::jsonb,%s)
+                ) VALUES (%s,%s,%s,%s,%s,%s, %s,%s,%s,%s,%s, %s,%s,%s, %s,%s,%s,%s, %s,%s,%s,%s, %s,%s,%s, %s,%s,%s, %s::jsonb,%s)
                 ON CONFLICT (season, week, player_id) DO UPDATE SET
-                    team=EXCLUDED.team,
+                    team=EXCLUDED.team, position=EXCLUDED.position, opponent_team=EXCLUDED.opponent_team,
                     targets=EXCLUDED.targets, carries=EXCLUDED.carries,
+                    fantasy_points_ppr=EXCLUDED.fantasy_points_ppr,
+                    scoring_format=EXCLUDED.scoring_format, calculation_version=EXCLUDED.calculation_version,
                     target_share=EXCLUDED.target_share, carry_share=EXCLUDED.carry_share, touch_share=EXCLUDED.touch_share,
                     snap_share=EXCLUDED.snap_share, route_participation=EXCLUDED.route_participation,
                     red_zone_share=EXCLUDED.red_zone_share, role_classification=EXCLUDED.role_classification,
@@ -77,8 +90,9 @@ def publish_player_opportunity(conn: Any, evidence: Mapping[str, Any]) -> int:
                     freshness_threshold_id=EXCLUDED.freshness_threshold_id, freshness_state=EXCLUDED.freshness_state,
                     completeness_state=EXCLUDED.completeness_state, lineage=EXCLUDED.lineage, publication_state=EXCLUDED.publication_state""",
                 (
-                    row["season"], row["week"], row["player_id"], row.get("team"),
-                    row.get("target_volume"), row.get("carry_volume"), row.get("target_share"), row.get("carry_share"), row.get("touch_share"),
+                    row["season"], row["week"], row["player_id"], row.get("team"), row.get("position"), row.get("opponent_team"),
+                    row.get("target_volume"), row.get("carry_volume"), row.get("fantasy_points_ppr"), row.get("scoring_format"), row.get("calculation_version"),
+                    row.get("target_share"), row.get("carry_share"), row.get("touch_share"),
                     row.get("snap_share"), row.get("route_participation"), row.get("red_zone_share"), row.get("role_classification"),
                     source, source_authority,
                     provenance.get("source_recorded_at"), provenance.get("retrieved_at"),

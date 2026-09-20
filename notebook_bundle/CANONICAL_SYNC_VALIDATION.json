@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-09-18T11:15:49.990023+00:00",
+  "generated_at_utc": "2026-09-20T12:17:55.534074+00:00",
   "passed": true,
   "repository": {
     "branch": "test-weekly-evidence-trust",
-    "head": "2ca15b5bf1ee05cdc7791cf65694a95eada8dc7a",
-    "short_head": "2ca15b5"
+    "head": "bc1acb6a56524e5e6c281937c7bc2a422d45e2f4",
+    "short_head": "bc1acb6"
   },
   "checks": {
     "canonical_files_present": true,
@@ -18,35 +18,35 @@
   "files": {
     "PROJECT_STATUS.md": {
       "exists": true,
-      "bytes": 33396,
+      "bytes": 39851,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**"
+      "next_milestone": "**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**"
     },
     "PROJECT_STATE.md": {
       "exists": true,
-      "bytes": 34685,
+      "bytes": 39190,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**"
+      "next_milestone": "**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**"
     },
     "DEVELOPMENT_ROADMAP.md": {
       "exists": true,
-      "bytes": 38863,
+      "bytes": 46056,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**"
+      "next_milestone": "**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**"
     },
     "NEXT_SESSION_HANDOFF.md": {
       "exists": true,
-      "bytes": 35616,
+      "bytes": 40691,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**"
+      "next_milestone": "**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**"
     }
   },
   "missing_files": [],
@@ -55,7 +55,7 @@
   "head_mismatches": [],
   "missing_milestones": [],
   "unique_milestones": [
-    "**complete the remaining player role-evidence foundations: define the snap-share publication contract, establish route-participation and red-zone evidence sources, and define role-classification evidence.**"
+    "**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**"
   ],
   "sensitive_findings": []
 }
