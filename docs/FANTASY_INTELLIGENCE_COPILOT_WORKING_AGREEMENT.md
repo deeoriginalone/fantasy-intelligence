@@ -1,4 +1,10 @@
-## **Fantasy Intelligence Copilot Working Agreement** 
+## **Fantasy Intelligence Copilot Working Agreement**
+
+### **Fantasy Intelligence 2.0 Product Frame**
+
+This repository supports a personal, league-specific fantasy football decision assistant. Optimize for better manager decisions, data truth, explainable evidence, simple workflows, proportional validation, and recovery safety. Do not introduce commercial SaaS, multi-user, or enterprise-scale assumptions without an explicit new decision.
+
+The six primary destinations are Command Center, My Team, Waivers, Trades, Survivor, and NFL Intelligence. The Command Center summarizes and links; it does not duplicate page engines.
 
 ### **Purpose** 
 

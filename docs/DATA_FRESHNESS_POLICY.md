@@ -1,5 +1,11 @@
 # Data Freshness and Source Policy
 
+## Fantasy Intelligence 2.0 Application
+
+Freshness exists to protect personal fantasy decisions. Show supported evidence quickly, disclose age and limitations, and use proportional validation. Missing, stale, unresolved, or contradictory evidence remains `UNAVAILABLE`, `BLOCKED`, or `INSUFFICIENT_EVIDENCE`; it must never become fabricated certainty.
+
+Freshness policy does not authorize ranking, confidence, FAAB, probability, or transaction behavior by itself. Recovery snapshots must preserve freshness metadata and validation evidence.
+
 ## Status
 
 This document defines the required freshness contract. Exact domain thresholds must be set from implementation and operational evidence. No unverified threshold is declared here.
@@ -9,9 +15,14 @@ This document defines the required freshness contract. Exact domain thresholds m
 1. Sleeper live data where the required fact is supported.
 2. Verified local persistence or cache with source timestamp and age.
 3. Supported enrichment source with disclosed provenance.
-4. Explicitly unavailable.
+4. CSV or manual import only for a one-time bootstrap, controlled recovery, or test fixture.
+5. Explicitly unavailable.
 
 A cached value must not silently override newer live truth.
+
+## CSV and manual-data rule
+
+Routine weekly decisions must not require a manager-maintained CSV or manual upload. CSV-backed inputs must identify their source and import time, carry an explicit freshness state, and become `UNAVAILABLE` or `BLOCKED` when they cannot be refreshed by a supported automated process. A CSV is never a silent fallback for live data.
 
 ## Required freshness fields
 
@@ -71,6 +82,12 @@ Every decision-critical payload should expose:
 - A failed live refresh must not make an old cache appear current.
 - Stale or unavailable inputs must reduce confidence or block the affected recommendation.
 - The page must present a useful manager-facing explanation and the last verified time when available.
+
+## Multi-source and Yahoo policy
+
+Each field must have a source owner, allowed secondary sources, conflict policy, freshness requirement, identity contract, missing-data behavior, and recommendation effect. A secondary source may fill a documented gap, corroborate a fact, or add source-specific context; it may not silently replace the owning source. Agreement improves confidence only through a defined and tested contract. Disagreement is not averaged away.
+
+The owner reports approved Yahoo API access and a Yahoo Survivor league. Yahoo is a planned read-only source candidate, not verified capability. Survivor endpoints, fields, scopes, authentication, identifiers, rate limits, licensing, league access, and source timestamps are **UNKNOWN PENDING API VERIFICATION**. League-specific Yahoo facts should prefer Yahoo when supported, while local state remains disclosed cache/recovery/derived state only. Conflicts and unsupported or incomplete responses become `UNAVAILABLE`, `DEGRADED`, or `BLOCKED` as appropriate.
 
 ## Threshold registry
 

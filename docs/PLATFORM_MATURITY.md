@@ -1,5 +1,11 @@
 # Fantasy Intelligence Platform Maturity
 
+## Fantasy Intelligence 2.0 Maturity Rule
+
+Maturity is measured by manager value and trustworthy page behavior, not enterprise scale. A capability is mature when its owning page renders useful supported states, preserves data truth, exposes freshness and limitations, fails closed on unsafe authority, and has proportional validation.
+
+Commercial deployment, multi-tenant support, and enterprise governance are out of scope unless explicitly reintroduced. Recovery capability is part of maturity.
+
 ## Purpose
 
 This model separates feature presence from trust and decision quality. A level is not complete until its exit criteria have evidence.
@@ -61,3 +67,9 @@ The platform consistently prioritizes actions with the greatest supported effect
 ## Current claim boundary
 
 The current canonical project memory places the project in UX-QA.1 trust-and-correctness remediation. This maturity document does not assign a completed level until the corresponding exit evidence is recorded.
+
+## Personal-application rigor boundary
+
+Production-level rigor for this personal, read-only application means reliable decision-critical data, defined metrics, freshness, provenance, fail-closed behavior, focused tests, and truthful unsupported states. It does not automatically require commercial scalability, multi-user architecture, production deployment, exhaustive recovery testing, broad observability, or enterprise process for every feature. Safety-critical and security-sensitive behavior still receives full relevant validation; read-only investigation receives proportional validation.
+
+The primary measure of progress is improved fantasy-football decision quality for the owner. Infrastructure completeness is secondary and must be tied to a current decision consumer or to an explicit integrity, security, ownership, freshness, identity, or data-corruption risk.

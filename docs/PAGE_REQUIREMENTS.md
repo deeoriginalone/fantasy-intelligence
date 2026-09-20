@@ -1,5 +1,11 @@
 # Season-Management Page Requirements
 
+## Fantasy Intelligence 2.0 Page Direction
+
+The six primary destinations are Command Center, My Team, Waivers, Trades, Survivor, and NFL Intelligence. The Command Center summarizes Start/Sit, Waivers, Trades, Survivor, What Changed, and alerts, then links to owning pages instead of duplicating their engines.
+
+Page work is decision-first, league-specific, personal-use, informational-first, and proportional to manager value. Existing page contracts and read-only behavior remain preserved.
+
 ## Shared requirements for all six pages
 
 - Use shared league, roster, ownership, team-needs, freshness, and explanation contracts.

@@ -1,5 +1,13 @@
 ##### Fantasy Intelligence Session Handoff
 
+## Fantasy Intelligence 2.0 Direction
+
+The product is a personal, league-specific fantasy decision assistant. Keep the six primary destinations: Command Center, My Team, Waivers, Trades, Survivor, and NFL Intelligence. The six-page architecture is an approved target direction, not completed navigation work. Primary navigation has not yet been simplified; the Command Center target is not complete; no redirect, route archive, or route removal has been completed. Supporting routes remain operational. `MERGE`, `REDIRECT`, and `ARCHIVE` are future classifications.
+
+These pending plans include navigation simplification, route merging, new redirects, and archive actions. Decision Journal, Process vs Results, and Season Planning are planned priorities, not delivered capabilities.
+
+Recovery Ready is a planned mandatory standard, not a completed checkpoint. Recovery Ready planned work remains pending. It will require a runnable checkpoint, documented startup verification, database backup, canonical-memory snapshot, Notebook/reference export, and six-core-page verification. Preserve existing data and integrations.
+
 ###### Operational verdict
 
 The Data Integrity sequence remains complete through A.10, and UX.1 remains complete at its recorded boundary.
@@ -294,10 +302,6 @@ Completed milestones must update the Value Delivered Register with supported out
 
 ## Next milestone
 
-**Verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, GSIS identity, timestamps, season/week scope, and permitted use are verified.**
+**Build the Fantasy Intelligence 2.0 Command Center and simplify the experience around six core destinations.**
 
-Verified opportunity publication, GSIS-first identity resolution with scoped ESPN fallback, the published opportunity reader, the multi-week What Changed foundation, and the My Team informational consumer are operational at their verified boundaries.
-
-Preserve fail-closed behavior and SOURCE_REASON_UNAVAILABLE for unsupported source omissions.
-
-Defer Buy Low, Sell High, Breakout, Regression, recommendation authority, ranking authority, confidence authority, score authority, and transaction behavior until the required evidence contracts are complete.
+Navigation reconciliation supports this milestone but does not outrank decision quality. Opportunity detection is the next competitive advantage after weekly trust; Decision Center, Process versus Results, manager development, and season strategy follow in that order. UX.8 retains its recorded in-progress boundary. Existing defects retain their evidence-supported statuses; production readiness, PostgreSQL parity, recovery, and defect closure remain unclaimed.

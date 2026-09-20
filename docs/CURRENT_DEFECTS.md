@@ -1,5 +1,11 @@
 ## Current Defects and QA Findings
 
+## Fantasy Intelligence 2.0 Defect Priority
+
+Prioritize defects that prevent a manager from making a supported weekly or season decision: broken core pages, missing persisted history, ownership or identity errors, misleading authority, stale evidence, recovery failures, and confusing action-first presentation. Defer enterprise or process-only defects unless they affect data truth, safety, recovery, or manager value.
+
+Navigation simplification and legacy-page disposition are planned work only. They do not close, downgrade, or otherwise change any existing defect status.
+
 ### Status rules
 - **REPORTED:** observed during hands-on QA but not yet reproduced in a controlled test.
 - **REPRODUCED:** confirmed on the active route with evidence.

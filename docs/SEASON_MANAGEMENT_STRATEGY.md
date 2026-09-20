@@ -1,5 +1,11 @@
 # Season Management Strategy
 
+## Fantasy Intelligence 2.0 Strategy
+
+Strategy exists to improve one manager's weekly and season decisions in a specific league. Prioritize manager value over generalized platform process. Keep recommendations read-only, informational when evidence is limited, and fail closed when authority is unsupported.
+
+The Command Center summarizes decisions; My Team, Waivers, Trades, Survivor, and NFL Intelligence remain the owning decision pages.
+
 ## Scope
 
 This document defines the intended decision philosophy for a Full-PPR fantasy football team-management assistant. It is a product requirement, not proof that every strategy is implemented.
@@ -76,3 +82,13 @@ No position may be omitted merely because it usually has lower replacement cost.
 ## Read-only boundary
 
 The application provides recommendations only. It must not automatically submit lineup, waiver, drop, or trade transactions.
+
+## Yahoo Survivor planning boundary
+
+The owner reports approved Yahoo API access and a Yahoo Survivor league. Evaluate Yahoo as a possible supported source for Survivor season state, used-team history, current eligibility, selection state, league settings, and contest information, but classify each category as **UNKNOWN PENDING API VERIFICATION** until official documentation, approved scopes, credentials, and controlled live responses prove the fields. Do not assume a Survivor endpoint.
+
+If Yahoo supplies authoritative league-specific Survivor state, prefer it for that domain. Local state may remain a disclosed cache, recovery layer, or derived state and must not silently override newer Yahoo truth. Conflicts, stale responses, incomplete history, identity mismatches, unsupported contest types, missing scopes, and rate limits fail closed. Yahoo remains read-only and must not affect rankings, confidence, scores, recommendations, or transactions until a tested consumer contract authorizes that effect.
+
+The active delivery pace must keep at least one manager-facing weekly decision improvement in progress; unsupported role evidence without a named near-term consumer is deferred.
+
+The primary measure of progress is improved fantasy-football decision quality for the owner. The project exists to help the owner win fantasy leagues, not to maximize infrastructure completeness. Yahoo Survivor verification is a user-value milestone and should first evaluate Survivor state, Survivor history, Survivor eligibility, Survivor selections, and contest truth. Do not assume Yahoo support until each capability is verified.

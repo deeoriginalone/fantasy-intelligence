@@ -1,5 +1,11 @@
 # Fantasy Intelligence Project Memory Automation Rules
 
+## Fantasy Intelligence 2.0 Memory Direction
+
+Project memory is the primary AI continuity mechanism for this personal fantasy decision assistant. Canonical memory must preserve product direction, validated page boundaries, data authority, recovery state, known defects, and the exact next milestone. Memory updates are proportional to the changed boundary and must not drift into enterprise process overhead.
+
+Recovery evidence is mandatory before major changes: runnable checkpoint, startup verification, database backup, canonical snapshot, notebook export, and six-page verification.
+
 ## Purpose
 
 This reference tells Copilot when to trigger a project-memory review during Fantasy Intelligence development. It exists so milestone completion, validation evidence, completion boundaries, and next-work decisions are carried into durable repository documents instead of depending on historical chat memory.

@@ -1,5 +1,17 @@
 ###### Project Status
 
+## Fantasy Intelligence 2.0 Direction
+
+Fantasy Intelligence is a personal, league-specific fantasy football decision assistant. Its primary success metric is better fantasy decisions: lineup, waiver, trade, Survivor, and season-planning decisions. It is not a commercial SaaS product, enterprise platform, or multi-user system.
+
+Primary destinations: Command Center, My Team, Waivers, Trades, Survivor, and NFL Intelligence. The Command Center summarizes Start/Sit, Waivers, Trades, Survivor, What Changed, and alerts while linking to owning pages; it does not duplicate page engines.
+
+The six-page architecture is an approved target direction. Primary navigation has not yet been simplified; the Command Center target is not complete; no new redirect, route archive, or route removal has been completed. Supporting routes remain operational. `MERGE`, `REDIRECT`, and `ARCHIVE` are future route-disposition classifications.
+
+These pending plans include navigation simplification, route merging, new redirects, and archive actions. Decision Journal, Process vs Results, and Season Planning are planned priorities, not delivered capabilities.
+
+Recovery Ready is a planned mandatory standard, not a completed checkpoint. Recovery Ready planned work remains pending. It will require a runnable checkpoint, documented startup verification, database backup, canonical-memory snapshot, Notebook/reference export, and six-core-page verification. Existing data, integrations, historical records, and fail-closed contracts remain preserved.
+
 ####### Current verdict
 
 The verified Data Integrity track remains complete through A.10. UX.1 Dashboard Modernization and Truth Audit remains complete at its recorded focused-test and rendered active-route boundary.
@@ -250,10 +262,6 @@ The last recorded repository state contained extensive unrelated changes, genera
 
 ## Next milestone
 
-**Verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, GSIS identity, timestamps, season/week scope, and permitted use are verified.**
+**Build the Fantasy Intelligence 2.0 Command Center and simplify the experience around six core destinations.**
 
-Verified opportunity publication, GSIS-first identity resolution with scoped ESPN fallback, the published opportunity reader, the multi-week What Changed foundation, and the My Team informational consumer are operational at their verified boundaries.
-
-Preserve fail-closed behavior and SOURCE_REASON_UNAVAILABLE for unsupported source omissions.
-
-Defer Buy Low, Sell High, Breakout, Regression, recommendation authority, ranking authority, confidence authority, score authority, and transaction behavior until the required evidence contracts are complete.
+Navigation reconciliation supports this milestone but does not outrank decision quality. Opportunity detection is the next competitive advantage after weekly trust; Decision Center, Process versus Results, manager development, and season strategy follow in that order. UX.8 retains its recorded in-progress boundary. Existing defects retain their evidence-supported statuses; production readiness, PostgreSQL parity, recovery, and defect closure remain unclaimed.

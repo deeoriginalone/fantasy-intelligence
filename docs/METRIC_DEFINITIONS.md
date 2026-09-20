@@ -1,5 +1,9 @@
 # Metric Definitions and Display Contract
 
+## Fantasy Intelligence 2.0 Metric Direction
+
+Metrics exist only to improve a league-specific manager decision. Keep metric displays understandable, informational where authority is incomplete, and fail closed when inputs are missing or contradictory. No metric may imply ranking, confidence, probability, FAAB, or recommendation authority beyond its documented contract.
+
 ## Rule
 
 A metric must not be displayed as authoritative until its implementation documents the fields below and the related tests pass.
