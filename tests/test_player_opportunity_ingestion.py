@@ -1,6 +1,7 @@
 import csv
 import gzip
 import json
+import os
 
 import pytest
 
@@ -11,6 +12,32 @@ from services.player_opportunity_publication import publish_player_opportunity
 
 NOW = "2026-09-17T12:00:00+00:00"
 FRESH_ENV = {"OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS": "86400"}
+
+
+def test_direct_importer_loads_dotenv_without_overriding_exported_threshold(monkeypatch):
+    monkeypatch.setenv("OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS", "123")
+
+    def fake_load_dotenv(*args, **kwargs):
+        assert kwargs == {}
+        os.environ.setdefault("OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS", "86400")
+        return True
+
+    monkeypatch.setattr(opportunity_import, "load_dotenv", fake_load_dotenv)
+    opportunity_import.load_runtime_environment()
+    assert os.environ["OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS"] == "123"
+
+
+def test_importer_threshold_override_and_malformed_values_fail_closed():
+    assert opportunity_import.calculate_player_opportunity(
+        rows(), season=2026, retrieved_at=NOW, now=NOW,
+        threshold_environment={"OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS": "123"},
+    )["publication_contracts"]["threshold"]["value"] == 123
+    malformed = opportunity_import.calculate_player_opportunity(
+        rows(), season=2026, retrieved_at=NOW, now=NOW,
+        threshold_environment={"OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS": "not-a-number"},
+    )
+    assert malformed["publication_contracts"]["threshold"]["state"] == "UNAVAILABLE"
+    assert malformed["publication_contracts"]["threshold"]["value"] is None
 
 
 def stat_row(player_id, team, opponent, week=3, targets=0, carries=0, season=2026, position="WR", **stats):

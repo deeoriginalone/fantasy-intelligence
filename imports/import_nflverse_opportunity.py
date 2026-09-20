@@ -8,11 +8,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import urlopen
 
+from dotenv import load_dotenv
 from imports.import_nflverse_weekly_stats import NFLVERSE_RELEASE_TIMESTAMP_URL, NFLVERSE_RELEASE_URL, load_weekly_stats
 from services.player_opportunity_calculation import calculate_player_opportunity
 from services.player_opportunity_publication import publish_player_opportunity
 
 OPPORTUNITY_REQUIRED_COLUMNS = {"player_id", "team", "opponent_team", "season", "week", "targets", "carries"}
+
+
+def load_runtime_environment() -> None:
+    """Match app.py environment loading while preserving exported values."""
+    load_dotenv()
 
 
 def build_evidence(path: str | Path, *, season: int, threshold_environment=None) -> dict:
@@ -38,6 +44,7 @@ def build_evidence(path: str | Path, *, season: int, threshold_environment=None)
 
 
 def main() -> None:
+    load_runtime_environment()
     parser = argparse.ArgumentParser()
     parser.add_argument("csv_path")
     parser.add_argument("--season", type=int, required=True)
