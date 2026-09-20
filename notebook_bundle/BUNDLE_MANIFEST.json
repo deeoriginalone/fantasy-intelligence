@@ -1,27 +1,27 @@
 {
-  "generated_at_utc": "2026-09-18T11:15:49.795962+00:00",
+  "generated_at_utc": "2026-09-20T12:17:55.301435+00:00",
   "bundle_directory": "notebook_bundle",
   "archive": "notebook_bundle.tar.gz",
   "files": [
     {
       "name": "DEVELOPMENT_ROADMAP.md",
-      "bytes": 38863,
-      "sha256": "daf76ae9b85e9cee0a28e179b15d19649a954333a78c0ecc917f35c6b0474542"
+      "bytes": 46056,
+      "sha256": "12ee463f3700e7e3dfcb8812cdb72aaae23b0ef2172a11cdcc2479a0c766d50f"
     },
     {
       "name": "IMPLEMENTATION_INVENTORY.md",
-      "bytes": 3207,
-      "sha256": "f7f621042d5a6de9144440de4a5b0fc80df29c8de8396699b0d2cb82b94bae91"
+      "bytes": 3370,
+      "sha256": "ac378a6dfa61a340f30f4f6891308a4b034fc3795edddd062138d73b54a18468"
     },
     {
       "name": "MIGRATIONS.md",
-      "bytes": 7906,
-      "sha256": "fe4f4707a331013f4570db042627cd16a93797d8aa7d09471a238ef8e002e62a"
+      "bytes": 8100,
+      "sha256": "acf0bdda9110bb5b909823516c08830ff560a0eef92f530e76f9a076a26bfede"
     },
     {
       "name": "NEXT_SESSION_HANDOFF.md",
-      "bytes": 35616,
-      "sha256": "8b87262bdadb750b373466db7ca947ff32d10cd33138e82690835e87d372a812"
+      "bytes": 40691,
+      "sha256": "78ef219fc8bfd8fe601b16e0c1affc97896a3867be50591e51fde004e2378a74"
     },
     {
       "name": "PARITY_STATUS.md",
@@ -30,18 +30,18 @@
     },
     {
       "name": "PROJECT_STATE.md",
-      "bytes": 34685,
-      "sha256": "8e33b7c76b1879709301d6ea17599fef546b99d79a8858119eb20f25bb55db4c"
+      "bytes": 39190,
+      "sha256": "2f256c50da8d3ce5888e57753d578771c912805e6d7158ae844d885d6af191a2"
     },
     {
       "name": "PROJECT_STATUS.md",
-      "bytes": 33396,
-      "sha256": "ab24337d9e72a32ff4660a9d0f4026e3d2e8b15c42c574495e343ad52a34c95c"
+      "bytes": 39851,
+      "sha256": "73b19a805b0102cfdec9d6d42238bad3ece84008e286a2c6efee922e787a6cb7"
     },
     {
       "name": "REPOSITORY_CHECKPOINT.md",
-      "bytes": 7946,
-      "sha256": "2597a2a473f850bb920e75373c3a4a27b51247d78e8072c019dcc8a86bff13fb"
+      "bytes": 6964,
+      "sha256": "3d6d9a4ff3b14f3c603dbdec479067c8316ea9c1c79c83f70045f7c1dcc18423"
     },
     {
       "name": "SCHEMA.md",
@@ -50,8 +50,8 @@
     },
     {
       "name": "TEST_INVENTORY.md",
-      "bytes": 80456,
-      "sha256": "caf2286c4d95ee109331ebac18fd75aab22c94fdeb5305a3b44d4563cd4c8ef6"
+      "bytes": 84480,
+      "sha256": "449b88983092bcef6af2b9a41692545fe09d204dc39445e9cc13ff0f1e0a7f3b"
     }
   ]
 }

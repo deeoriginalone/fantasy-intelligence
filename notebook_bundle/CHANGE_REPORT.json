@@ -1,19 +1,20 @@
 {
-  "generated_at_utc": "2026-09-18T11:15:49.887670+00:00",
+  "generated_at_utc": "2026-09-20T12:17:55.393403+00:00",
   "first_run": false,
-  "previous_manifest_generated_at_utc": "2026-09-17T11:36:09.058567+00:00",
-  "current_manifest_generated_at_utc": "2026-09-18T11:15:49.795962+00:00",
+  "previous_manifest_generated_at_utc": "2026-09-20T05:51:42.847986+00:00",
+  "current_manifest_generated_at_utc": "2026-09-20T12:17:55.301435+00:00",
   "summary": {
     "added": 0,
     "removed": 0,
-    "modified": 7,
-    "unchanged": 3
+    "modified": 8,
+    "unchanged": 2
   },
   "added": [],
   "removed": [],
   "modified": [
     "DEVELOPMENT_ROADMAP.md",
     "IMPLEMENTATION_INVENTORY.md",
+    "MIGRATIONS.md",
     "NEXT_SESSION_HANDOFF.md",
     "PROJECT_STATE.md",
     "PROJECT_STATUS.md",
@@ -21,7 +22,6 @@
     "TEST_INVENTORY.md"
   ],
   "unchanged": [
-    "MIGRATIONS.md",
     "PARITY_STATUS.md",
     "SCHEMA.md"
   ],
@@ -29,58 +29,66 @@
     {
       "name": "DEVELOPMENT_ROADMAP.md",
       "change": "modified",
-      "previous_bytes": 39042,
-      "current_bytes": 38863,
-      "previous_sha256": "b3070b755d9077129aeadc7126a62c871fb5e4bf30ff240b7e8cbf5b1e3d45aa",
-      "current_sha256": "daf76ae9b85e9cee0a28e179b15d19649a954333a78c0ecc917f35c6b0474542"
+      "previous_bytes": 45491,
+      "current_bytes": 46056,
+      "previous_sha256": "5ed7456fbcc03d08ba0d1a87d2926b1f083563cf0270783cc118fc1344d41aa0",
+      "current_sha256": "12ee463f3700e7e3dfcb8812cdb72aaae23b0ef2172a11cdcc2479a0c766d50f"
     },
     {
       "name": "IMPLEMENTATION_INVENTORY.md",
       "change": "modified",
-      "previous_bytes": 3096,
-      "current_bytes": 3207,
-      "previous_sha256": "c227905cf6e557366708127f9b30e1d9781914084a02cf209d452cafe2c34685",
-      "current_sha256": "f7f621042d5a6de9144440de4a5b0fc80df29c8de8396699b0d2cb82b94bae91"
+      "previous_bytes": 3273,
+      "current_bytes": 3370,
+      "previous_sha256": "10d4ed59cee082f33821e109e6d11a7b5e56a180fcd539c59684306822ed022a",
+      "current_sha256": "ac378a6dfa61a340f30f4f6891308a4b034fc3795edddd062138d73b54a18468"
+    },
+    {
+      "name": "MIGRATIONS.md",
+      "change": "modified",
+      "previous_bytes": 8018,
+      "current_bytes": 8100,
+      "previous_sha256": "1c6f3bfbea0b53ef662370df59d03447fdf0a24c4a562e00d9d6eeb8b0a7a995",
+      "current_sha256": "acf0bdda9110bb5b909823516c08830ff560a0eef92f530e76f9a076a26bfede"
     },
     {
       "name": "NEXT_SESSION_HANDOFF.md",
       "change": "modified",
-      "previous_bytes": 36157,
-      "current_bytes": 35616,
-      "previous_sha256": "ef030eb7f642ec80312fc196ad25f3711a597c370df377818747859f6ffcf7fc",
-      "current_sha256": "8b87262bdadb750b373466db7ca947ff32d10cd33138e82690835e87d372a812"
+      "previous_bytes": 40151,
+      "current_bytes": 40691,
+      "previous_sha256": "e8885704a83e1125abc96c83d6f26c2d7c4e47699f92aa810a69256231034a54",
+      "current_sha256": "78ef219fc8bfd8fe601b16e0c1affc97896a3867be50591e51fde004e2378a74"
     },
     {
       "name": "PROJECT_STATE.md",
       "change": "modified",
-      "previous_bytes": 35541,
-      "current_bytes": 34685,
-      "previous_sha256": "305344a1b75737a3169866c06ae74ae5397290fbd00fa4f3520b1f7cb5d7a356",
-      "current_sha256": "8e33b7c76b1879709301d6ea17599fef546b99d79a8858119eb20f25bb55db4c"
+      "previous_bytes": 38709,
+      "current_bytes": 39190,
+      "previous_sha256": "9235422b48fb0e83386f1997acb6c32468ceb76e1cc505fae2ad1e8f9a171858",
+      "current_sha256": "2f256c50da8d3ce5888e57753d578771c912805e6d7158ae844d885d6af191a2"
     },
     {
       "name": "PROJECT_STATUS.md",
       "change": "modified",
-      "previous_bytes": 34252,
-      "current_bytes": 33396,
-      "previous_sha256": "3591172e331afcbf871002aebdf53ee730b6e93d5e2720707fd18bcacf58dbb8",
-      "current_sha256": "ab24337d9e72a32ff4660a9d0f4026e3d2e8b15c42c574495e343ad52a34c95c"
+      "previous_bytes": 39370,
+      "current_bytes": 39851,
+      "previous_sha256": "f7bdaf8c08e9d0589578b51a90e1b12e2e838701c930e2803c574e83a240f9aa",
+      "current_sha256": "73b19a805b0102cfdec9d6d42238bad3ece84008e286a2c6efee922e787a6cb7"
     },
     {
       "name": "REPOSITORY_CHECKPOINT.md",
       "change": "modified",
-      "previous_bytes": 8012,
-      "current_bytes": 7946,
-      "previous_sha256": "10e735b55ee6008788bb4623e59450c8ef1df0496e73671757936ec19baabc99",
-      "current_sha256": "2597a2a473f850bb920e75373c3a4a27b51247d78e8072c019dcc8a86bff13fb"
+      "previous_bytes": 6888,
+      "current_bytes": 6964,
+      "previous_sha256": "60bdea39550bd69cf18c01ba5c2a83db1d03f5578ea27975f3ecafd12b241c8e",
+      "current_sha256": "3d6d9a4ff3b14f3c603dbdec479067c8316ea9c1c79c83f70045f7c1dcc18423"
     },
     {
       "name": "TEST_INVENTORY.md",
       "change": "modified",
-      "previous_bytes": 77455,
-      "current_bytes": 80456,
-      "previous_sha256": "0bc309357761fd22e303636b28fb7d5b1cc99b95ae6e29efa40be5534d15a106",
-      "current_sha256": "caf2286c4d95ee109331ebac18fd75aab22c94fdeb5305a3b44d4563cd4c8ef6"
+      "previous_bytes": 83008,
+      "current_bytes": 84480,
+      "previous_sha256": "768be7032755c0b68a92ab77c94f3f67a561c7d2051e56c782d509a72e86110b",
+      "current_sha256": "449b88983092bcef6af2b9a41692545fe09d204dc39445e9cc13ff0f1e0a7f3b"
     }
   ]
 }

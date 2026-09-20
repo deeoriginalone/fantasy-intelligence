@@ -26,9 +26,11 @@
 ./migrations/005_pickem_feed_runs.sql
 ./migrations/005_sleeper_full_integration.sql
 ./migrations/007_survivor_intelligence.sql
+./migrations/017_snap_share_evidence.sql
 ./migrations/012_schedule_bye_evidence_provenance.sql
 ./migrations/014_pre_decision_snapshots.sql
 ./migrations/010_draft_event_pipeline_upgrade.sql
+./migrations/016_model_only_elo_source_observations.sql
 ./migrations/003_yahoo_pickem.sql
 ./migrations/007_draft_day_readiness.sql
 ./migrations/004_yahoo_pickem_postgres.sql
@@ -86,9 +88,11 @@
 ./migrations/005_pickem_feed_runs.sql
 ./migrations/005_sleeper_full_integration.sql
 ./migrations/007_survivor_intelligence.sql
+./migrations/017_snap_share_evidence.sql
 ./migrations/012_schedule_bye_evidence_provenance.sql
 ./migrations/014_pre_decision_snapshots.sql
 ./migrations/010_draft_event_pipeline_upgrade.sql
+./migrations/016_model_only_elo_source_observations.sql
 ./migrations/003_yahoo_pickem.sql
 ./migrations/007_draft_day_readiness.sql
 ./migrations/004_yahoo_pickem_postgres.sql
