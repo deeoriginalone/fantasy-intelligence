@@ -50,3 +50,19 @@ def test_reader_returns_published_snap_share_newest_first():
     assert result["state"] == "AVAILABLE"
     assert result["rows"][0]["snap_share"] == 0.5
     assert result["freshness_state"] == "FRESH"
+
+def test_reader_preserves_stale_snap_share_as_historical_fact():
+    rows = [(2026, 1, "gsis-1", "pfr-1", "KC", "DEN", 0.75, "automated:nflverse", "automated", "2026-09-18", "2026-09-19", "snap_counts", "snap_counts_2026", "sha256:test", "snap_share.evidence.v1", "STALE", "COMPLETE", {}, "PUBLISHED")]
+    result = read_snap_share(Connection(rows), player_id="gsis-1", season=2026)
+    assert result["state"] == "STALE"
+    assert result["rows"][0]["snap_share"] == 0.75
+    assert result["blockers"] == ["SNAP_SHARE_EVIDENCE_STALE"]
+    assert result["authority_state"] == "INFORMATIONAL_ONLY"
+    assert result["decision_effect"] == "NONE"
+
+
+def test_reader_missing_identity_is_unavailable_not_zero_or_blocked():
+    result = read_snap_share(Connection(), player_id="", season=2026)
+    assert result["state"] == "UNAVAILABLE"
+    assert result["rows"] == []
+    assert result["blockers"] == ["SNAP_SHARE_PLAYER_IDENTITY_UNAVAILABLE"]

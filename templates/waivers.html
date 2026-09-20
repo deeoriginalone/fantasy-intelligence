@@ -123,10 +123,13 @@
       function usageEvidenceText(candidate, evidence){
         var facts = [];
         var metrics = candidate.opportunity_metrics || {};
-        var usage = (metrics.rows || [])[0] || {};
+        var usageRows = metrics.rows || [];
+        var usage = usageRows.length ? usageRows[usageRows.length - 1] : {};
         var snap = evidence.snap_share || candidate.snap_share || {};
         var snapRow = (snap.rows || [])[0] || {};
-        addFact(facts, 'Snap Share', formatPercent(snapRow.snap_share));
+        if (snapRow.snap_share != null) {
+          facts.push('Snap share: ' + formatPercent(snapRow.snap_share) + (snapRow.offense_snaps == null ? '' : ' (' + snapRow.offense_snaps + ' offensive snaps)') + ' · Week ' + (snapRow.week == null ? 'unavailable' : snapRow.week) + ' · ' + (snap.state === 'STALE' ? 'STALE' : 'Informational'));
+        }
         addFact(facts, 'Target Share', formatPercent(usage.target_share));
         addFact(facts, 'Carry Share', formatPercent(usage.carry_share));
         addFact(facts, 'Touch Share', formatPercent(usage.touch_share));
@@ -151,6 +154,10 @@
           var projectionRetrieved = candidate.projection_retrieved_at;
           var coverage = evidence.evidence_coverage || {};
           var drop = evidence.suggested_drop || {};
+          var projectionText = candidate.projection == null ? 'Unavailable' : candidate.projection;
+          var faabText = candidate.faab == null ? 'Unavailable' : '$' + candidate.faab;
+          var faabRangeText = candidate.bid_low == null ? 'Unavailable' : '$' + candidate.bid_low + '–$' + candidate.bid_high;
+          var teamNeedText = candidate.need == null ? 'Unavailable' : candidate.need + (candidate.need > 0 ? ' roster need position(s)' : ' roster need positions');
           var summary = document.createElement('div');
           var identity = card.querySelector('h3');
           if (identity) {
@@ -161,8 +168,16 @@
             identity.appendChild(badge);
           }
           summary.className = 'candidate-evidence-summary';
-          summary.innerHTML = '<p><strong>Roster Fit:</strong> ' + escapeHtml(fit.label || 'Roster fit unavailable') + (fit.reason ? ' · ' + escapeHtml(fit.reason) : '') + '</p>' +
-            '<p><strong>Ownership:</strong> ' + escapeHtml(ownership) + ' · <strong>Eligibility:</strong> ' + escapeHtml(eligibility) + ' · <strong>Health:</strong> ' + escapeHtml(health) + '</p>' +
+          summary.innerHTML = '<p><strong>Health:</strong> ' + escapeHtml(health) + '</p>' +
+            '<p><strong>Team Need:</strong> ' + escapeHtml(teamNeedText) + '</p>' +
+            '<p><strong>Roster Fit:</strong> ' + escapeHtml(fit.label || 'Roster fit unavailable') + (fit.reason ? ' · ' + escapeHtml(fit.reason) : '') + '</p>' +
+            '<p><strong>Projection:</strong> ' + escapeHtml(projectionText) + '</p>' +
+            '<p><strong>Recent Production:</strong> ' + escapeHtml(recentProductionText(candidate)) + '</p>' +
+            '<p><strong>Usage Evidence:</strong> ' + escapeHtml(usageEvidenceText(candidate, evidence)) + '</p>' +
+            '<p><strong>What Changed:</strong> ' + escapeHtml((trend.drivers || ['Insufficient comparison evidence']).join('; ')) + '</p>' +
+            '<p><strong>Suggested Drop:</strong> ' + escapeHtml(drop.player ? 'Review ' + drop.player + ' · ' + drop.reason : (drop.reason || 'Suggested drop unavailable because no supported drop-value comparison exists.')) + '</p>' +
+            '<p><strong>FAAB:</strong> ' + escapeHtml(faabText) + ' · <strong>FAAB Range:</strong> ' + escapeHtml(faabRangeText) + '</p>' +
+            '<p><strong>Ownership:</strong> ' + escapeHtml(ownership) + ' · <strong>Eligibility:</strong> ' + escapeHtml(eligibility) + '</p>' +
             '<p><strong>Sources:</strong> Health ' + escapeHtml(healthSource) + ' · Projection ' + escapeHtml(projectionSource) + '</p>' +
             '<p><strong>Opportunity:</strong> ' + escapeHtml(opportunity.reason || 'Opportunity unavailable.') + '</p>' +
             '<p><strong>Opportunity Strength:</strong> ' + escapeHtml(strength.state || 'UNAVAILABLE') + '</p>' +
@@ -170,14 +185,12 @@
             '<p><strong>Opportunity Trend:</strong> ' + escapeHtml(trend.state || 'INSUFFICIENT_EVIDENCE') + '</p>' +
             '<p><strong>What Changed This Week:</strong> ' + escapeHtml((trend.drivers || ['Insufficient comparison evidence']).join('; ')) + '</p>' +
             '<p><strong>Evidence State:</strong> ' + escapeHtml(evidence.context_state || 'IDENTITY_LIMITED') + ' · ' + escapeHtml(evidence.context_reason || 'Opportunity evidence unavailable for this source.') + '</p>' +
-            '<p><strong>Recent Production:</strong> ' + escapeHtml(recentProductionText(candidate)) + '</p>' +
-            '<p><strong>Usage Evidence:</strong> ' + escapeHtml(usageEvidenceText(candidate, evidence)) + '</p>' +
             '<p><strong>Evidence Coverage:</strong> ' + escapeHtml(coverage.label || 'No candidate-linked usage observations available') + '</p>' +
             '<p><strong>Projection evidence:</strong> ' + escapeHtml(projectionRetrieved ? 'Retrieved ' + projectionRetrieved : 'Source timestamp unavailable') + '</p>' +
             '<p><strong>Confidence:</strong> ' + escapeHtml(evidence.confidence || 'Unavailable') + '</p>' +
-            '<p><strong>Risk:</strong> ' + escapeHtml((evidence.risk || ['Unavailable']).join('; ')) + '</p>' +
-            '<p><strong>Suggested Drop:</strong> ' + escapeHtml(drop.player ? 'Review ' + drop.player + ' · ' + drop.reason : (drop.reason || 'Suggested drop unavailable because no supported drop-value comparison exists.')) + '</p>';
-          card.appendChild(summary);
+            '<p><strong>Risk:</strong> ' + escapeHtml((evidence.risk || ['Unavailable']).join('; ')) + '</p>';
+          if (identity) identity.insertAdjacentElement('afterend', summary);
+          else card.appendChild(summary);
         });
       });
     })();
@@ -190,7 +203,7 @@
   {% if waiver_evidence and not waiver_evidence.allowed %}<section class="blocked"><strong>Recommendations blocked.</strong> Ownership or eligibility evidence is not sufficient to publish waiver candidates. {% for blocker in waiver_evidence.blockers %}<span>{{ blocker }}</span>{% if not loop.last %}, {% endif %}{% endfor %}<p>Ownership source: {{ waiver_evidence.ownership.source if waiver_evidence.ownership else 'UNVERIFIED' }}; freshness: {{ waiver_evidence.ownership.freshness_state if waiver_evidence.ownership else 'UNAVAILABLE' }}.</p><p>Eligibility source: {{ waiver_evidence.eligibility.source if waiver_evidence.eligibility else 'UNVERIFIED' }}; freshness: {{ waiver_evidence.eligibility.freshness_state if waiver_evidence.eligibility else 'UNAVAILABLE' }}.</p><p><strong>Evidence available:</strong> The waiver request and configured ownership/eligibility contracts were evaluated.</p><p><strong>Evidence missing:</strong> {% if waiver_evidence.ownership and waiver_evidence.ownership.freshness_state not in ('FRESH', 'AGING') %}verified ownership freshness{% endif %}{% if waiver_evidence.eligibility and waiver_evidence.eligibility.freshness_state not in ('FRESH', 'AGING') %}{% if waiver_evidence.ownership and waiver_evidence.ownership.freshness_state not in ('FRESH', 'AGING') %}; {% endif %}verified eligibility freshness{% endif %}.</p><p><strong>Recommendation affected:</strong> Waiver candidates and FAAB guidance remain unpublished.</p><p><strong>Manager action:</strong> Refresh Sleeper ownership and eligibility evidence, then review this page again before acting.</p></section>{% endif %}
   {% if waiver_evidence and waiver_evidence.allowed and waiver_evidence.ranking_confidence == 'UNVERIFIED' %}<div class="warning"><strong>Ranking confidence: low.</strong> Ownership and eligibility are verified, but automated waiver ranking source evidence is unverified ({{ waiver_evidence.warnings|join(', ') if waiver_evidence.warnings else 'WAIVER_RANKING_SOURCE_UNVERIFIED' }}). Candidates below use local player projections/rankings; treat priority order as research, not a verified ranking.</div>{% endif %}
   <details class="waiver-card" id="waiver-evidence-limitations"><summary>Evidence limitations</summary><ul><li>Role classification unavailable because no verified role contract is published.</li><li>Opportunity duration unavailable because no verified duration source exists.</li><li>Latest news unavailable because no verified player-news source is configured.</li><li>Ranking authority unavailable; current ordering uses the existing local ranking/projection inputs.</li></ul></details>
-  <details class="waiver-card"><summary>▶ Data gaps and methodology</summary><p>Recent Performance, usage evidence, What Changed context, and snap share are informational only and do not change ranking, FAAB, confidence, recommendations, or transaction behavior.</p><ul><li>Suggested Drop is projection-only unless an authoritative drop-value model exists.</li><li>Snap-share display uses a 86400-second informational freshness window and remains unavailable when the publication table or value is unavailable.</li><li>Ownership and eligibility are derived from current Sleeper roster and supported-player evidence.</li></ul></details>
+  <details class="waiver-card"><summary>▶ Data gaps and methodology</summary><p>Recent Performance, usage evidence, What Changed context, and snap share are informational only and do not change ranking, FAAB, confidence, recommendations, or transaction behavior.</p><ul><li>Suggested Drop is projection-only unless an authoritative drop-value model exists.</li><li>Snap-share display uses the owner-approved snap_share.evidence.v1 86400-second informational window; stale factual observations may be shown with their supported week, but are not presented as current.</li><li>Snap-share remains unavailable when identity, publication, source metadata, or snap value is unavailable.</li><li>Ownership and eligibility are derived from current Sleeper roster and supported-player evidence.</li></ul></details>
   <details class="waiver-card"><summary>▶ Opportunity, Market &amp; Trade Evidence</summary>
   {% include "_opportunity_evidence.html" %}
   </details>

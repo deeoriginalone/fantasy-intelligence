@@ -6,9 +6,9 @@ COLUMNS = ("season", "week", "player_id", "pfr_player_id", "team", "opponent_tea
 
 
 def read_snap_share(connection: Any, *, player_id: Any, season: Any, week_start: Any = None, week_end: Any = None, limit: int = 3) -> dict[str, Any]:
-    base = {"schema_version": "snap-share-reader.v1", "state": "UNAVAILABLE", "rows": [], "blockers": [], "decision_effect": "INFORMATIONAL_ONLY"}
+    base = {"schema_version": "snap-share-reader.v1", "state": "UNAVAILABLE", "rows": [], "blockers": [], "authority_state": "INFORMATIONAL_ONLY", "decision_effect": "NONE"}
     if not isinstance(player_id, str) or not player_id.strip():
-        base.update(state="BLOCKED", blockers=["SNAP_SHARE_PLAYER_IDENTITY_UNAVAILABLE"])
+        base.update(blockers=["SNAP_SHARE_PLAYER_IDENTITY_UNAVAILABLE"])
         return base
     if not isinstance(season, int) or season <= 0:
         base.update(state="BLOCKED", blockers=["SNAP_SHARE_SEASON_UNAVAILABLE"])
@@ -37,7 +37,7 @@ def read_snap_share(connection: Any, *, player_id: Any, season: Any, week_start:
         base["blockers"] = ["SNAP_SHARE_READER_NO_ROWS"]
         return base
     if any(row.get("freshness_state") not in {"FRESH", "AGING"} for row in rows):
-        base.update(state="BLOCKED", blockers=["SNAP_SHARE_EVIDENCE_NOT_CURRENT"])
+        base.update(state="STALE", rows=rows, blockers=["SNAP_SHARE_EVIDENCE_STALE"], source=rows[0].get("source"), freshness_state=rows[0].get("freshness_state"), completeness_state=rows[0].get("completeness_state"), age=None, lineage=rows[0].get("lineage"), freshness_threshold_id=rows[0].get("freshness_threshold_id"))
         return base
-    base.update(state="AVAILABLE", rows=rows, source=rows[0].get("source"), freshness_state=rows[0].get("freshness_state"), completeness_state=rows[0].get("completeness_state"), age=None, lineage=rows[0].get("lineage"))
+    base.update(state="AVAILABLE", rows=rows, source=rows[0].get("source"), freshness_state=rows[0].get("freshness_state"), completeness_state=rows[0].get("completeness_state"), age=None, lineage=rows[0].get("lineage"), freshness_threshold_id=rows[0].get("freshness_threshold_id"))
     return base

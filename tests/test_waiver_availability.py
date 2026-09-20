@@ -746,9 +746,15 @@ def test_waiver_template_includes_projection_retrieval_visibility():
 def test_waiver_template_surfaces_usage_and_collapses_repeated_limitations():
     rendered = render_waivers()
     assert "Usage Evidence" in rendered
+    assert "Snap share:" in rendered
+    assert "Informational" in rendered
+    assert "STALE" in rendered
+    assert "Team Need" in rendered
+    assert "What Changed" in rendered
     assert "Evidence Coverage" in rendered
     assert "What Changed This Week" in rendered
     assert "Evidence limitations" in rendered
+    assert rendered.index("<strong>Health:</strong>") < rendered.index("<strong>Team Need:</strong>") < rendered.index("<strong>Roster Fit:</strong>") < rendered.index("<strong>Projection:</strong>") < rendered.index("<strong>Recent Production:</strong>") < rendered.index("<strong>Usage Evidence:</strong>") < rendered.index("<strong>What Changed:</strong>") < rendered.index("<strong>Suggested Drop:</strong>") < rendered.index("<strong>FAAB:</strong>")
     assert "Role:</strong>" not in rendered
     assert "Duration:</strong>" not in rendered
     assert "Latest News:</strong>" not in rendered
@@ -765,6 +771,18 @@ def test_waiver_snap_share_is_display_only_and_has_owner_approved_window():
     assert result["authority_state"] == "INFORMATIONAL_ONLY"
     assert result["decision_effect"] == "NONE"
     assert result["display_max_age_seconds"] == 86400
+
+
+def test_waiver_snap_share_retains_stale_observation_for_display(monkeypatch):
+    monkeypatch.setattr(
+        "owner_operations.read_snap_share",
+        lambda connection, **kwargs: {"state": "STALE", "rows": [{"week": 1, "snap_share": 0.75, "freshness_state": "STALE"}], "blockers": ["SNAP_SHARE_EVIDENCE_STALE"]},
+    )
+    result = waiver_snap_share(object(), {"opportunity_player_id": "gsis-1"}, 2026)
+    assert result["state"] == "STALE"
+    assert result["rows"][0]["snap_share"] == 0.75
+    assert result["decision_effect"] == "NONE"
+    assert result["authority_state"] == "INFORMATIONAL_ONLY"
 
 
 def test_waiver_candidate_context_exposes_raw_opportunity_metrics_without_thresholds():

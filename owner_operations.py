@@ -171,7 +171,7 @@ def waiver_snap_share(connection, player, season, limit=3):
     if not player_id or not season:
         return {"state": "UNAVAILABLE", "rows": [], "blockers": ["SNAP_SHARE_PLAYER_IDENTITY_UNAVAILABLE"], "authority_state": "INFORMATIONAL_ONLY", "decision_effect": "NONE", "display_max_age_seconds": SNAP_SHARE_DISPLAY_MAX_AGE_SECONDS}
     result = read_snap_share(connection, player_id=str(player_id), season=season, limit=limit)
-    result["rows"] = list(result.get("rows") or [])[:limit] if result.get("state") == "AVAILABLE" else []
+    result["rows"] = list(result.get("rows") or [])[:limit] if result.get("state") in {"AVAILABLE", "STALE"} else []
     result["authority_state"] = "INFORMATIONAL_ONLY"
     result["decision_effect"] = "NONE"
     result["display_max_age_seconds"] = SNAP_SHARE_DISPLAY_MAX_AGE_SECONDS
