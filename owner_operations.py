@@ -334,6 +334,7 @@ def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
         "risk": risk,
         "news": {"state": "UNAVAILABLE", "reason": "Latest news unavailable because no verified player-news source is configured.", "prerequisite": "EXTERNAL_SOURCE_REQUIRED"},
         "ranking": {"state": "UNVERIFIED", "reason": "Waiver ranking source is unverified; candidate order remains informational.", "prerequisite": "AUTHORITY_CONTRACT_REQUIRED"},
+        "projection_retrieved_at": candidate.get("projection_retrieved_at"),
     }
 
 
@@ -903,7 +904,7 @@ def create_owner_operations_blueprint(
         # "no supported projection" here so the assistant never fabricates an upgrade signal.
         trending_evidence = waiver_trending_evidence(context.get("mode"))
         wda_roster = [{"player": p.get("player"), "position": p.get("position"), "projection": wda_projection_or_none(p.get("projection")), "trending": wda_trending_state(p.get("source_player_id"), trending_evidence), "recent_production": p.get("recent_production", {"state": "UNAVAILABLE", "rows": []})} for p in roster]
-        wda_candidates = [{"player": r.get("player"), "position": r.get("position"), "projection": wda_projection_or_none(r.get("projection")), "need": r.get("need"), "trending": wda_trending_state(r.get("player_id"), trending_evidence), "recent_production": r.get("recent_production", {"state": "UNAVAILABLE", "rows": []}), "opportunity_metrics": r.get("opportunity_metrics", {"state": "UNAVAILABLE", "rows": []}), "snap_share": r.get("snap_share", {"state": "UNAVAILABLE", "rows": []}), "evidence_context": r.get("evidence_context", {})} for r in recommendations]
+        wda_candidates = [{"player": r.get("player"), "position": r.get("position"), "projection": wda_projection_or_none(r.get("projection")), "projection_retrieved_at": r.get("projection_retrieved_at"), "need": r.get("need"), "trending": wda_trending_state(r.get("player_id"), trending_evidence), "recent_production": r.get("recent_production", {"state": "UNAVAILABLE", "rows": []}), "opportunity_metrics": r.get("opportunity_metrics", {"state": "UNAVAILABLE", "rows": []}), "snap_share": r.get("snap_share", {"state": "UNAVAILABLE", "rows": []}), "evidence_context": r.get("evidence_context", {})} for r in recommendations]
         return render_template("waivers.html", title="Waiver and FAAB Center", context=context, meta=meta, recommendations=recommendations, needs=needs, vacancies=vacancies, faab_budget=100, waiver_evidence=pool_evidence, opportunity_view=build_opportunity_view(current_app.config.get("OPPORTUNITY_EVIDENCE")), roster=roster, grades=grades, counts=counts, wda_roster=wda_roster, wda_candidates=wda_candidates, trending_evidence_state=trending_evidence.get("state"))
 
     @bp.route("/trades")

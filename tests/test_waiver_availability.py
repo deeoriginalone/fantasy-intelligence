@@ -736,6 +736,13 @@ def test_waiver_candidate_context_surfaces_existing_contract_states():
     assert result["health_state"] == "ACTIVE"
 
 
+def test_waiver_template_includes_projection_retrieval_visibility():
+    from pathlib import Path
+    template = (Path(__file__).parents[1] / "templates" / "waivers.html").read_text(encoding="utf-8")
+    assert "Projection evidence" in template
+    assert "projection_retrieved_at" in template or "projectionRetrieved" in template
+
+
 def test_waiver_candidate_context_exposes_raw_opportunity_metrics_without_thresholds():
     context = waiver_candidate_context(
         {"player": "Add", "position": "WR", "projection": 120.0, "recent_production": {"state": "AVAILABLE"}, "snap_share": {"state": "AVAILABLE", "rows": [{"snap_share": 0.75}]}},

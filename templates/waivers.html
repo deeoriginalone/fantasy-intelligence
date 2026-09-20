@@ -123,6 +123,7 @@
           var stability = evidence.usage_stability || {};
           var trend = evidence.opportunity_trend || {};
           var metrics = (candidateData[index] || {}).opportunity_metrics || {};
+          var projectionRetrieved = (candidateData[index] || {}).projection_retrieved_at;
           var usage = (metrics.rows || [])[0] || {};
           var snap = evidence.snap_share || {};
           var snapRow = (snap.rows || [])[0] || {};
@@ -152,6 +153,7 @@
             '<p><strong>Opportunity Drivers:</strong> ' + escapeHtml((trend.drivers || ['Insufficient comparison evidence']).join('; ')) + '</p>' +
             '<p><strong>Evidence State:</strong> ' + escapeHtml(evidence.context_state || 'IDENTITY_LIMITED') + ' · ' + escapeHtml(evidence.context_reason || 'Opportunity evidence unavailable for this source.') + '</p>' +
             '<p><strong>Opportunity Context:</strong> ' + escapeHtml(metricText + ' · ' + snapText) + '</p>' +
+            '<p><strong>Projection evidence:</strong> ' + escapeHtml(projectionRetrieved ? 'Retrieved ' + projectionRetrieved : 'Source timestamp unavailable') + '</p>' +
             '<p><strong>Role:</strong> ' + escapeHtml(role.reason || 'Role classification unavailable.') + '</p>' +
             '<p><strong>Duration:</strong> ' + escapeHtml(duration.reason || 'Opportunity duration unavailable because no verified duration source exists.') + '</p>' +
             '<p><strong>Confidence:</strong> ' + escapeHtml(evidence.confidence || 'Unavailable') + '</p>' +
