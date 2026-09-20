@@ -4,7 +4,7 @@ import pytest
 from services.ux_evidence import derived_waiver_availability, evaluate_waiver_availability, resolve_waiver_candidate_identity, waiver_evidence_contract, waiver_ownership_freshness, waiver_roster_coverage
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
-from owner_operations import waiver_candidate_context, waiver_projection_contribution, waiver_recent_production
+from owner_operations import attach_waiver_opportunity_identity, waiver_candidate_context, waiver_projection_contribution, waiver_recent_production
 
 
 def evidence(domain, state="FRESH", completeness="COMPLETE", blocker=None):
@@ -701,6 +701,25 @@ def test_waiver_candidate_context_exposes_raw_opportunity_metrics_without_thresh
     )
     assert context["snap_share"]["state"] == "AVAILABLE"
     assert "High snap" not in str(context)
+
+
+def test_waiver_identity_reuses_unique_espn_crosswalk_for_five_candidates():
+    candidates = [{"player_id": str(index), "position": "WR"} for index in range(5)]
+    catalog = {str(index): {"espn_id": f"espn-{index}"} for index in range(5)}
+    metadata = [{"espn_id": f"espn-{index}", "gsis_id": f"gsis-{index}"} for index in range(5)]
+    lineage = {"source": "nflverse.players", "source_authority": "automated:nflverse", "artifact_id": "players", "version": "v1", "checksum": "sha256:test", "retrieved_at": "2026-09-20T00:00:00Z", "coverage_state": "COMPLETE"}
+    result = attach_waiver_opportunity_identity(candidates, catalog, metadata, lineage)
+    assert [item["opportunity_player_id"] for item in result] == [f"gsis-{index}" for index in range(5)]
+    assert all(item["opportunity_identity_method"] == "espn_id" for item in result)
+
+
+def test_waiver_identity_fails_closed_for_missing_ambiguous_and_conflicting_espn():
+    candidates = [{"player_id": "missing"}, {"player_id": "ambiguous"}, {"player_id": "conflict"}]
+    catalog = {"missing": {}, "ambiguous": {"espn_id": "e2"}, "conflict": {"gsis_id": "g0", "espn_id": "e3"}}
+    metadata = [{"espn_id": "e2", "gsis_id": "g2a"}, {"espn_id": "e2", "gsis_id": "g2b"}, {"espn_id": "e3", "gsis_id": "g3"}]
+    lineage = {"source": "nflverse.players", "source_authority": "automated:nflverse", "artifact_id": "players", "version": "v1", "checksum": "sha256:test", "retrieved_at": "2026-09-20T00:00:00Z", "coverage_state": "COMPLETE"}
+    result = attach_waiver_opportunity_identity(candidates, catalog, metadata, lineage)
+    assert all("opportunity_player_id" not in item for item in result)
 
 
 def test_browse_candidates_render_recent_production_newest_first_and_preserve_zero():

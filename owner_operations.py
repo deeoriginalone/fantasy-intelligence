@@ -22,6 +22,7 @@ from services.snap_share_reader import read_snap_share
 from services.opportunity_context import opportunity_strength, opportunity_trend, usage_stability
 from services.player_opportunity_reader import read_player_production
 from services.gsis_identity_crosswalk import attach_opportunity_player_ids
+from services.gsis_identity_crosswalk import resolve_gsis_crosswalk
 from services.nflverse_player_metadata import acquire_nflverse_player_metadata
 from services.sleeper_service import get_trending_adds, get_trending_drops
 
@@ -181,6 +182,40 @@ def waiver_opportunity_metrics(connection, player, season):
     result = read_player_opportunity(connection, player_id=str(player_id), season=season)
     result["rows"] = list(result.get("rows") or [])[-3:] if result.get("state") == "AVAILABLE" else []
     return result
+
+
+def attach_waiver_opportunity_identity(candidates, catalog, nflverse_records, nflverse_lineage):
+    """Add only provider-resolved GSIS IDs to waiver candidates; never name-match."""
+    candidates = [dict(candidate) for candidate in candidates or []]
+    if not candidates or not nflverse_records or not nflverse_lineage:
+        return candidates
+    sleeper_records = []
+    for candidate in candidates:
+        player_id = str(candidate.get("player_id") or "")
+        raw = dict((catalog or {}).get(player_id) or {})
+        sleeper_records.append({
+            "source_player_id": player_id,
+            "gsis_id": raw.get("gsis_id"),
+            "espn_id": raw.get("espn_id"),
+        })
+    crosswalk = resolve_gsis_crosswalk(
+        sleeper_records,
+        nflverse_records,
+        sleeper_lineage={"source": "sleeper.players.nfl", "source_authority": "sleeper", "artifact_id": "players.nfl", "version": "live-catalog", "retrieved_at": "waiver-route", "coverage_state": "COMPLETE"},
+        nflverse_lineage=nflverse_lineage,
+        requested_source_player_ids=[row["source_player_id"] for row in sleeper_records if row["source_player_id"]],
+    )
+    mappings = {str(item.get("source_player_id")): item for item in crosswalk.get("mappings") or []}
+    for candidate in candidates:
+        mapping = mappings.get(str(candidate.get("player_id"))) or {}
+        if mapping.get("state") == "RESOLVED":
+            candidate["opportunity_player_id"] = mapping.get("opportunity_player_id")
+            candidate["opportunity_identity_state"] = "RESOLVED"
+            candidate["opportunity_identity_method"] = mapping.get("resolution_authority")
+        else:
+            candidate.setdefault("opportunity_identity_state", mapping.get("state", "UNRESOLVED"))
+            candidate.setdefault("opportunity_identity_blockers", mapping.get("blockers", ["GSIS_IDENTITY_MISSING"]))
+    return candidates
 
 
 def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
@@ -612,6 +647,19 @@ def create_owner_operations_blueprint(
             }
             for row, resolution in zip(rows, resolutions)
         ]
+        nflverse_identity_rows = current_app.config.get("NFLVERSE_PLAYER_METADATA")
+        nflverse_identity_lineage = current_app.config.get("NFLVERSE_PLAYER_METADATA_LINEAGE")
+        if nflverse_identity_rows is None and not current_app.testing:
+            metadata = acquire_nflverse_player_metadata()
+            if metadata["state"] == "AVAILABLE":
+                nflverse_identity_rows = metadata["rows"]
+                nflverse_identity_lineage = metadata["lineage"]
+        candidates = attach_waiver_opportunity_identity(
+            candidates,
+            catalog,
+            nflverse_identity_rows,
+            nflverse_identity_lineage,
+        )
         supported_positions = {
             str(position).upper().replace("DST", "DEF")
             for position in (league or {}).get("roster_positions") or []
