@@ -28,6 +28,7 @@ from services.sleeper_service import get_trending_adds, get_trending_drops
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
+SNAP_SHARE_DISPLAY_MAX_AGE_SECONDS = 86400
 
 
 def build_team_opportunity_changes(connection, roster, *, season, week, nflverse_records=None, nflverse_lineage=None, sleeper_records=None):
@@ -168,9 +169,12 @@ def waiver_snap_share(connection, player, season, limit=3):
     player = dict(player or {})
     player_id = player.get("opportunity_player_id") or player.get("sleeper_gsis_id") or player.get("player_id") or player.get("source_player_id")
     if not player_id or not season:
-        return {"state": "UNAVAILABLE", "rows": [], "blockers": ["SNAP_SHARE_PLAYER_IDENTITY_UNAVAILABLE"]}
+        return {"state": "UNAVAILABLE", "rows": [], "blockers": ["SNAP_SHARE_PLAYER_IDENTITY_UNAVAILABLE"], "authority_state": "INFORMATIONAL_ONLY", "decision_effect": "NONE", "display_max_age_seconds": SNAP_SHARE_DISPLAY_MAX_AGE_SECONDS}
     result = read_snap_share(connection, player_id=str(player_id), season=season, limit=limit)
     result["rows"] = list(result.get("rows") or [])[:limit] if result.get("state") == "AVAILABLE" else []
+    result["authority_state"] = "INFORMATIONAL_ONLY"
+    result["decision_effect"] = "NONE"
+    result["display_max_age_seconds"] = SNAP_SHARE_DISPLAY_MAX_AGE_SECONDS
     return result
 
 
@@ -314,6 +318,13 @@ def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
         opportunity = {"state": "AVAILABLE", "reason": "Targets: %s; carries: %s; target share: %s; carry share: %s; touch share: %s.%s" % (usage_row.get("targets"), usage_row.get("carries"), usage_row.get("target_share"), usage_row.get("carry_share"), usage_row.get("touch_share"), snap_text)}
     else:
         opportunity = {"state": "UNAVAILABLE", "reason": "Opportunity context unavailable because no candidate-linked published usage row exists."}
+    observed_weeks = sorted({row.get("week") for row in (usage.get("rows") or []) + (snap.get("rows") or []) if row.get("week") is not None})
+    if len(observed_weeks) >= 2:
+        evidence_coverage = {"state": "AVAILABLE", "label": "Two-week comparison available", "weeks": observed_weeks[-2:]}
+    elif len(observed_weeks) == 1:
+        evidence_coverage = {"state": "PARTIAL", "label": "Week %s evidence available; one observation only" % observed_weeks[0], "weeks": observed_weeks}
+    else:
+        evidence_coverage = {"state": "UNAVAILABLE", "label": "No candidate-linked usage observations available", "weeks": []}
     return {
         "ownership_state": ownership_state,
         "eligibility_state": eligibility_state,
@@ -330,6 +341,7 @@ def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
         "evidence_gaps": ["Second published week required for usage stability and trend"] if stability.get("state") == "INSUFFICIENT_EVIDENCE" and (usage_row or snap_row) else [],
         "suggested_drop": suggested_drop,
         "opportunity": opportunity,
+        "evidence_coverage": evidence_coverage,
         "role": {"state": "UNAVAILABLE", "reason": "Role classification unavailable because no verified role contract is published."},
         "duration": {"state": "UNAVAILABLE", "reason": "Opportunity duration unavailable because no verified duration source exists.", "prerequisite": "EXTERNAL_SOURCE_REQUIRED"},
         "confidence": confidence,

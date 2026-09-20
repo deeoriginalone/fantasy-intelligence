@@ -4,7 +4,7 @@ import pytest
 from services.ux_evidence import derived_waiver_availability, evaluate_waiver_availability, resolve_waiver_candidate_identity, waiver_evidence_contract, waiver_ownership_freshness, waiver_roster_coverage
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
-from owner_operations import attach_waiver_opportunity_identity, waiver_candidate_context, waiver_projection_contribution, waiver_recent_production
+from owner_operations import attach_waiver_opportunity_identity, waiver_candidate_context, waiver_projection_contribution, waiver_recent_production, waiver_snap_share
 
 
 def evidence(domain, state="FRESH", completeness="COMPLETE", blocker=None):
@@ -743,6 +743,30 @@ def test_waiver_template_includes_projection_retrieval_visibility():
     assert "projection_retrieved_at" in template or "projectionRetrieved" in template
 
 
+def test_waiver_template_surfaces_usage_and_collapses_repeated_limitations():
+    rendered = render_waivers()
+    assert "Usage Evidence" in rendered
+    assert "Evidence Coverage" in rendered
+    assert "What Changed This Week" in rendered
+    assert "Evidence limitations" in rendered
+    assert "Role:</strong>" not in rendered
+    assert "Duration:</strong>" not in rendered
+    assert "Latest News:</strong>" not in rendered
+    assert "Ranking:</strong>" not in rendered
+    assert rendered.count("Role classification unavailable") == 1
+    assert rendered.count("Opportunity duration unavailable") == 1
+    assert rendered.count("Latest news unavailable") == 1
+    assert rendered.count("Ranking authority unavailable") == 1
+
+
+def test_waiver_snap_share_is_display_only_and_has_owner_approved_window():
+    result = waiver_snap_share(None, {}, 2026)
+    assert result["state"] == "UNAVAILABLE"
+    assert result["authority_state"] == "INFORMATIONAL_ONLY"
+    assert result["decision_effect"] == "NONE"
+    assert result["display_max_age_seconds"] == 86400
+
+
 def test_waiver_candidate_context_exposes_raw_opportunity_metrics_without_thresholds():
     context = waiver_candidate_context(
         {"player": "Add", "position": "WR", "projection": 120.0, "recent_production": {"state": "AVAILABLE"}, "snap_share": {"state": "AVAILABLE", "rows": [{"snap_share": 0.75}]}},
@@ -752,6 +776,24 @@ def test_waiver_candidate_context_exposes_raw_opportunity_metrics_without_thresh
     )
     assert context["snap_share"]["state"] == "AVAILABLE"
     assert "High snap" not in str(context)
+
+
+def test_waiver_candidate_context_describes_evidence_coverage_without_duration_prediction():
+    one_week = waiver_candidate_context(
+        {"player": "Add", "position": "WR", "opportunity_player_id": "gsis-1", "opportunity_metrics": {"state": "AVAILABLE", "rows": [{"week": 1, "target_share": 0.2}]}, "recent_production": {"state": "AVAILABLE"}},
+        [],
+        {"WR": {"state": "AVAILABLE", "strategic_need": "ADD_DEPTH", "drivers": []}},
+        "VERIFIED",
+    )
+    two_week = waiver_candidate_context(
+        {"player": "Add", "position": "WR", "opportunity_player_id": "gsis-1", "opportunity_metrics": {"state": "AVAILABLE", "rows": [{"week": 1, "target_share": 0.1}, {"week": 2, "target_share": 0.2}]}, "recent_production": {"state": "AVAILABLE"}},
+        [],
+        {"WR": {"state": "AVAILABLE", "strategic_need": "ADD_DEPTH", "drivers": []}},
+        "VERIFIED",
+    )
+    assert one_week["evidence_coverage"]["label"] == "Week 1 evidence available; one observation only"
+    assert two_week["evidence_coverage"]["label"] == "Two-week comparison available"
+    assert "duration" not in one_week["evidence_coverage"]["label"].lower()
 
 
 def test_waiver_identity_reuses_unique_espn_crosswalk_for_five_candidates():
