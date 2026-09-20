@@ -62,6 +62,19 @@ def build_team_opportunity_changes(connection, roster, *, season, week, nflverse
             week=week,
         )
         comparison["snap_share"] = read_snap_share(connection, player_id=opportunity_player_id, season=season, week_start=1, week_end=week)
+        snap_rows = comparison["snap_share"].get("rows") or []
+        if len(snap_rows) >= 2:
+            current_snap, prior_snap = snap_rows[0], snap_rows[1]
+            comparison["snap_share_change"] = {
+                "state": "AVAILABLE",
+                "current_week": current_snap.get("week"),
+                "prior_week": prior_snap.get("week"),
+                "current": current_snap.get("snap_share"),
+                "prior": prior_snap.get("snap_share"),
+                "direction": "UP" if current_snap.get("snap_share") > prior_snap.get("snap_share") else "DOWN" if current_snap.get("snap_share") < prior_snap.get("snap_share") else "UNCHANGED",
+            }
+        else:
+            comparison["snap_share_change"] = {"state": "UNAVAILABLE", "reason": "Snap-share comparison unavailable because prior and current published rows are not both present."}
         result["players"].append({"player": name, "opportunity_player_id": opportunity_player_id, **comparison})
     if not result["players"]:
         result["blockers"] = ["OPPORTUNITY_ROSTER_EMPTY"]

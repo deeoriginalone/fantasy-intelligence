@@ -113,6 +113,12 @@
           var evidence = (candidateData[index] || {}).evidence_context || {};
           var fit = evidence.roster_fit || {};
           var opportunity = evidence.opportunity || {};
+          var metrics = (candidateData[index] || {}).opportunity_metrics || {};
+          var usage = (metrics.rows || [])[0] || {};
+          var snap = evidence.snap_share || {};
+          var snapRow = (snap.rows || [])[0] || {};
+          var metricText = metrics.state === 'AVAILABLE' ? 'Target Share: ' + (usage.target_share == null ? 'Unavailable' : (Number(usage.target_share) * 100).toFixed(1) + '%') + ' · Carry Share: ' + (usage.carry_share == null ? 'Unavailable' : (Number(usage.carry_share) * 100).toFixed(1) + '%') + ' · Touch Share: ' + (usage.touch_share == null ? 'Unavailable' : (Number(usage.touch_share) * 100).toFixed(1) + '%') : 'Target Share, Carry Share, and Touch Share unavailable.';
+          var snapText = snap.state === 'AVAILABLE' ? 'Snap Share: ' + (snapRow.snap_share == null ? 'Unavailable' : (Number(snapRow.snap_share) * 100).toFixed(1) + '%') : 'Snap Share unavailable.';
           var role = evidence.role || {};
           var duration = evidence.duration || {};
           var drop = evidence.suggested_drop || {};
@@ -121,6 +127,7 @@
           summary.className = 'candidate-evidence-summary';
           summary.innerHTML = '<p><strong>Roster Fit:</strong> ' + escapeHtml(fit.label || 'Roster fit unavailable') + (fit.reason ? ' · ' + escapeHtml(fit.reason) : '') + '</p>' +
             '<p><strong>Opportunity:</strong> ' + escapeHtml(opportunity.reason || 'Opportunity unavailable.') + '</p>' +
+            '<p><strong>Opportunity Context:</strong> ' + escapeHtml(metricText + ' · ' + snapText) + '</p>' +
             '<p><strong>Role:</strong> ' + escapeHtml(role.reason || 'Role classification unavailable.') + '</p>' +
             '<p><strong>Duration:</strong> ' + escapeHtml(duration.reason || 'Opportunity duration unavailable because no verified duration source exists.') + '</p>' +
             '<p><strong>Confidence:</strong> ' + escapeHtml(evidence.confidence || 'Unavailable') + '</p>' +

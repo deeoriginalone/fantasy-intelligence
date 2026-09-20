@@ -4,7 +4,7 @@ import pytest
 from services.ux_evidence import derived_waiver_availability, evaluate_waiver_availability, resolve_waiver_candidate_identity, waiver_evidence_contract, waiver_ownership_freshness, waiver_roster_coverage
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
-from owner_operations import waiver_projection_contribution, waiver_recent_production
+from owner_operations import waiver_candidate_context, waiver_projection_contribution, waiver_recent_production
 
 
 def evidence(domain, state="FRESH", completeness="COMPLETE", blocker=None):
@@ -665,6 +665,42 @@ def test_waiver_recent_production_drops_rows_when_reader_is_blocked(monkeypatch)
     result = waiver_recent_production(object(), {"player_id": "00-1", "position": "WR"}, 2026)
     assert result["state"] == "BLOCKED"
     assert result["rows"] == []
+
+
+def test_waiver_candidate_context_reuses_need_and_discloses_projection_only_drop():
+    context = waiver_candidate_context(
+        {"player": "Add", "position": "WR", "projection": 120.0, "recent_production": {"state": "AVAILABLE"}},
+        [{"player": "Roster WR", "position": "WR", "projection": 90.0}],
+        {"WR": {"state": "AVAILABLE", "strategic_need": "ADD_DEPTH", "drivers": ["2 WR option(s) are available against a depth target of 4."]}},
+        "VERIFIED",
+    )
+    assert context["roster_fit"]["label"] == "improves depth"
+    assert context["suggested_drop"]["player"] == "Roster WR"
+    assert "no authoritative drop-value model" in context["suggested_drop"]["reason"]
+    assert context["confidence"] == "supported evidence"
+
+
+def test_waiver_candidate_context_preserves_unavailable_news_and_role_reasons():
+    context = waiver_candidate_context(
+        {"player": "Add", "position": "TE", "recent_production": {"state": "UNAVAILABLE"}},
+        [],
+        {"TE": {"state": "BLOCKED"}},
+        "UNVERIFIED",
+    )
+    assert "no verified player-news source" in context["news"]["reason"]
+    assert "no verified role contract" in context["role"]["reason"]
+    assert "no supported drop-value comparison" in context["suggested_drop"]["reason"]
+
+
+def test_waiver_candidate_context_exposes_raw_opportunity_metrics_without_thresholds():
+    context = waiver_candidate_context(
+        {"player": "Add", "position": "WR", "projection": 120.0, "recent_production": {"state": "AVAILABLE"}, "snap_share": {"state": "AVAILABLE", "rows": [{"snap_share": 0.75}]}},
+        [],
+        {"WR": {"state": "AVAILABLE", "strategic_need": "ADD_DEPTH", "drivers": []}},
+        "VERIFIED",
+    )
+    assert context["snap_share"]["state"] == "AVAILABLE"
+    assert "High snap" not in str(context)
 
 
 def test_browse_candidates_render_recent_production_newest_first_and_preserve_zero():

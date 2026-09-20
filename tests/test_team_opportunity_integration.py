@@ -50,6 +50,14 @@ def test_team_opportunity_changes_forwards_verified_identity_season_and_week(mon
     assert result["decision_effect"] == "INFORMATIONAL_ONLY"
 
 
+def test_team_opportunity_snap_share_change_requires_two_published_rows(monkeypatch):
+    monkeypatch.setattr(owner_operations, "read_player_what_changed", lambda *args, **kwargs: comparison())
+    monkeypatch.setattr(owner_operations, "read_snap_share", lambda *args, **kwargs: {"state": "AVAILABLE", "rows": [{"week": 3, "snap_share": 0.75}, {"week": 2, "snap_share": 0.50}], "blockers": []})
+    result = owner_operations.build_team_opportunity_changes(object(), [{"player": "A", "opportunity_player_id": "gsis-a"}], season=2026, week=3)
+    assert result["players"][0]["snap_share_change"]["state"] == "AVAILABLE"
+    assert result["players"][0]["snap_share_change"]["direction"] == "UP"
+
+
 def test_team_opportunity_changes_resolves_gsis_identity_before_adapter(monkeypatch):
     calls = []
 
