@@ -53,9 +53,31 @@ def test_team_opportunity_changes_forwards_verified_identity_season_and_week(mon
 def test_team_opportunity_snap_share_change_requires_two_published_rows(monkeypatch):
     monkeypatch.setattr(owner_operations, "read_player_what_changed", lambda *args, **kwargs: comparison())
     monkeypatch.setattr(owner_operations, "read_snap_share", lambda *args, **kwargs: {"state": "AVAILABLE", "rows": [{"week": 3, "snap_share": 0.75}, {"week": 2, "snap_share": 0.50}], "blockers": []})
+    monkeypatch.setattr(owner_operations, "read_player_opportunity", lambda *args, **kwargs: {"state": "AVAILABLE", "rows": [{"week": 2, "target_share": 0.1, "carry_share": 0.0, "touch_share": 0.1}, {"week": 3, "target_share": 0.2, "carry_share": 0.0, "touch_share": 0.2}], "blockers": []})
     result = owner_operations.build_team_opportunity_changes(object(), [{"player": "A", "opportunity_player_id": "gsis-a"}], season=2026, week=3)
     assert result["players"][0]["snap_share_change"]["state"] == "AVAILABLE"
     assert result["players"][0]["snap_share_change"]["direction"] == "UP"
+    assert result["players"][0]["opportunity_strength"]["state"] != "UNAVAILABLE"
+    assert result["players"][0]["opportunity_trend"]["state"] != "UNAVAILABLE"
+
+
+def test_team_opportunity_snap_share_change_requires_numeric_values(monkeypatch):
+    monkeypatch.setattr(owner_operations, "read_player_what_changed", lambda *args, **kwargs: comparison())
+    monkeypatch.setattr(owner_operations, "read_snap_share", lambda *args, **kwargs: {"state": "AVAILABLE", "rows": [{"week": 3, "snap_share": None}, {"week": 2, "snap_share": 0.50}], "blockers": []})
+    monkeypatch.setattr(owner_operations, "read_player_opportunity", lambda *args, **kwargs: {"state": "AVAILABLE", "rows": [{"week": 3, "target_share": 0.2}], "blockers": []})
+    result = owner_operations.build_team_opportunity_changes(object(), [{"player": "A", "opportunity_player_id": "gsis-a"}], season=2026, week=3)
+    change = result["players"][0]["snap_share_change"]
+    assert change["state"] == "UNAVAILABLE"
+    assert "not both numeric" in change["reason"]
+
+
+def test_team_template_does_not_default_missing_snap_values_to_zero():
+    template = (Path(__file__).parents[1] / "templates" / "team.html").read_text(encoding="utf-8")
+    assert "snap.rows[0].snap_share or 0" not in template
+    assert "change.prior or 0" not in template
+    assert "change.current or 0" not in template
+    assert "snap_value is not none" in template
+    assert "change.reason|default" in template
 
 
 def test_team_opportunity_changes_resolves_gsis_identity_before_adapter(monkeypatch):

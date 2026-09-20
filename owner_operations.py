@@ -31,6 +31,16 @@ STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
 SNAP_SHARE_DISPLAY_MAX_AGE_SECONDS = 86400
 
 
+def _numeric_snap_share(row):
+    value = (row or {}).get("snap_share")
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def build_team_opportunity_changes(connection, roster, *, season, week, nflverse_records=None, nflverse_lineage=None, sleeper_records=None):
     """Build informational What Changed evidence for explicitly linked players."""
     result = {"state": "UNAVAILABLE", "players": [], "blockers": [], "decision_effect": "INFORMATIONAL_ONLY"}
@@ -64,25 +74,30 @@ def build_team_opportunity_changes(connection, roster, *, season, week, nflverse
             season=season,
             week=week,
         )
-        comparison["snap_share"] = read_snap_share(connection, player_id=opportunity_player_id, season=season, week_start=1, week_end=week)
+        comparison["snap_share"] = comparison.get("snap_share_history") or read_snap_share(connection, player_id=opportunity_player_id, season=season, week_start=1, week_end=week)
         snap_rows = comparison["snap_share"].get("rows") or []
         if len(snap_rows) >= 2:
             current_snap, prior_snap = snap_rows[0], snap_rows[1]
-            comparison["snap_share_change"] = {
-                "state": "AVAILABLE",
-                "current_week": current_snap.get("week"),
-                "prior_week": prior_snap.get("week"),
-                "current": current_snap.get("snap_share"),
-                "prior": prior_snap.get("snap_share"),
-                "direction": "UP" if current_snap.get("snap_share") > prior_snap.get("snap_share") else "DOWN" if current_snap.get("snap_share") < prior_snap.get("snap_share") else "UNCHANGED",
-            }
+            current_snap_share = _numeric_snap_share(current_snap)
+            prior_snap_share = _numeric_snap_share(prior_snap)
+            if current_snap_share is not None and prior_snap_share is not None:
+                comparison["snap_share_change"] = {
+                    "state": "AVAILABLE",
+                    "current_week": current_snap.get("week"),
+                    "prior_week": prior_snap.get("week"),
+                    "current": current_snap_share,
+                    "prior": prior_snap_share,
+                    "direction": "UP" if current_snap_share > prior_snap_share else "DOWN" if current_snap_share < prior_snap_share else "UNCHANGED",
+                }
+            else:
+                comparison["snap_share_change"] = {"state": "UNAVAILABLE", "reason": "Snap-share comparison unavailable because prior and current snap-share values are not both numeric."}
         else:
             comparison["snap_share_change"] = {"state": "UNAVAILABLE", "reason": "Snap-share comparison unavailable because prior and current published rows are not both present."}
-            usage_result = read_player_opportunity(connection, player_id=opportunity_player_id, season=season, week_start=1, week_end=week)
-            usage_rows = usage_result.get("rows") or []
-            comparison["opportunity_strength"] = opportunity_strength(usage_row=(usage_rows[-1] if usage_rows else None), snap_row=(snap_rows[0] if snap_rows else None))
-            comparison["usage_stability"] = usage_stability(current_usage=(usage_rows[-1] if usage_rows else None), prior_usage=(usage_rows[-2] if len(usage_rows) > 1 else None), current_snap=(snap_rows[0] if snap_rows else None), prior_snap=(snap_rows[1] if len(snap_rows) > 1 else None))
-            comparison["opportunity_trend"] = opportunity_trend(strength=comparison["opportunity_strength"], stability=comparison["usage_stability"])
+        usage_result = read_player_opportunity(connection, player_id=opportunity_player_id, season=season, week_start=1, week_end=week)
+        usage_rows = usage_result.get("rows") or []
+        comparison["opportunity_strength"] = opportunity_strength(usage_row=(usage_rows[-1] if usage_rows else None), snap_row=(snap_rows[0] if snap_rows else None))
+        comparison["usage_stability"] = usage_stability(current_usage=(usage_rows[-1] if usage_rows else None), prior_usage=(usage_rows[-2] if len(usage_rows) > 1 else None), current_snap=(snap_rows[0] if snap_rows else None), prior_snap=(snap_rows[1] if len(snap_rows) > 1 else None))
+        comparison["opportunity_trend"] = opportunity_trend(strength=comparison["opportunity_strength"], stability=comparison["usage_stability"])
         result["players"].append({"player": name, "opportunity_player_id": opportunity_player_id, **comparison})
     if not result["players"]:
         result["blockers"] = ["OPPORTUNITY_ROSTER_EMPTY"]

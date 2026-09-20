@@ -61,6 +61,26 @@ def test_reader_preserves_stale_snap_share_as_historical_fact():
     assert result["decision_effect"] == "NONE"
 
 
+def test_reader_current_fresh_row_not_overridden_by_stale_history():
+    rows = [
+        (2026, 2, "gsis-1", "pfr-1", "KC", "DEN", 0.80, "automated:nflverse", "automated", "2026-09-20", "2026-09-20", "snap_counts", "snap_counts_2026", "sha256:test", "snap_share.evidence.v1", "FRESH", "COMPLETE", {}, "PUBLISHED"),
+        (2026, 1, "gsis-1", "pfr-1", "KC", "DEN", 0.75, "automated:nflverse", "automated", "2026-09-18", "2026-09-19", "snap_counts", "snap_counts_2026", "sha256:test", "snap_share.evidence.v1", "STALE", "COMPLETE", {}, "PUBLISHED"),
+    ]
+    result = read_snap_share(Connection(rows), player_id="gsis-1", season=2026)
+    assert result["state"] == "AVAILABLE"
+    assert result["freshness_state"] == "FRESH"
+    assert result["rows"][1]["freshness_state"] == "STALE"
+    assert result["blockers"] == []
+
+
+def test_reader_missing_current_snap_value_is_unavailable_not_zero():
+    rows = [(2026, 2, "gsis-1", "pfr-1", "KC", "DEN", None, "automated:nflverse", "automated", "2026-09-20", "2026-09-20", "snap_counts", "snap_counts_2026", "sha256:test", "snap_share.evidence.v1", "FRESH", "COMPLETE", {}, "PUBLISHED")]
+    result = read_snap_share(Connection(rows), player_id="gsis-1", season=2026)
+    assert result["state"] == "UNAVAILABLE"
+    assert result["rows"][0]["snap_share"] is None
+    assert result["blockers"] == ["SNAP_SHARE_VALUE_UNAVAILABLE"]
+
+
 def test_reader_missing_identity_is_unavailable_not_zero_or_blocked():
     result = read_snap_share(Connection(), player_id="", season=2026)
     assert result["state"] == "UNAVAILABLE"
