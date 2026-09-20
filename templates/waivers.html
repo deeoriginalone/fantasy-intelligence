@@ -118,6 +118,8 @@
           var ownership = evidence.ownership_state || 'UNAVAILABLE';
           var eligibility = evidence.eligibility_state || 'UNAVAILABLE';
           var health = evidence.health_state || 'UNAVAILABLE';
+          var healthSource = evidence.health_source || 'UNAVAILABLE';
+          var projectionSource = evidence.projection_source || 'UNAVAILABLE';
           var opportunity = evidence.opportunity || {};
           var strength = evidence.opportunity_strength || {};
           var stability = evidence.usage_stability || {};
@@ -146,6 +148,7 @@
           summary.className = 'candidate-evidence-summary';
           summary.innerHTML = '<p><strong>Roster Fit:</strong> ' + escapeHtml(fit.label || 'Roster fit unavailable') + (fit.reason ? ' · ' + escapeHtml(fit.reason) : '') + '</p>' +
             '<p><strong>Ownership:</strong> ' + escapeHtml(ownership) + ' · <strong>Eligibility:</strong> ' + escapeHtml(eligibility) + ' · <strong>Health:</strong> ' + escapeHtml(health) + '</p>' +
+            '<p><strong>Sources:</strong> Health ' + escapeHtml(healthSource) + ' · Projection ' + escapeHtml(projectionSource) + '</p>' +
             '<p><strong>Opportunity:</strong> ' + escapeHtml(opportunity.reason || 'Opportunity unavailable.') + '</p>' +
             '<p><strong>Opportunity Strength:</strong> ' + escapeHtml(strength.state || 'UNAVAILABLE') + '</p>' +
             '<p><strong>Usage Stability:</strong> ' + escapeHtml(stability.state || 'INSUFFICIENT_EVIDENCE') + '</p>' +

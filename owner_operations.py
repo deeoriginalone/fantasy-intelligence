@@ -318,6 +318,8 @@ def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
         "ownership_state": ownership_state,
         "eligibility_state": eligibility_state,
         "health_state": health_state,
+        "health_source": candidate.get("injury_source") or "Sleeper API" if candidate.get("health_status_available") else "UNAVAILABLE",
+        "projection_source": "local player projection" if candidate.get("projection") is not None else "UNAVAILABLE",
         "roster_fit": roster_fit,
         "snap_share": snap,
         "opportunity_strength": strength,
