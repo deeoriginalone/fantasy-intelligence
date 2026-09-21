@@ -10,6 +10,10 @@ These pending plans include navigation simplification, route merging, new redire
 
 Roadmap work follows `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. A blocked authority boundary must not erase a supported informational result. Deliver evidence levels as `ESTABLISHED`, `PRELIMINARY`, or `INSUFFICIENT`, with sample, freshness, limitations, confidence rationale, and recommendation impact. Preliminary evidence may be shown but may not independently drive recommendations; unsupported authority remains fail-closed.
 
+## Current My Team delivery boundary
+
+The current My Team implementation is decision-first: pending lineup changes and normalized Start/Sit Decisions precede roster and evidence detail; Contingency Depth is roster-minus-recommended-starters; Matchup Signal and diagnostics remain secondary. This is a presentation and aggregation boundary only. Recommendation, ranking, score, confidence, health, matchup authority, database, and transaction behavior remain unchanged.
+
 Recovery Ready is a planned mandatory standard, not a completed checkpoint. Recovery Ready planned work remains pending. It will require a runnable checkpoint, documented startup verification, database backup, canonical-memory snapshot, Notebook/reference export, and six-core-page verification.
 
 Priority order:
@@ -71,7 +75,7 @@ This is target navigation documentation only. Navigation simplification, merges,
 ####### Last recorded repository checkpoint
 - Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: 89da54bcfbdddc8896a09b3386be4eb257d18393
+- HEAD: dda3dbed4fcd0e48d0ae2aff565245675c70dd51
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 

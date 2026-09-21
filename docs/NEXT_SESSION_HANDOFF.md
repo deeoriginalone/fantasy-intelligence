@@ -10,6 +10,10 @@ These pending plans include navigation simplification, route merging, new redire
 
 Carry forward the architecture path `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. Do not hide supported evidence solely because authority is blocked. Record `ESTABLISHED`, `PRELIMINARY`, or `INSUFFICIENT` evidence level, confidence rationale, sample, freshness, limitations, and recommendation impact. Keep Matchup Rank fail-closed; expose a separate Matchup Signal only as disclosed informational context.
 
+###### Current My Team handoff boundary
+
+The verified `/team` presentation is decision-first: the hero reports pending changes, normalized Start/Sit Decisions are the primary surface, Contingency Depth is derived from roster minus recommended starters, and evidence/diagnostics are secondary. The hero separates lineup recommendation availability, weekly-value availability, and evidence confidence. Preserve the existing recommendation and fail-closed authority contracts.
+
 ## Navigation Reconciliation Target
 
 Primary navigation is planned as Command Center, My Team, Waivers, Trades, Survivor, NFL Intelligence, and What Changed. Command Center will summarize League Overview, Must Act, Start/Sit Summary, Waiver Priorities, Trade Watch, Survivor Status, NFL Intelligence Highlights, What Changed, and Risk Alerts without duplicating owning page engines. League Overview will merge into Command Center.
@@ -68,7 +72,7 @@ UX.2.1C was owner-accepted on 2026-09-13 after visual hierarchy, contradiction, 
 ###### Last recorded repository checkpoint
 - Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: 89da54bcfbdddc8896a09b3386be4eb257d18393
+- HEAD: dda3dbed4fcd0e48d0ae2aff565245675c70dd51
 - Repository: /home/deeoriginalone/fantasy-intelligence
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.

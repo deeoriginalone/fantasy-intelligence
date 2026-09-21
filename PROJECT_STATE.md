@@ -12,6 +12,10 @@ The governing path is `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. Aut
 
 These pending plans include navigation simplification, route merging, new redirects, and archive actions. Decision Journal, Process vs Results, and Season Planning are planned priorities, not delivered capabilities.
 
+## Current My Team decision-first boundary
+
+`/team` presents pending lineup changes first, followed by normalized Start/Sit Decisions, the legal lineup context, Contingency Depth, risks, and lower-page evidence diagnostics. The hero reports lineup recommendation availability separately from weekly values and evidence confidence. No recommendation, score, confidence calculation, matchup authority, or transaction behavior changes in this presentation boundary.
+
 ## Navigation Reconciliation Target
 
 Primary navigation is Command Center, My Team, Waivers, Trades, Survivor, NFL Intelligence, and What Changed. The Command Center is the planned primary landing page for League Overview, Must Act, Start/Sit Summary, Waiver Priorities, Trade Watch, Survivor Status, NFL Intelligence Highlights, What Changed, and Risk Alerts. League Overview is planned to merge into Command Center.
@@ -35,7 +39,7 @@ UX.2.1C is owner-accepted as of 2026-09-13 (`APPROVED: MY TEAM UI`). UX.3 is val
 ####### Last recorded repository checkpoint
 - Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: 89da54bcfbdddc8896a09b3386be4eb257d18393
+- HEAD: dda3dbed4fcd0e48d0ae2aff565245675c70dd51
 
 ####### Current evidence-layer foundation (validated 2026-09-15)
 - Pure fail-closed contracts now exist for Opportunity Evidence, What Changed, Opportunity Classification, Market Value, Market Signal, Buy/Sell Candidates, and Trade Opportunity evidence.

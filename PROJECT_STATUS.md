@@ -14,6 +14,10 @@ The product follows `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. Fail-
 
 These pending plans include navigation simplification, route merging, new redirects, and archive actions. Decision Journal, Process vs Results, and Season Planning are planned priorities, not delivered capabilities.
 
+## Current My Team decision-first boundary
+
+The active `/team` surface now leads with pending lineup changes and explicit START/SIT/FLEX decisions. The hero distinguishes lineup recommendation availability from weekly-value availability and evidence confidence. Lineup Snapshot counts pending changed slots as MONITOR while preserving the underlying recommendation decisions. Contingency Depth is derived from the verified roster minus the complete recommended lineup. Matchup Signal and evidence diagnostics remain secondary, collapsed, and fail-closed; Matchup Rank remains unavailable without authority.
+
 ## Navigation Reconciliation Target
 
 The planned primary navigation is Command Center, My Team, Waivers, Trades, Survivor, NFL Intelligence, and What Changed. Command Center is the planned primary landing page for League Overview, Must Act, Start/Sit Summary, Waiver Priorities, Trade Watch, Survivor Status, NFL Intelligence Highlights, What Changed, and Risk Alerts. League Overview is planned to merge into Command Center.
@@ -35,7 +39,7 @@ UX.2.1C is owner-accepted after visual hierarchy, contradiction, disclosure, hea
 ####### Last recorded repository checkpoint
 - Date: 2026-09-15
 - Branch: test-weekly-evidence-trust
-- HEAD: 89da54bcfbdddc8896a09b3386be4eb257d18393
+- HEAD: dda3dbed4fcd0e48d0ae2aff565245675c70dd51
 - Repository: /home/deeoriginalone/fantasy-intelligence
 - League ID: 1398094330668797952
 - Completed real draft ID: 1398094331272794112
