@@ -22,6 +22,7 @@ details.nfli-details summary{cursor:pointer;font-weight:800}
   <p>Last verified: {{ intelligence.last_verified or 'Unavailable' }}</p>
   {% if intelligence.evidence_state in ('UNAVAILABLE', 'BLOCKED', 'INSUFFICIENT_EVIDENCE') %}<div class="nfli-blocker"><p><strong>No prediction or recommendation is published.</strong></p><p><strong>Evidence available:</strong> Week {{ intelligence.week }} schedule context is loaded{% if intelligence.scheduled_games %} for {{ intelligence.scheduled_games }} scheduled game(s){% endif %}.</p><p><strong>Evidence missing:</strong> {{ intelligence.missing_predictions or 'Supported prediction provider evidence' }} game-level prediction record(s) for this week.</p><p><strong>Recommendation affected:</strong> No supported top-pick or game prediction is published for the missing games.</p><p><strong>Manager action:</strong> Refresh this week and wait for matched provider data before relying on a prediction.</p></div>{% endif %}
 </div>
+<section class="nfli-section" aria-labelledby="market-intelligence-title"><h2 id="market-intelligence-title">Market Intelligence</h2><p>Market context remains available through the existing read-only market intelligence surface.</p><a href="{{ url_for('market_intelligence.home') }}">Open Market Intelligence</a></section>
 <script>
 const nfliCsrfToken={{ csrf_token() | tojson }};
 const nfliRefreshBtn=document.getElementById('nfli-refresh-btn');

@@ -48,17 +48,28 @@ def home():
     if week is None:
         acquire_week=current_app.config.get("WEEK_AUTHORITY_ACQUIRER")
         if acquire_week is None:
-            context={"state":"UNAVAILABLE","blockers":["WEEK_AUTHORITY_ACQUISITION_UNAVAILABLE"]}
+            context={"authoritative":False,"state":"UNAVAILABLE","blockers":["WEEK_AUTHORITY_ACQUISITION_UNAVAILABLE"]}
         else:
             context=acquire_week(season)
         if not context["authoritative"]:
+            try:
+                persisted_history = history(request.args.get("pool", "default"), season)
+                persisted_used_teams = used_teams(request.args.get("pool", "default"), season)
+                history_status = "verified"
+                existing_selection = persisted_history[-1] if persisted_history else None
+            except SurvivorHistoryReadError:
+                persisted_history = []
+                persisted_used_teams = []
+                history_status = "read_failed"
+                existing_selection = None
             return render_template(
                 "survivor_intelligence.html",
                 survivor_season=season, survivor_week=None, pool_key=request.args.get("pool", "default"),
-                strategy=request.args.get("strategy", "balanced"), used_teams=[], candidates=[],
+                strategy=request.args.get("strategy", "balanced"), candidates=[],
                 survivor_summary={"primary": None, "fallbacks": [], "risks": [], "save_for_later": []},
-                survivor_status={"state":"UNAVAILABLE", "season":season, "active_week":None, "history_status":"unavailable", "week_state":"UNAVAILABLE", "used_team_count":None, "remaining_team_count":None, "evidence_state":"UNAVAILABLE", "freshness_state":"UNAVAILABLE", "blocker_reason":(context.get("blockers") or ["WEEK_AUTHORITY_UNAVAILABLE"])[0], "degrade_reason":None, "last_verified":None},
-                existing_selection=None, result_label=None, next_week=None, eligible_teams=[], last_verified_pacific=None,
+                survivor_status={"state":"BLOCKED" if history_status == "read_failed" else "UNAVAILABLE", "season":season, "active_week":None, "history_status":history_status, "week_state":"UNAVAILABLE", "used_team_count":len(persisted_used_teams) if history_status == "verified" else None, "remaining_team_count":None, "evidence_state":"UNAVAILABLE", "freshness_state":"UNAVAILABLE", "blocker_reason":"SURVIVOR_HISTORY_READ_FAILED" if history_status == "read_failed" else (context.get("blockers") or ["WEEK_AUTHORITY_UNAVAILABLE"])[0], "degrade_reason":None, "last_verified":None},
+                used_teams=persisted_used_teams, survivor_history=persisted_history,
+                existing_selection=existing_selection, result_label=None, next_week=None, eligible_teams=[], last_verified_pacific=None,
             )
         week=context["week"]
     return render_template('survivor_intelligence.html',**_context(season,week,request.args.get('pool','default'),request.args.get('strategy','balanced')))
