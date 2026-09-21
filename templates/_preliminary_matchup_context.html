@@ -6,6 +6,8 @@
       <p><strong>{{ matchup.completed_games }} completed game{% if matchup.completed_games != 1 %}s{% endif %}</strong></p>
       <p>{{ matchup.defenses_represented }}/{{ matchup.required_defenses }} defenses represented</p>
       <p>{{ "%.2f"|format(matchup.fp_per_game_allowed) }} full-PPR fantasy points allowed per completed game to {{ matchup.position }}</p>
+      {% if matchup.matchup_signal %}<p><strong>Matchup Signal:</strong> {{ matchup.matchup_signal }}</p>{% endif %}
+      <p>Evidence: {{ matchup.evidence_level|default('PRELIMINARY') }} · Sample: {{ matchup.completed_games }} games · Impact: Context only</p>
       <p>Source: {{ matchup.source }} · Freshness: {{ matchup.freshness }}</p>
     {% endfor %}
     <p>Early-season opponent results are unstable. This information does not change the recommendation.</p>

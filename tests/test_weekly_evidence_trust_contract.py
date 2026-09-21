@@ -4,7 +4,7 @@ from weekly_intelligence import enrich_players
 from services.ux_evidence import weekly_evidence_contract
 from services.trade_intelligence import evidence_ready
 
-NOW = datetime(2026, 9, 17, tzinfo=timezone.utc)
+NOW = datetime.now(timezone.utc)
 
 
 class MatchupCursor:
@@ -39,7 +39,7 @@ def _publication_lineage(threshold_state="VERIFIED", include_population=True, in
 
 
 def _matchup_player():
-    return {"player": "Test", "position": "WR", "nfl_team": "KC", "projection": 100, "projection_retrieved_at": NOW.isoformat(), "injury_status": "Healthy", "health_status_available": True}
+    return {"player": "Test", "position": "WR", "nfl_team": "KC", "source_player_id": "sleeper-test", "local_player_id": 1, "projection": 100, "projection_retrieved_at": NOW.isoformat(), "injury_status": "Healthy", "health_status_available": True}
 
 
 def test_weekly_contract_requires_automated_source_metadata():
@@ -53,6 +53,7 @@ def test_live_safe_enrichment_marks_weekly_domains_non_authoritative():
     result = enrich_players(object(), [player], week=1, allow_local_weekly_data=False, allow_local_health_fallback=False, require_automated_weekly_evidence=True)[0]
     assert result["weekly_score"] is None
     assert all(not item["authoritative"] for item in result["weekly_evidence"].values())
+    assert "MATCHUP_EVIDENCE_UNAVAILABLE" in result["evidence_gaps"]
 
 
 def test_trade_evidence_rejects_non_authoritative_weekly_contracts():
@@ -76,6 +77,8 @@ def test_authoritative_automated_row_populates_matchup_publication_contract():
     assert row["matchup_sample_threshold_id"] == "matchup.sample.v1"
     assert row["matchup_updated_at"] == row["matchup_retrieved_at"]
     assert row["matchup_updated_at"] is not None
+    assert row["weekly_evidence"]["matchup"]["authoritative"] is True
+    assert row["weekly_evidence"]["matchup"]["value"] == 5
 
 
 def test_non_automated_csv_row_does_not_receive_publication_contract_authority():

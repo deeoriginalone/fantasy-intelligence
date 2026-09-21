@@ -146,3 +146,12 @@ def test_unfavorable_rank_is_distinct_from_unavailable():
     result = build_team_accuracy_contract([], [starter(matchup_rank=32)], settings(), needs(), health())
     row = result["matchups"]["rows"][0]
     assert row["matchup_rank"] == 32
+
+
+def test_preliminary_signal_is_visible_without_authoritative_rank():
+    result = build_team_accuracy_contract([], [starter(matchup_sample_threshold_id=None, matchup_publication_lineage={"publication_contracts": {"population": {"size": 32}}})], settings(), needs(), health())
+    row = result["matchups"]["rows"][0]
+    assert row["matchup_rank"] is None
+    assert row["matchup_signal"] == "21st easiest defense"
+    assert row["evidence_level"] == "PRELIMINARY"
+    assert row["recommendation_impact"] == "CONTEXT_ONLY"

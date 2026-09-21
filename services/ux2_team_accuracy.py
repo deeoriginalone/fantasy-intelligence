@@ -47,6 +47,7 @@ def _matchup_row(player):
     matchup_rank = None
     comparison_population = None
     matchup_context = None
+    matchup_signal = matchup_evidence.get("matchup_signal")
     if matchup_authoritative:
         matchup_rank = matchup_evidence.get("value")
         comparison_population = matchup_evidence.get("comparison_population")
@@ -66,6 +67,11 @@ def _matchup_row(player):
         "opponent": player.get("opponent"),
         "opponent_name": player.get("opponent_name"),
         "matchup_rank": matchup_rank,
+        "matchup_signal": matchup_signal,
+        "evidence_level": matchup_evidence.get("evidence_level", "INSUFFICIENT"),
+        "sample_games": matchup_evidence.get("sample_size"),
+        "freshness": matchup_evidence.get("freshness_state", "UNAVAILABLE"),
+        "recommendation_impact": matchup_evidence.get("recommendation_impact", "NONE"),
         "comparison_population": comparison_population,
         "matchup_context": matchup_context,
         "blockers": sorted(set(gaps)),

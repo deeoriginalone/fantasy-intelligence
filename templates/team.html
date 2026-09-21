@@ -16,21 +16,119 @@
 {% set changes = lineup_intelligence.changes|default({}) %}
 {% set verdict_score = verdict.weekly_score|default(lineup_intelligence.weekly_total|default(None)) %}
 {% set verdict_status = verdict.status|default('MONITOR')|lower %}
+<style>
+.action-section{border:2px solid var(--team-blue);box-shadow:0 8px 24px rgba(17,52,86,.12)}
+.verdict-stat{display:none}
+.formation .player-foot span:first-child{display:none}
+.formation .player-value{display:none}
+section[aria-labelledby="proposed-changes-title"]{display:none}
+section[aria-labelledby="primary-changes-title"]{display:none}
+.formation .player-value.unavailable{font-size:0}
+.formation .player-value.unavailable::after{content:'Weekly Value unavailable';font-size:15px}
+.bench-card .decision-value{display:none}
+.bench-card .decision-reason:empty{display:none}
+section[aria-labelledby="decision-explanation-title"]{display:none}
+.bench-card .decision-reason{display:none}
+.team-page .bench-strip{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+.team-page{overflow-x:hidden}
+.team-page .table-wrap{display:block;width:100%;max-width:100%;overflow-x:auto}
+.team-page .table-wrap table{width:100%;max-width:100%;min-width:0;table-layout:fixed;overflow-wrap:anywhere}
+.team-page .table-wrap th,.team-page .table-wrap td{overflow-wrap:anywhere;word-break:break-word}
+.verdict-main{display:block;position:relative;min-height:0;padding:18px 20px}
+.verdict{margin-bottom:16px}
+.verdict-main{min-height:0;padding:18px 20px;row-gap:8px}
+.verdict-main h2{margin:8px 0 5px}
+.verdict-action{margin-top:10px;padding:8px 11px}
+.hero-change-list{padding:8px 12px}
+.hero-change-list p{margin:4px 0;font-size:12px}
+.verdict-main>div:first-child{display:block}
+.verdict-kicker,.verdict-main h2,.verdict-main>div:first-child>p{display:block;width:52%;max-width:52%}
+.hero-change-list{position:absolute;right:20px;top:18px;width:40%;box-sizing:border-box;align-self:center;padding:14px 16px;border-left:1px solid rgba(255,255,255,.2);color:#fff}
+.hero-change-list p{margin:6px 0;font-size:13px}
+.verdict-action{grid-column:1;grid-row:2}
+@media(max-width:600px){.verdict-main{display:flex;padding:16px}.verdict-main>div:first-child{display:block}.verdict-kicker,.verdict-main h2,.verdict-main>div:first-child>p{width:auto;max-width:none}.hero-change-list{position:static;width:auto;margin-top:12px;padding:10px 0 0;border-top:1px solid rgba(255,255,255,.2);border-left:0}.verdict-action{grid-column:auto;grid-row:auto}}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.formation .player-value.unavailable').forEach((node) => { node.textContent = 'Weekly Value unavailable'; });
+  const formation = document.querySelector('section[aria-labelledby="formation-title"]');
+  if (formation && formation.parentElement.tagName !== 'DETAILS') {
+    const details = document.createElement('details');
+    const summary = document.createElement('summary');
+    summary.textContent = 'Show Full Recommended Lineup';
+    details.className = 'lineup-section';
+    details.append(summary, formation);
+    formation.parentElement.insertBefore(details, formation);
+  }
+  document.querySelectorAll('.formation .player-foot span:first-child').forEach((node) => {
+    const card = node.closest('.player-card');
+    const evidence = card && card.querySelector('.evidence-list');
+    if (evidence) { const item = document.createElement('span'); item.innerHTML = '<b>Evidence confidence:</b> ' + node.textContent; evidence.append(item); }
+    node.remove();
+  });
+  document.querySelectorAll('.formation .player-value').forEach((node) => {
+    const card = node.closest('.player-card');
+    const evidence = card && card.querySelector('.evidence-list');
+    if (evidence) { const item = document.createElement('span'); item.innerHTML = '<b>Weekly Value:</b> ' + node.textContent; evidence.append(item); }
+    node.remove();
+  });
+  const snapshot = document.querySelector('#lineup-snapshot');
+  const benchSection = document.querySelector('section[aria-labelledby="bench-title"]');
+  if (snapshot && benchSection) {
+    const counts = snapshot.querySelectorAll('.snapshot-grid span');
+    if (counts.length >= 3 && counts[1].textContent.trim() === '0' && counts[2].textContent.trim() === '0') benchSection.remove();
+  }
+  const benchHeading = document.querySelector('#bench-title');
+  if (benchHeading) benchHeading.textContent = 'Contingency Depth';
+  const benchIntro = benchHeading && benchHeading.closest('.section-heading')?.querySelector('p:last-child');
+  if (benchIntro) benchIntro.textContent = 'Actual roster players outside the recommended lineup; use them as eligible depth only.';
+  const benchSection = benchHeading?.closest('section');
+  const changesSection = document.querySelector('#changes-title')?.closest('section');
+  if (benchSection && changesSection) benchSection.parentElement.insertBefore(changesSection, benchSection.nextSibling);
+  const matchupSignal = document.querySelector('#matchup-signal-title')?.closest('section');
+  const additionalDiagnostics = document.querySelector('#additional-evidence-diagnostics');
+  const diagnostics = document.querySelector('#lineup-trust');
+  if (additionalDiagnostics && diagnostics) diagnostics.parentElement.insertBefore(additionalDiagnostics, diagnostics);
+  if (matchupSignal && diagnostics) diagnostics.parentElement.insertBefore(matchupSignal, diagnostics);
+  const primaryChanges = document.querySelector('#primary-changes-title')?.closest('section');
+  const changeText = primaryChanges ? primaryChanges.textContent : '';
+  if (primaryChanges && changeText.includes('KEEP:')) primaryChanges.innerHTML = primaryChanges.innerHTML.replace('KEEP: The supported recommendation matches the current Sleeper lineup.', 'No lineup changes recommended.');
+  document.querySelectorAll('.formation .player-card').forEach((card) => {
+    const player = card.querySelector('h3')?.textContent.trim();
+    if (player && primaryChanges && changeText.includes('Proposed Changes') && !changeText.includes(player)) card.remove();
+  });
+  document.querySelectorAll('.formation').forEach((formation) => { if (!formation.querySelector('.player-card')) formation.insertAdjacentHTML('afterend', '<p>Current Sleeper lineup already matches the recommendation.</p>'); });
+  document.querySelectorAll('.formation .evidence-list span').forEach((node) => {
+    const label = node.textContent.trim().split(':')[0];
+    if (node.textContent.trim().endsWith('Unavailable') && label === 'Matchup Rank') node.textContent = 'Matchup Rank unavailable';
+    if (node.textContent.trim().endsWith('Unavailable') && label === 'Baseline') node.textContent = 'Baseline unavailable';
+    if (node.textContent.trim().endsWith('Unavailable') && label === 'Opponent') node.textContent = 'Opponent unavailable';
+  });
+  document.querySelectorAll('.bench-card .decision-reason').forEach((node) => { if (!node.textContent.trim() || node.textContent.includes('No additional explanation supplied')) node.remove(); });
+  document.querySelectorAll('.bench-card .bench-meta').forEach((node) => { if (node.textContent.includes('Unavailable')) node.textContent = node.textContent.replace('Unavailable', 'Opponent unavailable'); });
+});
+</script>
 <main class="team-page" aria-labelledby="team-title">
   <header class="team-header"><div><p class="eyebrow">{{ context.mode }} / Roster view</p><h1 id="team-title">My Team</h1><p>Turn roster evidence into the next best manager action. Decision support only.</p></div><span class="mode-tag">{{ meta.team_name }}</span></header>
   <section class="verdict" id="lineup" aria-labelledby="verdict-title">
-    <div class="verdict-main"><div><span class="verdict-kicker">Weekly lineup verdict</span><h2 id="verdict-title"><span class="status status-{{ verdict_status }}">{{ verdict.status|default('MONITOR') }}</span></h2><p>{{ verdict.why|default('Review the available evidence before setting this week’s lineup.') }}</p></div><strong class="verdict-action">{{ verdict.action|default('Review the selected lineup before lock.') }}</strong></div>
-    <div class="verdict-stat"><small>Recommended lineup projection</small><strong>{{ '%.2f'|format(verdict_score) if verdict_score is not none else 'UNAVAILABLE' }}</strong><span>{% if verdict_score is not none %}{{ lineup_intelligence.verdict.weekly_values_available }} of {{ lineup_intelligence.verdict.weekly_values_required }} starter values available{% else %}{{ lineup_intelligence.verdict.weekly_values_available }} of {{ lineup_intelligence.verdict.weekly_values_required }} required starter values available{% endif %}</span></div>
-    <div class="verdict-stat"><small>Confidence</small><strong>{{ verdict.confidence_percent|default(0) }}%</strong><span>Evidence confidence, not player quality</span></div>
+    <div class="verdict-main"><div><span class="verdict-kicker">Lineup needs attention</span><h2 id="verdict-title"><span class="status status-{{ verdict_status }}">{{ 'ACTION REQUIRED' if lineup_reconciliation.changes else verdict.status|default('MONITOR') }}</span></h2><p>{{ (lineup_reconciliation.changes|length|string ~ ' lineup changes recommended') if lineup_reconciliation.changes else verdict.why|default('Review the selected lineup before lock.') }}</p>{% if lineup_reconciliation.changes %}<div class="hero-change-list">{% for change in lineup_reconciliation.changes %}<p><strong>{{ change.slot }}</strong> {{ change.current }} &rarr; {{ change.recommended }}</p>{% endfor %}</div>{% endif %}</div><strong class="verdict-action">{{ 'Review lineup' if lineup_reconciliation.changes else verdict.action|default('Review the selected lineup before lock.') }}</strong></div>
+    <div class="verdict-stat"><small>Lineup recommendation</small><strong>{{ 'AVAILABLE' if verdict.recommendation_available else 'UNAVAILABLE' }}</strong><span>Legal recommended lineup {% if verdict.recommendation_available %}is available{% else %}could not be produced{% endif %}</span></div>
+    <div class="verdict-stat"><small>Weekly values</small><strong>{{ 'AVAILABLE' if verdict.weekly_values_available == verdict.weekly_values_required and verdict.weekly_values_required else 'UNAVAILABLE' }}</strong><span>{{ verdict.weekly_values_available }} of {{ verdict.weekly_values_required }} values available</span></div>
+    <div class="verdict-stat"><small>Matchup evidence</small><strong>{{ 'AVAILABLE' if team_accuracy.matchups.state == 'AVAILABLE' else 'UNAVAILABLE' }}</strong><span>Rank authority remains fail-closed</span></div>
+    <div class="verdict-stat"><small>Lineup evidence confidence</small><strong>{{ verdict.confidence_percent|default(0) }}%</strong><span>Evidence certainty for the lineup, not player quality</span></div>
     <div class="verdict-stat"><small>Biggest risk</small><strong>{{ 'Review' if verdict.biggest_risk|default('') else 'None' }}</strong><span>{{ verdict.biggest_risk|default('No active lineup risk identified.') }}</span></div>
   </section>
-  {% include "_team_priority.html" %}
+  <section class="lineup-section action-section" aria-labelledby="primary-changes-title"><div class="section-heading"><div><p class="eyebrow">Next manager action</p><h2 id="primary-changes-title">Proposed Changes</h2></div><p>Review supported lineup changes before the formation details.</p></div>{% if lineup_reconciliation.state == 'AVAILABLE' and lineup_reconciliation.changes %}<div class="change-card">{% for change in lineup_reconciliation.changes %}<p><strong>{{ 'START' if change.authority in ('START', 'FLEX') else 'REVIEW' }} {{ change.recommended }} over {{ change.current }} at {{ change.slot }}</strong></p>{% endfor %}</div>{% elif lineup_reconciliation.state == 'AVAILABLE' %}<p>KEEP: The supported recommendation matches the current Sleeper lineup.</p>{% else %}<p>UNAVAILABLE: Current and recommended lineups cannot be compared.</p>{% endif %}</section>
+  <section class="lineup-section" aria-labelledby="start-sit-decisions-title"><div class="section-heading"><div><p class="eyebrow">Decision surface</p><h2 id="start-sit-decisions-title">Start/Sit Decisions</h2></div><p>One supported decision per changed slot.</p></div>{% if lineup_reconciliation.changes %}{% for change in lineup_reconciliation.changes %}<article class="change-card"><strong>{{ change.slot }}</strong><h3>{{ change.authority }} {{ change.recommended }}</h3><p>SIT {{ change.current }}</p>{% if change.reason %}<p><strong>Why:</strong> {{ change.reason }}</p>{% endif %}{% if change.watch_item %}<p><strong>What could change this:</strong> {{ change.watch_item }}</p>{% endif %}</article>{% endfor %}{% else %}<p>No lineup changes recommended.</p>{% endif %}</section>
+  <section class="lineup-section decision-explanation" aria-labelledby="decision-explanation-title"><div class="section-heading"><div><p class="eyebrow">Decision explanation</p><h2 id="decision-explanation-title">Why these lineup changes?</h2></div><p>Uses only the supplied recommendation reasons and current starter assignments.</p></div>{% if lineup_reconciliation.changes %}{% for change in lineup_reconciliation.changes %}<article class="change-card"><strong>{{ change.slot }}</strong><p>{{ change.current }} &rarr; {{ change.recommended }}</p><span>{{ change.recommended_player.reason|default('Supported lineup recommendation.') }}</span></article>{% endfor %}{% else %}<p>No lineup changes recommended.</p>{% endif %}</section>
+  <section class="lineup-section" aria-labelledby="matchup-signal-title"><div class="section-heading"><div><p class="eyebrow">Evidence context</p><h2 id="matchup-signal-title">Matchup Signal</h2></div><p>Preliminary context only; authoritative Matchup Rank remains separate and fail-closed.</p></div>{% set signal_players = lineup_intelligence.starters|selectattr('matchup_signal')|list %}{% if signal_players %}{% for player in signal_players %}<p><strong>{{ player.player }}</strong> · {{ player.matchup_signal }} · {{ player.evidence_level }} · Sample {{ player.sample_games|default('Unavailable') }} games · {{ player.freshness|default('UNAVAILABLE') }} · Context only</p>{% endfor %}{% else %}<p>Matchup Signal unavailable: current matchup evidence has not reached the My Team lineup payload.</p>{% endif %}</section>
   <details class="card diagnostic-details" id="additional-evidence-diagnostics"><summary>Additional evidence diagnostics</summary>{% include "_opportunity_evidence.html" %}{% include "_preliminary_matchup_context.html" %}</details>
   {% include "_team_snapshot.html" %}
   <section class="lineup-section" aria-labelledby="current-sleeper-lineup-title"><div class="section-heading"><div><p class="eyebrow">Sleeper roster truth</p><h2 id="current-sleeper-lineup-title">Current Sleeper Lineup</h2></div><p>Configured starters from the current owner roster.</p></div>{% if lineup_reconciliation.state == 'AVAILABLE' %}<div class="decision-grid">{% for player in lineup_reconciliation.current %}<article class="decision-card"><span class="slot-label">{{ player.slot }}</span><h3>{{ player.player }}</h3><p class="decision-meta">{{ player.position }} · {{ player.injury_status }}</p></article>{% endfor %}</div>{% else %}<div class="change-card"><strong>UNAVAILABLE</strong><span>Current Sleeper starters could not be retrieved or mapped.</span></div>{% endif %}</section>
   <section class="lineup-section" aria-labelledby="proposed-changes-title"><div class="section-heading"><div><p class="eyebrow">Reconciliation</p><h2 id="proposed-changes-title">Proposed Changes</h2></div><p>Only differences between Sleeper starters and the supported recommendation.</p></div>{% if lineup_reconciliation.state != 'AVAILABLE' %}<p>UNAVAILABLE: Current and recommended lineups cannot be compared.</p>{% elif lineup_reconciliation.changes %}<div class="change-card"><div><h3>Review supported differences</h3>{% for change in lineup_reconciliation.changes %}<p><strong>{{ 'START' if change.authority in ('START', 'FLEX') else 'REVIEW' }} {{ change.recommended }} over {{ change.current }} at {{ change.slot }}</strong></p>{% endfor %}</div></div>{% else %}<p>KEEP: The supported recommendation matches the current Sleeper lineup.</p>{% endif %}</section>
   <section class="lineup-section" aria-labelledby="formation-title"><div class="section-heading"><div><p class="eyebrow">Make the call &amp; set the lineup</p><h2 id="formation-title">Recommended Starting Lineup</h2></div><p>League-valid slots, shown as a formation. Each slot names the supported call and flags a bench swap when one is evidenced.</p></div><div class="formation">{% for player in lineup_intelligence.starters|default([]) %}{% set decision = decisions_by_slot.get(player.slot) if decisions_by_slot is defined else none %}{% set decision_label = decision.decision if decision else player.decision|default('MONITOR') %}{% set player_status = decision_label|lower %}{% set player_score = player.weekly_score|default(None) %}{% set swap_delta = decision.weekly_score_delta|default(0) if decision else 0 %}{% set swap_alt = decision.alternative if decision and swap_delta > 0.01 and decision.start.player != player.player else none %}<article class="player-card {{ 'vacant' if player.vacant else 'monitor' if player_status=='monitor' else '' }}"><span class="slot-label">{{ player.slot }}</span><div class="player-top"><h3>{{ player.player }}</h3><span class="status status-{{ player_status }}">{{ decision_label }}</span></div><div class="player-meta">{{ player.position }} &middot; {{ player.opponent if player.opponent else 'Unavailable' }}</div><div class="player-value {{ 'unavailable' if player_score is none else '' }}">{{ '%.2f'|format(player_score) if player_score is not none else 'Unavailable' }}</div><div class="player-foot"><span>{{ player.confidence.score|default(0) }}% confidence</span><span>{{ player.injury_status|default('Unknown') }}</span></div>{% if swap_alt %}<p class="decision-reason"><strong>Consider a swap:</strong> {{ decision.reason }}</p>{% endif %}<details><summary>View matchup, health, and baseline</summary><div class="evidence-list"><span><b>Why:</b> {{ (decision.reason if decision else none)|default(player.reason|default('No explanation supplied.')) }}</span><span><b>Opponent:</b> {{ player.opponent|default('Unavailable') }}</span><span><b>Matchup Rank:</b> {{ 'NOT_APPLICABLE' if player.position in ('K', 'DEF') else (player.matchup_rank if player.matchup_rank is not none else 'Unavailable') }}</span><span><b>Health:</b> {{ player.injury_status|default('Unknown') }}</span><span><b>Baseline:</b> {{ '%.2f'|format(player.weekly_baseline) if player.weekly_baseline is not none else 'Unavailable' }}</span></div></details></article>{% endfor %}</div></section>
   <section class="lineup-section" aria-labelledby="bench-title"><div class="section-heading"><div><p class="eyebrow">Contingency depth</p><h2 id="bench-title">Bench Priority</h2></div><p>Ranked alternatives for a late health or matchup change.</p></div><div class="bench-strip">{% for player in lineup_intelligence.bench|default([]) %}{% set bench_score = player.weekly_score|default(None) %}<article class="bench-card"><div class="bench-top"><span class="bench-rank">#{{ player.bench_order|default(loop.index) }}</span><span class="status status-{{ player.decision|default('SIT')|lower }}">{{ player.decision|default('SIT') }}</span></div><h3>{{ player.player }}</h3><div class="bench-meta">{{ player.position }} &middot; {{ player.opponent if player.opponent else 'Unavailable' }}</div><div class="decision-value"><div><strong>{{ '%.2f'|format(bench_score) if bench_score is not none else '—' }}</strong><small>Weekly value</small></div><div><strong>{{ player.confidence.score|default(0) }}%</strong><small>Confidence</small></div></div><p class="decision-reason">{{ player.reason|default('No additional explanation supplied.') }}</p></article>{% endfor %}</div></section>
+  {% include "_team_priority.html" %}
   {% include "_team_risks.html" %}
   {% include "_team_needs_summary.html" %}
   {% include "_team_outlook.html" %}
@@ -39,4 +137,18 @@
   <details class="card diagnostic-details" id="evidence-settings"><summary>Evidence and Settings</summary>{% include "_team_accuracy.html" %}</details>
   {% set ux_title = 'Roster Identity and Data Lineage' %}{% set supplied_lineage = team.lineage|default([]) if team is defined else [] %}{% set ux_lineage = supplied_lineage if supplied_lineage else ux_roster_lineage(roster) %}{% include '_ux_completion_panel.html' %}
 </main>
+<script>
+const teamFormation = document.querySelector('section[aria-labelledby="formation-title"]');
+if (teamFormation) teamFormation.remove();
+const legacyChanges = document.querySelector('section[aria-labelledby="proposed-changes-title"]');
+if (legacyChanges) legacyChanges.remove();
+const teamBench = document.querySelector('section[aria-labelledby="bench-title"]');
+const teamChanges = document.querySelector('section[aria-labelledby="changes-title"]');
+if (teamBench && teamChanges) teamBench.parentElement.insertBefore(teamChanges, teamBench.nextSibling);
+const teamSignal = document.querySelector('#matchup-signal-title')?.closest('section');
+const teamDiagnostics = document.querySelector('#additional-evidence-diagnostics');
+const teamTrust = document.querySelector('#lineup-trust');
+if (teamTrust && teamSignal) teamTrust.parentElement.insertBefore(teamSignal, teamTrust);
+if (teamTrust && teamDiagnostics) teamTrust.parentElement.insertBefore(teamDiagnostics, teamTrust);
+</script>
 {% endblock %}

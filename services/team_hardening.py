@@ -43,8 +43,14 @@ def build_bench_decisions(starters: Sequence[Mapping[str, Any]], bench: Sequence
     return decisions
 
 
-def build_weekly_risks(starters, team_needs, team_health, team_accuracy):
+def build_weekly_risks(starters, team_needs, team_health, team_accuracy, current_starters=None):
     risks = []
+    current_health = [player for player in (current_starters or []) if player.get("sleeper_current_starter") and str(player.get("injury_status") or "").strip().upper() in {"OUT", "IR", "DOUBTFUL", "QUESTIONABLE"}]
+    if current_health:
+        order = {"OUT": 0, "IR": 0, "DOUBTFUL": 1, "QUESTIONABLE": 2}
+        current_health.sort(key=lambda player: (order.get(str(player.get("injury_status") or "").strip().upper(), 9), str(player.get("player") or "")))
+        affected = current_health[0]
+        risks.append({"key": "health:current-starter", "title": f"{affected.get('player')} is {affected.get('injury_status')}", "reason": "A current Sleeper starter has a health designation.", "action": f"Review {affected.get('player')}'s availability before lineup lock.", "affected_players": [affected.get("player")], "severity": "HIGH"})
     monitored = [player for player in starters or [] if player.get("decision") in {"MONITOR", "BLOCKED"}]
     if monitored:
         names = [str(player.get("player")) for player in monitored]
@@ -60,7 +66,7 @@ def build_weekly_risks(starters, team_needs, team_health, team_accuracy):
         risks.append({"key": "health:team", "title": "Team health evidence needs review", "reason": (team_health or {}).get("recommendation_impact") or "Health evidence is limited.", "action": "Confirm current health evidence."})
     if (team_accuracy or {}).get("matchups", {}).get("state") != "AVAILABLE":
         risks.append({"key": "matchup:team", "title": "Matchup evidence is limited", "reason": "Authoritative matchup rank metadata is unavailable.", "action": "Use opponent context without treating rank as authoritative."})
-    return sorted({risk["key"]: risk for risk in risks}.values(), key=lambda risk: risk["key"])
+    return sorted({risk["key"]: risk for risk in risks}.values(), key=lambda risk: (0 if risk["key"] == "health:current-starter" else 1, risk["key"]))
 
 
 def build_roster_outlook(team_needs, team_health):
@@ -74,22 +80,38 @@ def build_roster_outlook(team_needs, team_health):
     }
 
 
-def build_lineup_snapshot(starters, bench_decisions):
+def build_lineup_snapshot(starters, bench_decisions, current_starters=None, lineup_changes=None):
     starters = list(starters or ())
+    changed_slots = {str(item.get("slot") or "").upper() for item in (lineup_changes or ())}
     counts = {"ready": 0, "monitor": 0, "blocked": 0}
     attention = []
     for player in starters:
         decision = str(player.get("decision") or "START").upper()
+        if str(player.get("slot") or "").upper() in changed_slots:
+            decision = "MONITOR"
         bucket = "blocked" if decision == "BLOCKED" else "monitor" if decision == "MONITOR" else "ready"
         counts[bucket] += 1
         if bucket != "ready":
             attention.append({"player": player.get("player"), "slot": player.get("slot"), "decision": decision})
     available = [item for item in (bench_decisions or []) if item.get("state") == "AVAILABLE"]
+    current_health = [player for player in (current_starters or []) if player.get("sleeper_current_starter") and str(player.get("injury_status") or "").strip().upper() in {"OUT", "IR", "DOUBTFUL", "QUESTIONABLE"}]
+    current_health.sort(key=lambda player: (0 if str(player.get("injury_status") or "").strip().upper() in {"OUT", "IR"} else 1, str(player.get("player") or "")))
+    attention = [{"player": player.get("player"), "slot": player.get("sleeper_lineup_slot"), "decision": str(player.get("injury_status") or "").upper()} for player in current_health] + attention
+    changes = list(lineup_changes or ())
+    before_lock = [
+        {"kind": "SWAP", "player": change.get("recommended"), "slot": change.get("slot"), "action": f"START {change.get('recommended')} over {change.get('current')}"}
+        for change in changes
+    ]
+    before_lock.extend(
+        {"kind": "HEALTH", "player": player.get("player"), "slot": player.get("sleeper_lineup_slot"), "action": f"Review {player.get('player')}'s availability"}
+        for player in current_health
+    )
     return {
         "counts": counts,
         "attention": attention,
         "best_contingency": available[0] if available else None,
         "contingency_state": "AVAILABLE" if available else "UNAVAILABLE",
+        "before_lock": before_lock,
         "state": "BLOCKED" if counts["blocked"] else "REVIEW" if counts["monitor"] else "READY",
     }
 

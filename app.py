@@ -54,6 +54,7 @@ from sleeper_intelligence_routes import create_sleeper_intelligence_blueprint
 from sleeper_hub import create_sleeper_hub_blueprint
 from owner_operations import create_owner_operations_blueprint
 from season_sandbox import create_sandbox_blueprint
+from services.authoritative_week import acquire_authoritative_week
 from werkzeug.utils import secure_filename
 from services.sleeper_service import (
     get_league,
@@ -64,7 +65,6 @@ from services.sleeper_service import (
     get_all_players,
     get_nfl_state,
 )
-from services.authoritative_week import acquire_authoritative_week
 import os
 import re
 import unicodedata
@@ -76,7 +76,6 @@ from services.import_rankings import import_rankings
 from market_routes import market_bp
 from survivor_routes import survivor_bp
 from nfl_intelligence_routes import nfl_intelligence_bp
-from yahoo_auth_routes import create_yahoo_auth_blueprint
 from intelligence_operations_routes import create_intelligence_operations_blueprint
 from draft_events.runtime import process_runtime_picks
 
@@ -98,7 +97,6 @@ def _ensure_session_csrf():
 app.register_blueprint(market_bp)
 app.register_blueprint(survivor_bp)
 app.register_blueprint(nfl_intelligence_bp)
-app.register_blueprint(create_yahoo_auth_blueprint())
 
 UPLOAD_FOLDER = Config.UPLOAD_FOLDER
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
@@ -190,11 +188,9 @@ MOCK_ROSTER_TARGETS = {
 def get_db_connection():
     return psycopg2.connect(**Config.db_kwargs())
 
-
 app.config["WEEK_AUTHORITY_ACQUIRER"] = lambda season: acquire_authoritative_week(
     get_db_connection, get_nfl_state, season=season
 )
-
 
 
 def get_local_league():
@@ -1694,6 +1690,11 @@ def sync_sleeper_draft_picks(draft_id=None):
 def dashboard():
     from services.ux_evidence import dashboard_contract
     from services.opportunity_evidence import build_decision_center
+    try:
+        league_overview = build_league_overview()
+    except Exception as exc:
+        current_app.logger.warning("Dashboard league overview unavailable: %s", exc)
+        league_overview = {}
     league, league_error = get_local_league()
     try:
         league_source = get_league(SLEEPER_LEAGUE_ID) or {}
@@ -1727,6 +1728,7 @@ def dashboard():
         team_name=fields["team_name"]["value"] or "Unavailable",
         teams=fields["teams"]["value"],
         scoring_type=fields["scoring_type"]["value"] or "Unavailable",
+        league_overview=league_overview,
         dashboard_evidence=dashboard_evidence, decision_center=decision_center,
     )
 
@@ -4023,24 +4025,10 @@ app.register_blueprint(create_post_draft_blueprint(get_db_connection, get_draft,
 app.register_blueprint(create_draft_health_blueprint(get_db_connection, SLEEPER_LEAGUE_ID, 2026, build_live_sleeper_draft_signals, model_health))
 
 if __name__ == "__main__":
-    certificate_path = "ssl/server.crt"
-    private_key_path = "ssl/server.key"
-    if not (os.path.isfile(certificate_path) and os.path.isfile(private_key_path)):
-        raise SystemExit(
-            "TLS certificate files are missing. Generate them with:\n"
-            "mkdir -p ssl\n"
-            "openssl req -x509 -newkey rsa:4096 \\\n"
-            "  -sha256 \\\n"
-            "  -days 3650 \\\n"
-            "  -nodes \\\n"
-            "  -keyout ssl/server.key \\\n"
-            "  -out ssl/server.crt \\\n"
-            "  -subj \"/CN=192.168.0.85\""
-        )
     app.run(
         host="0.0.0.0",
         port=5050,
         debug=True,
-        ssl_context=(certificate_path, private_key_path),
+        ssl_context=("ssl/server.crt", "ssl/server.key"),
     )
 
