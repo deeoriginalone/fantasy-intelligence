@@ -10,6 +10,10 @@ Commercial deployment, multi-tenant support, and enterprise governance are out o
 
 This model separates feature presence from trust and decision quality. A level is not complete until its exit criteria have evidence.
 
+## Evidence-first maturity rule
+
+Maturity evaluates both trust and usefulness. The architecture path is `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. A capability must fail closed for unsupported authority, but it should expose supported preliminary evidence rather than collapse to “no data.” Evidence levels are `ESTABLISHED`, `PRELIMINARY`, and `INSUFFICIENT`; each displayed result must disclose its level, confidence, sample, freshness, limitations, and recommendation impact. Preliminary evidence is informational and cannot independently drive recommendations.
+
 ## Level 1: Data Available
 
 ### Goal

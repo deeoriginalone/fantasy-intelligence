@@ -8,6 +8,14 @@ Success means better lineup, waiver, trade, Survivor, and season-planning decisi
 
 The six primary destinations are Command Center, My Team, Waivers, Trades, Survivor, and NFL Intelligence. Existing league integrations, historical data, ownership logic, projections, opportunity evidence, matchup data, NFL intelligence, and trade intelligence remain valuable and must be preserved.
 
+## Navigation Reconciliation Target
+
+The planned primary navigation is Command Center, My Team, Waivers, Trades, Survivor, NFL Intelligence, and What Changed. Command Center is the planned landing page for League Overview, Must Act, Start/Sit Summary, Waiver Priorities, Trade Watch, Survivor Status, NFL Intelligence Highlights, What Changed, and Risk Alerts. It summarizes and links to owning pages rather than duplicating their engines.
+
+League Overview is planned to merge into Command Center. NFL Intelligence is planned as the single NFL-wide intelligence destination, absorbing Market Intelligence together with Top Picks, Top Risk Games, Game Predictions, Weather, Injury Context, Insights, Blockers, and Diagnostics. Draft Board and Mock Draft remain preserved for Season Planning. Sleeper Hub, Draft Day Readiness, Draft Intelligence & Learning Center, Imports, Readiness, and Diagnostics are planned Admin destinations.
+
+These are target classifications only. No navigation simplification, merge, redirect, archive, or Admin placement is completed by this documentation batch.
+
 ## Purpose
 
 Fantasy Intelligence exists to help one fantasy football manager make trustworthy, timely, and explainable team-management decisions throughout the season.
@@ -26,6 +34,24 @@ Every season-management page should help answer at least one of these questions:
 8. What risk could hurt my lineup, depth, playoff odds, or championship path?
 
 ## Product principles
+
+## Evidence-first architecture
+
+The governing information path is:
+
+`DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`
+
+Authority and usefulness are separate contracts. Fail-closed behavior applies to authority, recommendations, rankings, scores, confidence claims, probabilities, and transactions; it does not require hiding supported informational evidence. When supported evidence exists, show it with its evidence level, confidence, sample size, freshness, limitations, and recommendation impact.
+
+Evidence tiers are:
+
+- **ESTABLISHED:** Sufficient evidence; may support authoritative metrics when the complete contract allows it.
+- **PRELIMINARY:** Useful informational evidence; may be shown, must not independently drive recommendations, and may not be represented as authoritative.
+- **INSUFFICIENT:** Supported evidence is too weak to display as a meaningful metric; show the applicable limitation or unavailable state.
+
+Never fabricate rank, score, confidence, recommendation, probability, authority, or freshness. Prefer authoritative evidence, then preliminary evidence, then a disclosed historical baseline, and finally unavailable when no meaningful supported information exists.
+
+For matchup data, Matchup Rank is authoritative and remains fail-closed. Matchup Signal is a separate informational projection of supported evidence, such as “5th easiest defense,” and must disclose evidence level, sample, freshness, directionality, population, limitations, and context-only recommendation impact. Historical evidence may support stability analysis, threshold governance, baseline comparison, and trend analysis, but may not automatically become current-season authority, rank, or confidence.
 
 - **Owner success:** The project exists to help the owner win fantasy leagues, not to maximize infrastructure completeness.
 - **Primary progress measure:** The primary measure of progress is improved fantasy-football decision quality for the owner. Infrastructure is successful only when it directly improves START, SIT, FLEX, MONITOR, ADD, DROP, TRADE FOR, TRADE AWAY, or Survivor Selection decisions, or protects them from incorrect outputs.

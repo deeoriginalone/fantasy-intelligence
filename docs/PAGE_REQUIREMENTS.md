@@ -6,6 +6,26 @@ The six primary destinations are Command Center, My Team, Waivers, Trades, Survi
 
 Page work is decision-first, league-specific, personal-use, informational-first, and proportional to manager value. Existing page contracts and read-only behavior remain preserved.
 
+## Evidence-first page rule
+
+Pages follow `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. Fail-closed authority does not mean hiding supported evidence. When supported evidence exists, show the evidence level, confidence, sample size, freshness, limitations, and recommendation impact.
+
+Use these shared evidence levels:
+
+- **ESTABLISHED:** Sufficient evidence for authoritative metrics when the contract permits it.
+- **PRELIMINARY:** Useful informational evidence that may be shown but may not independently drive recommendations or appear authoritative.
+- **INSUFFICIENT:** Evidence too weak to display as a meaningful metric.
+
+Prefer authoritative evidence, then preliminary evidence, then a disclosed historical baseline, and finally unavailable only when no meaningful supported information exists. Never fabricate rank, score, confidence, recommendation, probability, authority, or freshness.
+
+## Navigation Reconciliation Target
+
+Primary navigation is planned as Command Center, My Team, Waivers, Trades, Survivor, NFL Intelligence, and What Changed. Command Center summarizes League Overview, Must Act, Start/Sit Summary, Waiver Priorities, Trade Watch, Survivor Status, NFL Intelligence Highlights, What Changed, and Risk Alerts, then links to owning pages without duplicating their engines.
+
+League Overview is planned to merge into Command Center. Market Intelligence is planned to merge into NFL Intelligence, which owns Top Picks, Top Risk Games, Game Predictions, Market Intelligence, Weather, Injury Context, Insights, Blockers, and Diagnostics. Draft Board and Mock Draft remain preserved for Season Planning; Sleeper Hub, Draft Day Readiness, Draft Intelligence & Learning Center, Imports, Readiness, and Diagnostics are planned Admin destinations.
+
+Navigation, merge, redirect, archive, and Admin placement work remains pending implementation and validation.
+
 ## Shared requirements for all six pages
 
 - Use shared league, roster, ownership, team-needs, freshness, and explanation contracts.

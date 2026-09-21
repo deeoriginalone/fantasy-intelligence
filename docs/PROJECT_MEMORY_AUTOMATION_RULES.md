@@ -4,6 +4,10 @@
 
 Project memory is the primary AI continuity mechanism for this personal fantasy decision assistant. Canonical memory must preserve product direction, validated page boundaries, data authority, recovery state, known defects, and the exact next milestone. Memory updates are proportional to the changed boundary and must not drift into enterprise process overhead.
 
+## Evidence-first memory rule
+
+Canonical memory must preserve the distinction between authority and usefulness. Use `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`; record supported preliminary evidence instead of collapsing it to unavailable, while keeping rank, score, confidence, recommendation, probability, authority, and freshness claims fail-closed. Evidence levels are `ESTABLISHED`, `PRELIMINARY`, and `INSUFFICIENT`, with sample, freshness, limitations, confidence rationale, and recommendation impact where applicable. Historical evidence may inform governance and analysis but may not become current authority automatically.
+
 Recovery evidence is mandatory before major changes: runnable checkpoint, startup verification, database backup, canonical snapshot, notebook export, and six-page verification.
 
 ## Purpose
