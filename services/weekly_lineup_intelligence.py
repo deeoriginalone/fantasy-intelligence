@@ -85,7 +85,16 @@ def build_start_sit_decisions(starters,bench):
         decisions.append({"decision":selected_decision,"slot":starter.get("slot"),"start":selected,"sit":starter if selected is not starter else alt,"weekly_score_delta":abs(delta),"reason":f"{alt.get('player')} has a {delta:.2f} higher weekly score." if alt and delta>0.01 else f"{starter.get('player')} remains the supported {preferred.lower()} recommendation." if selected_decision != "MONITOR" else f"{starter.get('player')} needs monitoring because lineup evidence is incomplete or uncertain.","confidence":confidence(selected),"alternative":alt if selected is starter else starter})
     return decisions
 
-def build_lineup_verdict(starters, decisions, blockers, vacancies, total, total_available):
+def _current_health_priority(current_starters):
+    rows = [
+        row for row in (current_starters or [])
+        if row.get("sleeper_current_starter") and str(row.get("injury_status") or "").strip().upper() in {"OUT", "IR", "DOUBTFUL", "QUESTIONABLE"}
+    ]
+    order = {"OUT": 0, "IR": 0, "DOUBTFUL": 1, "QUESTIONABLE": 2}
+    return sorted(rows, key=lambda row: (order.get(str(row.get("injury_status") or "").strip().upper(), 9), str(row.get("player") or "")))
+
+
+def build_lineup_verdict(starters, decisions, blockers, vacancies, total, total_available, current_starters=None):
     monitored=[player for player in starters if player.get("decision")=="MONITOR"]
     blocked=bool(vacancies)
     status="BLOCKED" if blocked else "MONITOR" if blockers or monitored else "READY"
@@ -95,7 +104,12 @@ def build_lineup_verdict(starters, decisions, blockers, vacancies, total, total_
     action="Review the selected lineup before lock."
     expected_gain=None
     change=None
-    if vacancies:
+    current_health = _current_health_priority(current_starters)
+    if current_health:
+        affected = current_health[0]
+        risk = f"{affected.get('player')} is {affected.get('injury_status')} as a current Sleeper starter."
+        action = f"Review {affected.get('player')}'s availability before lineup lock."
+    elif vacancies:
         risk=f"Starter slot unavailable: {', '.join(vacancies)}."
         action=f"Fill {vacancies[0]} before lineup lock."
     elif monitored:
@@ -108,10 +122,14 @@ def build_lineup_verdict(starters, decisions, blockers, vacancies, total, total_
             action=f"START {upgrade['start'].get('player')} over {upgrade['sit'].get('player')}"
             expected_gain=upgrade.get("weekly_score_delta")
             risk=f"The {upgrade.get('slot')} decision carries a {expected_gain:.2f}-point supported value edge."
-    return {"status":status,"weekly_score":total if total_available else None,"confidence_percent":confidence_percent,"biggest_risk":risk,"action":action,"expected_gain":expected_gain,"why":("Supported weekly value and available matchup evidence favor the recommendation." if status=="READY" else "Confidence is reduced because the affected evidence or starter slot needs review.")}
+    return {"status":status,"weekly_score":total if total_available else None,"weekly_score_basis":"recommended_lineup","weekly_values_available":sum(player.get("weekly_score") is not None for player in starters if not player.get("vacant")),"weekly_values_required":len([player for player in starters if not player.get("vacant")]),"confidence_percent":confidence_percent,"biggest_risk":risk,"action":action,"expected_gain":expected_gain,"why":("Supported weekly value and available matchup evidence favor the recommendation." if status=="READY" else "Confidence is reduced because the affected evidence or starter slot needs review.")}
 
-def build_lineup_risks(starters, blockers, vacancies):
+def build_lineup_risks(starters, blockers, vacancies, current_starters=None):
     risks=[]
+    current_health = _current_health_priority(current_starters)
+    if current_health:
+        affected = current_health[0]
+        risks.append({"key":"health:current-starter","title":f"{affected.get('player')} is {affected.get('injury_status')}","reason":"A current Sleeper starter has a health designation.","action":f"Review {affected.get('player')}'s availability before lineup lock.","affected_players":[affected.get('player')]})
     for slot in vacancies:
         risks.append({"title":f"{slot} starter slot is vacant","affected":slot,"impact":"Lineup readiness is blocked.","action":f"Add an eligible player for {slot}.","severity":"HIGH"})
     for player in starters:
@@ -124,7 +142,7 @@ def build_lineup_risks(starters, blockers, vacancies):
         risks.append({"title":"Weekly value evidence is incomplete","affected":"Lineup score","impact":"Unavailable values are excluded from confidence.","action":"Use supported evidence only.","severity":"MEDIUM"})
     return risks or [{"title":"No material risk detected","affected":"Lineup","impact":"Current supported evidence is internally consistent.","action":"Review before lock.","severity":"LOW"}]
 
-def build_lineup_intelligence(roster,freshness_metadata=None):
+def build_lineup_intelligence(roster,freshness_metadata=None, current_starters=None):
     starters,bench,total,vacancies=optimize_lineup(roster)
     missing=sorted({p.get("player") for p in [*starters,*bench] if not p.get("vacant") and not p.get("evidence_ready")})
     blockers=[]
@@ -136,4 +154,4 @@ def build_lineup_intelligence(roster,freshness_metadata=None):
     if "WEEKLY_EVIDENCE_INCOMPLETE" in blockers:blocker_impacts.append("Players with incomplete weekly evidence are marked MONITOR; their values are not treated as verified zero.")
     total_available=all(p.get("weekly_score") is not None for p in starters if not p.get("vacant"))
     decisions=build_start_sit_decisions(starters,bench)
-    return {"allowed":bool(roster) and not vacancies,"readiness":"READY" if bool(roster) and not vacancies and not missing else "REVIEW","blockers":blockers,"blocker_impacts":blocker_impacts,"starters":starters,"bench":bench,"weekly_total":total,"weekly_total_available":total_available,"vacancies":vacancies,"missing_evidence_players":missing,"start_sit_decisions":decisions,"verdict":build_lineup_verdict(starters,decisions,blockers,vacancies,total,total_available),"risks":build_lineup_risks(starters,blockers,vacancies),"changes":{"status":"UNAVAILABLE","message":"No prior-week lineup snapshot is supplied; changes are not inferred."},"metric_definitions":{"baseline":"Expected value before weekly adjustments.","weekly_score":"Expected starting value after matchup and availability adjustments.","confidence":"How trustworthy the recommendation is based on evidence completeness and agreement."},"methodology":"Ranks supplied roster players by existing weekly_score after bye and injury availability checks. No lineup is submitted.","freshness_metadata":dict(freshness_metadata or {}),"integrity":build_integrity_report(roster,freshness_metadata=freshness_metadata)}
+    return {"allowed":bool(roster) and not vacancies,"readiness":"READY" if bool(roster) and not vacancies and not missing else "REVIEW","blockers":blockers,"blocker_impacts":blocker_impacts,"starters":starters,"bench":bench,"weekly_total":total,"weekly_total_available":total_available,"vacancies":vacancies,"missing_evidence_players":missing,"start_sit_decisions":decisions,"verdict":build_lineup_verdict(starters,decisions,blockers,vacancies,total,total_available,current_starters=current_starters),"risks":build_lineup_risks(starters,blockers,vacancies,current_starters=current_starters),"changes":{"status":"UNAVAILABLE","message":"No prior-week lineup snapshot is supplied; changes are not inferred."},"metric_definitions":{"baseline":"Expected value before weekly adjustments.","weekly_score":"Expected starting value after matchup and availability adjustments.","confidence":"How trustworthy the recommendation is based on evidence completeness and agreement."},"methodology":"Ranks supplied roster players by existing weekly_score after bye and injury availability checks. No lineup is submitted.","freshness_metadata":dict(freshness_metadata or {}),"integrity":build_integrity_report(roster,freshness_metadata=freshness_metadata)}

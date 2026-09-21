@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from services.weekly_lineup_intelligence import build_lineup_intelligence
+from owner_operations import build_lineup_reconciliation
 
 
 def player(name, position, score=10.0):
@@ -36,7 +37,7 @@ def test_team_route_delegates_to_explainable_payload():
     segment = source[start:end]
 
     assert "context, roster, meta = current_roster(cur)" in segment
-    assert "lineup_intelligence = build_lineup_intelligence(roster)" in segment
+    assert "lineup_intelligence = build_lineup_intelligence(roster, current_starters=current_sleeper_starters)" in segment
     assert "lineup_intelligence=lineup_intelligence" in segment
 
 
@@ -80,3 +81,30 @@ def test_lineup_payload_uses_explicit_decisions_and_bench_order():
     assert [item["bench_order"] for item in payload["bench"]] == [1]
     assert payload["metric_definitions"]["baseline"]
     assert payload["metric_definitions"]["weekly_score"]
+
+
+def test_lineup_reconciliation_keeps_sleeper_truth_separate_from_recommendation():
+    current = [{"player": "Justin Herbert", "position": "QB", "sleeper_current_starter": True, "sleeper_lineup_slot": "QB", "injury_status": "Healthy"}]
+    recommended = [{"player": "Joe Burrow", "position": "QB", "slot": "QB", "vacant": False}]
+    result = build_lineup_reconciliation(current, recommended)
+    assert result["state"] == "AVAILABLE"
+    assert result["current"][0]["player"] == "Justin Herbert"
+    assert result["changes"] == [{"slot": "QB", "current": "Justin Herbert", "recommended": "Joe Burrow", "authority": "MONITOR"}]
+
+
+def test_lineup_reconciliation_numbers_duplicate_sleeper_running_back_slots():
+    current = [
+        {"player": "Rico Dowdle", "position": "RB", "sleeper_current_starter": True, "sleeper_lineup_slot": "RB", "sleeper_lineup_index": 2},
+        {"player": "RB One", "position": "RB", "sleeper_current_starter": True, "sleeper_lineup_slot": "RB", "sleeper_lineup_index": 1},
+    ]
+    recommended = [
+        {"player": "RB One", "position": "RB", "slot": "RB1", "vacant": False},
+        {"player": "Kenny Gainwell", "position": "RB", "slot": "RB2", "vacant": False},
+    ]
+    result = build_lineup_reconciliation(current, recommended)
+    assert result["changes"] == [{"slot": "RB2", "current": "Rico Dowdle", "recommended": "Kenny Gainwell", "authority": "MONITOR"}]
+
+
+def test_lineup_reconciliation_fails_closed_without_sleeper_starters():
+    result = build_lineup_reconciliation([{"player": "Joe Burrow"}], [{"player": "Joe Burrow", "slot": "QB", "vacant": False}])
+    assert result["state"] == "UNAVAILABLE"

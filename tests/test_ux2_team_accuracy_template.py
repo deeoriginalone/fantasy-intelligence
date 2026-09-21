@@ -3,7 +3,7 @@ from pathlib import Path
 def test_team_template_wires_accuracy_partial():
     text=Path("templates/team.html").read_text(encoding="utf-8")
     assert '{% include "_team_accuracy.html" %}' in text
-    assert text.index('{% include "_team_recommendations.html" %}') < text.index('{% include "_team_accuracy.html" %}')
+    assert text.index('{% include "_team_priority.html" %}') < text.index('{% include "_team_accuracy.html" %}')
 
 def test_accuracy_partial_explains_required_domains():
     text=Path("templates/_team_accuracy.html").read_text(encoding="utf-8")
@@ -16,7 +16,27 @@ def test_accuracy_partial_renders_matchup_context_from_shared_evidence():
     text=Path("templates/_team_accuracy.html").read_text(encoding="utf-8")
     assert "Matchup Context" in text
     assert "row.matchup_context" in text
-    assert "row.matchup_rank if row.matchup_rank is not none else \"Unavailable\"" in text
+    assert '"NOT_APPLICABLE" if row.state == "NOT_APPLICABLE"' in text
+
+
+def test_team_diagnostics_are_closed_and_preliminary_context_is_not_primary():
+    text = Path("templates/team.html").read_text(encoding="utf-8")
+    details = '<details class="card diagnostic-details" id="additional-evidence-diagnostics">'
+    assert details in text
+    assert '<details class="card diagnostic-details" id="additional-evidence-diagnostics" open>' not in text
+    assert text.index(details) < text.index('{% include "_preliminary_matchup_context.html" %}')
+
+
+def test_priority_card_keeps_matchup_summary_concise():
+    text = Path("templates/_team_priority.html").read_text(encoding="utf-8")
+    assert "Matchup summary:" in text
+    assert "PRELIMINARY MATCHUP CONTEXT" not in text
+
+
+def test_recommended_k_and_def_cards_render_not_applicable_matchup_rank():
+    text = Path("templates/team.html").read_text(encoding="utf-8")
+    assert "Matchup Rank:" in text
+    assert "'NOT_APPLICABLE' if player.position in ('K', 'DEF')" in text
 
 
 def test_team_template_removes_unsupported_aggregate_metrics():

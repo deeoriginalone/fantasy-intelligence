@@ -98,6 +98,12 @@ def build_matchup_evidence(player: Mapping[str, Any], *, season: Any, week: Any,
         blockers.append("MATCHUP_POPULATION_UNVERIFIED")
     if not directionality:
         blockers.append("MATCHUP_DIRECTIONALITY_UNVERIFIED")
+    position = str(player.get("position") or "").upper().replace("DST", "DEF")
+    if position not in {"K", "DEF"}:
+        if player.get("matchup_rank") is None:
+            blockers.append("MATCHUP_RANK_MISSING")
+        elif any(blocker in blockers for blocker in ("MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED", "MATCHUP_POPULATION_UNVERIFIED", "MATCHUP_DIRECTIONALITY_UNVERIFIED")):
+            blockers.append("MATCHUP_RANK_CONTRACT_INCOMPLETE")
     freshness_state = _freshness(retrieved_at, now, "matchup")
     if freshness_state == "STALE":
         blockers.append("MATCHUP_DATA_STALE")

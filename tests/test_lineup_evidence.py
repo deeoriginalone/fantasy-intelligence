@@ -166,6 +166,30 @@ def test_fully_authoritative_matchup_evidence_when_all_contract_fields_verified(
     assert result["rank_directionality"] == "LOWER_IS_HARDER"
 
 
+def test_missing_rank_is_not_authoritative_even_with_complete_contract():
+    result = build_matchup_evidence(player(
+        matchup_rank=None,
+        matchup_source_authority="automated",
+        matchup_sample_threshold_id="matchup.sample.v1",
+        matchup_population="ALL_DEFENSES_BY_POSITION",
+        matchup_directionality="LOWER_IS_HARDER",
+    ), season=2026, week=3, now=NOW)
+    assert "MATCHUP_RANK_MISSING" in result["blockers"]
+    assert result["authoritative"] is False
+
+
+def test_rank_with_incomplete_contract_is_not_authoritative():
+    result = build_matchup_evidence(player(
+        matchup_source_authority="automated",
+        matchup_sample_threshold_id=None,
+        matchup_population="ALL_DEFENSES_BY_POSITION",
+        matchup_directionality="LOWER_IS_HARDER",
+    ), season=2026, week=3, now=NOW)
+    assert "MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED" in result["blockers"]
+    assert "MATCHUP_RANK_CONTRACT_INCOMPLETE" in result["blockers"]
+    assert result["authoritative"] is False
+
+
 def test_unrelated_blockers_remain_intact_when_matchup_authority_is_verified():
     result = build_matchup_evidence(player(
         opponent=None,

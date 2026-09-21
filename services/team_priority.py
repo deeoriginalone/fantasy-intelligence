@@ -10,24 +10,30 @@ def _confidence(row: Mapping[str, Any] | None) -> Mapping[str, Any] | None:
     return value if isinstance(value, Mapping) else None
 
 
-def _health_action(starter: Mapping[str, Any]):
+def _health_action(starter: Mapping[str, Any], team_health: Mapping[str, Any] | None = None):
     player = starter.get("player") or "the affected player"
     health = starter.get("health_evidence") or {}
     blocked = starter.get("decision") == "BLOCKED"
+    health_state = str(starter.get("injury_status") or health.get("health_state") or "").strip().upper()
+    current_starter = bool(starter.get("sleeper_current_starter"))
+    severity = "OUT" if health_state in {"OUT", "IR"} else "DOUBTFUL" if "DOUBTFUL" in health_state else "QUESTIONABLE" if "QUESTIONABLE" in health_state else None
+    current_health_verified = current_starter and severity and (team_health or {}).get("state") == "AVAILABLE" and (team_health or {}).get("freshness_state") in {"FRESH", "AGING"}
     impact = f"Confirm {player}'s availability before lineup lock; this recommendation's confidence is reduced until health evidence is verified."
-    action = f"Review {player}'s health evidence before lineup lock" if blocked else f"Monitor {player} before lineup lock"
-    title = f"Review {player} health" if blocked else f"Monitor {player}"
+    action = f"Review {player}'s availability before lineup lock" if current_starter and severity in {"OUT", "DOUBTFUL"} else f"Review {player}'s health evidence before lineup lock" if blocked else f"Monitor {player} before lineup lock"
+    title = f"Review {player} availability" if current_starter and severity in {"OUT", "DOUBTFUL"} else f"Review {player} health" if blocked else f"Monitor {player}"
+    action_evidence_gaps = [] if current_health_verified else starter.get("evidence_gaps") or [health.get("blocker") or "PLAYER_HEALTH_UNAVAILABLE"]
     return build_action(
         action_id=f"team:health:{player}",
         category="lineup",
         title=title,
         action=action,
-        reason=("Health verification is unavailable for this recommendation."
-             if not blocked else "Health-dependent recommendation is blocked until refresh evidence is restored."),
-        urgency="HIGH",
+           reason=("Current Sleeper starter health status is explicitly available; review the affected starter before lineup lock."
+               if current_health_verified else "Health verification is unavailable for this recommendation."
+               if not blocked else "Health-dependent recommendation is blocked until refresh evidence is restored."),
+        urgency="CRITICAL" if current_starter and severity == "OUT" else "HIGH",
         confidence=_confidence(starter) or {"label": "LOW", "score": 0},
-        evidence_complete=False,
-        blockers=starter.get("evidence_gaps") or [health.get("blocker") or "PLAYER_HEALTH_UNAVAILABLE"],
+        evidence_complete=bool(current_health_verified),
+        blockers=action_evidence_gaps,
         source="team_health",
         metadata={"expected_impact": impact, "affected_player": player, "slot": starter.get("slot")},
     ).to_dict()
@@ -79,6 +85,7 @@ def build_team_priority_action(
     team_needs: Mapping[str, Any] | None,
     team_health: Mapping[str, Any] | None,
     team_accuracy: Mapping[str, Any] | None,
+    current_starters: Sequence[Mapping[str, Any]] | None = None,
 ):
     """Select one deterministic, read-only manager action from supplied evidence."""
     starters = list(starters or ())
@@ -86,9 +93,18 @@ def build_team_priority_action(
     if vacancies:
         return _vacancy_action(vacancies[0])
 
+    current_health = [
+        row for row in (current_starters or ())
+        if row.get("sleeper_current_starter") and str(row.get("injury_status") or "").strip().upper() in {"OUT", "IR", "DOUBTFUL", "QUESTIONABLE"}
+    ]
+    if current_health:
+        severity_order = {"OUT": 0, "IR": 0, "DOUBTFUL": 1, "QUESTIONABLE": 2}
+        current_health.sort(key=lambda row: (severity_order.get(str(row.get("injury_status") or "").strip().upper(), 9), str(row.get("player") or "")))
+        return _health_action(current_health[0], team_health=team_health)
+
     monitored = [row for row in starters if row.get("decision") in {"MONITOR", "BLOCKED"} and row.get("health_evidence")]
     if monitored:
-        return _health_action(monitored[0])
+        return _health_action(monitored[0], team_health=team_health)
 
     need_action = _needs_action(team_needs or {})
     if need_action:

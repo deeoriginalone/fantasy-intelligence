@@ -51,6 +51,11 @@ def test_missing_matchup_is_unavailable_not_neutral():
     assert "MATCHUP_RANK_MISSING" in result["matchups"]["rows"][0]["blockers"]
     assert result["matchups"]["rows"][0]["matchup_rank"] is None
 
+
+def test_k_and_def_are_not_applicable():
+    result = build_team_accuracy_contract([], [starter(position="K"), starter(position="DEF")], settings(), needs(), health())
+    assert [row["state"] for row in result["matchups"]["rows"]] == ["NOT_APPLICABLE", "NOT_APPLICABLE"]
+
 def test_blocked_health_reduces_trust():
     blocked={"state":"BLOCKED","source":"Sleeper","freshness_state":"BLOCKED","blocker":"HEALTH_REFRESH_FAILED"}
     result=build_team_accuracy_contract([], [starter()], settings(), needs(), blocked)
