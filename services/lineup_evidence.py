@@ -18,6 +18,20 @@ PROJECTION_WARNING_BLOCKERS = {
     "PROJECTION_FRESHNESS_THRESHOLD_UNVERIFIED",
     "PROJECTION_LINEAGE_VERSION_UNAVAILABLE",
 }
+# Only rank-authority gaps (e.g. an unverified sample threshold) may leave a preliminary signal visible.
+SIGNAL_DISQUALIFYING_BLOCKERS = {
+    "MATCHUP_PLAYER_IDENTITY_UNAVAILABLE",
+    "MATCHUP_OPPONENT_IDENTITY_UNAVAILABLE",
+    "MATCHUP_SEASON_UNAVAILABLE",
+    "MATCHUP_WEEK_UNAVAILABLE",
+    "MATCHUP_SOURCE_UNAVAILABLE",
+    "MATCHUP_RETRIEVAL_TIME_UNAVAILABLE",
+    "MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE",
+    "MATCHUP_POPULATION_UNVERIFIED",
+    "MATCHUP_DIRECTIONALITY_UNVERIFIED",
+    "MATCHUP_DATA_STALE",
+    "MATCHUP_FRESHNESS_UNAVAILABLE",
+}
 
 
 def build_projection_evidence(player: Mapping[str, Any], *, season: Any, week: Any, now: Any = None) -> dict[str, Any]:
@@ -109,7 +123,7 @@ def build_matchup_evidence(player: Mapping[str, Any], *, season: Any, week: Any,
         blockers.append("MATCHUP_DATA_STALE")
     elif freshness_state == "UNAVAILABLE":
         blockers.append("MATCHUP_FRESHNESS_UNAVAILABLE")
-    signal = _matchup_signal(player.get("matchup_rank"), population_size, directionality)
+    signal = None if SIGNAL_DISQUALIFYING_BLOCKERS.intersection(blockers) else _matchup_signal(player.get("matchup_rank"), population_size, directionality)
     evidence_level = "ESTABLISHED" if not blockers else "PRELIMINARY" if signal else "INSUFFICIENT"
     return _domain(
         domain="matchup", season=season, week=week, identity=identity,

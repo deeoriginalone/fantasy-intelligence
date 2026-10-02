@@ -166,6 +166,22 @@ def test_fully_authoritative_matchup_evidence_when_all_contract_fields_verified(
     assert result["rank_directionality"] == "LOWER_IS_HARDER"
 
 
+def test_preliminary_signal_is_available_without_authoritative_rank_contract():
+    result = build_matchup_evidence(player(
+        matchup_sample_threshold_id=None,
+        matchup_population="ALL_DEFENSES_BY_POSITION",
+        matchup_directionality="LOWER_IS_HARDER",
+        matchup_publication_lineage={"publication_contracts": {"population": {"size": 32}}},
+        matchup_sample_size=2,
+    ), season=2026, week=3, now=NOW)
+    assert result["value"] == 12
+    assert result["matchup_signal"] == "21st easiest defense"
+    assert result["evidence_level"] == "PRELIMINARY"
+    assert result["sample_size"] == 2
+    assert result["recommendation_impact"] == "CONTEXT_ONLY"
+    assert result["authoritative"] is False
+
+
 def test_missing_rank_is_not_authoritative_even_with_complete_contract():
     result = build_matchup_evidence(player(
         matchup_rank=None,
@@ -657,3 +673,159 @@ def test_injury_fix_preserves_lineup_fields_payloads_and_determinism(monkeypatch
     monkeypatch.undo()
     second = render_injury_route(monkeypatch, ["10", "20", "40"], starters=["10", "20"])[3]
     assert first == second
+
+
+PRELIMINARY_MATCHUP_FIELDS = {
+    "matchup_sample_threshold_id": None,
+    "matchup_population": "ALL_DEFENSES_BY_POSITION",
+    "matchup_directionality": "LOWER_IS_HARDER",
+    "matchup_publication_lineage": {"publication_contracts": {"population": {"size": 32}}},
+    "matchup_sample_size": 2,
+    "matchup_source_recorded_at": NOW,
+    "matchup_source_authority": "automated",
+}
+
+
+def test_preliminary_signal_discloses_context_and_keeps_rank_blocked():
+    result = build_matchup_evidence(player(**PRELIMINARY_MATCHUP_FIELDS), season=2026, week=3, now=NOW)
+    assert result["matchup_signal"] == "21st easiest defense"
+    assert result["evidence_level"] == "PRELIMINARY"
+    assert result["authoritative"] is False
+    assert {"MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED", "MATCHUP_RANK_CONTRACT_INCOMPLETE"} <= set(result["blockers"])
+    assert result["position"] == "WR" and result["opponent_identity"] == "KC"
+    assert result["scoring_context"] == "FULL_PPR"
+    assert result["comparison_population"] == "ALL_DEFENSES_BY_POSITION" and result["comparison_population_size"] == 32
+    assert result["rank_directionality"] == "LOWER_IS_HARDER"
+    assert result["sample_size"] == 2
+    assert result["source"] == "automated:nflverse" and result["retrieved_at"] == NOW and result["source_recorded_at"] == NOW
+    assert result["freshness_state"] == "FRESH"
+    assert result["recommendation_impact"] == "CONTEXT_ONLY" and result["decision_effect"] == "NONE"
+
+
+def test_preliminary_signal_fails_closed_for_missing_stale_identity_and_historical_evidence():
+    cases = {
+        "missing_rank": {"matchup_rank": None},
+        "missing_retrieval": {"matchup_retrieved_at": None},
+        "stale": {"matchup_retrieved_at": "2020-01-01T00:00:00+00:00"},
+        "missing_identity": {"source_player_id": None, "local_player_id": None},
+        "missing_opponent": {"opponent": None},
+        "historical_csv": {"matchup_source": "csv:defense-fp-against-2025.csv", "matchup_source_authority": None},
+        "missing_population": {"matchup_population": None},
+        "missing_directionality": {"matchup_directionality": None},
+    }
+    for name, overrides in cases.items():
+        result = build_matchup_evidence(player(**{**PRELIMINARY_MATCHUP_FIELDS, **overrides}), season=2026, week=3, now=NOW)
+        assert result["matchup_signal"] is None, name
+        assert result["evidence_level"] == "INSUFFICIENT", name
+        assert result["recommendation_impact"] == "NONE", name
+        assert result["authoritative"] is False, name
+    stale = build_matchup_evidence(player(**{**PRELIMINARY_MATCHUP_FIELDS, **cases["stale"]}), season=2026, week=3, now=NOW)
+    assert stale["freshness_state"] == "STALE" and "MATCHUP_DATA_STALE" in stale["blockers"]
+
+
+def test_preliminary_signal_is_deterministic_and_does_not_mutate_input():
+    import copy
+    source = player(**PRELIMINARY_MATCHUP_FIELDS)
+    before = copy.deepcopy(source)
+    first = build_matchup_evidence(source, season=2026, week=3, now=NOW)
+    second = build_matchup_evidence(source, season=2026, week=3, now=NOW)
+    assert first == second
+    assert source == before
+
+
+def test_matchup_display_projection_is_display_only():
+    import copy
+    from owner_operations import attach_preliminary_matchup_display
+    preliminary = build_matchup_evidence(player(**PRELIMINARY_MATCHUP_FIELDS), season=2026, week=3, now=NOW)
+    insufficient = build_matchup_evidence(player(matchup_rank=None), season=2026, week=3, now=NOW)
+    starters = [
+        {"slot": "WR1", "player": "Signal WR", "decision": "START", "confidence": {"label": "HIGH", "score": 90}, "reason": "Supported.", "matchup_rank": 12, "weekly_evidence": {"matchup": preliminary}},
+        {"slot": "WR2", "player": "No Signal WR", "decision": "MONITOR", "confidence": {"label": "LOW", "score": 40}, "reason": "Limited.", "matchup_rank": None, "weekly_evidence": {"matchup": insufficient}},
+        {"slot": "FLEX", "player": "Vacant", "vacant": True, "decision": "MONITOR", "weekly_evidence": {"matchup": preliminary}},
+    ]
+    before = copy.deepcopy(starters)
+    displayed = attach_preliminary_matchup_display(starters)
+    assert starters == before
+    assert [row["slot"] for row in displayed] == ["WR1", "WR2", "FLEX"]
+    for original, row in zip(before, displayed):
+        assert {key: row[key] for key in original} == original
+        assert row["matchup_rank_authoritative"] is False
+    assert displayed[0]["matchup_signal"] == "21st easiest defense"
+    assert displayed[0]["evidence_level"] == "PRELIMINARY" and displayed[0]["sample_games"] == 2 and displayed[0]["freshness"] == "FRESH"
+    assert displayed[0]["matchup_recommendation_impact"] == "CONTEXT_ONLY"
+    assert "MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED" in displayed[0]["matchup_blockers"]
+    assert "matchup_signal" not in displayed[1] and "matchup_signal" not in displayed[2]
+
+
+def render_matchup_route(monkeypatch, *, with_signal):
+    from pathlib import Path
+    from flask import Flask
+    import owner_operations
+    catalog = {pid: dict(IDENTITY_CATALOG[pid]) for pid in ("10", "20")}
+    captured = {}
+    real_render = owner_operations.render_template
+
+    def capture(name, **kwargs):
+        captured.update(kwargs)
+        return real_render(name, **kwargs)
+
+    def enrich(cur, roster, week, **kwargs):
+        rows = []
+        for row in roster:
+            row = {**row, "weekly_baseline": 10.0, "weekly_score": 10.0, "matchup_modifier": 0.0, "injury_multiplier": 1.0, "opponent": "KC", "matchup_rank": 12, "matchup_source": "automated:nflverse", "matchup_retrieved_at": NOW, "local_player_id": None}
+            if with_signal:
+                row.update(PRELIMINARY_MATCHUP_FIELDS)
+                row["weekly_evidence"] = {"matchup": build_matchup_evidence(row, season=2026, week=week, now=NOW)}
+            rows.append(row)
+        return rows
+
+    monkeypatch.setattr(owner_operations, "render_template", capture)
+    monkeypatch.setattr(owner_operations, "enrich_players", enrich)
+    monkeypatch.setattr(owner_operations, "current_week", lambda cur: 3)
+    monkeypatch.setattr(owner_operations, "build_team_opportunity_changes", lambda *args, **kwargs: {"state": "UNAVAILABLE", "players": [], "blockers": [], "decision_effect": "INFORMATIONAL_ONLY"})
+    league = {"name": "Controlled", "roster_positions": ["QB", "WR", "BN"], "scoring_settings": {"rec": 1.0}}
+    connection = IdentityRouteConnection({})
+    blueprint = owner_operations.create_owner_operations_blueprint(
+        lambda: connection,
+        lambda league_id: league,
+        lambda league_id: [{"user_id": "owner", "is_owner": True}],
+        lambda league_id: [{"owner_id": "owner", "roster_id": 1, "players": ["10", "20"], "starters": ["10", "20"]}],
+        lambda: catalog,
+        lambda value: str(value).lower().replace(" ", ""),
+    )
+    app = Flask(__name__, root_path=str(Path(__file__).resolve().parents[1]), template_folder="templates")
+    app.config.update(TESTING=True, SLEEPER_LEAGUE_ID="controlled")
+    app.register_blueprint(blueprint)
+    app.jinja_env.globals["url_for"] = lambda *args, **kwargs: "/"
+    app.jinja_env.globals["ux_roster_lineage"] = lambda roster: []
+    app.jinja_env.globals["ux_route_evidence"] = lambda *args: {"fields": {}}
+    response = app.test_client().get("/team")
+    assert not any(statement.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for statement in connection.cursor_instance.statements)
+    return response, captured
+
+
+def lineup_outcome(captured):
+    intelligence = captured["lineup_intelligence"]
+    return {
+        "starters": [(row.get("slot"), row.get("player"), row.get("decision"), str(row.get("confidence"))) for row in intelligence.get("starters") or []],
+        "decisions": [(item.get("slot"), item.get("decision"), item.get("reason")) for item in intelligence.get("start_sit_decisions") or []],
+        "bench": [(row.get("player"), row.get("bench_order"), row.get("decision")) for row in intelligence.get("bench") or []],
+        "verdict": intelligence.get("verdict"),
+        "reconciliation": (captured["lineup_reconciliation"]["state"], captured["lineup_reconciliation"]["changes"]),
+        "priority": captured["team_priority_action"],
+        "health": captured["team_health"],
+        "needs": captured["team_needs"],
+    }
+
+
+def test_team_route_shows_preliminary_signal_without_rank_or_recommendation_change(monkeypatch):
+    response, with_signal = render_matchup_route(monkeypatch, with_signal=True)
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "21st easiest defense \u00b7 PRELIMINARY \u00b7 Sample 2 games \u00b7 FRESH \u00b7 Context only" in html
+    assert "<b>Matchup Rank:</b> Unavailable" in html
+    assert "<b>Matchup Rank:</b> 12" not in html
+    assert with_signal["team_needs"] and with_signal["team_health"]
+    monkeypatch.undo()
+    _, without_signal = render_matchup_route(monkeypatch, with_signal=False)
+    assert lineup_outcome(with_signal) == lineup_outcome(without_signal)

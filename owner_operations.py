@@ -495,6 +495,26 @@ def build_recommended_bench(roster, recommended_starters):
     return bench
 
 
+def attach_preliminary_matchup_display(starters):
+    """Copy shared matchup evidence onto starters for display only; never alters decisions."""
+    displayed = []
+    for starter in starters or []:
+        starter = dict(starter)
+        evidence = (starter.get("lineup_evidence") or {}).get("matchup") or (starter.get("weekly_evidence") or {}).get("matchup") or {}
+        starter["matchup_rank_authoritative"] = bool(evidence.get("authoritative"))
+        if not starter.get("vacant") and evidence.get("matchup_signal") and evidence.get("evidence_level") in {"PRELIMINARY", "ESTABLISHED"}:
+            starter.update(
+                matchup_signal=evidence["matchup_signal"],
+                evidence_level=evidence["evidence_level"],
+                sample_games=evidence.get("sample_size"),
+                freshness=evidence.get("freshness_state") or "UNAVAILABLE",
+                matchup_recommendation_impact=evidence.get("recommendation_impact") or "NONE",
+                matchup_blockers=list(evidence.get("blockers") or []),
+            )
+        displayed.append(starter)
+    return displayed
+
+
 def create_owner_operations_blueprint(
     get_db_connection,
     get_league,
@@ -1047,6 +1067,7 @@ def create_owner_operations_blueprint(
         if lineup_reconciliation.get("changes"):
             lineup_intelligence["verdict"].update(status="ACTION REQUIRED", action=f"{len(lineup_reconciliation['changes'])} lineup changes recommended", why="Review the supported lineup changes before lineup lock.")
         lineup_snapshot = build_lineup_snapshot(starters, bench_decisions, current_starters=current_sleeper_starters, lineup_changes=lineup_reconciliation.get("changes"))
+        lineup_intelligence["starters"] = attach_preliminary_matchup_display(lineup_intelligence.get("starters"))
         return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_intelligence=lineup_intelligence, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context, opportunity_view=opportunity_view, opportunity_changes=opportunity_changes, lineup_reconciliation=lineup_reconciliation)
 
     @bp.route("/lineup")
