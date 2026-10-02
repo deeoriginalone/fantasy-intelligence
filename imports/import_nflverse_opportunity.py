@@ -21,12 +21,14 @@ def load_runtime_environment() -> None:
     load_dotenv()
 
 
-def build_evidence(path: str | Path, *, season: int, threshold_environment=None) -> dict:
+def build_evidence(path: str | Path, *, season: int, threshold_environment=None, through_week: int | None = None) -> dict:
     rows, checksum = load_weekly_stats(path)
     if not rows or not OPPORTUNITY_REQUIRED_COLUMNS.issubset(rows[0]):
         missing = sorted(OPPORTUNITY_REQUIRED_COLUMNS.difference(rows[0] if rows else set()))
         raise ValueError(f"NFLVERSE_OPPORTUNITY_SCHEMA_UNVERIFIED: {missing}")
     filtered = [row for row in rows if str(row.get("season")) == str(season)]
+    if through_week is not None:
+        filtered = [row for row in filtered if str(row.get("week") or "").isdigit() and int(row["week"]) <= through_week]
     path_text = str(path)
     verified_source_url = NFLVERSE_RELEASE_URL.format(season=season)
     is_verified_remote = path_text == verified_source_url
@@ -49,8 +51,9 @@ def main() -> None:
     parser.add_argument("csv_path")
     parser.add_argument("--season", type=int, required=True)
     parser.add_argument("--publish", action="store_true")
+    parser.add_argument("--through-week", type=int, default=None, help="Last completed week to include; later weeks are excluded.")
     args = parser.parse_args()
-    evidence = build_evidence(args.csv_path, season=args.season)
+    evidence = build_evidence(args.csv_path, season=args.season, through_week=args.through_week)
     if args.publish:
         import psycopg2
         with psycopg2.connect(host=os.getenv("DB_HOST", "localhost"), port=os.getenv("DB_PORT", "5433"), dbname=os.getenv("DB_NAME", "fantasy_intelligence"), user=os.getenv("DB_USER", "fantasy"), password=os.getenv("DB_PASSWORD")) as connection:
