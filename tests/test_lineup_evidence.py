@@ -440,3 +440,157 @@ def test_team_template_missing_reconciliation_payload_fails_closed(monkeypatch):
     assert "lineup_reconciliation" not in captured
     assert f"<p>{NO_CHANGES}</p>" not in html
     assert COMPARISON_UNAVAILABLE in html
+
+
+IDENTITY_CATALOG = {
+    "10": {"full_name": "Delta QB", "position": "QB", "team": "KC", "gsis_id": "00-0000010", "espn_id": "1010"},
+    "20": {"full_name": "Echo WR", "position": "WR", "team": "BUF", "gsis_id": "00-0000020", "espn_id": "2020"},
+    "30": {"full_name": "Foxtrot WR", "position": "WR", "team": "SF", "gsis_id": None, "espn_id": "3030"},
+    "40": {"full_name": "Golf RB", "position": "RB", "team": "DAL", "gsis_id": "00-0000040", "espn_id": None},
+}
+
+
+class IdentityRouteCursor:
+    def __init__(self, matched_rows):
+        self.matched_rows = matched_rows
+        self.value = None
+        self.statements = []
+
+    def execute(self, query, params=None):
+        self.statements.append(query)
+        key = str((params or [""])[0])
+        self.value = self.matched_rows.get(key) if "FROM players" in query and "LIKE" not in query else None
+
+    def fetchone(self):
+        value, self.value = self.value, None
+        return value
+
+    def fetchall(self):
+        return []
+
+    def close(self):
+        pass
+
+
+class IdentityRouteConnection:
+    def __init__(self, matched_rows):
+        self.cursor_instance = IdentityRouteCursor(matched_rows)
+
+    def cursor(self):
+        return self.cursor_instance
+
+    def close(self):
+        pass
+
+
+def render_identity_route(monkeypatch, roster_ids, *, catalog=None, starters=(), matched=()):
+    import copy
+    from pathlib import Path
+    from flask import Flask
+    import owner_operations
+    catalog = copy.deepcopy(IDENTITY_CATALOG if catalog is None else catalog)
+    catalog_before = copy.deepcopy(catalog)
+    rosters = [{"owner_id": "owner", "roster_id": 1, "players": list(roster_ids), "starters": list(starters)}]
+    rosters_before = copy.deepcopy(rosters)
+    matched_rows = {
+        IDENTITY_CATALOG[pid]["full_name"].lower().replace(" ", ""): (IDENTITY_CATALOG[pid]["full_name"], IDENTITY_CATALOG[pid]["position"], IDENTITY_CATALOG[pid]["team"], 10, 100.0, 2, 30.0, 9, None, None, int(pid))
+        for pid in matched
+    }
+    captured = {"opportunity_calls": []}
+    real_render = owner_operations.render_template
+
+    def capture(name, **kwargs):
+        captured.update(kwargs)
+        return real_render(name, **kwargs)
+
+    def record_opportunity(connection, roster, **kwargs):
+        captured["opportunity_calls"].append({"roster": [dict(player) for player in roster], **kwargs})
+        return {"state": "UNAVAILABLE", "players": [], "blockers": [], "decision_effect": "INFORMATIONAL_ONLY"}
+
+    monkeypatch.setattr(owner_operations, "render_template", capture)
+    monkeypatch.setattr(owner_operations, "build_team_opportunity_changes", record_opportunity)
+    monkeypatch.setattr(owner_operations, "enrich_players", lambda cur, roster, week, **kwargs: [{**row, "weekly_baseline": 10.0, "weekly_score": 10.0, "matchup_modifier": 0.0, "injury_multiplier": 1.0} for row in roster])
+    monkeypatch.setattr(owner_operations, "current_week", lambda cur: 3)
+    league = {"name": "Controlled", "roster_positions": ["QB", "WR", "WR", "RB", "BN"], "scoring_settings": {"rec": 1.0}}
+    connection = IdentityRouteConnection(matched_rows)
+    blueprint = owner_operations.create_owner_operations_blueprint(
+        lambda: connection,
+        lambda league_id: league,
+        lambda league_id: [{"user_id": "owner", "is_owner": True}],
+        lambda league_id: rosters,
+        lambda: catalog,
+        lambda value: str(value).lower().replace(" ", ""),
+    )
+    app = Flask(__name__, root_path=str(Path(__file__).resolve().parents[1]), template_folder="templates")
+    app.config.update(TESTING=True, SLEEPER_LEAGUE_ID="controlled")
+    app.register_blueprint(blueprint)
+    app.jinja_env.globals["url_for"] = lambda *args, **kwargs: "/"
+    app.jinja_env.globals["ux_roster_lineage"] = lambda roster: []
+    app.jinja_env.globals["ux_route_evidence"] = lambda *args: {"fields": {}}
+    response = app.test_client().get("/team")
+    assert catalog == catalog_before and rosters == rosters_before
+    assert not any(statement.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for statement in connection.cursor_instance.statements)
+    identities = {row["source_player_id"]: (row.get("sleeper_gsis_id"), row.get("sleeper_espn_id")) for row in captured["roster"]}
+    return response, captured, identities
+
+
+def test_each_roster_player_receives_its_own_gsis_and_espn_ids(monkeypatch):
+    response, captured, identities = render_identity_route(monkeypatch, ["10", "20"], starters=["10", "20"])
+    assert response.status_code == 200
+    assert identities == {"10": ("00-0000010", "1010"), "20": ("00-0000020", "2020")}
+    assert "lineup_reconciliation" in captured and "team_needs" in captured and "opportunity_changes" in captured
+
+
+def test_reversed_roster_order_does_not_cross_assign_identities(monkeypatch):
+    forward = render_identity_route(monkeypatch, ["10", "20", "40"])[2]
+    monkeypatch.undo()
+    reverse = render_identity_route(monkeypatch, ["40", "20", "10"])[2]
+    assert forward == reverse
+    assert len({gsis for gsis, _ in forward.values()}) == 3
+
+
+def test_last_catalog_record_is_not_copied_onto_every_player(monkeypatch):
+    identities = render_identity_route(monkeypatch, ["10", "20", "40"])[2]
+    assert identities["10"] != identities["40"] and identities["20"] != identities["40"]
+
+
+def test_missing_gsis_or_espn_stays_unavailable_without_borrowing(monkeypatch):
+    identities = render_identity_route(monkeypatch, ["10", "30", "40"])[2]
+    assert identities["30"] == (None, "3030")
+    assert identities["40"] == ("00-0000040", None)
+    assert identities["10"] == ("00-0000010", "1010")
+
+
+def test_missing_catalog_record_does_not_inherit_another_players_ids(monkeypatch):
+    _, captured, identities = render_identity_route(monkeypatch, ["10", "99", "20"])
+    assert "99" not in identities
+    assert identities == {"10": ("00-0000010", "1010"), "20": ("00-0000020", "2020")}
+
+
+def test_matched_and_unmatched_local_branches_use_each_players_record(monkeypatch):
+    _, captured, identities = render_identity_route(monkeypatch, ["10", "20", "40"], matched=["20"])
+    methods = {row["source_player_id"]: row["identity_match_method"] for row in captured["roster"]}
+    assert methods == {"10": "LOCAL_PLAYER_UNAVAILABLE", "20": "UNIQUE_NORMALIZED_NAME", "40": "LOCAL_PLAYER_UNAVAILABLE"}
+    assert identities == {"10": ("00-0000010", "1010"), "20": ("00-0000020", "2020"), "40": ("00-0000040", None)}
+
+
+def test_identity_fix_preserves_current_lineup_fields(monkeypatch):
+    _, captured, _ = render_identity_route(monkeypatch, ["10", "20", "40"], starters=["10", "20"])
+    lineup = {row["source_player_id"]: (row["sleeper_current_starter"], row["sleeper_lineup_slot"], row["sleeper_lineup_index"]) for row in captured["roster"]}
+    assert lineup == {"10": (True, "QB", 0), "20": (True, "WR", 1), "40": (False, None, None)}
+    assert captured["meta"]["season"] == 2026 and captured["meta"]["week"] == 3
+
+
+def test_team_opportunity_changes_receives_player_specific_identity(monkeypatch):
+    _, captured, _ = render_identity_route(monkeypatch, ["10", "20"])
+    (call,) = captured["opportunity_calls"]
+    assert {row["source_player_id"]: row["sleeper_gsis_id"] for row in call["roster"]} == {"10": "00-0000010", "20": "00-0000020"}
+    assert call["season"] == 2026 and call["week"] == 3
+    assert call["sleeper_records"] is not None and set(call["sleeper_records"]) == set(IDENTITY_CATALOG)
+
+
+def test_roster_identity_assignment_is_deterministic(monkeypatch):
+    first = render_identity_route(monkeypatch, ["10", "20", "30", "40"])[2]
+    monkeypatch.undo()
+    second = render_identity_route(monkeypatch, ["10", "20", "30", "40"])[2]
+    assert first == second

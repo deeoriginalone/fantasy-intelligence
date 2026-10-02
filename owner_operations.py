@@ -598,6 +598,7 @@ def create_owner_operations_blueprint(
                 local_names.append((pid, name, raw.get("position"), raw.get("team"), raw.get("injury_status") or raw.get("status")))
         result = []
         for sleeper_player_id, name, position, team, raw_status in local_names:
+            catalog_record = all_players.get(sleeper_player_id) or {}
             cur.execute(
                 """
                 SELECT player_name, UPPER(position), nfl_team, ranking,
@@ -631,8 +632,8 @@ def create_owner_operations_blueprint(
                 player["sleeper_current_starter"] = sleeper_player_id in sleeper_starters
                 player["sleeper_lineup_slot"] = sleeper_slots.get(sleeper_player_id)
                 player["sleeper_lineup_index"] = sleeper_slot_indexes.get(sleeper_player_id)
-                player["sleeper_gsis_id"] = raw.get("gsis_id")
-                player["sleeper_espn_id"] = raw.get("espn_id")
+                player["sleeper_gsis_id"] = catalog_record.get("gsis_id")
+                player["sleeper_espn_id"] = catalog_record.get("espn_id")
                 player["sleeper_metadata_retrieved_at"] = sleeper_retrieved_at
                 player["sleeper_metadata_coverage_state"] = "COMPLETE"
                 player["normalized_name"] = normalize_player_name(name)
@@ -673,8 +674,8 @@ def create_owner_operations_blueprint(
                 player["sleeper_current_starter"] = sleeper_player_id in sleeper_starters
                 player["sleeper_lineup_slot"] = sleeper_slots.get(sleeper_player_id)
                 player["sleeper_lineup_index"] = sleeper_slot_indexes.get(sleeper_player_id)
-                player["sleeper_gsis_id"] = raw.get("gsis_id")
-                player["sleeper_espn_id"] = raw.get("espn_id")
+                player["sleeper_gsis_id"] = catalog_record.get("gsis_id")
+                player["sleeper_espn_id"] = catalog_record.get("espn_id")
                 player["sleeper_metadata_retrieved_at"] = sleeper_retrieved_at
                 player["sleeper_metadata_coverage_state"] = "COMPLETE"
                 player["normalized_name"] = normalize_player_name(name)
