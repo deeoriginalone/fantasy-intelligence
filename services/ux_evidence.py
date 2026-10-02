@@ -120,11 +120,26 @@ def dashboard_state_contract(league=None, draft=None, source="Sleeper API", erro
     draft = dict(draft or {})
     raw_start = draft.get("start_time")
     display_start = format_pacific_datetime(raw_start)
+    season = league.get("season")
+    season_state = "AVAILABLE" if str(season or "").isdigit() else "UNKNOWN"
+    season_blocker = error
+    if season not in (None, "") and season_state != "AVAILABLE":
+        season_state, season_blocker = "UNSUPPORTED", "SEASON_VALUE_UNSUPPORTED"
+    draft_status = draft.get("status")
+    draft_status_state = "AVAILABLE" if draft_status in {"pre_draft", "drafting", "paused", "complete"} else "UNKNOWN"
+    draft_status_blocker = error
+    if draft_status not in (None, "") and draft_status_state != "AVAILABLE":
+        draft_status_state, draft_status_blocker = "UNSUPPORTED", "DRAFT_STATUS_UNSUPPORTED"
+    draft_type = draft.get("type")
+    draft_type_state = "AVAILABLE" if draft_type in {"snake", "linear", "auction", "mock"} else "UNKNOWN"
+    draft_type_blocker = error
+    if draft_type not in (None, "") and draft_type_state != "AVAILABLE":
+        draft_type_state, draft_type_blocker = "UNSUPPORTED", "DRAFT_TYPE_UNSUPPORTED"
     return {
-        "season": evidence(league.get("season"), source=source, blocker=error),
+        "season": evidence(season, state=season_state, source=source, blocker=season_blocker),
         "league_status": evidence(league.get("status"), source=source, blocker=error),
-        "draft_status": evidence(draft.get("status"), source=source, blocker=error),
-        "draft_type": evidence(draft.get("type"), source=source, blocker=error),
+        "draft_status": evidence(draft_status, state=draft_status_state, source=source, blocker=draft_status_blocker),
+        "draft_type": evidence(draft_type, state=draft_type_state, source=source, blocker=draft_type_blocker),
         "draft_start_time": evidence(display_start, state="AVAILABLE" if display_start else "UNKNOWN", source=source, blocker=error or ("DRAFT_START_TIME_INVALID" if raw_start not in (None, "") and not display_start else None)),
     }
 
