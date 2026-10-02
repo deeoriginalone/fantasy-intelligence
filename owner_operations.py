@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, current_app, redirect, render_template, request, session, url_for
 from weekly_intelligence import enrich_players, current_week, upcoming_byes
-from services.weekly_lineup_intelligence import build_lineup_intelligence, optimize_lineup
+from services.weekly_lineup_intelligence import build_lineup_intelligence, decision, optimize_lineup, sort_key
 from services.trade_intelligence import build_trade_intelligence
 from services.opportunity_evidence import build_opportunity_view
 from services.trade_target_center import build_trade_target_center
@@ -386,6 +386,92 @@ def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
     }
 
 
+def _stable_lineup_identity(player):
+    value = str(player.get("source_player_id") or player.get("local_player_id") or "").strip()
+    return value or None
+
+
+def _normalize_lineup_slot(value):
+    slot = str(value or "").upper()
+    return "FLEX" if slot in {"W/R/T", "WR/RB/TE", "FLEX"} else slot
+
+
+def build_lineup_reconciliation(roster, recommended_starters, decisions=None):
+    """Compare Sleeper's current starters with the recommended lineup by stable identity; read-only."""
+    def unavailable(blocker, current=()):
+        return {"state": "UNAVAILABLE", "blocker": blocker, "current": list(current), "recommended": [], "changes": [], "changed_recommended": []}
+
+    current_starters = sorted(
+        (player for player in roster or [] if player.get("sleeper_current_starter") and player.get("sleeper_lineup_slot")),
+        key=lambda player: (player.get("sleeper_lineup_index") is None, player.get("sleeper_lineup_index") or 0),
+    )
+    if not current_starters:
+        return unavailable("CURRENT_LINEUP_UNAVAILABLE")
+    occurrences = {}
+    current = []
+    for player in current_starters:
+        slot = _normalize_lineup_slot(player.get("sleeper_lineup_slot"))
+        if slot in {"RB", "WR"}:
+            occurrences[slot] = occurrences.get(slot, 0) + 1
+            slot = f"{slot}{occurrences[slot]}"
+        current.append({
+            "slot": slot,
+            "player": player.get("player"),
+            "player_id": _stable_lineup_identity(player),
+            "position": player.get("position"),
+            "injury_status": player.get("injury_status") or "Unknown",
+        })
+    if any(row["player_id"] is None for row in current):
+        return unavailable("CURRENT_LINEUP_IDENTITY_UNAVAILABLE", current)
+    recommended = [
+        {"slot": player.get("slot"), "player": player.get("player"), "player_id": _stable_lineup_identity(player), "position": player.get("position"), "player_data": player}
+        for player in recommended_starters or []
+        if not player.get("vacant")
+    ]
+    if any(row["player_id"] is None for row in recommended):
+        return unavailable("RECOMMENDED_LINEUP_IDENTITY_UNAVAILABLE", current)
+    current_by_slot = {row["slot"]: row for row in current}
+    if any(row["slot"] not in current_by_slot for row in recommended):
+        return unavailable("CURRENT_LINEUP_INCOMPLETE", current)
+    current_ids = {row["player_id"] for row in current}
+    decision_by_slot = {item.get("slot"): item for item in (decisions or [])}
+    changes = []
+    for row in recommended:
+        # Slot swaps among players already starting are not pending changes in Sleeper.
+        if row["player_id"] in current_ids:
+            continue
+        existing = current_by_slot[row["slot"]]
+        slot_decision = decision_by_slot.get(row["slot"]) or {}
+        recommended_player = {**row["player_data"], "replaced_current": existing["player"], "change_action": "FLEX" if slot_decision.get("decision") == "FLEX" else "START"}
+        changes.append({
+            "slot": row["slot"],
+            "current": existing["player"],
+            "current_id": existing["player_id"],
+            "recommended": row["player"],
+            "recommended_id": row["player_id"],
+            "authority": slot_decision.get("decision") or "START",
+            "recommended_player": recommended_player,
+            "reason": slot_decision.get("reason") or row["player_data"].get("reason"),
+            "watch_item": next(iter(row["player_data"].get("evidence_gaps") or []), None),
+            "confidence": slot_decision.get("confidence") if slot_decision.get("confidence") and slot_decision.get("confidence_rationale") else None,
+        })
+    return {"state": "AVAILABLE", "blocker": None, "current": current, "recommended": recommended, "changes": changes, "changed_recommended": [change["recommended_player"] for change in changes]}
+
+
+def build_recommended_bench(roster, recommended_starters):
+    """Return the roster minus every recommended starter, or None when starter identity is unverified."""
+    starter_ids = {_stable_lineup_identity(player) for player in recommended_starters or () if not player.get("vacant")}
+    if None in starter_ids:
+        return None
+    bench = [dict(player) for player in (roster or ()) if _stable_lineup_identity(player) not in starter_ids]
+    bench.sort(key=sort_key)
+    for index, player in enumerate(bench, 1):
+        player["bench_order"] = index
+        player["decision"] = decision(player, "SIT")
+        player.setdefault("confidence", {"label": "UNAVAILABLE", "score": "Unavailable"})
+    return bench
+
+
 def create_owner_operations_blueprint(
     get_db_connection,
     get_league,
@@ -475,6 +561,10 @@ def create_owner_operations_blueprint(
         if not owner_roster:
             return [], league, all_players
         player_ids = [str(pid) for pid in (owner_roster.get("players") or [])]
+        sleeper_starters = [str(pid) for pid in (owner_roster.get("starters") or [])]
+        roster_positions = [slot for slot in (league.get("roster_positions") or []) if str(slot).upper() not in {"BN", "BENCH"}]
+        sleeper_slots = {player_id: str(roster_positions[index]) for index, player_id in enumerate(sleeper_starters) if index < len(roster_positions)}
+        sleeper_slot_indexes = {player_id: index for index, player_id in enumerate(sleeper_starters) if index < len(roster_positions)}
         local_names = []
         for pid in player_ids:
             raw = all_players.get(pid) or {}
@@ -515,6 +605,9 @@ def create_owner_operations_blueprint(
             if row:
                 player=row_to_player(row, row[9] if len(row) > 9 else None, row[10] if len(row) > 10 else None)
                 player["source_player_id"] = sleeper_player_id
+                player["sleeper_current_starter"] = sleeper_player_id in sleeper_starters
+                player["sleeper_lineup_slot"] = sleeper_slots.get(sleeper_player_id)
+                player["sleeper_lineup_index"] = sleeper_slot_indexes.get(sleeper_player_id)
                 player["sleeper_gsis_id"] = raw.get("gsis_id")
                 player["sleeper_espn_id"] = raw.get("espn_id")
                 player["sleeper_metadata_retrieved_at"] = sleeper_retrieved_at
@@ -554,6 +647,9 @@ def create_owner_operations_blueprint(
                 }
                 player["injury_source"] = "Sleeper API"
                 player["source_player_id"] = sleeper_player_id
+                player["sleeper_current_starter"] = sleeper_player_id in sleeper_starters
+                player["sleeper_lineup_slot"] = sleeper_slots.get(sleeper_player_id)
+                player["sleeper_lineup_index"] = sleeper_slot_indexes.get(sleeper_player_id)
                 player["sleeper_gsis_id"] = raw.get("gsis_id")
                 player["sleeper_espn_id"] = raw.get("espn_id")
                 player["sleeper_metadata_retrieved_at"] = sleeper_retrieved_at
@@ -909,17 +1005,25 @@ def create_owner_operations_blueprint(
                 gap not in {"HEALTH_UNAVAILABLE", "HEALTH_BLOCKED", "HEALTH_EVIDENCE_STALE", "HEALTH_REFRESH_FAILED", "TEAM_HEALTH_UNAVAILABLE", "TEAM_HEALTH_STALE"}
                 for gap in gaps
             )
-        team_priority_action = build_team_priority_action(starters, team_needs, team_health, team_accuracy)
+        current_sleeper_starters = [player for player in roster if player.get("sleeper_current_starter")]
+        team_priority_action = build_team_priority_action(starters, team_needs, team_health, team_accuracy, current_starters=current_sleeper_starters)
         team_accuracy["recommendation_impact"] = team_priority_action["action"]
         team_trust = build_team_trust_summary(team_accuracy, team_health, starters, bench)
         bench_decisions = build_bench_decisions(starters, bench)
         bench_plan = build_bench_plan(bench_decisions)
-        lineup_snapshot = build_lineup_snapshot(starters, bench_decisions)
-        weekly_risks = build_weekly_risks(starters, team_needs, team_health, team_accuracy)
+        weekly_risks = build_weekly_risks(starters, team_needs, team_health, team_accuracy, current_starters=current_sleeper_starters)
         roster_outlook = build_roster_outlook(team_needs, team_health)
-        lineup_intelligence = build_lineup_intelligence(roster)
+        lineup_intelligence = build_lineup_intelligence(roster, current_starters=current_sleeper_starters)
         decisions_by_slot = {d.get("slot"): d for d in lineup_intelligence.get("start_sit_decisions", [])}
-        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_intelligence=lineup_intelligence, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context, opportunity_view=opportunity_view, opportunity_changes=opportunity_changes)
+        lineup_reconciliation = build_lineup_reconciliation(roster, lineup_intelligence.get("starters"), lineup_intelligence.get("start_sit_decisions"))
+        displayed_bench = build_recommended_bench(roster, lineup_intelligence.get("starters"))
+        if displayed_bench is not None:
+            lineup_intelligence["bench"] = displayed_bench
+        lineup_intelligence["changed_recommended"] = lineup_reconciliation.get("changed_recommended", [])
+        if lineup_reconciliation.get("changes"):
+            lineup_intelligence["verdict"].update(status="ACTION REQUIRED", action=f"{len(lineup_reconciliation['changes'])} lineup changes recommended", why="Review the supported lineup changes before lineup lock.")
+        lineup_snapshot = build_lineup_snapshot(starters, bench_decisions, current_starters=current_sleeper_starters, lineup_changes=lineup_reconciliation.get("changes"))
+        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_intelligence=lineup_intelligence, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context, opportunity_view=opportunity_view, opportunity_changes=opportunity_changes, lineup_reconciliation=lineup_reconciliation)
 
     @bp.route("/lineup")
     def lineup_page():

@@ -201,3 +201,242 @@ def test_unrelated_blockers_remain_intact_when_matchup_authority_is_verified():
     assert "MATCHUP_OPPONENT_IDENTITY_UNAVAILABLE" in result["blockers"]
     assert "MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE" not in result["blockers"]
     assert result["authoritative"] is False
+
+
+def lineup_player(pid, name, position, *, slot=None, current_slot=None, index=None, **updates):
+    row = {"player": name, "position": position, "source_player_id": pid, "injury_status": "Healthy", "weekly_score": 10.0, "rank": 10}
+    if slot:
+        row.update(slot=slot, vacant=False, decision="START")
+    if current_slot:
+        row.update(sleeper_current_starter=True, sleeper_lineup_slot=current_slot, sleeper_lineup_index=index)
+    row.update(updates)
+    return row
+
+
+def current_and_recommended(recommended_wr2="w3"):
+    roster = [
+        lineup_player("q1", "QB One", "QB", current_slot="QB", index=0),
+        lineup_player("w1", "WR One", "WR", current_slot="WR", index=1),
+        lineup_player("w2", "WR Two", "WR", current_slot="WR", index=2),
+        lineup_player("w3", "WR Three", "WR"),
+        lineup_player("r1", "RB One", "RB"),
+    ]
+    by_id = {row["source_player_id"]: row for row in roster}
+    recommended = [
+        {**by_id["q1"], "slot": "QB", "vacant": False},
+        {**by_id["w1"], "slot": "WR1", "vacant": False},
+        {**by_id[recommended_wr2], "slot": "WR2", "vacant": False},
+    ]
+    return roster, recommended
+
+
+def test_matching_current_and_recommended_lineups_have_no_pending_changes():
+    from owner_operations import build_lineup_reconciliation
+    roster, recommended = current_and_recommended(recommended_wr2="w2")
+    result = build_lineup_reconciliation(roster, recommended, [])
+    assert result["state"] == "AVAILABLE"
+    assert result["changes"] == [] and result["changed_recommended"] == []
+    assert [row["slot"] for row in result["current"]] == ["QB", "WR1", "WR2"]
+
+
+def test_different_lineups_produce_deterministic_identity_based_changes():
+    from owner_operations import build_lineup_reconciliation
+    roster, recommended = current_and_recommended()
+    decisions = [{"slot": "WR2", "decision": "START", "reason": "Supported weekly value."}]
+    first = build_lineup_reconciliation(roster, recommended, decisions)
+    second = build_lineup_reconciliation(roster, recommended, decisions)
+    assert first["changes"] == second["changes"]
+    assert [(c["slot"], c["current_id"], c["recommended_id"], c["authority"]) for c in first["changes"]] == [("WR2", "w2", "w3", "START")]
+    assert first["changed_recommended"][0]["replaced_current"] == "WR Two"
+
+
+def test_slot_swap_among_current_starters_is_not_a_pending_change():
+    from owner_operations import build_lineup_reconciliation
+    roster, _ = current_and_recommended()
+    by_id = {row["source_player_id"]: row for row in roster}
+    recommended = [{**by_id["q1"], "slot": "QB"}, {**by_id["w2"], "slot": "WR1"}, {**by_id["w1"], "slot": "WR2"}]
+    assert build_lineup_reconciliation(roster, recommended, [])["changes"] == []
+
+
+def test_displayed_bench_excludes_every_recommended_starter_and_keeps_the_rest():
+    from owner_operations import build_recommended_bench
+    roster, recommended = current_and_recommended()
+    bench = build_recommended_bench(roster, recommended)
+    assert {row["source_player_id"] for row in bench} == {"w2", "r1"}
+    assert all(row["decision"] in {"SIT", "MONITOR"} for row in bench)
+    assert [row["bench_order"] for row in bench] == [1, 2]
+
+
+def test_duplicate_names_do_not_override_stable_identity():
+    from owner_operations import build_lineup_reconciliation, build_recommended_bench
+    roster = [
+        lineup_player("a", "Same Name", "QB", current_slot="QB", index=0),
+        lineup_player("b", "Same Name", "QB"),
+    ]
+    recommended = [{**roster[1], "slot": "QB", "vacant": False}]
+    result = build_lineup_reconciliation(roster, recommended, [])
+    assert [(c["current_id"], c["recommended_id"]) for c in result["changes"]] == [("a", "b")]
+    assert [row["source_player_id"] for row in build_recommended_bench(roster, recommended)] == ["a"]
+
+
+def test_missing_current_lineup_identity_fails_closed():
+    from owner_operations import build_lineup_reconciliation
+    roster, recommended = current_and_recommended()
+    roster[1] = {**roster[1], "source_player_id": None}
+    result = build_lineup_reconciliation(roster, recommended, [])
+    assert result["state"] == "UNAVAILABLE"
+    assert result["blocker"] == "CURRENT_LINEUP_IDENTITY_UNAVAILABLE"
+    assert result["changes"] == []
+    assert build_lineup_reconciliation([], recommended, [])["blocker"] == "CURRENT_LINEUP_UNAVAILABLE"
+
+
+def test_incomplete_current_lineup_does_not_claim_ready_or_changes():
+    from owner_operations import build_lineup_reconciliation
+    roster, recommended = current_and_recommended()
+    roster[2] = {**roster[2], "sleeper_current_starter": False}
+    result = build_lineup_reconciliation(roster, recommended, [])
+    assert result["state"] == "UNAVAILABLE"
+    assert result["blocker"] == "CURRENT_LINEUP_INCOMPLETE"
+    assert result["changes"] == []
+
+
+def test_unverified_recommended_identity_keeps_committed_bench():
+    from owner_operations import build_lineup_reconciliation, build_recommended_bench
+    roster, recommended = current_and_recommended()
+    recommended[2] = {**recommended[2], "source_player_id": None}
+    assert build_recommended_bench(roster, recommended) is None
+    assert build_lineup_reconciliation(roster, recommended, [])["blocker"] == "RECOMMENDED_LINEUP_IDENTITY_UNAVAILABLE"
+
+
+def test_reconciliation_does_not_alter_lineup_decisions():
+    import copy
+    from owner_operations import build_lineup_reconciliation, build_recommended_bench
+    roster, recommended = current_and_recommended()
+    decisions = [{"slot": slot, "decision": value} for slot, value in (("QB", "START"), ("WR1", "FLEX"), ("WR2", "MONITOR"))]
+    before = copy.deepcopy((roster, recommended, decisions))
+    build_lineup_reconciliation(roster, recommended, decisions)
+    build_recommended_bench(roster, recommended)
+    assert (roster, recommended, decisions) == before
+
+
+class TeamRouteCursor:
+    def execute(self, query, params=None):
+        pass
+
+    def fetchone(self):
+        return None
+
+    def fetchall(self):
+        return []
+
+    def close(self):
+        pass
+
+
+class TeamRouteConnection:
+    def cursor(self):
+        return TeamRouteCursor()
+
+    def close(self):
+        pass
+
+
+def render_team_route(monkeypatch, reconciliation=None, drop_reconciliation=False):
+    from pathlib import Path
+    from flask import Flask
+    import owner_operations
+    catalog = {
+        "1": {"full_name": "Alpha QB", "position": "QB", "team": "KC", "injury_status": None, "gsis_id": "00-0000001", "espn_id": "101"},
+        "2": {"full_name": "Bravo WR", "position": "WR", "team": "KC", "injury_status": None, "gsis_id": "00-0000002", "espn_id": "102"},
+        "3": {"full_name": "Charlie WR", "position": "WR", "team": "KC", "injury_status": None, "gsis_id": "00-0000003", "espn_id": "103"},
+    }
+    captured = {"catalog": catalog}
+    real_render = owner_operations.render_template
+
+    def capture(name, **kwargs):
+        if drop_reconciliation:
+            kwargs.pop("lineup_reconciliation", None)
+        captured.update(kwargs)
+        return real_render(name, **kwargs)
+
+    monkeypatch.setattr(owner_operations, "render_template", capture)
+    if reconciliation is not None:
+        monkeypatch.setattr(owner_operations, "build_lineup_reconciliation", lambda *args, **kwargs: reconciliation)
+    monkeypatch.setattr(owner_operations, "enrich_players", lambda cur, roster, week, **kwargs: [{**row, "weekly_baseline": 10.0, "weekly_score": 10.0, "matchup_modifier": 0.0, "injury_multiplier": 1.0} for row in roster])
+    monkeypatch.setattr(owner_operations, "current_week", lambda cur: 3)
+    league = {"name": "Controlled", "roster_positions": ["QB", "WR", "WR", "BN"], "scoring_settings": {"rec": 1.0}}
+    blueprint = owner_operations.create_owner_operations_blueprint(
+        lambda: TeamRouteConnection(),
+        lambda league_id: league,
+        lambda league_id: [{"user_id": "owner", "is_owner": True}],
+        lambda league_id: [{"owner_id": "owner", "roster_id": 1, "players": ["1", "2", "3"], "starters": ["1", "2"]}],
+        lambda: catalog,
+        lambda value: str(value).lower().replace(" ", ""),
+    )
+    app = Flask(__name__, root_path=str(Path(__file__).resolve().parents[1]), template_folder="templates")
+    app.config.update(TESTING=True, SLEEPER_LEAGUE_ID="controlled")
+    app.register_blueprint(blueprint)
+    app.jinja_env.globals["url_for"] = lambda *args, **kwargs: "/"
+    app.jinja_env.globals["ux_roster_lineage"] = lambda roster: []
+    app.jinja_env.globals["ux_route_evidence"] = lambda *args: {"fields": {}}
+    response = app.test_client().get("/team")
+    return response, captured
+
+
+def test_team_route_carries_current_lineup_fields_and_committed_payloads(monkeypatch):
+    import owner_operations
+    response, captured = render_team_route(monkeypatch)
+    assert response.status_code == 200
+    by_id = {row["source_player_id"]: row for row in captured["roster"]}
+    assert by_id["1"]["sleeper_current_starter"] is True and by_id["1"]["sleeper_lineup_slot"] == "QB" and by_id["1"]["sleeper_lineup_index"] == 0
+    assert by_id["2"]["sleeper_lineup_slot"] == "WR" and by_id["2"]["sleeper_lineup_index"] == 1
+    assert by_id["3"]["sleeper_current_starter"] is False and by_id["3"]["sleeper_lineup_slot"] is None
+    assert all("sleeper_gsis_id" in row and "sleeper_espn_id" in row for row in captured["roster"])
+    assert captured["meta"]["sleeper_catalog"] is captured["catalog"]
+    assert captured["lineup_reconciliation"]["state"] in {"AVAILABLE", "UNAVAILABLE"}
+    assert "team_needs" in captured and "opportunity_changes" in captured
+    assert callable(owner_operations.build_team_opportunity_changes)
+
+
+NO_CHANGES = "No lineup changes recommended."
+COMPARISON_UNAVAILABLE = "Lineup comparison unavailable. The current Sleeper lineup could not be fully compared with the recommended lineup."
+
+
+def test_team_template_available_with_changes_shows_supported_change(monkeypatch):
+    change = {"slot": "WR2", "current": "Bravo WR", "current_id": "2", "recommended": "Charlie WR", "recommended_id": "3", "authority": "START", "recommended_player": {"player": "Charlie WR", "reason": "Supported weekly value."}, "reason": "Supported weekly value.", "watch_item": None, "confidence": None}
+    reconciliation = {"state": "AVAILABLE", "blocker": None, "current": [{"slot": "QB", "player": "Alpha QB", "position": "QB", "injury_status": "Healthy"}], "recommended": [], "changes": [change], "changed_recommended": [change["recommended_player"]]}
+    response, _ = render_team_route(monkeypatch, reconciliation)
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "1 lineup changes recommended" in html and "Charlie WR" in html
+    assert f"<p>{NO_CHANGES}</p>" not in html and COMPARISON_UNAVAILABLE not in html
+
+
+def test_team_template_available_without_changes_claims_no_changes(monkeypatch):
+    reconciliation = {"state": "AVAILABLE", "blocker": None, "current": [{"slot": "QB", "player": "Alpha QB", "position": "QB", "injury_status": "Healthy"}], "recommended": [], "changes": [], "changed_recommended": []}
+    response, _ = render_team_route(monkeypatch, reconciliation)
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert f"<p>{NO_CHANGES}</p>" in html
+    assert COMPARISON_UNAVAILABLE not in html
+
+
+def test_team_template_unavailable_comparison_never_claims_no_changes(monkeypatch):
+    reconciliation = {"state": "UNAVAILABLE", "blocker": "CURRENT_LINEUP_INCOMPLETE", "current": [], "recommended": [], "changes": [], "changed_recommended": []}
+    response, captured = render_team_route(monkeypatch, reconciliation)
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert f"<p>{NO_CHANGES}</p>" not in html
+    assert COMPARISON_UNAVAILABLE in html
+    assert "missing a starter for at least one recommended slot" in html
+    assert "CURRENT_LINEUP_INCOMPLETE" not in html
+    assert "team_needs" in captured and "opportunity_changes" in captured
+
+
+def test_team_template_missing_reconciliation_payload_fails_closed(monkeypatch):
+    response, captured = render_team_route(monkeypatch, drop_reconciliation=True)
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "lineup_reconciliation" not in captured
+    assert f"<p>{NO_CHANGES}</p>" not in html
+    assert COMPARISON_UNAVAILABLE in html
