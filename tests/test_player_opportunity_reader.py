@@ -4,6 +4,8 @@ from services.player_opportunity_reader import read_player_opportunity, read_pla
 
 
 NOW = "2026-09-17T12:00:00+00:00"
+THRESHOLD_ENV = {"OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS": "86400"}
+CURRENT = {"now": NOW, "threshold_environment": THRESHOLD_ENV}
 COLUMNS = (
     "season", "week", "player_id", "team", "position", "opponent_team", "targets", "carries",
     "fantasy_points_ppr", "scoring_format", "calculation_version",
@@ -71,7 +73,7 @@ class ReaderConnection:
 
 def test_reader_returns_deterministic_scoped_rows_and_parameterized_query():
     connection = ReaderConnection([row(2, target_share=0.3), row(1)])
-    result = read_player_opportunity(connection, player_id="p1", season=2026, week_start=1, week_end=2)
+    result = read_player_opportunity(connection, player_id="p1", season=2026, week_start=1, week_end=2, **CURRENT)
     query, params = connection.reader_cursor.statements[0]
     assert result["state"] == "AVAILABLE"
     assert result["supported_weeks"] == [1, 2]
@@ -83,7 +85,7 @@ def test_reader_returns_deterministic_scoped_rows_and_parameterized_query():
 
 def test_reader_supports_exact_week_filtering():
     connection = ReaderConnection([row(2)])
-    result = read_player_opportunity(connection, player_id="p1", season=2026, week=2)
+    result = read_player_opportunity(connection, player_id="p1", season=2026, week=2, **CURRENT)
     query, params = connection.reader_cursor.statements[0]
     assert result["state"] == "AVAILABLE"
     assert result["supported_weeks"] == [2]
@@ -93,7 +95,7 @@ def test_reader_supports_exact_week_filtering():
 
 def test_production_reader_returns_newest_supported_week_first_and_contract_metadata():
     connection = ReaderConnection([row(1, fantasy_points_ppr=10.3), row(2, fantasy_points_ppr=14.8)])
-    result = read_player_production(connection, player_id="p1", season=2026)
+    result = read_player_production(connection, player_id="p1", season=2026, **CURRENT)
     assert result["state"] == "AVAILABLE"
     assert [item["week"] for item in result["rows"]] == [2, 1]
     assert result["rows"][0]["fantasy_points_ppr"] == 14.8
@@ -106,26 +108,26 @@ def test_production_reader_returns_newest_supported_week_first_and_contract_meta
 
 def test_production_reader_fails_closed_for_k_and_def():
     for position in ("K", "DEF", "DST"):
-        result = read_player_production(ReaderConnection(), player_id="p1", season=2026, position=position)
+        result = read_player_production(ReaderConnection(), player_id="p1", season=2026, position=position, **CURRENT)
         assert result["state"] == "UNSUPPORTED"
         assert result["blockers"] == ["PLAYER_WEEK_PRODUCTION_POSITION_UNSUPPORTED"]
 
 
 def test_reader_preserves_zero_and_null_and_role_metrics_unavailable():
-    result = read_player_opportunity(db_connection=ReaderConnection([row(1, target_share=0, carry_share=None)]), player_id="p1", season=2026)
+    result = read_player_opportunity(db_connection=ReaderConnection([row(1, target_share=0, carry_share=None)]), player_id="p1", season=2026, **CURRENT)
     assert result["rows"][0]["target_share"] == 0.0
     assert result["rows"][0]["carry_share"] is None
     assert result["rows"][0]["snap_share"] is None
     assert result["rows"][0]["role_classification"] is None
-    zero = read_player_production(ReaderConnection([row(1, fantasy_points_ppr=0.0)]), player_id="p1", season=2026)
+    zero = read_player_production(ReaderConnection([row(1, fantasy_points_ppr=0.0)]), player_id="p1", season=2026, **CURRENT)
     assert zero["state"] == "AVAILABLE"
     assert zero["rows"][0]["fantasy_points_ppr"] == 0.0
 
 
 def test_reader_fails_closed_for_empty_failed_and_invalid_scope_reads():
-    empty = read_player_opportunity(ReaderConnection(), player_id="p1", season=2026)
-    failed = read_player_opportunity(ReaderConnection(error=RuntimeError()), player_id="p1", season=2026)
-    invalid = read_player_opportunity(ReaderConnection(), player_id="", season=2026)
+    empty = read_player_opportunity(ReaderConnection(), player_id="p1", season=2026, **CURRENT)
+    failed = read_player_opportunity(ReaderConnection(error=RuntimeError()), player_id="p1", season=2026, **CURRENT)
+    invalid = read_player_opportunity(ReaderConnection(), player_id="", season=2026, **CURRENT)
     assert empty["state"] == "UNAVAILABLE"
     assert empty["blockers"] == ["OPPORTUNITY_READER_NO_ROWS"]
     assert failed["state"] == "BLOCKED"
@@ -135,10 +137,10 @@ def test_reader_fails_closed_for_empty_failed_and_invalid_scope_reads():
 
 
 def test_reader_fails_closed_for_duplicate_mismatch_and_contract_rows():
-    duplicate = read_player_opportunity(ReaderConnection([row(1), row(1)]), player_id="p1", season=2026)
-    mismatch = read_player_opportunity(ReaderConnection([row(1, player_id="other")]), player_id="p1", season=2026)
-    stale = read_player_opportunity(ReaderConnection([row(1, freshness_state="STALE")]), player_id="p1", season=2026)
-    unreconciled = read_player_opportunity(ReaderConnection([row(1, lineage={"reconciliation": {"reconciled": False}})]), player_id="p1", season=2026)
+    duplicate = read_player_opportunity(ReaderConnection([row(1), row(1)]), player_id="p1", season=2026, **CURRENT)
+    mismatch = read_player_opportunity(ReaderConnection([row(1, player_id="other")]), player_id="p1", season=2026, **CURRENT)
+    stale = read_player_opportunity(ReaderConnection([row(1, freshness_state="STALE")]), player_id="p1", season=2026, **CURRENT)
+    unreconciled = read_player_opportunity(ReaderConnection([row(1, lineage={"reconciliation": {"reconciled": False}})]), player_id="p1", season=2026, **CURRENT)
     assert duplicate["state"] == "BLOCKED" and "OPPORTUNITY_DUPLICATE_PLAYER_WEEK" in duplicate["blockers"]
     assert mismatch["state"] == "BLOCKED" and "OPPORTUNITY_PLAYER_IDENTITY_MISMATCH" in mismatch["blockers"]
     assert stale["state"] == "BLOCKED" and "OPPORTUNITY_EVIDENCE_NOT_CURRENT" in stale["blockers"]
@@ -162,17 +164,78 @@ def test_reader_fails_closed_for_duplicate_mismatch_and_contract_rows():
     ],
 )
 def test_reader_rejects_invalid_publication_contract_fields(field, value, blocker):
-    result = read_player_opportunity(ReaderConnection([row(1, **{field: value})]), player_id="p1", season=2026)
+    result = read_player_opportunity(ReaderConnection([row(1, **{field: value})]), player_id="p1", season=2026, **CURRENT)
     assert result["state"] == "BLOCKED"
     assert blocker in result["blockers"]
 
 
 def test_adapter_delegates_comparison_and_preserves_reader_blockers():
-    available = read_player_what_changed(ReaderConnection([row(1), row(2, target_share=0.3)]), player_id="p1", season=2026)
-    blocked = read_player_what_changed(ReaderConnection(error=RuntimeError()), player_id="p1", season=2026)
+    available = read_player_what_changed(ReaderConnection([row(1), row(2, target_share=0.3)]), player_id="p1", season=2026, **CURRENT)
+    blocked = read_player_what_changed(ReaderConnection(error=RuntimeError()), player_id="p1", season=2026, **CURRENT)
     assert available["state"] == "AVAILABLE"
     assert available["decision_effect"] == "INFORMATIONAL_ONLY"
     assert available["current_week"] == 2
     assert blocked["state"] == "BLOCKED"
     assert "OPPORTUNITY_READER_QUERY_FAILED" in blocked["blockers"]
     assert not any(label in str(available).upper() for label in ("BUY LOW", "SELL HIGH", "BREAKOUT", "REGRESSION", "START", "SIT", "ADD", "DROP"))
+
+
+AT_80_PERCENT = "2026-09-16T16:48:00+00:00"
+JUST_PAST_80_PERCENT = "2026-09-16T16:47:59+00:00"
+AT_THRESHOLD = "2026-09-16T12:00:00+00:00"
+PAST_THRESHOLD = "2026-09-16T11:59:59+00:00"
+
+
+@pytest.mark.parametrize(
+    ("retrieved_at", "expected_freshness", "expected_state"),
+    [
+        (NOW, "FRESH", "AVAILABLE"),
+        (AT_80_PERCENT, "FRESH", "AVAILABLE"),
+        (JUST_PAST_80_PERCENT, "AGING", "AVAILABLE"),
+        (AT_THRESHOLD, "AGING", "AVAILABLE"),
+        (PAST_THRESHOLD, "STALE", "BLOCKED"),
+    ],
+)
+def test_reader_recalculates_freshness_boundaries_from_current_age(retrieved_at, expected_freshness, expected_state):
+    result = read_player_opportunity(ReaderConnection([row(1, retrieved_at=retrieved_at)]), player_id="p1", season=2026, **CURRENT)
+    assert result["rows"][0]["freshness_state"] == expected_freshness
+    assert result["state"] == expected_state
+
+
+def test_reader_freshness_fails_closed_for_missing_or_invalid_inputs():
+    missing = read_player_opportunity(ReaderConnection([row(1, retrieved_at=None)]), player_id="p1", season=2026, **CURRENT)
+    invalid = read_player_opportunity(ReaderConnection([row(1, retrieved_at="not-a-time")]), player_id="p1", season=2026, **CURRENT)
+    assert missing["state"] == "BLOCKED" and missing["rows"][0]["freshness_state"] == "UNAVAILABLE"
+    assert "OPPORTUNITY_RETRIEVAL_TIME_UNAVAILABLE" in missing["blockers"]
+    assert invalid["state"] == "BLOCKED" and invalid["rows"][0]["freshness_state"] == "BLOCKED"
+    assert "OPPORTUNITY_RETRIEVAL_TIME_INVALID" in invalid["blockers"]
+    for environment in ({}, {"OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS": ""}, {"OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS": "abc"}, {"OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS": "0"}):
+        result = read_player_opportunity(ReaderConnection([row(1)]), player_id="p1", season=2026, now=NOW, threshold_environment=environment)
+        assert result["state"] == "BLOCKED"
+        assert result["rows"][0]["freshness_state"] == "UNAVAILABLE"
+        assert "OPPORTUNITY_FRESHNESS_THRESHOLD_UNVERIFIED" in result["blockers"]
+
+
+def test_reader_persisted_freshness_never_overrides_current_age():
+    stale_now = read_player_opportunity(ReaderConnection([row(1, retrieved_at=PAST_THRESHOLD, freshness_state="FRESH")]), player_id="p1", season=2026, **CURRENT)
+    assert stale_now["rows"][0]["persisted_freshness_state"] == "FRESH"
+    assert stale_now["rows"][0]["freshness_state"] == "STALE"
+    assert {"OPPORTUNITY_DATA_STALE", "OPPORTUNITY_EVIDENCE_NOT_CURRENT"} <= set(stale_now["blockers"])
+    persisted_stale = read_player_opportunity(ReaderConnection([row(1, retrieved_at=NOW, freshness_state="STALE")]), player_id="p1", season=2026, **CURRENT)
+    assert persisted_stale["rows"][0]["freshness_state"] == "STALE"
+    assert persisted_stale["state"] == "BLOCKED"
+
+
+def test_production_and_what_changed_readers_apply_current_freshness():
+    stale_rows = [row(1, retrieved_at=PAST_THRESHOLD), row(2, retrieved_at=PAST_THRESHOLD, target_share=0.3)]
+    production = read_player_production(ReaderConnection(stale_rows), player_id="p1", season=2026, **CURRENT)
+    assert production["state"] == "BLOCKED"
+    assert {item["freshness_state"] for item in production["rows"]} == {"STALE"}
+    assert "OPPORTUNITY_DATA_STALE" in production["blockers"]
+    changed = read_player_what_changed(ReaderConnection(stale_rows), player_id="p1", season=2026, **CURRENT)
+    assert changed["state"] == "BLOCKED"
+    assert changed["reader_state"] == "BLOCKED"
+    assert "OPPORTUNITY_DATA_STALE" in changed["blockers"]
+    assert changed["decision_effect"] == "INFORMATIONAL_ONLY"
+    current = read_player_what_changed(ReaderConnection([row(1), row(2, target_share=0.3)]), player_id="p1", season=2026, **CURRENT)
+    assert current["state"] == "AVAILABLE"

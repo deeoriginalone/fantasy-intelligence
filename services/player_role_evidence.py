@@ -74,6 +74,32 @@ METRIC_DEFINITIONS = {
 }
 
 ROLE_CLASSIFICATION_BLOCKER = "ROLE_CLASSIFICATION_CONTRACT_UNVERIFIED"
+EXPECTED_ROLE_VALUES = {"IMMEDIATE_STARTER", "FLEX_OPTION", "DEPTH_ADD", "SHORT_TERM_REPLACEMENT", "SPECULATIVE"}
+
+
+def build_expected_role_authority(evidence: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Validate an explicit role fact; never classify role from usage or projection."""
+    evidence = dict(evidence or {})
+    role = evidence.get("expected_role") or evidence.get("role_classification")
+    required = (evidence.get("source"), evidence.get("retrieved_at"), evidence.get("freshness_state") == "FRESH", evidence.get("completeness_state") == "COMPLETE", evidence.get("observation_window"), evidence.get("sample_count"))
+    established = role in EXPECTED_ROLE_VALUES and all(required) and not evidence.get("blocker")
+    return {
+        "state": "ESTABLISHED" if established else "UNAVAILABLE",
+        "value": role if established else None,
+        "basis": evidence.get("role_basis") or "Explicit provider role fact required; role is not inferred.",
+        "supporting_metrics": list(evidence.get("supporting_metrics") or []),
+        "position_interpretation": evidence.get("position_interpretation"),
+        "observation_window": evidence.get("observation_window"),
+        "sample_count": evidence.get("sample_count"),
+        "source": evidence.get("source") or "UNVERIFIED",
+        "source_recorded_at": evidence.get("source_recorded_at"),
+        "retrieved_at": evidence.get("retrieved_at"),
+        "freshness": evidence.get("freshness_state") or "UNAVAILABLE",
+        "completeness": evidence.get("completeness_state") or "UNAVAILABLE",
+        "evidence_level": "ESTABLISHED" if established else "UNAVAILABLE",
+        "limitations": [] if established else ["ROLE_CLASSIFICATION_CONTRACT_UNVERIFIED"],
+        "recommendation_impact": "Established role may satisfy the waiver role gate." if established else "Role remains unavailable; preliminary usage cannot authorize ADD.",
+    }
 
 
 def build_role_evidence(

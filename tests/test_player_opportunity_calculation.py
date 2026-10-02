@@ -5,7 +5,13 @@ NOW = "2026-09-17T12:00:00+00:00"
 
 
 def stat_row(player_id, team, opponent, week=3, targets=0, carries=0, season=2026):
-    return {"player_id": player_id, "team": team, "opponent_team": opponent, "season": season, "week": week, "targets": targets, "carries": carries}
+    return {
+        "player_id": player_id, "team": team, "position": "WR", "opponent_team": opponent,
+        "season": season, "week": week, "targets": targets, "carries": carries,
+        "passing_yards": 0, "passing_tds": 0, "passing_interceptions": 0,
+        "rushing_yards": 0, "rushing_tds": 0, "receiving_yards": 0, "receiving_tds": 0,
+        "receptions": 0, "two_point_conversions": 0, "fumbles_lost": 0,
+    }
 
 
 def rows():

@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from typing import Any, Mapping
 
+from services.integrity.integrity_service import opportunity_evidence_threshold
 from services.opportunity_evidence import (
     build_what_changed,
     published_opportunity_row_blockers,
 )
+from services.player_opportunity_calculation import _opportunity_freshness, _timestamp
 from services.snap_share_reader import read_snap_share
 
 READER_SCHEMA_VERSION = "player-opportunity-reader.v1"
@@ -22,6 +25,10 @@ COLUMNS = (
     "version", "checksum", "freshness_threshold_id", "freshness_state",
     "completeness_state", "lineage", "publication_state",
 )
+PRODUCTION_FIELDS = (
+    "passing_yards", "passing_tds", "passing_interceptions",
+    "rushing_yards", "rushing_tds", "receptions", "receiving_yards", "receiving_tds",
+)
 
 
 def read_player_opportunity(
@@ -32,6 +39,8 @@ def read_player_opportunity(
     week: Any = None,
     week_start: Any = None,
     week_end: Any = None,
+    now: Any = None,
+    threshold_environment: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Read validated published rows without mutating the database."""
     result = _base_result(player_id=player_id, season=season, week=week, week_start=week_start, week_end=week_end)
@@ -63,8 +72,12 @@ def read_player_opportunity(
             connection.close()
 
     normalized_rows = [_normalize_row(row) for row in rows]
+    threshold_seconds = opportunity_evidence_threshold(os.environ if threshold_environment is None else threshold_environment).get("seconds")
     blockers = _scope_row_blockers(normalized_rows, player_id, season, week, week_start, week_end)
     for row in normalized_rows:
+        freshness_blocker = _apply_current_freshness(row, now, threshold_seconds)
+        if freshness_blocker:
+            blockers.append(freshness_blocker)
         blockers.extend(published_opportunity_row_blockers(row))
         blockers.extend(_production_row_blockers(row))
     blockers = list(dict.fromkeys(blockers))
@@ -97,6 +110,8 @@ def read_player_what_changed(
     week: Any = None,
     week_start: Any = None,
     week_end: Any = None,
+    now: Any = None,
+    threshold_environment: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Adapt validated reader rows into the existing What Changed contract."""
     reader = read_player_opportunity(
@@ -106,6 +121,8 @@ def read_player_what_changed(
         week=week,
         week_start=week_start,
         week_end=week_end,
+        now=now,
+        threshold_environment=threshold_environment,
     )
     comparison = build_what_changed(
         None,
@@ -141,6 +158,8 @@ def read_player_production(
     week_start: Any = None,
     week_end: Any = None,
     position: Any = None,
+    now: Any = None,
+    threshold_environment: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Read published historical Full-PPR production without calculating during reads."""
     normalized_position = str(position or "").upper().replace("DST", "DEF")
@@ -161,6 +180,8 @@ def read_player_production(
         week=week,
         week_start=week_start,
         week_end=week_end,
+        now=now,
+        threshold_environment=threshold_environment,
     )
     production = {
         "schema_version": "player-production-reader.v1",
@@ -170,6 +191,7 @@ def read_player_production(
                 "season": row["season"], "week": row["week"], "player_id": row["player_id"],
                 "team": row.get("team"), "position": row.get("position"), "opponent_team": row.get("opponent_team"),
                 "fantasy_points_ppr": row.get("fantasy_points_ppr"),
+                **{field: row.get(field) for field in PRODUCTION_FIELDS},
                 "scoring_format": row.get("scoring_format"),
                 "calculation_version": row.get("calculation_version"),
                 "source": row.get("source"), "source_authority": row.get("source_authority"),
@@ -250,6 +272,15 @@ def _row_mapping(row: Any, description: Any) -> dict[str, Any]:
 
 def _normalize_row(row: Mapping[str, Any]) -> dict[str, Any]:
     normalized = dict(row)
+    lineage = row.get("lineage")
+    if isinstance(lineage, str):
+        try:
+            lineage = json.loads(lineage)
+        except (TypeError, ValueError):
+            pass
+    production = (lineage or {}).get("production_evidence", {}).get(f"{row.get('player_id')}:{row.get('week')}", {}) if isinstance(lineage, Mapping) else {}
+    for field in PRODUCTION_FIELDS:
+        normalized[field] = row.get(field) if row.get(field) is not None else production.get(field)
     normalized["target_volume"] = _number(row.get("targets"))
     normalized["carry_volume"] = _number(row.get("carries"))
     if row.get("fantasy_points_ppr") is not None:
@@ -259,13 +290,31 @@ def _normalize_row(row: Mapping[str, Any]) -> dict[str, Any]:
             normalized["fantasy_points_ppr"] = row["fantasy_points_ppr"]
     for field in ("target_share", "carry_share", "touch_share", "snap_share", "route_participation", "red_zone_share"):
         normalized[field] = _number(row.get(field))
-    lineage = row.get("lineage")
     if isinstance(lineage, str):
         try:
             normalized["lineage"] = json.loads(lineage)
         except (TypeError, ValueError):
             normalized["lineage"] = lineage
     return normalized
+
+
+def _apply_current_freshness(row: dict[str, Any], now: Any, threshold_seconds: int | None) -> str | None:
+    """Replace persisted freshness with read-time age; a persisted non-current state is never upgraded."""
+    persisted = row.get("freshness_state")
+    retrieved_at = row.get("retrieved_at")
+    if retrieved_at in (None, ""):
+        state, blocker, age = "UNAVAILABLE", "OPPORTUNITY_RETRIEVAL_TIME_UNAVAILABLE", None
+    elif _timestamp(retrieved_at) is None:
+        state, blocker, age = "BLOCKED", "OPPORTUNITY_RETRIEVAL_TIME_INVALID", None
+    else:
+        state, blocker, age = _opportunity_freshness(retrieved_at, now, threshold_seconds)
+        if state in {"FRESH", "AGING"} and persisted not in {"FRESH", "AGING"}:
+            state, blocker = persisted, None
+    row["persisted_freshness_state"] = persisted
+    row["freshness_state"] = state
+    row["age"] = age
+    row["freshness_threshold_seconds"] = threshold_seconds
+    return blocker
 
 
 def _production_row_blockers(row: Mapping[str, Any]) -> list[str]:

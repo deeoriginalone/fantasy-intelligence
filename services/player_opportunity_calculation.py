@@ -31,6 +31,16 @@ PRODUCTION_INPUT_GROUPS = (
     ("two_point_conversions", "passing_2pt_conversions", "rushing_2pt_conversions", "receiving_2pt_conversions"),
     ("fumbles_lost", "rushing_fumbles_lost", "receiving_fumbles_lost"),
 )
+PRODUCTION_FIELDS = (
+    "passing_yards", "passing_tds", "passing_interceptions",
+    "rushing_yards", "rushing_tds", "receptions", "receiving_yards", "receiving_tds",
+)
+POSITION_PRODUCTION_FIELDS = {
+    "QB": ("passing_yards", "passing_tds", "passing_interceptions"),
+    "RB": ("rushing_yards", "rushing_tds", "receptions", "receiving_yards", "receiving_tds"),
+    "WR": ("receptions", "receiving_yards", "receiving_tds"),
+    "TE": ("receptions", "receiving_yards", "receiving_tds"),
+}
 
 
 def _float(value: Any) -> float:
@@ -38,6 +48,16 @@ def _float(value: Any) -> float:
         return float(value or 0)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _production_number(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
 
 
 def _timestamp(value: Any) -> datetime | None:
@@ -70,8 +90,8 @@ def _opportunity_freshness(retrieved_at: Any, now: Any, threshold_seconds: int |
 
 
 def _production_input_blockers(row: Mapping[str, Any]) -> list[str]:
-    required = ("passing_yards", "passing_tds", "rushing_yards", "rushing_tds", "receiving_yards", "receiving_tds", "receptions")
-    blockers = [f"PLAYER_WEEK_PRODUCTION_INPUT_UNAVAILABLE:{field}" for field in required if field not in row]
+    required = POSITION_PRODUCTION_FIELDS.get(_production_position(row), ())
+    blockers = [f"PLAYER_WEEK_PRODUCTION_INPUT_UNAVAILABLE:{field}" for field in required if _production_number(_production_value(row, field)) is None]
     for group in PRODUCTION_INPUT_GROUPS:
         if not any(field in row for field in group):
             blockers.append(f"PLAYER_WEEK_PRODUCTION_INPUT_UNAVAILABLE:{group[0]}")
@@ -80,6 +100,12 @@ def _production_input_blockers(row: Mapping[str, Any]) -> list[str]:
 
 def _production_position(row: Mapping[str, Any]) -> str:
     return str(row.get("position") or row.get("position_group") or "").upper().replace("DST", "DEF")
+
+
+def _production_value(row: Mapping[str, Any], field: str) -> Any:
+    if field == "passing_interceptions":
+        return row.get("passing_interceptions", row.get("interceptions"))
+    return row.get(field)
 
 
 def calculate_player_opportunity(
@@ -128,6 +154,7 @@ def calculate_player_opportunity(
             "player_id": player_id, "team": team, "week": week, "game_id": game_id,
             "position": position, "opponent_team": row.get("opponent_team"),
             "targets": _float(row.get("targets")), "carries": _float(row.get("carries")),
+            **{field: _production_number(_production_value(row, field)) for field in PRODUCTION_FIELDS},
             "fantasy_points_ppr": production_points,
         })
 
@@ -183,10 +210,18 @@ def calculate_player_opportunity(
         evidence["position"] = row["position"]
         evidence["opponent_team"] = row["opponent_team"]
         evidence["fantasy_points_ppr"] = row["fantasy_points_ppr"]
+        evidence["rush_attempts"] = row["carries"]
+        evidence["pass_attempts"] = _float(row.get("attempts")) if "attempts" in row else None
+        evidence["games_sample"] = 1
+        evidence["sample_start_week"] = row["week"]
+        evidence["sample_end_week"] = row["week"]
+        evidence["target_volume"] = row["targets"]
+        evidence["carry_volume"] = row["carries"]
         evidence["scoring_format"] = "FULL_PPR"
         evidence["calculation_version"] = PRODUCTION_CALCULATION_VERSION
         evidence["unavailable_metrics"] = list(UNAVAILABLE_METRICS)
         evidence["unavailable_metric_blocker"] = UNAVAILABLE_METRIC_BLOCKER
+        evidence.update({field: row[field] for field in PRODUCTION_FIELDS})
         published.append(evidence)
 
     published_row_count = len(published)
@@ -214,6 +249,10 @@ def calculate_player_opportunity(
         "schema_version": CONTRACT_SCHEMA_VERSION,
     }
     publication_contracts = {"threshold": threshold_contract}
+    production_evidence = {
+        f"{row['player_id']}:{row['week']}": {field: row.get(field) for field in PRODUCTION_FIELDS}
+        for row in published
+    }
     return {
         "season": season,
         "weeks": sorted({row["week"] for row in published}),
@@ -239,6 +278,7 @@ def calculate_player_opportunity(
             "attribution": "NFLverse data, licensed under CC BY 4.0.",
             "publication_contracts": publication_contracts,
             "reconciliation": reconciliation,
+            "production_evidence": production_evidence,
         },
         "schema_version": CONTRACT_SCHEMA_VERSION,
         "decision_effect": "NONE",
