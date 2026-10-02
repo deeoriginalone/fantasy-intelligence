@@ -1,0 +1,55 @@
+{% set ownership = (waiver_evidence.ownership if waiver_evidence else {}) or {} %}
+{% set availability = (waiver_evidence.eligibility if waiver_evidence else {}) or {} %}
+{% set ranking = (waiver_evidence.decision_evidence if waiver_evidence else {}) or {} %}
+<section class="card waiver-trust-panel">
+  <h2>Waiver Availability Evidence</h2>
+  <p>Availability is derived from current Sleeper rosters and the supported player pool. No waiver transaction is submitted.</p>
+  {% if ranking.blocker %}<p><strong>Ranking authority unavailable:</strong> {{ ranking.blocker }}. Candidates below are informational only and are not ranked recommendations.</p>{% endif %}
+  <div class="waiver-evidence-grid">
+    <div>
+      <h3>Ownership</h3>
+      <p>Source: {{ ownership.source or 'UNVERIFIED' }}</p>
+      <p>Freshness: {{ ownership.freshness_state or 'UNAVAILABLE' }}</p>
+      <p>Last checked: {{ (ownership.retrieved_at or 'Unavailable')|replace('T', ' ')|replace('+00:00', ' UTC') }}</p>
+      <p>Completeness: {{ ownership.completeness_state or 'UNKNOWN' }}</p>
+    </div>
+    <div>
+      <h3>Availability</h3>
+      <p>Source: {{ availability.source or 'UNVERIFIED' }}</p>
+      <p>Authority: {{ availability.authority_state or 'UNKNOWN' }}</p>
+      <p>Freshness: {{ availability.freshness_state or 'UNAVAILABLE' }}</p>
+      <p>{{ availability.derivation or 'Not supported' }}</p>
+    </div>
+  </div>
+  {% if waiver_candidates %}
+  <h3>Candidate Evidence</h3>
+  <div class="waiver-candidate-grid">
+    {% for candidate in waiver_candidates %}
+    <article>
+      <h4>{{ candidate.player }} <span>{{ candidate.position }}</span></h4>
+      <p>Team need: {{ candidate.need if candidate.need is not none else 'Unavailable' }}</p>
+      <p>Roster fit: Not supported</p>
+      <p>Expected role: Unavailable</p>
+      <p>Opportunity duration: Unavailable</p>
+      <p><strong>Recent Production:</strong> UNAVAILABLE</p>
+      <p><strong>Usage Evidence:</strong> UNAVAILABLE</p>
+      <p><strong>What Changed:</strong> UNAVAILABLE</p>
+      <p>Confidence: Unavailable</p>
+      <p>Risk: Unavailable</p>
+      <p>Suggested drop: Unavailable</p>
+      <p>Projection: {{ candidate.projection if candidate.projection is not none else 'Unavailable' }}</p>
+      <p>FAAB: {{ ('$' ~ candidate.faab) if candidate.faab is not none else 'Unavailable' }}</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <details>
+    <summary>Identity diagnostics</summary>
+    {% set diagnostics = availability.identity_diagnostics or {} %}
+    <p>Source candidates: {{ diagnostics.total_source_candidates if diagnostics.total_source_candidates is not none else 'Unavailable' }}</p>
+    <p>Resolved: {{ diagnostics.uniquely_canonical_resolved_count if diagnostics.uniquely_canonical_resolved_count is not none else 'Unavailable' }}</p>
+    <p>Unresolved: {{ diagnostics.unresolved_count if diagnostics.unresolved_count is not none else 'Unavailable' }}</p>
+    <p>Ambiguous: {{ diagnostics.ambiguous_count if diagnostics.ambiguous_count is not none else 'Unavailable' }}</p>
+    <p>Rostered exclusions: {{ diagnostics.rostered_exclusion_count if diagnostics.rostered_exclusion_count is not none else 'Unavailable' }}</p>
+  </details>
+</section>

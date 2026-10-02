@@ -6,7 +6,7 @@ from flask import Blueprint, current_app, redirect, render_template, request, se
 from weekly_intelligence import enrich_players, current_week, upcoming_byes
 from services.weekly_lineup_intelligence import build_lineup_intelligence, decision, optimize_lineup, sort_key
 from services.trade_intelligence import build_trade_intelligence
-from services.opportunity_evidence import build_opportunity_view
+from services.opportunity_evidence import build_opportunity_view, build_waiver_player_comparison
 from services.trade_target_center import build_trade_target_center
 from services.decision_ranking import build_action, build_decision_ranking
 from services.matchup_intelligence import build_matchup_intelligence
@@ -254,6 +254,29 @@ def attach_waiver_opportunity_identity(candidates, catalog, nflverse_records, nf
             candidate.setdefault("opportunity_identity_state", mapping.get("state", "UNRESOLVED"))
             candidate.setdefault("opportunity_identity_blockers", mapping.get("blockers", ["GSIS_IDENTITY_MISSING"]))
     return candidates
+
+
+COMPARISON_BLOCKED_IDENTITY_STATES = {"AMBIGUOUS", "CONTRADICTORY", "BLOCKED"}
+
+
+def waiver_player_comparison(candidate):
+    """Informational position-aware comparison from already-read opportunity evidence; never alters order, FAAB, or confidence."""
+    candidate = dict(candidate or {})
+    identity_state = candidate.get("opportunity_identity_state") or "UNRESOLVED"
+    identity_blockers = list(candidate.get("opportunity_identity_blockers") or [])
+    if identity_state == "RESOLVED" and candidate.get("opportunity_player_id"):
+        reader = candidate.get("opportunity_metrics") or {"state": "UNAVAILABLE", "rows": [], "blockers": ["OPPORTUNITY_EVIDENCE_UNAVAILABLE"]}
+    elif identity_state in COMPARISON_BLOCKED_IDENTITY_STATES:
+        reader = {"state": "BLOCKED", "rows": [], "blockers": identity_blockers or ["PLAYER_COMPARISON_IDENTITY_AMBIGUOUS"]}
+    else:
+        reader = {"state": "UNAVAILABLE", "rows": [], "blockers": identity_blockers or ["PLAYER_COMPARISON_IDENTITY_UNRESOLVED"]}
+    comparison = build_waiver_player_comparison(reader, position=candidate.get("position"))
+    comparison["comparison_identity"] = {
+        "state": identity_state,
+        "opportunity_player_id": candidate.get("opportunity_player_id") if identity_state == "RESOLVED" else None,
+        "method": candidate.get("opportunity_identity_method"),
+    }
+    return comparison
 
 
 def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
@@ -1050,6 +1073,7 @@ def create_owner_operations_blueprint(
                 candidate["snap_share"] = waiver_snap_share(conn, candidate, meta.get("season"))
                 candidate["opportunity_metrics"] = waiver_opportunity_metrics(conn, candidate, meta.get("season"))
                 candidate["evidence_context"] = waiver_candidate_context(candidate, roster, team_needs, pool_evidence.get("ranking_confidence"))
+                candidate["player_comparison"] = waiver_player_comparison(candidate)
         finally:
             cur.close(); conn.close()
         # row_to_player collapses a missing projected_points value to 0.0; treat 0 as

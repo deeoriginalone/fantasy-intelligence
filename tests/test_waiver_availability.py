@@ -899,3 +899,198 @@ def test_waiver_trust_panel_renders_evidence_and_unavailable_fields():
         "Source candidates: 2",
     ):
         assert text in rendered
+
+
+COMPARISON_NOW = "2026-09-20T18:00:00+00:00"
+
+
+def comparison_rows(*weeks):
+    return [
+        {"week": week, "targets": targets, "target_share": share, "receptions": receptions, "receiving_yards": yards, "receiving_tds": 0,
+         "freshness_state": "FRESH", "source": "automated:nflverse", "retrieved_at": "2026-09-20T12:00:00+00:00"}
+        for week, targets, share, receptions, yards in weeks
+    ]
+
+
+def resolved_candidate(**updates):
+    candidate = {
+        "player": "Avail WR", "position": "WR", "player_id": "s-wr", "opportunity_player_id": "gsis-wr",
+        "opportunity_identity_state": "RESOLVED", "opportunity_identity_method": "gsis_id",
+        "opportunity_metrics": {"state": "AVAILABLE", "rows": comparison_rows((1, 4, 0.2, 3, 40), (2, 7, 0.27, 5, 71)), "blockers": []},
+    }
+    candidate.update(updates)
+    return candidate
+
+
+def test_player_comparison_uses_resolved_identity_and_is_informational():
+    from owner_operations import waiver_player_comparison
+    comparison = waiver_player_comparison(resolved_candidate())
+    assert comparison["status"] == "PRELIMINARY"
+    assert comparison["decision_effect"] == "NONE"
+    assert comparison["comparison_identity"] == {"state": "RESOLVED", "opportunity_player_id": "gsis-wr", "method": "gsis_id"}
+    assert comparison["what_changed"]["state"] == "AVAILABLE"
+    assert "Target Share (Wk 2): 27%" in comparison["summary"]
+    assert not {"rank", "score", "priority", "recommendation", "faab", "confidence"} & set(comparison)
+
+
+def test_player_comparison_is_unavailable_when_evidence_missing_and_never_zero():
+    from owner_operations import waiver_player_comparison
+    missing = waiver_player_comparison(resolved_candidate(opportunity_metrics={"state": "UNAVAILABLE", "rows": [], "blockers": ["OPPORTUNITY_READER_NO_ROWS"]}))
+    absent = waiver_player_comparison(resolved_candidate(opportunity_metrics=None))
+    for comparison in (missing, absent):
+        assert comparison["status"] == "UNAVAILABLE"
+        assert comparison["usage"] == {} and comparison["production"] == {} and comparison["summary"] == []
+        assert comparison["what_changed"] == {"state": "INSUFFICIENT_EVIDENCE", "changes": []}
+    assert missing["blockers"] == ["OPPORTUNITY_READER_NO_ROWS"]
+
+
+def test_player_comparison_identity_ambiguity_fails_closed():
+    from owner_operations import waiver_player_comparison
+    for state in ("AMBIGUOUS", "CONTRADICTORY", "BLOCKED"):
+        comparison = waiver_player_comparison(resolved_candidate(opportunity_identity_state=state, opportunity_identity_blockers=["GSIS_NFLVERSE_ID_DUPLICATE"]))
+        assert comparison["status"] == "BLOCKED"
+        assert comparison["usage"] == {}
+        assert comparison["comparison_identity"]["opportunity_player_id"] is None
+    # A raw catalog GSIS ID without a resolved crosswalk is not trusted.
+    unresolved = waiver_player_comparison(resolved_candidate(opportunity_identity_state="UNRESOLVED"))
+    assert unresolved["status"] == "UNAVAILABLE" and unresolved["usage"] == {}
+
+
+def test_player_comparison_fallback_is_deterministic():
+    from owner_operations import waiver_player_comparison
+    assert waiver_player_comparison(resolved_candidate()) == waiver_player_comparison(resolved_candidate())
+    assert waiver_player_comparison({"player": "No Identity", "position": "RB"}) == waiver_player_comparison({"player": "No Identity", "position": "RB"})
+    assert waiver_player_comparison(resolved_candidate(position="K"))["status"] == "NOT_APPLICABLE"
+
+
+def test_waiver_template_renders_comparison_informationally():
+    from owner_operations import waiver_player_comparison
+    base = {"position": "WR", "priority_score": 50.0, "tier": 3, "projection": 100.0, "faab": 7, "bid_low": 4, "bid_high": 11, "need": 1, "recent_production": {"state": "UNAVAILABLE", "rows": []}}
+    available = {**base, "player": "Shown WR", "player_comparison": waiver_player_comparison(resolved_candidate())}
+    unavailable = {**base, "player": "Missing WR", "faab": 7, "player_comparison": waiver_player_comparison({"player": "Missing WR", "position": "WR"})}
+    rendered = render_waivers(recommendations=[available, unavailable])
+    assert rendered.count("Player comparison \u00b7 informational context") == 2
+    assert "Target Share (Wk 2): 27%" in rendered and "Sample: 2 week(s)" in rendered
+    assert "Comparison unavailable: supported usage evidence is not available for this player." in rendered
+    assert rendered.count("Context only. Does not change order, FAAB, confidence, or recommendations.") == 2
+    assert rendered.count("$7") >= 2
+
+
+class WaiverRouteCursor:
+    def __init__(self, pool_rows):
+        self.pool_rows = pool_rows
+
+    def execute(self, query, params=None):
+        self.query = query
+
+    def fetchone(self):
+        return None
+
+    def fetchall(self):
+        return list(self.pool_rows) if "ORDER BY ranking" in getattr(self, "query", "") else []
+
+    def close(self):
+        pass
+
+
+class WaiverRouteConnection:
+    def __init__(self, pool_rows):
+        self.pool_rows = pool_rows
+
+    def cursor(self):
+        return WaiverRouteCursor(self.pool_rows)
+
+    def close(self):
+        pass
+
+
+def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparison=False):
+    from flask import Flask
+    import owner_operations
+    catalog = {
+        "s-owned": {"full_name": "Owned WR", "position": "WR", "team": "KC", "gsis_id": "gsis-owned"},
+        "s-wr": {"full_name": "Avail WR", "position": "WR", "team": "DEN", "gsis_id": "gsis-wr"},
+        "s-rb": {"full_name": "Avail RB", "position": "RB", "team": "LV", "gsis_id": None},
+    }
+    pool_rows = [
+        ("Owned WR", "WR", "KC", 1, 150.0, 1, 10.0, 9, None),
+        ("Avail WR", "WR", "DEN", 2, 120.0, 2, 20.0, 9, None),
+        ("Avail RB", "RB", "LV", 3, 110.0, 3, 30.0, 9, None),
+    ]
+    readers = {"gsis-wr": {"state": "AVAILABLE", "rows": comparison_rows((1, 4, 0.2, 3, 40), (2, 7, 0.27, 5, 71)), "blockers": [], "supported_weeks": [1, 2]}}
+    captured = {}
+    real_render = owner_operations.render_template
+
+    def capture(name, **kwargs):
+        captured.update(kwargs)
+        return real_render(name, **kwargs)
+
+    monkeypatch.setattr(owner_operations, "render_template", capture)
+    monkeypatch.setattr(owner_operations, "enrich_players", lambda cur, roster, week, **kwargs: roster)
+    monkeypatch.setattr(owner_operations, "current_week", lambda cur: 3)
+    monkeypatch.setattr(owner_operations, "read_player_opportunity", lambda connection, player_id, season, **kwargs: dict(readers.get(player_id) or {"state": "UNAVAILABLE", "rows": [], "blockers": ["OPPORTUNITY_READER_NO_ROWS"]}))
+    monkeypatch.setattr(owner_operations, "read_player_production", lambda *args, **kwargs: {"state": "UNAVAILABLE", "rows": [], "blockers": ["PLAYER_WEEK_PRODUCTION_UNAVAILABLE"]})
+    monkeypatch.setattr(owner_operations, "read_snap_share", lambda *args, **kwargs: {"state": "UNAVAILABLE", "rows": [], "blockers": ["SNAP_SHARE_UNAVAILABLE"]})
+    if disable_comparison:
+        monkeypatch.setattr(owner_operations, "waiver_player_comparison", lambda candidate: {})
+    league = {"name": "Controlled", "total_rosters": 2, "roster_positions": ["QB", "RB", "WR", "WR", "TE", "K", "DEF", "BN"]}
+    rosters = [
+        {"roster_id": 1, "owner_id": "owner", "players": ["s-owned"], "starters": ["s-owned"]},
+        {"roster_id": 2, "owner_id": "other", "players": [], "starters": []},
+    ]
+    blueprint = owner_operations.create_owner_operations_blueprint(
+        lambda: WaiverRouteConnection(pool_rows),
+        lambda league_id: league,
+        lambda league_id: [{"user_id": "owner", "is_owner": True}],
+        (lambda league_id: rosters) if rosters_available else (lambda league_id: None),
+        lambda: catalog,
+        lambda value: str(value).lower().replace(" ", ""),
+    )
+    app = Flask(__name__, root_path=str(Path(__file__).resolve().parents[1]), template_folder="templates")
+    app.config.update(
+        TESTING=True, SLEEPER_LEAGUE_ID="controlled",
+        NFLVERSE_PLAYER_METADATA=[{"gsis_id": "gsis-wr", "player_id": "gsis-wr"}, {"gsis_id": "gsis-owned", "player_id": "gsis-owned"}],
+        NFLVERSE_PLAYER_METADATA_LINEAGE={"source": "nflverse", "source_authority": "automated:nflverse", "artifact_id": "players", "version": "v1", "retrieved_at": COMPARISON_NOW, "coverage_state": "COMPLETE"},
+    )
+    app.register_blueprint(blueprint)
+    app.jinja_env.globals["url_for"] = lambda *args, **kwargs: "/"
+    app.jinja_env.globals["ux_roster_lineage"] = lambda roster: []
+    app.jinja_env.globals["ux_route_evidence"] = lambda *args: {"fields": {}}
+    response = app.test_client().get("/waivers")
+    return response, captured
+
+
+def published_view(recommendations):
+    return [(item.get("player"), item.get("faab"), item.get("bid_low"), item.get("bid_high"), item.get("priority_score"), (item.get("evidence_context") or {}).get("confidence")) for item in recommendations]
+
+
+def test_waiver_route_attaches_comparison_only_to_published_candidates(monkeypatch):
+    response, captured = render_waiver_route(monkeypatch)
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    published = captured["recommendations"]
+    assert sorted(item["player"] for item in published) == ["Avail RB", "Avail WR"]
+    assert all("player_comparison" in item for item in published)
+    by_name = {item["player"]: item["player_comparison"] for item in published}
+    assert by_name["Avail WR"]["status"] == "PRELIMINARY"
+    assert by_name["Avail RB"]["status"] == "UNAVAILABLE"
+    assert "Owned WR" not in html.split("Browse Available Players", 1)[1].split("</details>", 1)[0]
+    assert html.count("Player comparison \u00b7 informational context") == 2
+
+
+def test_waiver_route_comparison_never_changes_order_count_faab_or_confidence(monkeypatch):
+    with_comparison = render_waiver_route(monkeypatch)[1]["recommendations"]
+    monkeypatch.undo()
+    without_comparison = render_waiver_route(monkeypatch, disable_comparison=True)[1]["recommendations"]
+    assert published_view(with_comparison) == published_view(without_comparison)
+    assert len(with_comparison) == len(without_comparison) == 2
+
+
+def test_waiver_route_ownership_blocked_publishes_no_candidates_or_comparisons(monkeypatch):
+    response, captured = render_waiver_route(monkeypatch, rosters_available=False)
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert captured["waiver_evidence"]["allowed"] is False
+    assert captured["recommendations"] == []
+    assert "Recommendations blocked" in html
+    assert "Player comparison \u00b7 informational context" not in html
