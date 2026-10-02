@@ -25,18 +25,27 @@
   <h3>Candidate Evidence</h3>
   <div class="waiver-candidate-grid">
     {% for candidate in waiver_candidates %}
+    {% set context = candidate.evidence_context or {} %}
+    {% set roster_fit = context.roster_fit or {} %}
+    {% set role = context.role or {} %}
+    {% set duration = context.duration or {} %}
+    {% set recent = candidate.recent_production or {} %}
+    {% set recent_rows = (recent.rows or []) if recent.state == 'AVAILABLE' else [] %}
+    {% set usage = context.opportunity or {} %}
+    {% set changes = ((candidate.player_comparison or {}).what_changed or {}).changes or [] %}
+    {% set drop = context.suggested_drop or {} %}
     <article>
       <h4>{{ candidate.player }} <span>{{ candidate.position }}</span></h4>
       <p>Team need: {{ candidate.need if candidate.need is not none else 'Unavailable' }}</p>
-      <p>Roster fit: Not supported</p>
-      <p>Expected role: Unavailable</p>
-      <p>Opportunity duration: Unavailable</p>
-      <p><strong>Recent Production:</strong> UNAVAILABLE</p>
-      <p><strong>Usage Evidence:</strong> UNAVAILABLE</p>
-      <p><strong>What Changed:</strong> UNAVAILABLE</p>
-      <p>Confidence: Unavailable</p>
-      <p>Risk: Unavailable</p>
-      <p>Suggested drop: Unavailable</p>
+      <p>Roster fit: {{ roster_fit.label if roster_fit.state == 'AVAILABLE' and roster_fit.label else 'Not supported' }}</p>
+      <p>Expected role: {{ role.value if role.state == 'AVAILABLE' and role.value else 'Unavailable' }}</p>
+      <p>Opportunity duration: {{ duration.value if duration.state == 'AVAILABLE' and duration.value else 'Unavailable' }}</p>
+      <p><strong>Recent Production:</strong> {% if recent_rows and recent_rows[0].fantasy_points_ppr is not none %}Wk {{ recent_rows[0].week }}: {{ '%.1f'|format(recent_rows[0].fantasy_points_ppr) }} Full-PPR pts ({{ recent_rows|length }} supported week{{ '' if recent_rows|length == 1 else 's' }}){% else %}UNAVAILABLE{% endif %}</p>
+      <p><strong>Usage Evidence:</strong> {{ usage.reason if usage.state == 'AVAILABLE' and usage.reason else 'UNAVAILABLE' }}</p>
+      <p><strong>What Changed:</strong> {% if changes %}{% for change in changes %}{{ change.display }} {{ change.label|lower }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}UNAVAILABLE{% endif %}</p>
+      <p>Confidence: {{ context.confidence if context.confidence else 'Unavailable' }}</p>
+      <p>Risk: {{ context.risk|join('; ') if context.risk else 'Unavailable' }}</p>
+      <p>Suggested drop: {{ (drop.player ~ ' (projection-only comparison)') if drop.state == 'INFORMATIONAL_ONLY' and drop.player else 'Unavailable' }}</p>
       <p>Projection: {{ candidate.projection if candidate.projection is not none else 'Unavailable' }}</p>
       <p>FAAB: {{ ('$' ~ candidate.faab) if candidate.faab is not none else 'Unavailable' }}</p>
     </article>

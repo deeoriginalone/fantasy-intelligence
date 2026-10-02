@@ -1094,3 +1094,89 @@ def test_waiver_route_ownership_blocked_publishes_no_candidates_or_comparisons(m
     assert captured["recommendations"] == []
     assert "Recommendations blocked" in html
     assert "Player comparison \u00b7 informational context" not in html
+
+
+def render_trust_panel(candidates):
+    templates = Environment(loader=FileSystemLoader(Path(__file__).parents[1] / "templates"))
+    return templates.get_template("_waiver_trust_panel.html").render(waiver_evidence={"ownership": {}, "eligibility": {}}, waiver_candidates=candidates)
+
+
+def trust_panel_article(rendered, player):
+    start = rendered.index(f"<h4>{player} ")
+    return rendered[start:rendered.index("</article>", start)]
+
+
+def supported_trust_candidate():
+    from owner_operations import waiver_player_comparison
+    candidate = resolved_candidate(
+        need=1, projection=120.0, faab=9,
+        recent_production={"state": "AVAILABLE", "rows": [{"week": 2, "fantasy_points_ppr": 0.0}, {"week": 1, "fantasy_points_ppr": 14.2}]},
+        evidence_context={
+            "roster_fit": {"state": "AVAILABLE", "label": "addresses an active need"},
+            "opportunity": {"state": "AVAILABLE", "reason": "Targets: 7; carries: 0; target share: 0.27."},
+            "confidence": "supported evidence",
+            "risk": ["no additional evidence-backed risk identified"],
+            "suggested_drop": {"state": "INFORMATIONAL_ONLY", "player": "Bench WR"},
+            "role": {"state": "UNAVAILABLE"}, "duration": {"state": "UNAVAILABLE"},
+        },
+    )
+    candidate["player_comparison"] = waiver_player_comparison(candidate)
+    return candidate
+
+
+def test_trust_panel_displays_supported_candidate_evidence():
+    article = trust_panel_article(render_trust_panel([supported_trust_candidate()]), "Avail WR")
+    assert "<strong>Recent Production:</strong> Wk 2: 0.0 Full-PPR pts (2 supported weeks)" in article
+    assert "<strong>Usage Evidence:</strong> Targets: 7; carries: 0; target share: 0.27." in article
+    assert "<strong>What Changed:</strong> +3 targets" in article
+    assert "Confidence: supported evidence" in article
+    assert "Roster fit: addresses an active need" in article
+    assert "Suggested drop: Bench WR (projection-only comparison)" in article
+    assert "FAAB: $9" in article
+    assert "UNAVAILABLE" not in article
+    assert "Expected role: Unavailable" in article and "Opportunity duration: Unavailable" in article
+
+
+def test_trust_panel_keeps_missing_candidate_evidence_unavailable():
+    article = trust_panel_article(render_trust_panel([{"player": "Bare RB", "position": "RB", "need": None, "projection": None, "faab": None}]), "Bare RB")
+    for text in (
+        "<strong>Recent Production:</strong> UNAVAILABLE",
+        "<strong>Usage Evidence:</strong> UNAVAILABLE",
+        "<strong>What Changed:</strong> UNAVAILABLE",
+        "Confidence: Unavailable",
+        "Risk: Unavailable",
+        "Suggested drop: Unavailable",
+        "Roster fit: Not supported",
+        "FAAB: Unavailable",
+    ):
+        assert text in article
+
+
+def test_trust_panel_shows_partial_evidence_field_by_field():
+    candidate = supported_trust_candidate()
+    candidate["recent_production"] = {"state": "BLOCKED", "rows": [{"week": 2, "fantasy_points_ppr": 9.0}]}
+    candidate["evidence_context"] = {**candidate["evidence_context"], "opportunity": {"state": "UNAVAILABLE", "reason": "no row"}}
+    candidate["player_comparison"] = {"what_changed": {"state": "INSUFFICIENT_EVIDENCE", "changes": []}}
+    article = trust_panel_article(render_trust_panel([candidate]), "Avail WR")
+    assert "<strong>Recent Production:</strong> UNAVAILABLE" in article
+    assert "<strong>Usage Evidence:</strong> UNAVAILABLE" in article
+    assert "<strong>What Changed:</strong> UNAVAILABLE" in article
+    assert "Confidence: supported evidence" in article and "Roster fit: addresses an active need" in article
+
+
+def test_waiver_route_trust_panel_uses_candidate_evidence_without_changing_publication(monkeypatch):
+    response, captured = render_waiver_route(monkeypatch)
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    panel = html[html.index("waiver-trust-panel"):]
+    wr = trust_panel_article(panel, "Avail WR")
+    rb = trust_panel_article(panel, "Avail RB")
+    assert "<strong>Usage Evidence:</strong> Targets:" in wr
+    assert "<strong>What Changed:</strong> +3 targets" in wr
+    assert "Confidence: " in wr and "Confidence: Unavailable" not in wr
+    assert "<strong>Usage Evidence:</strong> UNAVAILABLE" in rb and "<strong>What Changed:</strong> UNAVAILABLE" in rb
+    assert "<strong>Recent Production:</strong> UNAVAILABLE" in wr and "<strong>Recent Production:</strong> UNAVAILABLE" in rb
+    view = published_view(captured["recommendations"])
+    monkeypatch.undo()
+    assert view == published_view(render_waiver_route(monkeypatch)[1]["recommendations"])
+    assert len(view) == 2
