@@ -39,13 +39,18 @@ def league_settings_contract(league, source="Sleeper API", blocker=None):
 def _blocked_position(position, source, blocker):
     return {
         "position": position,
+        "available": False,
         "state": "BLOCKED",
         "source": source,
+        "freshness": "UNAVAILABLE",
+        "freshness_state": "UNAVAILABLE",
         "blocker": blocker,
+        "blockers": [blocker],
         "required_slots": 0,
         "required_starters": 0,
         "rostered": None if position == "FLEX" else 0,
         "rostered_or_eligible": None,
+        "depth_current": None,
         "shortage": None,
         "starter_shortage": None,
         "starter_coverage": "UNAVAILABLE",
@@ -54,9 +59,12 @@ def _blocked_position(position, source, blocker):
         "depth_target": None,
         "depth_shortage": None,
         "depth_status": "UNAVAILABLE",
+        "severity": "UNAVAILABLE",
         "need": "UNAVAILABLE",
         "strategic_need": "UNAVAILABLE",
+        "action": "UNAVAILABLE",
         "priority": "UNAVAILABLE",
+        "reasons": [],
         "drivers": [],
     }
 
@@ -82,13 +90,18 @@ def _available_position(position, required, rostered, depth_target, source, elig
         drivers = [f"{position} starter coverage and the supported depth target are satisfied."]
     return {
         "position": position,
+        "available": True,
         "state": "AVAILABLE",
         "source": source,
+        "freshness": "CURRENT",
+        "freshness_state": "FRESH",
         "blocker": None,
+        "blockers": [],
         "required_slots": required,
         "required_starters": required,
         "rostered": None if position == "FLEX" else rostered,
         "rostered_or_eligible": rostered,
+        "depth_current": rostered,
         "shortage": starter_shortage,
         "starter_shortage": starter_shortage,
         "starter_coverage": starter_coverage,
@@ -97,9 +110,12 @@ def _available_position(position, required, rostered, depth_target, source, elig
         "depth_target": depth_target,
         "depth_shortage": depth_shortage,
         "depth_status": depth_status,
+        "severity": priority,
         "need": strategic_need,
         "strategic_need": strategic_need,
+        "action": strategic_need,
         "priority": priority,
+        "reasons": list(drivers),
         "drivers": drivers,
     }
 
