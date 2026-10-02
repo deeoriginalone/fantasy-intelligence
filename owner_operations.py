@@ -664,7 +664,7 @@ def create_owner_operations_blueprint(
                     "tier": None,
                     "adp": None,
                     "bye_week": None,
-                    "injury_status": raw.get("injury_status") or raw.get("status") or "Unknown",
+                    "injury_status": raw_status or "Unknown",
                     "injury_source": "Sleeper API",
                     "pick_no": None,
                     "round": None,

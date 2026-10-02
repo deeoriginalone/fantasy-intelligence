@@ -594,3 +594,66 @@ def test_roster_identity_assignment_is_deterministic(monkeypatch):
     monkeypatch.undo()
     second = render_identity_route(monkeypatch, ["10", "20", "30", "40"])[2]
     assert first == second
+
+
+def injury_catalog():
+    catalog = {pid: dict(record) for pid, record in IDENTITY_CATALOG.items()}
+    catalog["10"].update(injury_status="Questionable")
+    catalog["20"].update(injury_status="Out")
+    catalog["30"].update(injury_status=None, status=None)
+    catalog["40"].update(injury_status=None, status="Inactive")
+    return catalog
+
+
+def render_injury_route(monkeypatch, roster_ids, **kwargs):
+    response, captured, identities = render_identity_route(monkeypatch, roster_ids, catalog=injury_catalog(), **kwargs)
+    health = {row["source_player_id"]: (row["injury_status"], row["health_status_available"]) for row in captured["roster"]}
+    return response, captured, identities, health
+
+
+def test_unmatched_players_keep_their_own_injury_status(monkeypatch):
+    response, _, _, health = render_injury_route(monkeypatch, ["10", "20"])
+    assert response.status_code == 200
+    assert health == {"10": ("Questionable", True), "20": ("Out", True)}
+
+
+def test_last_unmatched_player_status_is_not_copied_onto_others(monkeypatch):
+    health = render_injury_route(monkeypatch, ["10", "20", "30"])[3]
+    assert health == {"10": ("Questionable", True), "20": ("Out", True), "30": ("Unknown", False)}
+
+
+def test_reversed_order_keeps_each_players_injury_status(monkeypatch):
+    forward = render_injury_route(monkeypatch, ["10", "20", "30", "40"])[3]
+    monkeypatch.undo()
+    reverse = render_injury_route(monkeypatch, ["40", "30", "20", "10"])[3]
+    assert forward == reverse
+    assert forward["40"] == ("Inactive", True)
+
+
+def test_missing_injury_status_stays_unknown_and_never_borrows(monkeypatch):
+    _, _, _, health = render_injury_route(monkeypatch, ["20", "30", "99"])
+    assert health["30"] == ("Unknown", False)
+    assert "99" not in health
+    assert health["20"] == ("Out", True)
+
+
+def test_matched_branch_injury_status_and_identity_are_unchanged(monkeypatch):
+    _, captured, identities, health = render_injury_route(monkeypatch, ["10", "20", "30"], matched=["20"])
+    matched = next(row for row in captured["roster"] if row["source_player_id"] == "20")
+    assert matched["identity_match_method"] == "UNIQUE_NORMALIZED_NAME"
+    assert health["20"] == ("Out", True) and matched["injury_source"] == "Sleeper API"
+    assert health["10"] == ("Questionable", True) and health["30"] == ("Unknown", False)
+    assert identities == {"10": ("00-0000010", "1010"), "20": ("00-0000020", "2020"), "30": (None, "3030")}
+
+
+def test_injury_fix_preserves_lineup_fields_payloads_and_determinism(monkeypatch):
+    response, captured, _, first = render_injury_route(monkeypatch, ["10", "20", "40"], starters=["10", "20"])
+    assert response.status_code == 200
+    lineup = {row["source_player_id"]: (row["sleeper_current_starter"], row["sleeper_lineup_slot"], row["sleeper_lineup_index"]) for row in captured["roster"]}
+    assert lineup == {"10": (True, "QB", 0), "20": (True, "WR", 1), "40": (False, None, None)}
+    assert captured["team_needs"] and "lineup_reconciliation" in captured and "opportunity_changes" in captured
+    assert {"verdict", "starters", "start_sit_decisions"} <= set(captured["lineup_intelligence"])
+    assert {"action"} <= set(captured["team_priority_action"])
+    monkeypatch.undo()
+    second = render_injury_route(monkeypatch, ["10", "20", "40"], starters=["10", "20"])[3]
+    assert first == second
