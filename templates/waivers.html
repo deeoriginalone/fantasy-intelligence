@@ -128,7 +128,16 @@
         var snap = evidence.snap_share || candidate.snap_share || {};
         var snapRow = (snap.rows || [])[0] || {};
         if (snapRow.snap_share != null) {
-          facts.push('Snap share: ' + formatPercent(snapRow.snap_share) + (snapRow.offense_snaps == null ? '' : ' (' + snapRow.offense_snaps + ' offensive snaps)') + ' · Week ' + (snapRow.week == null ? 'unavailable' : snapRow.week) + ' · ' + (snap.state === 'STALE' ? 'STALE' : 'Informational'));
+          var sample = snapRow.sample || {};
+          var snapCount = sample.snap_count == null ? snapRow.source_snap_count : sample.snap_count;
+          var domain = sample.participation_domain || snapRow.participation_domain || 'participation';
+          var source = snap.source || snapRow.source || 'UNAVAILABLE';
+          var freshness = snap.freshness_state || snapRow.freshness_state || snap.state || 'UNAVAILABLE';
+          var freshnessLabel = freshness === 'STALE' ? 'STALE' : freshness;
+          facts.push('Snap share: ' + formatPercent(snapRow.snap_share) + (snapCount == null ? '' : ' (' + snapCount + ' ' + domain.toLowerCase() + ' snaps)') + ' · Week ' + (snapRow.week == null ? 'unavailable' : snapRow.week) + ' · ' + source + ' · ' + freshnessLabel);
+        } else {
+          var snapBlockers = snap.blockers || [];
+          facts.push('Snap share: UNAVAILABLE' + (snapBlockers.length ? ' (' + snapBlockers.join(', ') + ')' : ''));
         }
         addFact(facts, 'Target Share', formatPercent(usage.target_share));
         addFact(facts, 'Carry Share', formatPercent(usage.carry_share));

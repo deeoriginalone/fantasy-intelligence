@@ -32,7 +32,18 @@ def matchup_sample_threshold(environ=None):
 def opportunity_evidence_threshold(environ=None):
     """Return the configured opportunity freshness threshold without defaults."""
     return {"id": "opportunity.evidence.v1", "seconds": _positive_env_seconds("OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS", environ)}
-TIMESTAMP_FIELDS={"roster":("roster_updated_at","roster_sync_time"),"injury":("injury_updated_at","health_updated_at","last_health_update"),"matchup":("matchup_updated_at","matchup_sync_time","matchup_retrieved_at"),"projection":("projection_updated_at","projection_sync_time","projection_retrieved_at")}
+SNAP_SHARE_EVIDENCE_THRESHOLD_ID="snap_share.evidence.v1"
+SNAP_SHARE_DEFAULT_MAX_AGE_SECONDS=86400
+def snap_share_evidence_threshold(environ=None):
+    values=os.environ if environ is None else environ
+    if "SNAP_SHARE_EVIDENCE_MAX_AGE_SECONDS" not in values:
+        seconds=SNAP_SHARE_DEFAULT_MAX_AGE_SECONDS
+        source="implementation_default"
+    else:
+        seconds=_positive_env_seconds("SNAP_SHARE_EVIDENCE_MAX_AGE_SECONDS", values)
+        source="SNAP_SHARE_EVIDENCE_MAX_AGE_SECONDS"
+    return {"id":SNAP_SHARE_EVIDENCE_THRESHOLD_ID,"seconds":seconds,"state":"VERIFIED" if seconds else "BLOCKED","source":source}
+TIMESTAMP_FIELDS={"roster":("roster_updated_at","roster_sync_time"),"injury":("injury_updated_at","health_updated_at","last_health_update"),"matchup":("matchup_updated_at","matchup_sync_time","matchup_retrieved_at"),"projection":("projection_updated_at","projection_sync_time","projection_retrieved_at"),"snap_share":("snap_share_retrieved_at",)}
 def _utc_now(now=None):
     v=now or datetime.now(timezone.utc); return v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)
 def _parse_timestamp(value):

@@ -1,5 +1,6 @@
 """Read-only access to published snap-share evidence."""
 from __future__ import annotations
+import json
 from typing import Any
 
 COLUMNS = ("season", "week", "player_id", "pfr_player_id", "team", "opponent_team", "snap_share", "source", "source_authority", "source_recorded_at", "retrieved_at", "artifact_id", "version", "checksum", "freshness_threshold_id", "freshness_state", "completeness_state", "lineage", "publication_state")
@@ -33,6 +34,19 @@ def read_snap_share(connection: Any, *, player_id: Any, season: Any, week_start:
         return base
     finally:
         cursor.close()
+    for row in rows:
+        lineage = row.get("lineage")
+        if isinstance(lineage, str):
+            try:
+                lineage = json.loads(lineage)
+            except (TypeError, ValueError):
+                lineage = {}
+        sample = (lineage or {}).get("sample") or {}
+        row["sample"] = sample
+        row["position"] = sample.get("position")
+        row["participation_domain"] = sample.get("participation_domain")
+        row["source_snap_count"] = sample.get("snap_count")
+        row["source_percentage_field"] = sample.get("percentage_field")
     if not rows:
         base["blockers"] = ["SNAP_SHARE_READER_NO_ROWS"]
         return base
