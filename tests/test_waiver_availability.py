@@ -736,6 +736,61 @@ def test_waiver_candidate_context_surfaces_existing_contract_states():
     assert result["health_state"] == "ACTIVE"
 
 
+@pytest.mark.parametrize("status", ["IR", "Injured Reserve", "Injured Reserve - Designated for Return"])
+def test_waiver_candidate_context_maps_injured_reserve_to_out(status):
+    result = waiver_candidate_context(
+        {"health_status_available": True, "injury_status": status}, [], {}, "UNVERIFIED"
+    )
+    assert result["health_state"] == "OUT"
+    assert result["health_source"] == "Sleeper API"
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        ("Questionable", "QUESTIONABLE"),
+        ("Doubtful", "QUESTIONABLE"),
+        ("Out", "OUT"),
+        ("Suspended", "ACTIVE"),
+        ("PUP", "ACTIVE"),
+        ("Active", "ACTIVE"),
+        ("Healthy", "ACTIVE"),
+        ("Healthy / Not listed", "ACTIVE"),
+    ],
+)
+def test_waiver_candidate_context_preserves_supported_live_health_mappings(status, expected):
+    result = waiver_candidate_context(
+        {"health_status_available": True, "injury_status": status}, [], {}, "UNVERIFIED"
+    )
+    assert result["health_state"] == expected
+
+
+def test_waiver_candidate_context_does_not_trust_local_healthy_placeholder():
+    result = waiver_candidate_context(
+        {"injury_status": "Healthy / Not listed"}, [], {}, "UNVERIFIED"
+    )
+    assert result["health_state"] == "UNAVAILABLE"
+    assert result["health_source"] == "UNAVAILABLE"
+
+
+@pytest.mark.parametrize(
+    ("catalog_record", "identity_resolved"),
+    [
+        ({}, True),
+        ({"injury_status": "IR"}, False),
+        ({"injury_status": "IR", "status": "Active"}, True),
+        ({"injury_status": "Practice Squad"}, True),
+    ],
+)
+def test_waiver_candidate_health_fails_closed(catalog_record, identity_resolved):
+    from owner_operations import _waiver_candidate_health
+    candidate = _waiver_candidate_health(catalog_record, "retrieved-at", identity_resolved)
+    context = waiver_candidate_context(candidate, [], {}, "UNVERIFIED")
+    assert candidate["health_status_available"] is False
+    assert context["health_state"] == "UNAVAILABLE"
+    assert context["health_source"] == "UNAVAILABLE"
+
+
 def test_waiver_template_includes_projection_retrieval_visibility():
     from pathlib import Path
     template = (Path(__file__).parents[1] / "templates" / "waivers.html").read_text(encoding="utf-8")
@@ -977,11 +1032,13 @@ def test_waiver_template_renders_comparison_informationally():
 
 
 class WaiverRouteCursor:
-    def __init__(self, pool_rows):
+    def __init__(self, pool_rows, executed_queries):
         self.pool_rows = pool_rows
+        self.executed_queries = executed_queries
 
     def execute(self, query, params=None):
         self.query = query
+        self.executed_queries.append(query)
 
     def fetchone(self):
         return None
@@ -996,15 +1053,16 @@ class WaiverRouteCursor:
 class WaiverRouteConnection:
     def __init__(self, pool_rows):
         self.pool_rows = pool_rows
+        self.executed_queries = []
 
     def cursor(self):
-        return WaiverRouteCursor(self.pool_rows)
+        return WaiverRouteCursor(self.pool_rows, self.executed_queries)
 
     def close(self):
         pass
 
 
-def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparison=False):
+def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparison=False, candidate_health=None, include_missing_candidate=False):
     from flask import Flask
     import owner_operations
     catalog = {
@@ -1012,11 +1070,16 @@ def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparis
         "s-wr": {"full_name": "Avail WR", "position": "WR", "team": "DEN", "gsis_id": "gsis-wr"},
         "s-rb": {"full_name": "Avail RB", "position": "RB", "team": "LV", "gsis_id": None},
     }
+    for player_id, health_fields in (candidate_health or {}).items():
+        catalog[player_id].update(health_fields)
     pool_rows = [
         ("Owned WR", "WR", "KC", 1, 150.0, 1, 10.0, 9, None),
         ("Avail WR", "WR", "DEN", 2, 120.0, 2, 20.0, 9, None),
         ("Avail RB", "RB", "LV", 3, 110.0, 3, 30.0, 9, None),
     ]
+    if include_missing_candidate:
+        catalog["s-te"] = {"full_name": "Avail TE", "position": "TE", "team": "SEA", "gsis_id": None}
+        pool_rows.append(("Avail TE", "TE", "SEA", 4, 90.0, 4, 40.0, 9, None))
     readers = {"gsis-wr": {"state": "AVAILABLE", "rows": comparison_rows((1, 4, 0.2, 3, 40), (2, 7, 0.27, 5, 71)), "blockers": [], "supported_weeks": [1, 2]}}
     captured = {}
     real_render = owner_operations.render_template
@@ -1038,8 +1101,9 @@ def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparis
         {"roster_id": 1, "owner_id": "owner", "players": ["s-owned"], "starters": ["s-owned"]},
         {"roster_id": 2, "owner_id": "other", "players": [], "starters": []},
     ]
+    connection = WaiverRouteConnection(pool_rows)
     blueprint = owner_operations.create_owner_operations_blueprint(
-        lambda: WaiverRouteConnection(pool_rows),
+        lambda: connection,
         lambda league_id: league,
         lambda league_id: [{"user_id": "owner", "is_owner": True}],
         (lambda league_id: rosters) if rosters_available else (lambda league_id: None),
@@ -1057,6 +1121,7 @@ def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparis
     app.jinja_env.globals["ux_roster_lineage"] = lambda roster: []
     app.jinja_env.globals["ux_route_evidence"] = lambda *args: {"fields": {}}
     response = app.test_client().get("/waivers")
+    captured["executed_queries"] = list(connection.executed_queries)
     return response, captured
 
 
@@ -1084,6 +1149,48 @@ def test_waiver_route_comparison_never_changes_order_count_faab_or_confidence(mo
     without_comparison = render_waiver_route(monkeypatch, disable_comparison=True)[1]["recommendations"]
     assert published_view(with_comparison) == published_view(without_comparison)
     assert len(with_comparison) == len(without_comparison) == 2
+
+
+def test_waiver_route_publishes_candidate_health_without_changing_decisions(monkeypatch):
+    baseline_response, baseline = render_waiver_route(monkeypatch, include_missing_candidate=True)
+    baseline_candidates = baseline["recommendations"]
+    monkeypatch.undo()
+    response, captured = render_waiver_route(
+        monkeypatch,
+        candidate_health={
+            "s-wr": {"injury_status": "IR"},
+            "s-rb": {"injury_status": "Healthy"},
+        },
+        include_missing_candidate=True,
+    )
+    html = response.get_data(as_text=True)
+    recommendations = captured["recommendations"]
+    baseline_by_name = {item["player"]: item for item in baseline_candidates}
+    by_name = {item["player"]: item for item in recommendations}
+
+    assert baseline_response.status_code == response.status_code == 200
+    assert len(recommendations) == len(baseline_candidates) == 3
+    assert [item["player"] for item in recommendations] == [item["player"] for item in baseline_candidates]
+    assert published_view(recommendations) == published_view(baseline_candidates)
+    assert by_name["Avail WR"]["evidence_context"]["health_state"] == "OUT"
+    assert by_name["Avail WR"]["evidence_context"]["health_source"] == "Sleeper API"
+    assert by_name["Avail WR"]["health_fetched_at"]
+    assert by_name["Avail RB"]["evidence_context"]["health_state"] == "ACTIVE"
+    assert by_name["Avail RB"]["evidence_context"]["health_source"] == "Sleeper API"
+    assert by_name["Avail TE"]["evidence_context"]["health_state"] == "UNAVAILABLE"
+    assert by_name["Avail TE"]["evidence_context"]["health_source"] == "UNAVAILABLE"
+    assert "HEALTHY / NOT LISTED" not in html
+    assert '"health_state": "OUT"' in html
+    assert '"health_state": "UNAVAILABLE"' in html
+    for name, candidate in by_name.items():
+        baseline_candidate = baseline_by_name[name]
+        assert candidate["ownership_state"] == baseline_candidate["ownership_state"]
+        assert candidate["eligibility_state"] == baseline_candidate["eligibility_state"]
+        for key in ("recent_production", "snap_share", "opportunity_metrics", "player_comparison"):
+            assert candidate[key] == baseline_candidate[key]
+        for key in ("opportunity", "opportunity_strength", "usage_stability", "opportunity_trend", "evidence_coverage"):
+            assert candidate["evidence_context"][key] == baseline_candidate["evidence_context"][key]
+    assert all(query.lstrip().upper().startswith("SELECT") for query in captured["executed_queries"])
 
 
 def test_waiver_route_ownership_blocked_publishes_no_candidates_or_comparisons(monkeypatch):

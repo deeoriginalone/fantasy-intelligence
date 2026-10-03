@@ -222,6 +222,52 @@ def waiver_opportunity_metrics(connection, player, season):
     return result
 
 
+def _waiver_health_state(value):
+    normalized = " ".join(str(value or "").strip().upper().replace("-", " ").split())
+    if normalized in {"IR", "INJURED RESERVE", "INJURED RESERVE DESIGNATED FOR RETURN"}:
+        return "OUT"
+    if "OUT" in normalized:
+        return "OUT"
+    if "QUESTION" in normalized or "DOUBTFUL" in normalized:
+        return "QUESTIONABLE"
+    if normalized in {
+        "ACTIVE", "HEALTHY", "HEALTHY / NOT LISTED", "SUSPENDED", "PUP",
+        "PHYSICALLY UNABLE TO PERFORM", "NONE",
+    }:
+        return "ACTIVE"
+    return None
+
+
+def _waiver_candidate_health(catalog_record, retrieved_at, identity_resolved):
+    unavailable = {
+        "injury_status": None,
+        "injury_source": None,
+        "health_status_available": False,
+    }
+    if not identity_resolved or not isinstance(catalog_record, dict):
+        return unavailable
+    supplied = [
+        value for value in (catalog_record.get("injury_status"), catalog_record.get("status"))
+        if value not in (None, "", "Unknown", "UNKNOWN")
+    ]
+    if not supplied:
+        return unavailable
+    states = [_waiver_health_state(value) for value in supplied]
+    if any(state is None for state in states) or len(set(states)) != 1:
+        return unavailable
+    raw_status = next(
+        (value for value in (catalog_record.get("injury_status"), catalog_record.get("status")) if _waiver_health_state(value)),
+        None,
+    )
+    return {
+        "injury_status": raw_status,
+        "injury_source": "Sleeper API",
+        "health_status_available": True,
+        "health_fetched_at": retrieved_at,
+        "injury_updated_at": retrieved_at,
+    }
+
+
 def attach_waiver_opportunity_identity(candidates, catalog, nflverse_records, nflverse_lineage):
     """Add only provider-resolved GSIS IDs to waiver candidates; never name-match."""
     candidates = [dict(candidate) for candidate in candidates or []]
@@ -285,13 +331,8 @@ def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
     position = str(candidate.get("position") or "").upper().replace("DST", "DEF")
     ownership_state = candidate.get("ownership_state") or "UNAVAILABLE"
     eligibility_state = candidate.get("eligibility_state") or "UNAVAILABLE"
-    if candidate.get("health_status_available") is True:
-        raw_health = str(candidate.get("injury_status") or "UNKNOWN").upper()
-        health_state = "OUT" if "OUT" in raw_health or "IR" in raw_health else "QUESTIONABLE" if "QUESTION" in raw_health or "DOUBTFUL" in raw_health else "ACTIVE"
-    elif candidate.get("injury_status") not in (None, "", "Unknown"):
-        health_state = str(candidate.get("injury_status")).upper()
-    else:
-        health_state = "UNAVAILABLE"
+    supported_health = _waiver_health_state(candidate.get("injury_status")) if candidate.get("health_status_available") is True else None
+    health_state = supported_health or "UNAVAILABLE"
     identity_state = candidate.get("opportunity_identity_state") or (candidate.get("identity_resolution") or {}).get("resolution_state")
     need = dict((team_needs or {}).get(position) or {})
     if need.get("state") == "AVAILABLE":
@@ -386,7 +427,7 @@ def waiver_candidate_context(candidate, roster, team_needs, ranking_confidence):
         "ownership_state": ownership_state,
         "eligibility_state": eligibility_state,
         "health_state": health_state,
-        "health_source": candidate.get("injury_source") or "Sleeper API" if candidate.get("health_status_available") else "UNAVAILABLE",
+        "health_source": (candidate.get("injury_source") or "Sleeper API") if supported_health else "UNAVAILABLE",
         "projection_source": "local player projection" if candidate.get("projection") is not None else "UNAVAILABLE",
         "roster_fit": roster_fit,
         "snap_share": snap,
@@ -868,15 +909,22 @@ def create_owner_operations_blueprint(
             unique_owned_player_ids=owned_ids,
             require_roster_coverage=True,
         )
-        candidates = [
-            {
+        candidates = []
+        for row, resolution in zip(rows, resolutions):
+            resolved_player_id = resolution.get("resolved_player_id")
+            catalog_record = (catalog or {}).get(str(resolved_player_id)) if resolved_player_id else None
+            candidate_health = _waiver_candidate_health(
+                catalog_record,
+                retrieved_at,
+                resolution.get("resolution_state") == "RESOLVED",
+            )
+            candidates.append({
                 **row,
-                "player_id": resolution.get("resolved_player_id"),
-                "opportunity_player_id": (catalog or {}).get(str(resolution.get("resolved_player_id")), {}).get("gsis_id") if resolution.get("resolved_player_id") else None,
+                **candidate_health,
+                "player_id": resolved_player_id,
+                "opportunity_player_id": (catalog_record or {}).get("gsis_id"),
                 "identity_resolution": resolution,
-            }
-            for row, resolution in zip(rows, resolutions)
-        ]
+            })
         nflverse_identity_rows = current_app.config.get("NFLVERSE_PLAYER_METADATA")
         nflverse_identity_lineage = current_app.config.get("NFLVERSE_PLAYER_METADATA_LINEAGE")
         if nflverse_identity_rows is None and not current_app.testing:
