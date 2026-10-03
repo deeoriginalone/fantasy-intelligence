@@ -23,6 +23,7 @@ from services.opportunity_context import opportunity_strength, opportunity_trend
 from services.player_opportunity_reader import read_player_production
 from services.gsis_identity_crosswalk import attach_opportunity_player_ids
 from services.gsis_identity_crosswalk import resolve_gsis_crosswalk
+from services.dynastyprocess_identity_source import acquire_dynastyprocess_identity_source
 from services.nflverse_player_metadata import acquire_nflverse_player_metadata
 from services.sleeper_service import get_trending_adds, get_trending_drops
 
@@ -268,15 +269,26 @@ def _waiver_candidate_health(catalog_record, retrieved_at, identity_resolved):
     }
 
 
-def attach_waiver_opportunity_identity(candidates, catalog, nflverse_records, nflverse_lineage):
+def attach_waiver_opportunity_identity(candidates, catalog, nflverse_records, nflverse_lineage, identity_source=None):
     """Add only provider-resolved GSIS IDs to waiver candidates; never name-match."""
     candidates = [dict(candidate) for candidate in candidates or []]
     if not candidates or not nflverse_records or not nflverse_lineage:
         return candidates
+    source_mappings = {
+        str(item.get("source_player_id")): item
+        for item in (identity_source or {}).get("mappings") or []
+        if item.get("source_player_id")
+    }
     sleeper_records = []
+    source_mapping_by_player = {}
     for candidate in candidates:
         player_id = str(candidate.get("player_id") or "")
         raw = dict((catalog or {}).get(player_id) or {})
+        source_mapping = source_mappings.get(player_id)
+        if not raw.get("gsis_id") and not raw.get("espn_id") and source_mapping:
+            source_mapping_by_player[player_id] = source_mapping
+            if source_mapping.get("state") == "RESOLVED" and source_mapping.get("gsis_id"):
+                raw["gsis_id"] = source_mapping["gsis_id"]
         sleeper_records.append({
             "source_player_id": player_id,
             "gsis_id": raw.get("gsis_id"),
@@ -296,6 +308,21 @@ def attach_waiver_opportunity_identity(candidates, catalog, nflverse_records, nf
             candidate["opportunity_player_id"] = mapping.get("opportunity_player_id")
             candidate["opportunity_identity_state"] = "RESOLVED"
             candidate["opportunity_identity_method"] = mapping.get("resolution_authority")
+            if str(candidate.get("player_id")) in source_mapping_by_player:
+                candidate["opportunity_identity_method"] = "dynastyprocess_gsis_id"
+                candidate["opportunity_identity_lineage"] = {
+                    "identity_source": dict((identity_source or {}).get("lineage") or {}),
+                    "nflverse": dict(nflverse_lineage),
+                }
+        elif str(candidate.get("player_id")) in source_mapping_by_player:
+            source_mapping = source_mapping_by_player[str(candidate.get("player_id"))]
+            if source_mapping.get("state") in {"AMBIGUOUS", "CONTRADICTORY"}:
+                candidate.pop("opportunity_player_id", None)
+                candidate["opportunity_identity_state"] = source_mapping["state"]
+                candidate["opportunity_identity_blockers"] = [source_mapping.get("blocker") or "DYNASTYPROCESS_IDENTITY_UNAVAILABLE"]
+            elif source_mapping.get("state") == "UNRESOLVED":
+                candidate["opportunity_identity_state"] = "UNRESOLVED"
+                candidate["opportunity_identity_blockers"] = [source_mapping.get("blocker") or "DYNASTYPROCESS_GSIS_ID_UNAVAILABLE"]
         else:
             candidate.setdefault("opportunity_identity_state", mapping.get("state", "UNRESOLVED"))
             candidate.setdefault("opportunity_identity_blockers", mapping.get("blockers", ["GSIS_IDENTITY_MISSING"]))
@@ -932,11 +959,20 @@ def create_owner_operations_blueprint(
             if metadata["state"] == "AVAILABLE":
                 nflverse_identity_rows = metadata["rows"]
                 nflverse_identity_lineage = metadata["lineage"]
+        identity_source = current_app.config.get("DYNASTYPROCESS_IDENTITY_SOURCE")
+        needs_supplemental_identity = any(
+            not (catalog or {}).get(str(candidate.get("player_id") or ""), {}).get("gsis_id")
+            and not (catalog or {}).get(str(candidate.get("player_id") or ""), {}).get("espn_id")
+            for candidate in candidates
+        )
+        if identity_source is None and needs_supplemental_identity and not current_app.testing:
+            identity_source = acquire_dynastyprocess_identity_source()
         candidates = attach_waiver_opportunity_identity(
             candidates,
             catalog,
             nflverse_identity_rows,
             nflverse_identity_lineage,
+            identity_source=identity_source,
         )
         supported_positions = {
             str(position).upper().replace("DST", "DEF")

@@ -888,6 +888,51 @@ def test_waiver_identity_fails_closed_for_missing_ambiguous_and_conflicting_espn
     assert all("opportunity_player_id" not in item for item in result)
 
 
+def test_waiver_identity_uses_exact_automated_mapping_and_preserves_order_and_bids():
+    candidates = [
+        {"player_id": "sleeper-1", "priority_score": 71.5, "confidence": "MEDIUM", "faab": 8, "bid_low": 4, "bid_high": 12},
+        {"player_id": "sleeper-2", "priority_score": 64.0, "confidence": "LOW", "faab": 3, "bid_low": 1, "bid_high": 5},
+    ]
+    catalog = {"sleeper-1": {}, "sleeper-2": {}}
+    metadata = [{"gsis_id": "gsis-1"}]
+    nflverse_lineage = {"source": "nflverse.players", "source_authority": "automated:nflverse", "artifact_id": "players", "version": "v1", "checksum": "sha256:test", "retrieved_at": "2026-10-03T11:00:00Z", "coverage_state": "COMPLETE"}
+    source = {
+        "state": "AVAILABLE",
+        "lineage": {"source": "https://raw.example/db_playerids.csv", "source_authority": "automated:DynastyProcess", "artifact_id": "db_playerids.csv", "version": "abc", "checksum": "sha256:test", "source_recorded_at": "2026-10-02T05:57:53Z", "retrieved_at": "2026-10-03T11:00:00Z", "completeness_state": "COMPLETE"},
+        "mappings": [
+            {"source_player_id": "sleeper-1", "gsis_id": "gsis-1", "state": "RESOLVED"},
+            {"source_player_id": "sleeper-2", "gsis_id": None, "state": "UNRESOLVED", "blocker": "DYNASTYPROCESS_GSIS_ID_UNAVAILABLE"},
+        ],
+    }
+
+    result = attach_waiver_opportunity_identity(candidates, catalog, metadata, nflverse_lineage, identity_source=source)
+
+    assert [item["player_id"] for item in result] == ["sleeper-1", "sleeper-2"]
+    assert result[0]["opportunity_player_id"] == "gsis-1"
+    assert result[0]["opportunity_identity_method"] == "dynastyprocess_gsis_id"
+    assert result[0]["opportunity_identity_lineage"]["identity_source"] == source["lineage"]
+    assert "opportunity_player_id" not in result[1]
+    for before, after in zip(candidates, result):
+        for field in ("priority_score", "confidence", "faab", "bid_low", "bid_high"):
+            assert after[field] == before[field]
+
+
+def test_waiver_identity_blocks_duplicate_and_contradictory_external_mappings():
+    candidates = [{"player_id": "duplicate"}, {"player_id": "conflict"}]
+    catalog = {"duplicate": {}, "conflict": {}}
+    metadata = [{"gsis_id": "gsis-1"}, {"gsis_id": "gsis-2"}]
+    lineage = {"source": "nflverse.players", "source_authority": "automated:nflverse", "artifact_id": "players", "version": "v1", "checksum": "sha256:test", "retrieved_at": "2026-10-03T11:00:00Z", "coverage_state": "COMPLETE"}
+    source = {"state": "AVAILABLE", "mappings": [
+        {"source_player_id": "duplicate", "gsis_id": None, "state": "AMBIGUOUS", "blocker": "DYNASTYPROCESS_IDENTITY_DUPLICATE"},
+        {"source_player_id": "conflict", "gsis_id": None, "state": "CONTRADICTORY", "blocker": "DYNASTYPROCESS_IDENTITY_CONTRADICTORY"},
+    ]}
+
+    result = attach_waiver_opportunity_identity(candidates, catalog, metadata, lineage, identity_source=source)
+
+    assert [item["opportunity_identity_state"] for item in result] == ["AMBIGUOUS", "CONTRADICTORY"]
+    assert all("opportunity_player_id" not in item for item in result)
+
+
 def test_browse_candidates_render_recent_production_newest_first_and_preserve_zero():
     rendered = render_waivers(
         recommendations=[{
