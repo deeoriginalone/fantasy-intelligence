@@ -34,6 +34,9 @@
     {% set usage = context.opportunity or {} %}
     {% set changes = ((candidate.player_comparison or {}).what_changed or {}).changes or [] %}
     {% set drop = context.suggested_drop or {} %}
+    {% set health_actionable = context.health_state == 'HEALTHY' and context.health_freshness_state == 'FRESH' and context.health_source == 'Sleeper API' %}
+    {% set ranking_verified = waiver_evidence.ranking_confidence == 'VERIFIED' and not ranking.blocker %}
+    {% set candidate_actionable = candidate.recommendation_state == 'ACTIONABLE' and health_actionable and ranking_verified and candidate.ownership_state == 'VERIFIED' and candidate.eligibility_state == 'VERIFIED' %}
     <article>
       <h4>{{ candidate.player }} <span>{{ candidate.position }}</span></h4>
       <p>Team need: {{ candidate.need if candidate.need is not none else 'Unavailable' }}</p>
@@ -45,9 +48,9 @@
       <p><strong>What Changed:</strong> {% if changes %}{% for change in changes %}{{ change.display }} {{ change.label|lower }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}UNAVAILABLE{% endif %}</p>
       <p>Confidence: {{ context.confidence if context.confidence else 'Unavailable' }}</p>
       <p>Risk: {{ context.risk|join('; ') if context.risk else 'Unavailable' }}</p>
-      <p>Suggested drop: {{ (drop.player ~ ' (projection-only comparison)') if drop.state == 'INFORMATIONAL_ONLY' and drop.player else 'Unavailable' }}</p>
+      <p>Suggested drop: {{ (drop.player ~ ' (projection-only comparison)') if candidate_actionable and drop.state == 'INFORMATIONAL_ONLY' and drop.player else 'Unavailable' }}</p>
       <p>Projection: {{ candidate.projection if candidate.projection is not none else 'Unavailable' }}</p>
-      <p>FAAB: {{ ('$' ~ candidate.faab) if candidate.faab is not none else 'Unavailable' }}</p>
+      <p>FAAB: {{ ('$' ~ candidate.faab) if candidate_actionable and candidate.faab is not none else 'Unavailable' }}</p>
     </article>
     {% endfor %}
   </div>

@@ -180,7 +180,8 @@ def roster_lineage_view(players):
 
 def route_payload_evidence(page, count=None, blockers=None):
     """UX.3/UX.4/UX.6 active payload state shown by shared panels."""
-    return page_evidence(page=page, fields={"route_payload_count": count}, blockers=blockers, source="active route payload")
+    field = "visible_preliminary_candidate_count" if str(page).lower() == "waivers" else "route_payload_count"
+    return page_evidence(page=page, fields={field: count}, blockers=blockers, source="active route payload")
 
 
 WAIVER_FRESHNESS_STATES = ("FRESH", "AGING", "STALE", "UNAVAILABLE", "BLOCKED")
