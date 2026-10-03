@@ -1,0 +1,67 @@
+{% set ownership = (waiver_evidence.ownership if waiver_evidence else {}) or {} %}
+{% set availability = (waiver_evidence.eligibility if waiver_evidence else {}) or {} %}
+{% set ranking = (waiver_evidence.decision_evidence if waiver_evidence else {}) or {} %}
+<section class="card waiver-trust-panel">
+  <h2>Waiver Availability Evidence</h2>
+  <p>Availability is derived from current Sleeper rosters and the supported player pool. No waiver transaction is submitted.</p>
+  {% if ranking.blocker %}<p><strong>Ranking authority unavailable:</strong> {{ ranking.blocker }}. Candidates below are informational only and are not ranked recommendations.</p>{% endif %}
+  <div class="waiver-evidence-grid">
+    <div>
+      <h3>Ownership</h3>
+      <p>Source: {{ ownership.source or 'UNVERIFIED' }}</p>
+      <p>Freshness: {{ ownership.freshness_state or 'UNAVAILABLE' }}</p>
+      <p>Last checked: {{ (ownership.retrieved_at or 'Unavailable')|replace('T', ' ')|replace('+00:00', ' UTC') }}</p>
+      <p>Completeness: {{ ownership.completeness_state or 'UNKNOWN' }}</p>
+    </div>
+    <div>
+      <h3>Availability</h3>
+      <p>Source: {{ availability.source or 'UNVERIFIED' }}</p>
+      <p>Authority: {{ availability.authority_state or 'UNKNOWN' }}</p>
+      <p>Freshness: {{ availability.freshness_state or 'UNAVAILABLE' }}</p>
+      <p>{{ availability.derivation or 'Not supported' }}</p>
+    </div>
+  </div>
+  {% if waiver_candidates %}
+  <h3>Candidate Evidence</h3>
+  <div class="waiver-candidate-grid">
+    {% for candidate in waiver_candidates %}
+    {% set context = candidate.evidence_context or {} %}
+    {% set roster_fit = context.roster_fit or {} %}
+    {% set role = context.role or {} %}
+    {% set duration = context.duration or {} %}
+    {% set recent = candidate.recent_production or {} %}
+    {% set recent_rows = (recent.rows or []) if recent.state == 'AVAILABLE' else [] %}
+    {% set usage = context.opportunity or {} %}
+    {% set changes = ((candidate.player_comparison or {}).what_changed or {}).changes or [] %}
+    {% set drop = context.suggested_drop or {} %}
+    {% set health_actionable = context.health_state == 'HEALTHY' and context.health_freshness_state == 'FRESH' and context.health_source == 'Sleeper API' %}
+    {% set ranking_verified = waiver_evidence.ranking_confidence == 'VERIFIED' and not ranking.blocker %}
+    {% set candidate_actionable = candidate.recommendation_state == 'ACTIONABLE' and health_actionable and ranking_verified and candidate.ownership_state == 'VERIFIED' and candidate.eligibility_state == 'VERIFIED' %}
+    <article>
+      <h4>{{ candidate.player }} <span>{{ candidate.position }}</span></h4>
+      <p>Team need: {{ candidate.need if candidate.need is not none else 'Unavailable' }}</p>
+      <p>Roster fit: {{ roster_fit.label if roster_fit.state == 'AVAILABLE' and roster_fit.label else 'Not supported' }}</p>
+      <p>Expected role: {{ role.value if role.state == 'AVAILABLE' and role.value else 'Unavailable' }}</p>
+      <p>Opportunity duration: {{ duration.value if duration.state == 'AVAILABLE' and duration.value else 'Unavailable' }}</p>
+      <p><strong>Recent Production:</strong> {% if recent_rows and recent_rows[0].fantasy_points_ppr is not none %}Wk {{ recent_rows[0].week }}: {{ '%.1f'|format(recent_rows[0].fantasy_points_ppr) }} Full-PPR pts ({{ recent_rows|length }} supported week{{ '' if recent_rows|length == 1 else 's' }}){% else %}UNAVAILABLE{% endif %}</p>
+      <p><strong>Usage Evidence:</strong> {{ usage.reason if usage.state == 'AVAILABLE' and usage.reason else 'UNAVAILABLE' }}</p>
+      <p><strong>What Changed:</strong> {% if changes %}{% for change in changes %}{{ change.display }} {{ change.label|lower }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}UNAVAILABLE{% endif %}</p>
+      <p>Confidence: {{ context.confidence if context.confidence else 'Unavailable' }}</p>
+      <p>Risk: {{ context.risk|join('; ') if context.risk else 'Unavailable' }}</p>
+      <p>Suggested drop: {{ (drop.player ~ ' (projection-only comparison)') if candidate_actionable and drop.state == 'INFORMATIONAL_ONLY' and drop.player else 'Unavailable' }}</p>
+      <p>Projection: {{ candidate.projection if candidate.projection is not none else 'Unavailable' }}</p>
+      <p>FAAB: {{ ('$' ~ candidate.faab) if candidate_actionable and candidate.faab is not none else 'Unavailable' }}</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <details>
+    <summary>Identity diagnostics</summary>
+    {% set diagnostics = availability.identity_diagnostics or {} %}
+    <p>Source candidates: {{ diagnostics.total_source_candidates if diagnostics.total_source_candidates is not none else 'Unavailable' }}</p>
+    <p>Resolved: {{ diagnostics.uniquely_canonical_resolved_count if diagnostics.uniquely_canonical_resolved_count is not none else 'Unavailable' }}</p>
+    <p>Unresolved: {{ diagnostics.unresolved_count if diagnostics.unresolved_count is not none else 'Unavailable' }}</p>
+    <p>Ambiguous: {{ diagnostics.ambiguous_count if diagnostics.ambiguous_count is not none else 'Unavailable' }}</p>
+    <p>Rostered exclusions: {{ diagnostics.rostered_exclusion_count if diagnostics.rostered_exclusion_count is not none else 'Unavailable' }}</p>
+  </details>
+</section>

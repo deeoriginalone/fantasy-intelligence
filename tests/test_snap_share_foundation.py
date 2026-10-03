@@ -4,17 +4,19 @@ from datetime import datetime, timezone
 
 import pytest
 
+import imports.import_nflverse_snap_counts as snap_import
 from imports.import_nflverse_snap_counts import build_pfr_to_gsis_crosswalk, build_snap_share_evidence
 from services.snap_share_foundation import normalize_snap_counts_batch
 
 NOW = "2026-09-17T12:00:00+00:00"
-COLUMNS = ["season", "week", "player", "pfr_player_id", "team", "opponent", "offense_snaps", "offense_pct"]
+COLUMNS = ["season", "week", "player", "pfr_player_id", "position", "team", "opponent", "offense_snaps", "offense_pct", "defense_snaps", "defense_pct", "st_snaps", "st_pct"]
 
 
-def snap_row(pfr_player_id, team, opponent, week=1, offense_snaps=55, offense_pct=1.0, player="Cole Strange", season=2026):
+def snap_row(pfr_player_id, team, opponent, week=1, offense_snaps=55, offense_pct=1.0, player="Cole Strange", season=2026, position="WR", defense_snaps=0, defense_pct=0.0, st_snaps=0, st_pct=0.0):
     return {
-        "season": season, "week": week, "player": player, "pfr_player_id": pfr_player_id,
+        "season": season, "week": week, "player": player, "pfr_player_id": pfr_player_id, "position": position,
         "team": team, "opponent": opponent, "offense_snaps": offense_snaps, "offense_pct": offense_pct,
+        "defense_snaps": defense_snaps, "defense_pct": defense_pct, "st_snaps": st_snaps, "st_pct": st_pct,
     }
 
 
@@ -151,12 +153,12 @@ def test_missing_season_week_team_fail_closed_with_specific_blockers():
 
 
 # 14. duplicate player-team-week blocks
-def test_duplicate_player_team_week_blocks():
+def test_identical_duplicate_player_team_week_reconciles_safely():
     duplicated = rows() + [snap_row("StraCo01", "LAC", "ARI", offense_pct=1.0)]
     result = normalize_snap_counts_batch(duplicated, season=2026, retrieved_at=NOW, checksum="abc123")
-    assert result["reconciliation"]["duplicate_count"] == 2
-    assert "SNAP_SHARE_DUPLICATE_PLAYER_WEEK" in result["blockers"]
-    assert "StraCo01" not in {row["pfr_player_id"] for row in result["rows"]}
+    assert result["reconciliation"]["duplicate_count"] == 1
+    assert "SNAP_SHARE_DUPLICATE_PLAYER_WEEK" not in result["blockers"]
+    assert "StraCo01" in {row["pfr_player_id"] for row in result["rows"]}
 
 
 # 15. contradictory player-team-week blocks
@@ -204,11 +206,13 @@ def test_missing_checksum_fails_closed():
     assert result["authoritative"] is False
 
 
-# 20. unverified freshness threshold blocks authority (always, in this batch)
-def test_freshness_threshold_always_unverified_and_blocks_authority():
-    result = batch()
-    assert "SNAP_SHARE_FRESHNESS_THRESHOLD_UNAVAILABLE" in result["blockers"]
-    assert result["freshness_state"] == "UNAVAILABLE"
+# 20. the implementation-owned 24-hour freshness threshold is verified by default
+def test_implementation_freshness_threshold_is_verified_by_default():
+    result = batch(retrieved_at=datetime.now(timezone.utc).isoformat())
+    assert "SNAP_SHARE_FRESHNESS_THRESHOLD_UNAVAILABLE" not in result["blockers"]
+    assert result["provenance"]["freshness_threshold_id"] == "snap_share.evidence.v1"
+    assert result["provenance"]["freshness_threshold_seconds"] == 86400
+    assert result["freshness_state"] == "FRESH"
     assert result["authoritative"] is False
     assert all(not row["authoritative"] for row in result["rows"])
 
@@ -220,7 +224,7 @@ def test_approved_threshold_produces_fresh_aging_and_stale_states():
     stale = batch(threshold_environment={"SNAP_SHARE_EVIDENCE_MAX_AGE_SECONDS": "100"}, retrieved_at="2026-09-17T11:57:30+00:00", now=now)
     assert fresh["freshness_state"] == "FRESH"
     assert aging["freshness_state"] == "AGING"
-    assert stale["freshness_state"] == "UNAVAILABLE"
+    assert stale["freshness_state"] == "STALE"
     assert "SNAP_SHARE_DATA_STALE" in stale["blockers"]
 
 
@@ -261,6 +265,27 @@ def test_retrieval_adapter_handles_gzip_like_existing_convention(tmp_path):
     assert evidence["reconciliation"]["normalized_row_count"] == 3
 
 
+def test_retrieval_adapter_excludes_incomplete_later_weeks(tmp_path):
+    path = tmp_path / "snap_counts_2026.csv"
+    with open(path, "w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=COLUMNS)
+        writer.writeheader()
+        writer.writerows([snap_row("Week01", "KC", "DEN", week=1), snap_row("Week04", "KC", "DEN", week=4)])
+
+    evidence = build_snap_share_evidence(path, season=2026, retrieved_at=NOW, through_week=3)
+
+    assert evidence["weeks"] == [1]
+    assert evidence["provenance"]["selected_row_count"] == 1
+    assert {int(row["week"]) for row in evidence["rows"]} == {1}
+
+
+def test_retrieval_adapter_requires_actual_source_schema(tmp_path):
+    path = tmp_path / "wrong_schema.csv"
+    path.write_text("player,pfr_player_id\nExample,Player01\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="SNAP_SHARE_SOURCE_SCHEMA_UNVERIFIED"):
+        build_snap_share_evidence(path, season=2026, retrieved_at=NOW)
+
+
 # crosswalk builder: deterministic (1 gsis_id), ambiguous (>1 gsis_id), and unresolved (no gsis_id) cases
 def test_crosswalk_builder_classifies_deterministic_ambiguous_and_unresolved_pfr_ids(tmp_path):
     path = tmp_path / "players.csv"
@@ -287,6 +312,24 @@ def test_crosswalk_builder_requires_verified_columns(tmp_path):
         build_pfr_to_gsis_crosswalk(path)
 
 
+def test_remote_pfr_crosswalk_records_artifact_provenance(monkeypatch):
+    monkeypatch.setattr(snap_import, "load_weekly_stats", lambda path: ([{"pfr_id": "StraCo01", "gsis_id": "00-0012345"}], "sha256:players"))
+    monkeypatch.setattr(snap_import, "urlopen", lambda url, timeout: type("Response", (), {"read": lambda self: b"2026-09-17T10:00:00Z"})())
+
+    crosswalk, lineage = snap_import.build_pfr_to_gsis_crosswalk(
+        snap_import.NFLVERSE_PLAYERS_RELEASE_URL,
+        include_lineage=True,
+        retrieved_at=NOW,
+    )
+
+    assert crosswalk["StraCo01"] == {"00-0012345"}
+    assert lineage["source_authority"] == "automated:nflverse"
+    assert lineage["artifact_id"] == "nflverse.players.csv"
+    assert lineage["source_recorded_at"] == "2026-09-17T10:00:00Z"
+    assert lineage["retrieved_at"] == NOW
+    assert lineage["checksum"] == "sha256:players"
+
+
 def test_end_to_end_crosswalk_resolves_snap_share_batch(tmp_path):
     crosswalk_path = tmp_path / "players.csv"
     with open(crosswalk_path, "w", encoding="utf-8", newline="") as handle:
@@ -306,4 +349,39 @@ def test_end_to_end_crosswalk_resolves_snap_share_batch(tmp_path):
     assert by_pfr["StraCo01"]["gsis_id"] == "00-0012345"
     assert by_pfr["AltxJo01"]["gsis_id"] is None  # not present in this small crosswalk fixture
     assert evidence["reconciliation"]["resolved_row_count"] == 1
-    assert evidence["authoritative"] is False  # freshness threshold still unverified regardless of identity
+    assert evidence["authoritative"] is False  # local fixture source cannot claim automated authority
+
+
+@pytest.mark.parametrize(
+    ("position", "count_field", "percentage_field", "domain"),
+    [("WR", "offense_snaps", "offense_pct", "OFFENSE"), ("LB", "defense_snaps", "defense_pct", "DEFENSE"), ("K", "st_snaps", "st_pct", "SPECIAL_TEAMS")],
+)
+def test_snap_share_uses_documented_position_participation_domain(position, count_field, percentage_field, domain):
+    row = snap_row("Domain01", "KC", "DEN", position=position, offense_pct=0.25, defense_pct=0.5, st_pct=0.75)
+    result = normalize_snap_counts_batch([row], season=2026, retrieved_at=NOW, source_recorded_at=NOW, checksum="abc123", identity_crosswalk={"Domain01": "gsis-1"}, threshold_environment={"SNAP_SHARE_EVIDENCE_MAX_AGE_SECONDS": "86400"}, now=datetime.fromisoformat(NOW))
+    normalized = result["rows"][0]
+    assert normalized["participation_domain"] == domain
+    assert normalized["source_percentage_field"] == percentage_field
+    assert normalized["source_snap_count"] == row[count_field]
+    assert normalized["snap_share"] == row[percentage_field]
+    assert normalized["authoritative"] is True
+
+
+def test_unsupported_participation_position_is_explicit_and_not_zero():
+    result = normalize_snap_counts_batch(
+        [snap_row("Unknown01", "KC", "DEN", position="UNKNOWN")],
+        season=2026,
+        retrieved_at=NOW,
+        source_recorded_at=NOW,
+        checksum="abc123",
+        threshold_environment={"SNAP_SHARE_EVIDENCE_MAX_AGE_SECONDS": "86400"},
+    )
+    assert result["reconciliation"]["unsupported_position_count"] == 1
+    assert result["reconciliation"]["normalized_row_count"] == 0
+    assert result["provenance"]["completeness_state"] == "PARTIAL"
+
+
+def test_missing_source_record_time_blocks_publication_authority():
+    result = batch(source_recorded_at=None)
+    assert "SNAP_SHARE_SOURCE_RECORD_TIME_UNAVAILABLE" in result["blockers"]
+    assert result["authoritative"] is False

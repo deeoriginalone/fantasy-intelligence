@@ -1,4 +1,4 @@
-from services.team_hardening import build_bench_decisions, build_roster_outlook, build_team_trust_summary, build_weekly_risks
+from services.team_hardening import build_bench_decisions, build_lineup_snapshot, build_roster_outlook, build_team_trust_summary, build_weekly_risks
 
 
 def starter(name, slot="WR1", decision="START", score=10):
@@ -55,3 +55,17 @@ def test_roster_outlook_does_not_invent_playoff_readiness():
     result = build_roster_outlook({"RB": {"strategic_need": "ADD_DEPTH"}}, {"freshness_state": "UNAVAILABLE"})
     assert result["depth"]["state"] == "REVIEW"
     assert result["playoff_readiness"]["state"] == "UNAVAILABLE"
+
+
+def test_snapshot_before_lock_includes_unapplied_swaps_and_hides_no_contingency():
+    result = build_lineup_snapshot(
+        [starter("Incoming", slot="QB", decision="START")],
+        [],
+        current_starters=[{"player": "Outgoing", "sleeper_current_starter": True, "sleeper_lineup_slot": "QB", "injury_status": "Healthy"}],
+        lineup_changes=[{"recommended": "Incoming", "current": "Outgoing", "slot": "QB", "authority": "START"}],
+    )
+    assert result["before_lock"] == [{"kind": "SWAP", "player": "Incoming", "slot": "QB", "action": "START Incoming over Outgoing"}]
+    assert result["counts"]["monitor"] == 1
+    assert result["counts"]["ready"] == 0
+    assert result["counts"]["blocked"] == 0
+    assert result["contingency_state"] == "UNAVAILABLE"

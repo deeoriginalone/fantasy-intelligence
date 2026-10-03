@@ -1,5 +1,9 @@
 # Credit-Efficient Prompt Creation Rules
 
+## Fantasy Intelligence 2.0 Prompt Priorities
+
+Prompts should be decision-first, league-specific, personal-use, informational-first, proportional, and recovery-aware. Spend discovery and validation effort in proportion to manager risk. Preserve data truth, ownership, identity, freshness, fail-closed authority, and existing integrations while avoiding enterprise-scale process overhead.
+
 ## Purpose
 
 Use this reference whenever creating implementation, validation, Git, documentation, or roadmap prompts for the Fantasy Intelligence repository.

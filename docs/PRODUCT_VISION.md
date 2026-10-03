@@ -1,5 +1,21 @@
 # Fantasy Intelligence Product Vision
 
+## Fantasy Intelligence 2.0
+
+Fantasy Intelligence is a personal, league-specific fantasy football decision assistant. Its primary purpose is to help one manager make better weekly and season decisions.
+
+Success means better lineup, waiver, trade, Survivor, and season-planning decisions. The product is not a commercial SaaS platform, enterprise architecture, or multi-user system.
+
+The six primary destinations are Command Center, My Team, Waivers, Trades, Survivor, and NFL Intelligence. Existing league integrations, historical data, ownership logic, projections, opportunity evidence, matchup data, NFL intelligence, and trade intelligence remain valuable and must be preserved.
+
+## Navigation Reconciliation Target
+
+The planned primary navigation is Command Center, My Team, Waivers, Trades, Survivor, NFL Intelligence, and What Changed. Command Center is the planned landing page for League Overview, Must Act, Start/Sit Summary, Waiver Priorities, Trade Watch, Survivor Status, NFL Intelligence Highlights, What Changed, and Risk Alerts. It summarizes and links to owning pages rather than duplicating their engines.
+
+League Overview is planned to merge into Command Center. NFL Intelligence is planned as the single NFL-wide intelligence destination, absorbing Market Intelligence together with Top Picks, Top Risk Games, Game Predictions, Weather, Injury Context, Insights, Blockers, and Diagnostics. Draft Board and Mock Draft remain preserved for Season Planning. Sleeper Hub, Draft Day Readiness, Draft Intelligence & Learning Center, Imports, Readiness, and Diagnostics are planned Admin destinations.
+
+These are target classifications only. No navigation simplification, merge, redirect, archive, or Admin placement is completed by this documentation batch.
+
 ## Purpose
 
 Fantasy Intelligence exists to help one fantasy football manager make trustworthy, timely, and explainable team-management decisions throughout the season.
@@ -19,6 +35,27 @@ Every season-management page should help answer at least one of these questions:
 
 ## Product principles
 
+## Evidence-first architecture
+
+The governing information path is:
+
+`DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`
+
+Authority and usefulness are separate contracts. Fail-closed behavior applies to authority, recommendations, rankings, scores, confidence claims, probabilities, and transactions; it does not require hiding supported informational evidence. When supported evidence exists, show it with its evidence level, confidence, sample size, freshness, limitations, and recommendation impact.
+
+Evidence tiers are:
+
+- **ESTABLISHED:** Sufficient evidence; may support authoritative metrics when the complete contract allows it.
+- **PRELIMINARY:** Useful informational evidence; may be shown, must not independently drive recommendations, and may not be represented as authoritative.
+- **INSUFFICIENT:** Supported evidence is too weak to display as a meaningful metric; show the applicable limitation or unavailable state.
+
+Never fabricate rank, score, confidence, recommendation, probability, authority, or freshness. Prefer authoritative evidence, then preliminary evidence, then a disclosed historical baseline, and finally unavailable when no meaningful supported information exists.
+
+For matchup data, Matchup Rank is authoritative and remains fail-closed. Matchup Signal is a separate informational projection of supported evidence, such as “5th easiest defense,” and must disclose evidence level, sample, freshness, directionality, population, limitations, and context-only recommendation impact. Historical evidence may support stability analysis, threshold governance, baseline comparison, and trend analysis, but may not automatically become current-season authority, rank, or confidence.
+
+- **Owner success:** The project exists to help the owner win fantasy leagues, not to maximize infrastructure completeness.
+- **Primary progress measure:** The primary measure of progress is improved fantasy-football decision quality for the owner. Infrastructure is successful only when it directly improves START, SIT, FLEX, MONITOR, ADD, DROP, TRADE FOR, TRADE AWAY, or Survivor Selection decisions, or protects them from incorrect outputs.
+
 - **Trust before sophistication:** current ownership, eligibility, health, matchup, and league settings must be correct before advanced recommendations are shown.
 - **Sleeper-first where supported:** Sleeper should be the preferred live source for supported league, roster, ownership, draft, and matchup facts.
 - **Fail closed:** unavailable or stale evidence must not be presented as verified truth.
@@ -34,7 +71,32 @@ The product must make every season-management page a page the manager actually w
 
 ## Current product priority
 
-**UX-QA.1: Live Data Trust, Ownership Correctness, and Cross-Page Decision Clarity**
+**Manager-facing weekly decision usefulness:** improve trustworthy START, SIT, FLEX, MONITOR, ADD, DROP, TRADE FOR, TRADE AWAY, or Survivor outcomes using verified league-specific evidence. Integrity foundations remain required, but infrastructure-only work may not indefinitely displace a useful decision workflow.
+
+Before starting a substantial foundation, require a named decision, current consumer, prevented incorrect decision, next useful personal-season outcome, smallest safe implementation, and shortest evidence path. Defer foundations with no near-term consumer unless they repair a demonstrated correctness, privacy, security, data-integrity, or repository-recovery risk.
+
+The required personal usefulness gate asks: (1) which manager-facing decision becomes better, (2) which page consumes it, (3) whether the owner can benefit from it this season, (4) whether it is required for the current roadmap priority, (5) which incorrect fantasy decision it prevents, (6) what the smallest safe implementation is, and (7) what the shortest evidence path is. If questions 1 through 4 cannot be answered, the default action is defer.
+
+A foundation with no identified near-term consumer is normally deferred.
+
+## Value Delivered Register
+
+The primary measure of progress is improved fantasy-football decision quality. Every completed milestone should identify:
+
+- manager-facing benefit
+- improved or protected decision
+- consuming workflow or page
+- decision risk reduced
+
+Implementation volume alone does not constitute progress. Record only supported delivered benefits; do not use this register for planned or speculative outcomes.
+
+| Milestone | Manager-Facing Benefit | Decision Protected or Improved | Consumer |
+|------------|------------|------------|------------|
+| UX.3 Waiver correctness | Eliminates rostered-player waiver recommendations | ADD | Waivers |
+| UX.2 My Team validation | Provides Full-PPR team-needs and priority-action context | ADD/DROP | My Team |
+| UX.5 Lineup explainability | Presents explicit lineup calls with evidence and confidence | START/SIT/FLEX/MONITOR | My Team / Weekly Lineup |
+| UX.4 Trade Center integrity | Provides read-only roster-fit and trade-impact context with blockers | TRADE FOR/TRADE AWAY | Trades |
+| UX.8 Survivor foundation | Prevents recommendations for used or ineligible Survivor teams when eligibility evidence is unavailable or blocked | Survivor Selection | Survivor |
 
 ## Success criteria
 

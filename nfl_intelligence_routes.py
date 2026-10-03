@@ -11,7 +11,7 @@ def home():
     if week is None:
         acquire_week = current_app.config.get("WEEK_AUTHORITY_ACQUIRER")
         if acquire_week is None:
-            context={"state":"UNAVAILABLE","blockers":["WEEK_AUTHORITY_ACQUISITION_UNAVAILABLE"]}
+            context={"authoritative":False,"state":"UNAVAILABLE","blockers":["WEEK_AUTHORITY_ACQUISITION_UNAVAILABLE"]}
         else:
             context=acquire_week(season)
         if not context["authoritative"]:

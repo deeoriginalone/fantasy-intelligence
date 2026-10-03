@@ -4,107 +4,173 @@
 :root{--w-ink:#14213d;--w-muted:#60708a;--w-paper:#f4f7fb;--w-line:#dfe6ef;--w-blue:#2563a8;--w-blue-bg:#e9f2ff;--w-green:#16805c;--w-green-bg:#e7f7ef;--w-amber:#a96713;--w-amber-bg:#fff3dd;--w-red:#b42318;--w-red-bg:#fff0ee;--w-shadow:0 12px 34px rgba(20,33,61,.08)}
 .recent-performance{list-style:none;margin:8px 0 0;padding:0}.recent-performance li{display:flex;justify-content:space-between;gap:18px;padding:5px 0;border-bottom:1px solid var(--w-line);font-variant-numeric:tabular-nums}.recent-performance li:last-child{border-bottom:0}.recent-performance-details{margin-top:14px;border-top:1px solid var(--w-line);padding-top:10px}.recent-performance-details summary{cursor:pointer;color:var(--w-blue);font-weight:800;font-size:13px}.waiver-comparison-performance{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}.waiver-comparison-performance>div{min-width:0}.waiver-comparison-performance .waiver-panel{margin:8px 0 0}
 .evidence-state{display:inline-block;margin-left:6px;padding:3px 7px;border-radius:999px;background:var(--w-blue-bg);color:var(--w-blue);font-size:10px;vertical-align:middle}.evidence-state-partial_context{background:var(--w-amber-bg);color:var(--w-amber)}.evidence-state-source_limited,.evidence-state-identity_limited{background:var(--w-red-bg);color:var(--w-red)}
+.wda-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;margin-top:14px}.wda-suggestion{min-width:0;border:1px solid var(--w-line);border-top:3px solid var(--w-green);border-radius:8px;background:#fff;padding:14px;overflow-wrap:anywhere}.wda-suggestion h3{font-size:17px;margin:0 0 8px}.wda-suggestion p{font-size:13px;margin:8px 0;line-height:1.45}.wda-suggestion details{margin-top:12px}.wda-pagination{display:flex;justify-content:center;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px}.wda-pagination[hidden]{display:none}.wda-pagination button{width:40px;height:36px;border:1px solid var(--w-line);border-radius:6px;background:#fff;color:var(--w-blue);font-size:20px;cursor:pointer}.wda-pagination button:disabled{opacity:.4;cursor:default}#waiver-decision-assistant{background:transparent;border:0;border-radius:0;box-shadow:none;padding:0}#wda-player-select{max-width:100%;min-height:38px;margin-bottom:10px}@media(max-width:900px){.wda-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.wda-grid{grid-template-columns:1fr}}
 .waiver-page{max-width:1240px;margin:0 auto;padding:18px 0 54px;color:var(--w-ink)}.waiver-header{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin:4px 0 22px}.waiver-header h1{margin:0;font-size:clamp(30px,4vw,48px);line-height:1.02}.waiver-header p{margin:9px 0 0;color:var(--w-muted);max-width:670px}.eyebrow{margin:0 0 7px;color:var(--w-blue);font-size:12px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.mode-tag{border:1px solid var(--w-line);background:#fff;border-radius:999px;padding:9px 13px;color:var(--w-muted);font-size:12px;font-weight:900;white-space:nowrap}.waiver-verdict{display:grid;grid-template-columns:1.25fr repeat(2,.75fr);gap:1px;overflow:hidden;background:#24436a;border-radius:18px;box-shadow:var(--w-shadow);margin-bottom:22px}.waiver-verdict>div{background:#17365f;color:#fff;padding:22px}.waiver-verdict>div+div{background:#214a79;border-left:1px solid rgba(255,255,255,.13)}.waiver-verdict small{display:block;color:#b7d7ff;font-size:11px;font-weight:900;letter-spacing:.1em}.waiver-verdict h2{margin:10px 0 7px;font-size:28px}.waiver-verdict strong{display:block;margin-top:12px;font-size:25px}.waiver-verdict span{display:block;margin-top:6px;color:#d9e8f8;font-size:13px;line-height:1.4}.waiver-card,.waiver-panel,.blocked,.warning{background:#fff;border:1px solid var(--w-line);border-radius:14px;box-shadow:0 4px 14px rgba(20,33,61,.04);padding:18px;margin-bottom:16px}.candidate-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.candidate-card{background:#fff;border:1px solid var(--w-line);border-top:4px solid var(--w-blue);border-radius:14px;padding:16px;box-shadow:0 4px 14px rgba(20,33,61,.04)}.candidate-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.rank{font-size:24px;font-weight:900;color:var(--w-blue)}.candidate-card h3{margin:12px 0 3px;font-size:19px}.muted{color:var(--w-muted);font-size:13px}.candidate-value{display:flex;gap:20px;margin:16px 0}.candidate-value strong{display:block;font-size:22px}.candidate-value small{display:block;color:var(--w-muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}.candidate-reason{margin:0;color:#41516a;font-size:13px;line-height:1.45}.candidate-evidence{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px}.candidate-evidence div{background:var(--w-paper);border-radius:9px;padding:9px}.candidate-evidence small{display:block;color:var(--w-muted);font-size:11px;text-transform:uppercase}.candidate-evidence strong{display:block;margin-top:3px;overflow-wrap:anywhere}.warning{background:var(--w-amber-bg);border-color:#f3d39b;color:#6b4716}.blocked{background:var(--w-red-bg);border-color:#f0b7b0;color:#7d2018}.waiver-page h2{margin:0 0 12px;font-size:21px}.waiver-page details{margin-top:18px}.waiver-page summary{cursor:pointer;color:var(--w-blue);font-weight:900}.waiver-page .waiver-evidence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.waiver-page .waiver-evidence-grid>div{background:var(--w-paper);border-radius:10px;padding:13px}.waiver-page .waiver-evidence-grid h3{margin:0 0 8px}.waiver-page .waiver-evidence-grid p{margin:5px 0;color:var(--w-muted);font-size:13px}.waiver-page .waiver-candidate-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.waiver-page .waiver-candidate-grid article{border:1px solid var(--w-line);border-radius:10px;padding:12px}.waiver-page .waiver-candidate-grid h4{margin:0 0 8px}.waiver-page .waiver-candidate-grid h4 span{color:var(--w-muted);font-weight:400}.waiver-page .waiver-candidate-grid p{margin:5px 0;color:var(--w-muted);font-size:12px}
 @media(max-width:900px){.candidate-grid,.waiver-page .waiver-candidate-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.waiver-header{align-items:flex-start;flex-direction:column}}
 @media(max-width:600px){.waiver-page{padding-top:10px}.waiver-header h1{font-size:32px}.mode-tag{align-self:flex-start}.waiver-verdict{display:block}.waiver-verdict>div+div{border-left:0;border-top:1px solid rgba(255,255,255,.13)}.candidate-grid,.waiver-page .waiver-candidate-grid,.waiver-page .waiver-evidence-grid{grid-template-columns:1fr}.candidate-card{padding:15px}}
 </style>
 <main class="waiver-page" aria-labelledby="waiver-title">
-  <header class="waiver-header"><div><p class="eyebrow">{{ (context|default({})).mode|default('LIVE') }} / Acquisition view</p><h1 id="waiver-title">Waiver and FAAB Center</h1><p>Prioritize supported adds by roster need, player value, and verified availability. No waiver transaction is submitted.</p></div><span class="mode-tag">{{ (meta|default({})).team_name|default('My Team') }}</span></header>
+  {% set preliminary_suggestions = preliminary_suggestions|default([]) %}
+  {% set monitor_candidates = monitor_candidates|default([]) %}
+  {% set health_excluded_diagnostics = health_excluded_diagnostics|default({}) %}
+  <header class="waiver-header"><div><p class="eyebrow">{{ (context|default({})).mode|default('LIVE') }} / Acquisition view</p><h1 id="waiver-title">Waiver and FAAB Center</h1><p>Review verified ownership, eligibility, health, and player evidence. No waiver transaction is submitted.</p></div><span class="mode-tag">{{ (meta|default({})).team_name|default('My Team') }}</span></header>
 
+  {% set balance = faab_balance|default({}) %}
+  <section class="waiver-verdict"><div><small>Waiver verdict</small><h2>{% if preliminary_suggestions %}PRELIMINARY HEALTHY SUGGESTIONS AVAILABLE{% else %}NO VERIFIED-HEALTHY CANDIDATE SUGGESTION{% endif %}</h2><span>{% if preliminary_suggestions %}Fresh FantasyPros PPR consensus ranks support separate weekly and rest-of-season review when both player identities are verified. Missing or outdated ranks withhold the affected advice. FAAB ranges remain provisional spending estimates, not predicted winning bids.{% elif waiver_evidence and not waiver_evidence.allowed %}Ownership or eligibility evidence is insufficient to publish candidates.{% else %}No candidate currently has verified healthy status and sufficient supported evidence for review.{% endif %}</span></div><div><small>Healthy players to review</small><strong>{{ preliminary_suggestions|length }}</strong><span>Available players · rank coverage shown per focus</span></div><div><small>FAAB remaining</small><strong>{% if balance.state == 'AVAILABLE' %}${{ balance.remaining }}{% else %}Unavailable{% endif %}</strong><span>{% if balance.state == 'AVAILABLE' %}Sleeper API · ${{ balance.spent }} spent of ${{ balance.budget }} budget{% else %}{{ balance.reason|default('Live owner budget is not verified.') }}{% endif %}</span></div></section>
+  {% if vacancies %}<div class="warning"><strong>Vacant starters:</strong> {{ vacancies|join(', ') }}. Roster-need context only; no claim recommendation is supported.</div>{% endif %}
+  {% set ranking_status = ranking_source|default({}) %}
+  <section aria-label="Ranking updates"><p><strong>FantasyPros consensus via DynastyProcess</strong> · PPR · checked automatically when Waivers is used.</p><p id="ranking-update-time"></p>{% if ranking_status.refresh_error %}<p class="warning">{{ ranking_status.refresh_error }}. Only source-date and NFL-week-valid ranks may be used.</p>{% endif %}</section>
+  {% for horizon, label in [('this_week', 'This week'), ('rest_of_season', 'Rest of season')] %}{% set status = (ranking_status.horizons|default({})).get(horizon, {}) %}<p class="muted"><strong>{{ label }} source:</strong> {{ status.state|default('UNAVAILABLE') }}{% if status.state == 'AVAILABLE' %} · {{ status.ranks|length }} identity-verified ranks{% else %} · No current verified ranks; affected advice is withheld.{% endif %}</p>{% endfor %}
+  <details id="ranking-record-review"><summary>Ranking-data checks and pending identity verification</summary>
+    <p>These are checks on source ranks and game data, not injury exclusions. Active players with no listed injury are not rejected for an empty injury designation.</p>
+    {% for horizon, label in [('this_week', 'This week'), ('rest_of_season', 'Rest of season')] %}
+    {% set status = (ranking_status.horizons|default({})).get(horizon, {}) %}
+    <h3>{{ label }}</h3>
+    {% if status.reconciliation %}<p>{{ status.reconciliation.supported_scope_rows }} supported source rows = {{ status.reconciliation.published_rows }} published ranks + {{ status.reconciliation.review_records }} explained records. Reconciled: {{ status.reconciliation.reconciled }}.</p>{% endif %}
+    {% set review = namespace(pending=[], confirmed=[]) %}
+    {% for row in status.diagnostics|default([]) %}{% if (row.classification|default('PENDING_VERIFICATION')).startswith('CONFIRMED_') %}{% set _ = review.confirmed.append(row) %}{% else %}{% set _ = review.pending.append(row) %}{% endif %}{% endfor %}
+    <h4>Pending verification ({{ review.pending|length }})</h4>
+    <ul>{% for row in review.pending %}<li><strong>{{ row.player or row.player_id or row.provider_id }}</strong> · {{ row.reason }}<br>Provider ID: {{ row.provider_id|default('Not supplied') }} · Published rank: {{ row.raw_ecr }} · Publisher team: {{ row.team|default('Not supplied') }}{% if row.sleeper_check %}<br>Current Sleeper check: {{ row.sleeper_check.team or 'Current team not supplied' }} · {{ row.sleeper_check.status or 'Status not supplied' }} · Injury designation: {{ row.sleeper_check.injury_status or 'None listed; not an injury exclusion' }}{% endif %}{% if row.crosswalk_matches %}<br>Crosswalk: {% for match in row.crosswalk_matches %}{{ match.sleeper_id }} / {{ match.position }}{% if not loop.last %}; {% endif %}{% endfor %}{% endif %}</li>{% else %}<li>No pending records for this horizon.</li>{% endfor %}</ul>
+    {% if review.confirmed %}<details id="{{ horizon }}-confirmed-exclusions"><summary>Confirmed source/timing exclusions ({{ review.confirmed|length }}) — not injury exclusions</summary><p>A started game cannot supply a current-week starting-lineup replacement. Eligible unrostered players remain available for long-term review; game timing does not mark them injured.</p><ul>{% for row in review.confirmed %}<li><strong>{{ row.player or row.player_id or row.provider_id }}</strong> · {{ row.reason }} · Source rank: {{ row.raw_ecr }} · Source date: {{ row.source_date }} · Kickoff: {{ row.raw_kickoff|default('Not supplied') }}</li>{% endfor %}</ul></details>{% endif %}
+    {% for row in status.diagnostics|default([]) %}{% if row.investigation_candidates %}<p><strong>{{ row.player }} — investigation only:</strong> {% for candidate in row.investigation_candidates %}Sleeper ID {{ candidate.player_id }} · {{ candidate.team or 'No team supplied' }} · {{ candidate.status or 'Status not supplied' }} · {{ candidate.injury_status or 'No injury listed' }}{% if not loop.last %}; {% endif %}{% endfor %}. Name/position alone is insufficient; the approved exception also requires unique team agreement.</p>{% endif %}{% endfor %}
+    {% endfor %}
+  </details>
   <section class="waiver-card" id="waiver-decision-assistant" aria-labelledby="wda-title">
     <p class="eyebrow">Read-only decision support</p>
     <h2 id="wda-title">Waiver Move Checker</h2>
-    {% if not roster %}
-    <div class="blocked"><strong>DECISION ASSISTANT UNAVAILABLE.</strong> Roster truth could not be verified for this team.</div>
-    {% elif waiver_evidence and not waiver_evidence.allowed %}
+    {% if waiver_evidence and not waiver_evidence.allowed %}
     <div class="blocked"><strong>DECISION ASSISTANT BLOCKED.</strong> Ownership or eligibility evidence is not sufficient to compare waiver candidates. {% for blocker in waiver_evidence.blockers %}<span>{{ blocker }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</div>
+    {% elif not preliminary_suggestions %}
+    <div class="blocked"><strong>MOVE CHECKER UNAVAILABLE.</strong> No verified-healthy preliminary candidate is available.</div>
+    {% elif not wda_roster %}
+    <div class="blocked"><strong>MOVE CHECKER UNAVAILABLE.</strong> No rostered player with a stable identity is available to select.</div>
     {% else %}
-    <p>Who are you considering dropping?</p>
-    <select id="wda-player-select"><option value="" selected disabled>Choose a rostered player&hellip;</option>{% for p in roster %}<option value="{{ loop.index0 }}">{{ p.player }} ({{ p.position }})</option>{% endfor %}</select>
+    <p>Choose a rostered player to see healthy waiver candidates at the same position. These are players to review, not automatic add or drop calls.</p>
+    {% set first_candidate_position = namespace(value='') %}
+    {% for candidate in preliminary_suggestions %}{% if not first_candidate_position.value and candidate.position %}{% set first_candidate_position.value = candidate.position %}{% endif %}{% endfor %}
+    {% set default_roster_id = namespace(value='') %}
+    {% for player in wda_roster %}{% if not default_roster_id.value and player.position == first_candidate_position.value %}{% set default_roster_id.value = player.player_id %}{% endif %}{% endfor %}
+    <label for="wda-player-select">Rostered player</label>
+    <select id="wda-player-select" aria-label="Rostered player to compare">{% for p in wda_roster %}<option value="{{ p.player_id }}" data-player-id="{{ p.player_id }}" {% if p.player_id == default_roster_id.value or (not default_roster_id.value and loop.first) %}selected{% endif %}>{{ p.player }} ({{ p.position }})</option>{% endfor %}</select>
+    <fieldset id="wda-focus" style="border:0;padding:0;margin:8px 0 16px;display:flex;gap:14px;flex-wrap:wrap"><legend>Candidate focus</legend>
+      <label><input type="radio" name="wda-focus" value="all" checked>All available</label>
+      <label><input type="radio" name="wda-focus" value="this_week">This week</label>
+      <label><input type="radio" name="wda-focus" value="rest_of_season">Long term</label>
+    </fieldset>
     <div id="wda-result" aria-live="polite"></div>
+    <nav id="wda-pagination" class="wda-pagination" aria-label="Waiver candidate pages" hidden>
+      <button id="wda-previous" type="button" aria-label="Previous candidates" title="Previous candidates">&#8592;</button>
+      <span id="wda-page-status" role="status"></span>
+      <button id="wda-next" type="button" aria-label="Next candidates" title="Next candidates">&#8594;</button>
+    </nav>
     <script type="application/json" id="wda-roster-data">{{ wda_roster|tojson }}</script>
     <script type="application/json" id="wda-candidates-data">{{ wda_candidates|tojson }}</script>
+    <script type="application/json" id="wda-balance-data">{{ balance|tojson }}</script>
+    <script type="application/json" id="wda-ranking-update">{{ (ranking_status.last_successful_refresh|default(none))|tojson }}</script>
     <script type="application/json" id="wda-grades-data">{{ (grades or {})|tojson }}</script>
     <script>
     (function(){
       var rosterData = JSON.parse(document.getElementById('wda-roster-data').textContent);
       var candidateData = JSON.parse(document.getElementById('wda-candidates-data').textContent);
-      var gradesData = JSON.parse(document.getElementById('wda-grades-data').textContent);
-      var confidence = {{ (waiver_evidence.ranking_confidence if waiver_evidence else 'UNVERIFIED')|tojson }};
-      var disclosure = 'Informational comparison only. This does not yet use an authoritative drop-value model. Projection evidence is a secondary comparison input.';
+      var balanceData = JSON.parse(document.getElementById('wda-balance-data').textContent);
+      var checked = JSON.parse(document.getElementById('wda-ranking-update').textContent);
+      document.getElementById('ranking-update-time').textContent = checked ? 'Last successful refresh: ' + new Intl.DateTimeFormat('en-US', {dateStyle:'long',timeStyle:'short',timeZone:'America/Los_Angeles'}).format(new Date(checked)) + ' Pacific Time' : 'No successful ranking refresh is recorded.';
       var select = document.getElementById('wda-player-select');
       var result = document.getElementById('wda-result');
-      function productionSection(player){
-        var production = player.recent_production || {};
-        var position = player.position === 'DST' ? 'DEF' : player.position;
-        var unavailableReason = position === 'K' ? 'Authoritative K production unavailable.' : position === 'DEF' ? 'Authoritative DEF production unavailable.' : 'Recent performance unavailable.';
-        var rows = production.rows || [];
-        var body = rows.length ? rows.map(function(row){ return '<li><span>Wk ' + row.week + '</span><strong>' + Number(row.fantasy_points_ppr).toFixed(1) + '</strong></li>'; }).join('') : '<li>' + unavailableReason + '</li>';
-        return '<div class="waiver-panel"><h3>Recent Performance</h3><ul class="recent-performance">' + body + '</ul></div>';
-      }
-      function contextSections(player, comparison){
-        var trendingHtml;
-        if (player.trending === 'UP') trendingHtml = 'Trending Up';
-        else if (player.trending === 'DOWN') trendingHtml = 'Trending Down';
-        else trendingHtml = 'Trending unavailable.';
-        return '<div class="waiver-panel"><h3>Trending</h3><p>' + trendingHtml + '</p></div>' +
-          '<div class="waiver-comparison-performance"><div><strong>' + player.player + '</strong>' + productionSection(player) + '</div>' +
-          (comparison ? '<div><strong>' + comparison.player + '</strong>' + productionSection(comparison) + '</div>' : '') + '</div>';
-      }
-      select.addEventListener('change', function(){
-        var idx = select.value;
-        if (idx === '') { result.innerHTML = ''; return; }
-        var player = rosterData[Number(idx)];
-        var grade = gradesData[player.position] || 'Unavailable';
-        var isKDef = player.position === 'K' || player.position === 'DEF';
-        var bestLabel = player.position === 'K' ? 'Best Available K' : player.position === 'DEF' ? 'Best Available DEF' : 'Recommended Add';
-        if (player.projection == null) {
-          result.innerHTML =
-            '<div class="warning"><strong>COMPARISON UNAVAILABLE</strong>' +
-            '<p>The selected player has no supported projection, so no same-position comparison can be made.</p>' +
-            '<p>' + disclosure + '</p></div>' +
-            contextSections(player);
-          return;
+      var pagination = document.getElementById('wda-pagination');
+      var previous = document.getElementById('wda-previous');
+      var next = document.getElementById('wda-next');
+      var pageStatus = document.getElementById('wda-page-status');
+      var pageIndex = 0;
+      var pageSize = 6;
+      var rosterIds = rosterData.filter(function(player){ return player.player_id; }).map(function(player){ return String(player.player_id); });
+      if (select && rosterIds.indexOf(String(select.value || '')) === -1) select.value = rosterIds[0] || '';
+      function renderCandidates(){
+        pagination.hidden = true;
+        var player = rosterData.find(function(item){ return String(item.player_id) === String(select.value); });
+        if (!player) { result.innerHTML = '<div class="blocked">No current rostered player is selected.</div>'; return; }
+        var selectedPosition = String(player.position || '').trim().toUpperCase();
+        if (!selectedPosition) { result.innerHTML = '<div class="blocked">The selected roster player has no verified position, so a position-specific comparison is unavailable.</div>'; return; }
+        var preliminaryCandidates = candidateData.filter(function(candidate){ return candidate.recommendation_state === 'PRELIMINARY_SUGGESTION' && candidate.player_id && String(candidate.position || '').trim().toUpperCase() === selectedPosition; });
+        var focus = document.querySelector('input[name="wda-focus"]:checked').value;
+        var horizon = focus === 'rest_of_season' ? 'rest_of_season' : 'this_week';
+        function rankOf(candidate){
+          var rank = (candidate.source_rankings || {})[horizon];
+          return rank && Number.isFinite(rank.ecr) ? rank : null;
         }
-        var best = null;
-        candidateData.forEach(function(c){
-          if (c.position === player.position && c.projection != null && c.projection > player.projection) {
-            if (!best || c.projection > best.projection) best = c;
-          }
+        if (focus !== 'all') preliminaryCandidates = preliminaryCandidates.filter(function(candidate){ return rankOf(candidate); });
+        preliminaryCandidates.sort(function(left, right){
+          var leftRank = rankOf(left), rightRank = rankOf(right);
+          if (!leftRank && !rightRank) return 0;
+          if (!leftRank) return 1;
+          if (!rightRank) return -1;
+          return leftRank.ecr - rightRank.ecr || String(left.player_id).localeCompare(String(right.player_id));
         });
-        if (best) {
-          result.innerHTML =
-            '<div class="warning"><strong>POTENTIAL UPGRADE</strong><p>' + player.player + '</p>' +
-            (isKDef ? '<p class="eyebrow">' + bestLabel + '</p>' : '') +
-            '<strong>Compare: ' + best.player + '</strong>' +
-            '<p>Why?</p><ul>' +
-            '<li>Position need: ' + (best.need != null ? best.need : 'Unavailable') + '</li>' +
-            '<li>Roster fit (informational only, not proof of improvement): ' + grade + '</li>' +
-            '<li>Higher same-position projection: ' + best.projection + ' vs ' + player.projection + ' projected points</li>' +
-            '</ul>' +
-            '<table><thead><tr><th></th><th>Current Player</th><th>Recommended Add</th></tr></thead><tbody>' +
-            '<tr><td>Position</td><td>' + player.position + '</td><td>' + best.position + '</td></tr>' +
-            '<tr><td>Team need impact</td><td>\u2014</td><td>' + (best.need != null ? best.need : 'Unavailable') + '</td></tr>' +
-            '<tr><td>Projection</td><td>' + player.projection + '</td><td>' + best.projection + '</td></tr>' +
-            '<tr><td>Roster fit impact</td><td>' + grade + '</td><td>' + grade + '</td></tr>' +
-            '<tr><td>Confidence state</td><td colspan="2">' + confidence + '</td></tr>' +
-            '</tbody></table>' +
-            '<p>' + disclosure + '</p></div>' +
-            contextSections(player, best);
-        } else {
-          result.innerHTML =
-            '<div class="waiver-panel"><strong>NO PROJECTED UPGRADE FOUND</strong>' +
-            '<p>Keeping this player is the supported default because no projected same-position upgrade was found.</p>' +
-            '<table><thead><tr><th></th><th>Current Player</th></tr></thead><tbody>' +
-            '<tr><td>Position</td><td>' + player.position + '</td></tr>' +
-            '<tr><td>Projection</td><td>' + player.projection + '</td></tr>' +
-            '<tr><td>Roster fit impact</td><td>' + grade + '</td></tr>' +
-            '<tr><td>Confidence state</td><td>' + confidence + '</td></tr>' +
-            '</tbody></table>' +
-            '<p>' + disclosure + '</p></div>' +
-            contextSections(player);
-        }
-      });
+        if (!preliminaryCandidates.length && focus !== 'all') { result.innerHTML = '<div class="warning">No current source-ranked candidates are available for this focus. Old ranks are not presented as current; All available still includes healthy unranked players.</div>'; return; }
+        if (!preliminaryCandidates.length) { result.innerHTML = '<div class="blocked">No verified-healthy preliminary candidates are available at ' + escapeHtml(player.position) + ' this week. Choose another roster position to compare.</div>'; return; }
+        var pageCount = Math.ceil(preliminaryCandidates.length / pageSize);
+        pageIndex = Math.max(0, Math.min(pageIndex, pageCount - 1));
+        var pageStart = pageIndex * pageSize;
+        var candidateCards = preliminaryCandidates.slice(pageStart, pageStart + pageSize).map(function(candidate, cardIndex){
+          var evidence = candidate.evidence_context || {};
+          var comparison = candidate.player_comparison || {};
+          var usage = evidence.opportunity || {};
+          var trend = evidence.opportunity_trend || {};
+          var production = candidate.recent_production || {};
+          var productionRows = production.state === 'AVAILABLE' ? production.rows || [] : [];
+          var productionText = productionRows.length ? productionRows.map(function(row){ return 'Wk ' + row.week + ' ' + Number(row.fantasy_points_ppr).toFixed(1); }).join('; ') : 'UNAVAILABLE';
+          var summary = (comparison.summary || []).join('; ') || 'UNAVAILABLE';
+          var rosterComparison = (candidate.roster_comparisons || {})[String(player.player_id)] || {};
+          var guidance = (candidate.roster_guidance || {})[String(player.player_id)] || {};
+          var weekly = guidance.this_week || {action: 'MONITOR', reason: 'Selected-player guidance is unavailable.'};
+          var season = guidance.rest_of_season || {action: 'MONITOR', reason: 'Selected-player guidance is unavailable.'};
+          var bid = guidance.provisional_bid || {};
+          var showBid = guidance.authority === 'PROVISIONAL' && (weekly.action === 'REVIEW_ADD' || season.action === 'REVIEW_ADD') && balanceData.state === 'AVAILABLE' && balanceData.remaining > 0 && bid.state === 'PROVISIONAL' && Number.isInteger(bid.low) && Number.isInteger(bid.high) && bid.low >= 0 && bid.high >= bid.low && bid.high <= balanceData.remaining;
+          var decisionText = '<p><strong>This week:</strong> ' + escapeHtml(actionLabel(weekly.action)) + ' · <strong>Rest of season:</strong> ' + escapeHtml(actionLabel(season.action)) + '</p>';
+          var bidText = showBid ? '<p><strong>Provisional bid:</strong> $' + bid.low + '-$' + bid.high + '</p>' : '<p><strong>Bid:</strong> Not suggested</p>';
+          var sourceRank = rankOf(candidate);
+          var rankText = sourceRank ? '<p><strong>#' + (pageStart + cardIndex + 1) + ' available ' + escapeHtml(candidate.position) + '</strong> · ' + (horizon === 'this_week' ? 'This week' : 'Rest of season') + '</p><p>Mean expert position rank: ' + sourceRank.ecr.toFixed(2) + ' · Published ' + escapeHtml(new Intl.DateTimeFormat('en-US', {dateStyle:'long',timeZone:'UTC'}).format(new Date(sourceRank.source_date + 'T12:00:00Z'))) + '</p>' : '<p><strong>Unranked</strong> · Current source evidence unavailable</p>';
+          var comparisonText = rosterComparison.state === 'PRELIMINARY'
+            ? '<p><strong>Compared with ' + escapeHtml(player.player) + ':</strong> ' + Number(rosterComparison.candidate_average).toFixed(2) + ' vs ' + Number(rosterComparison.roster_average).toFixed(2) + ' Full-PPR pts/game.</p>' +
+              '<p><strong>Observed difference:</strong> ' + (rosterComparison.difference > 0 ? '+' : '') + Number(rosterComparison.difference).toFixed(2) + ' pts/game · ' + rosterComparison.weeks.length + ' matched week(s): ' + escapeHtml(rosterComparison.weeks.map(function(week){ return week.season + ' Wk ' + week.week; }).join(', ')) + '.</p>' +
+              '<p class="muted">Historical comparison, not a forecast.' + (rosterComparison.weeks.length < 2 ? ' One-week sample only.' : '') + '</p>'
+            : '<p class="muted">Selected-player comparison unavailable: ' + escapeHtml(rosterComparison.reason || 'No matching supported Full-PPR weeks are available for both players.') + '</p>';
+          return '<article class="wda-suggestion" data-player-id="' + escapeHtml(candidate.player_id) + '"><h3>' + escapeHtml(candidate.player) + ' (' + escapeHtml(candidate.position) + ')</h3>' +
+            rankText +
+            '<p class="muted">PROVISIONAL GUIDANCE</p>' + decisionText + bidText +
+            '<p>PRELIMINARY SUGGESTION · Health: ' + escapeHtml(evidence.health_state || 'UNAVAILABLE') + ' · ' + escapeHtml(evidence.health_freshness_state || 'UNAVAILABLE') + ' · ' + escapeHtml(evidence.health_source || 'UNAVAILABLE') + '</p>' +
+            '<p>Roster fit: ' + escapeHtml((evidence.roster_fit || {}).label || 'Unavailable') + '</p>' +
+            '<p>Recent production: ' + escapeHtml(productionText) + '</p>' +
+            comparisonText +
+            '<details><summary>Player evidence</summary>' +
+            (sourceRank ? '<p><strong>Identity link:</strong> ' + escapeHtml(sourceRank.identity_method === 'OWNER_APPROVED_UNIQUE_NAME_POSITION_TEAM' ? 'Owner-approved unique name, position and team match; not a source-published crosswalk.' : sourceRank.identity_method === 'PUBLISHED_PROVIDER_CROSSWALK' ? 'Source-published FantasyPros-to-Sleeper crosswalk.' : sourceRank.identity_method === 'EXACT_SLEEPER_TEAM_ID' ? 'Exact Sleeper team-defense ID.' : 'Identity provenance is not recorded.') + '</p>' : '') +
+            (sourceRank && sourceRank.game_evidence ? '<p><strong>Game scope:</strong> Corroborated from ' + sourceRank.game_evidence.supporting_source_player_count + ' fresh team records and the current Sleeper team ' + escapeHtml(sourceRank.game_evidence.sleeper_team) + '. Publisher team remains recorded as ' + escapeHtml(sourceRank.game_evidence.publisher_team || 'Not supplied') + '.</p>' : '') +
+            '<p><strong>This-week reason:</strong> ' + escapeHtml(weekly.reason) + '</p>' +
+            '<p><strong>Rest-of-season reason:</strong> ' + escapeHtml(season.reason) + '</p>' +
+            '<p><strong>Lineup scope:</strong> ' + escapeHtml(guidance.lineup_scope || 'Starter or bench role is unverified') + '</p>' +
+            '<p><strong>Drop review:</strong> ' + escapeHtml(guidance.drop_review || 'No drop suggestion is supported.') + '</p>' +
+            '<p><strong>Bid rationale:</strong> ' + escapeHtml(bid.reason || 'No supported provisional spending estimate is available.') + '</p>' +
+            '<p>Ownership: ' + escapeHtml(evidence.ownership_state || 'UNAVAILABLE') + ' · Eligibility: ' + escapeHtml(evidence.eligibility_state || 'UNAVAILABLE') + '</p>' +
+            '<p>Opportunity: ' + escapeHtml(usage.reason || 'UNAVAILABLE') + '</p>' +
+            '<p>Snap share: ' + escapeHtml(usageEvidenceText(candidate, evidence)) + '</p>' +
+            '<p>What Changed: ' + escapeHtml((trend.drivers || ['Insufficient comparison evidence']).join('; ')) + '</p>' +
+            '<p>Informational comparison: ' + escapeHtml(summary) + '</p>' +
+            '<p>' + escapeHtml((guidance.limitations || ['No verified forecast is available.']).join(' ')) + '</p></details></article>';
+        }).join('');
+        result.innerHTML = '<strong>SAME-POSITION CANDIDATES TO REVIEW</strong><p>Rostered player: ' + escapeHtml(player.player) + ' (' + escapeHtml(player.position) + '). ' + escapeHtml(recentProductionText(player)) + '. Current FantasyPros position consensus ranks determine order; lower is better. Rank is not a projected points gain.</p><div class="wda-grid">' + candidateCards + '</div><p class="muted">Bid ranges remain provisional spending estimates, not guaranteed winning bids. No transaction is submitted.</p>';
+        pageStatus.textContent = (pageStart + 1) + '\u2013' + Math.min(pageStart + pageSize, preliminaryCandidates.length) + ' of ' + preliminaryCandidates.length + ' candidates';
+        previous.disabled = pageIndex === 0;
+        next.disabled = pageIndex === pageCount - 1;
+        pagination.hidden = false;
+      }
+      select.addEventListener('change', function(){ pageIndex = 0; renderCandidates(); });
+      previous.addEventListener('click', function(){ pageIndex -= 1; renderCandidates(); });
+      next.addEventListener('click', function(){ pageIndex += 1; renderCandidates(); });
+      document.querySelectorAll('input[name="wda-focus"]').forEach(function(input){ input.addEventListener('change', function(){ pageIndex = 0; renderCandidates(); }); });
+      if (select && select.value) select.dispatchEvent(new Event('change'));
+      function actionLabel(action){
+        return {REVIEW_ADD: 'Review add', KEEP: 'Keep for now', MONITOR: 'Monitor'}[action] || 'Monitor';
+      }
       function escapeHtml(value){
         return String(value == null ? '' : value).replace(/[&<>"']/g, function(character){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]; });
       }
@@ -128,7 +194,16 @@
         var snap = evidence.snap_share || candidate.snap_share || {};
         var snapRow = (snap.rows || [])[0] || {};
         if (snapRow.snap_share != null) {
-          facts.push('Snap share: ' + formatPercent(snapRow.snap_share) + (snapRow.offense_snaps == null ? '' : ' (' + snapRow.offense_snaps + ' offensive snaps)') + ' · Week ' + (snapRow.week == null ? 'unavailable' : snapRow.week) + ' · ' + (snap.state === 'STALE' ? 'STALE' : 'Informational'));
+          var sample = snapRow.sample || {};
+          var snapCount = sample.snap_count == null ? snapRow.source_snap_count : sample.snap_count;
+          var domain = sample.participation_domain || snapRow.participation_domain || 'participation';
+          var source = snap.source || snapRow.source || 'UNAVAILABLE';
+          var freshness = snap.freshness_state || snapRow.freshness_state || snap.state || 'UNAVAILABLE';
+          var freshnessLabel = freshness === 'STALE' ? 'STALE' : freshness;
+          facts.push('Snap share: ' + formatPercent(snapRow.snap_share) + (snapCount == null ? '' : ' (' + snapCount + ' ' + domain.toLowerCase() + ' snaps)') + ' · Week ' + (snapRow.week == null ? 'unavailable' : snapRow.week) + ' · ' + source + ' · ' + freshnessLabel);
+        } else {
+          var snapBlockers = snap.blockers || [];
+          facts.push('Snap share: UNAVAILABLE' + (snapBlockers.length ? ' (' + snapBlockers.join(', ') + ')' : ''));
         }
         addFact(facts, 'Target Share', formatPercent(usage.target_share));
         addFact(facts, 'Carry Share', formatPercent(usage.carry_share));
@@ -136,9 +211,10 @@
         return facts.length ? facts.join(' · ') : 'Usage evidence unavailable.';
       }
       document.addEventListener('DOMContentLoaded', function(){
-        document.querySelectorAll('.candidate-card').forEach(function(card, index){
-          var candidate = candidateData[index] || {};
-          var evidence = (candidateData[index] || {}).evidence_context || {};
+          document.querySelectorAll('.candidate-card').forEach(function(card){
+            var candidate = candidateData.find(function(item){ return String(item.player_id) === String(card.getAttribute('data-player-id')); });
+            if (!candidate) return;
+            var evidence = candidate.evidence_context || {};
           var contextState = evidence.context_state || 'IDENTITY_LIMITED';
           var stateText = contextState === 'FULL_CONTEXT' ? 'Supported evidence' : contextState === 'PARTIAL_CONTEXT' ? 'Partial context' : contextState === 'SOURCE_LIMITED' ? 'Source limited' : contextState;
           var fit = evidence.roster_fit || {};
@@ -197,9 +273,16 @@
     </script>
     {% endif %}
   </section>
-  <section class="waiver-verdict"><div><small>Waiver verdict</small><h2>{{ 'RECOMMENDATIONS READY' if waiver_evidence and waiver_evidence.allowed else 'REVIEW EVIDENCE' }}</h2><span>{{ 'Candidates are ordered by supported roster fit and priority.' if waiver_evidence and waiver_evidence.allowed else 'Ownership or eligibility evidence is insufficient to publish candidates.' }}</span></div><div><small>Top priority</small><strong>{{ recommendations[0].player if recommendations else 'Unavailable' }}</strong><span>{{ recommendations[0].position if recommendations else 'No supported candidate' }}</span></div><div><small>FAAB guidance</small><strong>{{ ('$' ~ recommendations[0].faab) if recommendations and recommendations[0].faab is not none else 'Unavailable' }}</strong><span>{{ 'Suggested range $' ~ recommendations[0].bid_low ~ '–$' ~ recommendations[0].bid_high if recommendations else 'No supported range' }}</span></div></section>
-  {% if vacancies %}<div class="warning"><strong>Vacant starters:</strong> {{ vacancies|join(', ') }}. Prioritize adds that address these roster gaps.</div>{% endif %}
-  <details class="waiver-card"><summary>▶ Browse Available Players</summary><p class="eyebrow">Make the claim decision</p><h2>Browse Available Players</h2><div class="candidate-grid">{% for p in recommendations %}<article class="candidate-card"><div class="candidate-top"><span class="rank">#{{ loop.index }}</span><span class="muted">{{ p.position }}</span></div><h3>{{ p.player }}</h3><p class="muted">Priority score {{ p.priority_score }} · Tier {{ p.tier or 'Unavailable' }}</p><div class="candidate-value"><div><strong>{{ p.projection if p.projection is not none else '—' }}</strong><small>Season projection</small></div><div><strong>{{ ('$' ~ p.faab) if p.faab is not none else '—' }}</strong><small>Suggested FAAB</small></div></div><p class="candidate-reason">{{ p.need if p.need is not none and p.need > 0 else 'Best supported value available for review.' }}{% if p.need is not none and p.need > 0 %} roster need position(s).{% endif %}</p><div class="candidate-evidence"><div><small>Need</small><strong>{{ p.need if p.need is not none else 'Unavailable' }}</strong></div><div><small>FAAB range</small><strong>{{ ('$' ~ p.bid_low ~ '–$' ~ p.bid_high) if p.bid_low is not none else 'Unavailable' }}</strong></div></div><details class="recent-performance-details"><summary>▶ Recent Performance</summary>{% set recent = p.recent_production|default({}) %}{% set recent_rows = recent.rows|default([]) %}{% if recent_rows %}<ul class="recent-performance">{% for row in recent_rows[:3] %}<li><span>Wk {{ row.week }}</span><strong>{{ '%.1f'|format(row.fantasy_points_ppr) }}</strong></li>{% endfor %}</ul>{% elif p.position == 'K' %}<p>Recent performance unavailable.</p><p>Authoritative K production unavailable.</p>{% elif p.position in ('DEF', 'DST') %}<p>Recent performance unavailable.</p><p>Authoritative DEF production unavailable.</p>{% else %}<p>Recent performance unavailable.</p>{% endif %}</details></article>{% else %}<p>No supported waiver candidates are available.</p>{% endfor %}</div></details>
+  {% set actionable_candidates = [] %}
+  {% for candidate in recommendations %}
+    {% set candidate_context = candidate.evidence_context|default({}) %}
+    {% if waiver_evidence and waiver_evidence.allowed and waiver_evidence.ranking_confidence == 'VERIFIED' and candidate.recommendation_state == 'ACTIONABLE' and candidate_context.health_state == 'HEALTHY' and candidate_context.health_freshness_state == 'FRESH' and candidate_context.health_source == 'Sleeper API' and candidate.ownership_state == 'VERIFIED' and candidate.eligibility_state == 'VERIFIED' %}
+      {% set _ = actionable_candidates.append(candidate) %}
+    {% endif %}
+  {% endfor %}
+  {% if actionable_candidates %}<section class="waiver-card" aria-labelledby="actionable-adds-title"><h2 id="actionable-adds-title">Actionable Adds</h2><div class="candidate-grid">{% for p in actionable_candidates %}<article class="candidate-card" data-player-id="{{ p.player_id }}"><div class="candidate-top"><span class="rank">#{{ loop.index }}</span><span class="muted">{{ p.position }}</span></div><h3>{{ p.player }}</h3><p class="muted">Priority score {{ p.priority_score }} · Tier {{ p.tier or 'Unavailable' }}</p><div class="candidate-value"><div><strong>{{ p.projection if p.projection is not none else '—' }}</strong><small>Season projection</small></div><div><strong>{{ ('$' ~ p.faab) if p.faab is not none else '—' }}</strong><small>Suggested FAAB</small></div></div><p class="candidate-reason">{{ p.need if p.need is not none and p.need > 0 else 'Supported value available for review.' }}{% if p.need is not none and p.need > 0 %} roster need position(s).{% endif %}</p><div class="candidate-evidence"><div><small>Need</small><strong>{{ p.need if p.need is not none else 'Unavailable' }}</strong></div><div><small>FAAB range</small><strong>{{ ('$' ~ p.bid_low ~ '–$' ~ p.bid_high) if p.bid_low is not none else 'Unavailable' }}</strong></div></div><p class="muted">Health: {{ (p.evidence_context|default({})).health_state|default('UNAVAILABLE') }} · {{ (p.evidence_context|default({})).health_freshness_state|default('UNAVAILABLE') }} · {{ (p.evidence_context|default({})).health_source|default('UNAVAILABLE') }}</p></article>{% endfor %}</div></section>{% endif %}
+  {% if monitor_candidates %}<section aria-labelledby="monitor-candidates-title"><h2 id="monitor-candidates-title">Health verification needed</h2><p>These players are available, but Sleeper did not supply a usable health status. They are not confirmed injured or confirmed healthy. Verify their availability before considering a claim.</p><ul>{% for p in monitor_candidates %}<li>{{ p.player }} · {{ p.position }} · Health unverified; no ADD/DROP or FAAB recommendation.</li>{% endfor %}</ul></section>{% endif %}
+  <details class="waiver-card"><summary>Excluded health diagnostics</summary><p>Excluded candidates: {{ health_excluded_diagnostics.excluded_count|default(0) }}</p><p>Disposition reasons: {% for reason, count in (health_excluded_diagnostics.reason_counts|default({})).items() %}{{ reason }} ({{ count }}){% if not loop.last %}; {% endif %}{% else %}None{% endfor %}</p><p>Source/freshness summary: {% for state, count in (health_excluded_diagnostics.source_freshness_counts|default({})).items() %}{{ state }} ({{ count }}){% if not loop.last %}; {% endif %}{% else %}Unavailable{% endfor %}</p></details>
   {% if waiver_evidence and not waiver_evidence.allowed %}<section class="blocked"><strong>Recommendations blocked.</strong> Ownership or eligibility evidence is not sufficient to publish waiver candidates. {% for blocker in waiver_evidence.blockers %}<span>{{ blocker }}</span>{% if not loop.last %}, {% endif %}{% endfor %}<p>Ownership source: {{ waiver_evidence.ownership.source if waiver_evidence.ownership else 'UNVERIFIED' }}; freshness: {{ waiver_evidence.ownership.freshness_state if waiver_evidence.ownership else 'UNAVAILABLE' }}.</p><p>Eligibility source: {{ waiver_evidence.eligibility.source if waiver_evidence.eligibility else 'UNVERIFIED' }}; freshness: {{ waiver_evidence.eligibility.freshness_state if waiver_evidence.eligibility else 'UNAVAILABLE' }}.</p><p><strong>Evidence available:</strong> The waiver request and configured ownership/eligibility contracts were evaluated.</p><p><strong>Evidence missing:</strong> {% if waiver_evidence.ownership and waiver_evidence.ownership.freshness_state not in ('FRESH', 'AGING') %}verified ownership freshness{% endif %}{% if waiver_evidence.eligibility and waiver_evidence.eligibility.freshness_state not in ('FRESH', 'AGING') %}{% if waiver_evidence.ownership and waiver_evidence.ownership.freshness_state not in ('FRESH', 'AGING') %}; {% endif %}verified eligibility freshness{% endif %}.</p><p><strong>Recommendation affected:</strong> Waiver candidates and FAAB guidance remain unpublished.</p><p><strong>Manager action:</strong> Refresh Sleeper ownership and eligibility evidence, then review this page again before acting.</p></section>{% endif %}
   {% if waiver_evidence and waiver_evidence.allowed and waiver_evidence.ranking_confidence == 'UNVERIFIED' %}<div class="warning"><strong>Ranking confidence: low.</strong> Ownership and eligibility are verified, but automated waiver ranking source evidence is unverified ({{ waiver_evidence.warnings|join(', ') if waiver_evidence.warnings else 'WAIVER_RANKING_SOURCE_UNVERIFIED' }}). Candidates below use local player projections/rankings; treat priority order as research, not a verified ranking.</div>{% endif %}
   <details class="waiver-card" id="waiver-evidence-limitations"><summary>Evidence limitations</summary><ul><li>Role classification unavailable because no verified role contract is published.</li><li>Opportunity duration unavailable because no verified duration source exists.</li><li>Latest news unavailable because no verified player-news source is configured.</li><li>Ranking authority unavailable; current ordering uses the existing local ranking/projection inputs.</li></ul></details>
@@ -208,8 +291,8 @@
   {% include "_opportunity_evidence.html" %}
   </details>
   <details class="waiver-card"><summary>▶ Availability &amp; Identity Evidence</summary>
-  {% set waiver_candidates = recommendations %}{% include '_waiver_trust_panel.html' %}
+  {% set waiver_candidates = actionable_candidates + preliminary_suggestions %}{% include '_waiver_trust_panel.html' %}
   </details>
-  {% set ux_evidence = ux_route_evidence('waivers', recommendations|length) %}{% set ux_title = 'Waiver Availability Evidence' %}{% include '_ux_completion_panel.html' %}
+  {% set ux_evidence = ux_route_evidence('waivers', preliminary_suggestions|length) %}{% set ux_title = 'Waiver Availability Evidence' %}{% include '_ux_completion_panel.html' %}
 </main>
 {% endblock %}

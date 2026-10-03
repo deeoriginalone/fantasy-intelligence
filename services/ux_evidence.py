@@ -1,6 +1,31 @@
 """Fail-closed UX evidence helpers. No external writes or synthetic metrics."""
 from datetime import datetime, timezone
+from services.integrity.integrity_service import DEFAULT_FRESHNESS_LIMITS, calculate_freshness
 EVIDENCE_STATES={"AVAILABLE","UNKNOWN","STALE","UNSUPPORTED","NOT_APPLICABLE"}
+
+
+def weekly_evidence_contract(*, domain, source=None, source_recorded_at=None, retrieved_at=None, age=None, freshness_state="UNAVAILABLE", completeness_state="UNAVAILABLE", blocker=None, fallback_used=None, recommendation_impact=None):
+    """Shared fail-closed contract for weekly decision inputs."""
+    freshness_state = str(freshness_state or "UNAVAILABLE").upper()
+    completeness_state = str(completeness_state or "UNAVAILABLE").upper()
+    if freshness_state not in {"FRESH", "AGING", "STALE", "UNAVAILABLE", "BLOCKED"}:
+        freshness_state = "UNAVAILABLE"
+    if completeness_state not in {"COMPLETE", "INCOMPLETE", "UNAVAILABLE"}:
+        completeness_state = "UNAVAILABLE"
+    authoritative = freshness_state in {"FRESH", "AGING"} and completeness_state == "COMPLETE" and bool(source) and bool(retrieved_at) and not blocker
+    return {
+        "domain": domain,
+        "source": source or "UNVERIFIED",
+        "source_recorded_at": source_recorded_at,
+        "retrieved_at": retrieved_at,
+        "age": age,
+        "freshness_state": freshness_state if authoritative else ("BLOCKED" if blocker else "UNAVAILABLE"),
+        "completeness_state": completeness_state,
+        "blocker": blocker or (None if authoritative else "WEEKLY_SOURCE_METADATA_UNAVAILABLE"),
+        "fallback_used": fallback_used,
+        "recommendation_impact": recommendation_impact or ("Supports the affected weekly decision." if authoritative else "The affected weekly decision is unavailable until automated source evidence is refreshed."),
+        "authoritative": authoritative,
+    }
 def evidence(value=None,*,state=None,source=None,updated_at=None,blocker=None):
     state=str(state or ("AVAILABLE" if value not in (None,"") else "UNKNOWN")).upper()
     if state not in EVIDENCE_STATES: state="UNKNOWN"
@@ -95,11 +120,26 @@ def dashboard_state_contract(league=None, draft=None, source="Sleeper API", erro
     draft = dict(draft or {})
     raw_start = draft.get("start_time")
     display_start = format_pacific_datetime(raw_start)
+    season = league.get("season")
+    season_state = "AVAILABLE" if str(season or "").isdigit() else "UNKNOWN"
+    season_blocker = error
+    if season not in (None, "") and season_state != "AVAILABLE":
+        season_state, season_blocker = "UNSUPPORTED", "SEASON_VALUE_UNSUPPORTED"
+    draft_status = draft.get("status")
+    draft_status_state = "AVAILABLE" if draft_status in {"pre_draft", "drafting", "paused", "complete"} else "UNKNOWN"
+    draft_status_blocker = error
+    if draft_status not in (None, "") and draft_status_state != "AVAILABLE":
+        draft_status_state, draft_status_blocker = "UNSUPPORTED", "DRAFT_STATUS_UNSUPPORTED"
+    draft_type = draft.get("type")
+    draft_type_state = "AVAILABLE" if draft_type in {"snake", "linear", "auction", "mock"} else "UNKNOWN"
+    draft_type_blocker = error
+    if draft_type not in (None, "") and draft_type_state != "AVAILABLE":
+        draft_type_state, draft_type_blocker = "UNSUPPORTED", "DRAFT_TYPE_UNSUPPORTED"
     return {
-        "season": evidence(league.get("season"), source=source, blocker=error),
+        "season": evidence(season, state=season_state, source=source, blocker=season_blocker),
         "league_status": evidence(league.get("status"), source=source, blocker=error),
-        "draft_status": evidence(draft.get("status"), source=source, blocker=error),
-        "draft_type": evidence(draft.get("type"), source=source, blocker=error),
+        "draft_status": evidence(draft_status, state=draft_status_state, source=source, blocker=draft_status_blocker),
+        "draft_type": evidence(draft_type, state=draft_type_state, source=source, blocker=draft_type_blocker),
         "draft_start_time": evidence(display_start, state="AVAILABLE" if display_start else "UNKNOWN", source=source, blocker=error or ("DRAFT_START_TIME_INVALID" if raw_start not in (None, "") and not display_start else None)),
     }
 
@@ -140,10 +180,214 @@ def roster_lineage_view(players):
 
 def route_payload_evidence(page, count=None, blockers=None):
     """UX.3/UX.4/UX.6 active payload state shown by shared panels."""
-    return page_evidence(page=page, fields={"route_payload_count": count}, blockers=blockers, source="active route payload")
+    field = "visible_preliminary_candidate_count" if str(page).lower() == "waivers" else "route_payload_count"
+    return page_evidence(page=page, fields={field: count}, blockers=blockers, source="active route payload")
 
 
 WAIVER_FRESHNESS_STATES = ("FRESH", "AGING", "STALE", "UNAVAILABLE", "BLOCKED")
+WAIVER_OWNERSHIP_THRESHOLD_ID = "integrity.roster.v1"
+
+
+def resolve_waiver_candidate_identity(candidate, catalog, name_normalizer):
+    """Resolve one waiver candidate to a catalog-backed Sleeper player ID."""
+    candidate = dict(candidate or {})
+    catalog = dict(catalog or {})
+    input_player_id = str(candidate.get("player_id") or "").strip()
+    candidate_name = candidate.get("player") or candidate.get("name")
+    candidate_team = str(candidate.get("nfl_team") or candidate.get("team") or "").upper()
+    candidate_position = str(candidate.get("position") or "").upper().replace("DST", "DEF")
+    base = {
+        "input_reference": candidate_name,
+        "input_player_id": input_player_id or None,
+        "resolved_player_id": None,
+        "resolution_state": "UNRESOLVED",
+        "resolution_method": None,
+        "candidate_name": candidate_name,
+        "candidate_team": candidate_team or None,
+        "candidate_position": candidate_position or None,
+        "catalog_name": None,
+        "catalog_team": None,
+        "catalog_position": None,
+        "corroborating_fields": [],
+        "conflicting_fields": [],
+        "candidate_source": "local waiver candidate",
+        "catalog_source": "Sleeper player catalog",
+        "completeness_state": "INCOMPLETE",
+        "blocker": "WAIVER_CANDIDATE_ID_UNRESOLVED",
+        "recommendation_impact": "BLOCKED",
+    }
+    if input_player_id:
+        raw = catalog.get(input_player_id)
+        if raw is None:
+            base.update(resolution_state="UNSUPPORTED", blocker="WAIVER_CANDIDATE_ID_UNSUPPORTED")
+            return base
+        matches = [(input_player_id, raw)]
+        method = "DIRECT_SLEEPER_ID"
+    else:
+        normalized = name_normalizer(candidate_name or "")
+        if not normalized:
+            return base
+        matches = [
+            (str(player_id), raw or {})
+            for player_id, raw in catalog.items()
+            if name_normalizer(
+                (raw or {}).get("full_name")
+                or " ".join(
+                    part
+                    for part in ((raw or {}).get("first_name"), (raw or {}).get("last_name"))
+                    if part
+                )
+            ) == normalized
+        ]
+        if not matches:
+            return base
+        if len(matches) != 1:
+            base.update(resolution_state="AMBIGUOUS", blocker="WAIVER_CANDIDATE_ID_AMBIGUOUS")
+            return base
+        method = "UNIQUE_CANONICAL_MATCH"
+    player_id, raw = matches[0]
+    catalog_position = str(raw.get("position") or "").upper().replace("DST", "DEF")
+    catalog_team = str(raw.get("team") or "").upper()
+    catalog_name = raw.get("full_name") or " ".join(
+        part for part in (raw.get("first_name"), raw.get("last_name")) if part
+    )
+    conflicts = []
+    corroborating = []
+    if candidate_position:
+        if candidate_position != catalog_position:
+            conflicts.append("position")
+        else:
+            corroborating.append("position")
+    if candidate_team and candidate_team != "FA":
+        if candidate_team != catalog_team:
+            conflicts.append("team")
+        else:
+            corroborating.append("team")
+    base.update(
+        catalog_name=catalog_name or None,
+        catalog_team=catalog_team or None,
+        catalog_position=catalog_position or None,
+        corroborating_fields=corroborating,
+        conflicting_fields=conflicts,
+    )
+    if conflicts:
+        base.update(resolution_state="CONFLICTING", blocker="WAIVER_CANDIDATE_ID_CONFLICTING")
+        return base
+    base.update(
+        resolved_player_id=player_id,
+        resolution_state="RESOLVED",
+        resolution_method=method,
+        completeness_state="COMPLETE",
+        blocker=None,
+        recommendation_impact="AVAILABLE",
+    )
+    return base
+
+
+def waiver_ownership_freshness(
+    *,
+    source_record_time=None,
+    retrieved_at=None,
+    source="Sleeper API",
+    now=None,
+):
+    """Derive waiver ownership freshness from the existing roster registry."""
+    threshold = DEFAULT_FRESHNESS_LIMITS["roster"]
+    base = {
+        "domain": "waiver ownership",
+        "source": source,
+        "source_record_time": source_record_time,
+        "retrieved_at": retrieved_at,
+        "age": None,
+        "freshness_threshold_id": WAIVER_OWNERSHIP_THRESHOLD_ID,
+        "freshness_threshold_seconds": threshold,
+        "freshness_state": "BLOCKED",
+        "completeness_state": "UNKNOWN",
+        "blocker": None,
+        "recommendation_impact": "BLOCKED",
+        "allowed": False,
+    }
+    if not retrieved_at:
+        base["blocker"] = "WAIVER_RETRIEVED_AT_MISSING"
+        return base
+    freshness = calculate_freshness(
+        {"roster_sync_time": retrieved_at},
+        "roster",
+        now=now,
+        max_age_seconds=threshold,
+    )
+    base["age"] = freshness["age_seconds"]
+    if freshness["status"] == "FRESH":
+        base["freshness_state"] = "FRESH"
+        base["completeness_state"] = "COMPLETE"
+        base["recommendation_impact"] = "AVAILABLE"
+        base["allowed"] = True
+    elif freshness["status"] in {"STALE", "EXPIRED"}:
+        base["freshness_state"] = "STALE"
+        base["blocker"] = "WAIVER_OWNERSHIP_STALE"
+    else:
+        base["blocker"] = "WAIVER_OWNERSHIP_FRESHNESS_UNAVAILABLE"
+    return base
+
+
+def derived_waiver_availability(
+    *,
+    league_id,
+    ownership,
+    supported_player_ids,
+    supported_positions,
+    candidates=None,
+    identity_diagnostics=None,
+):
+    """Derive available players from current roster ownership and a supported pool."""
+    ownership = dict(ownership or {})
+    supported_ids = {str(player_id) for player_id in supported_player_ids or []}
+    positions = {str(position).upper() for position in supported_positions or []}
+    owned_ids = {str(player_id) for player_id in ownership.get("owned_player_ids") or []}
+    blockers = []
+    if not supported_ids:
+        blockers.append("WAIVER_SUPPORTED_PLAYER_UNIVERSE_UNAVAILABLE")
+    if not positions:
+        blockers.append("WAIVER_ROSTER_POSITION_RULES_UNAVAILABLE")
+    unsupported_ids = set()
+    missing_ids = set()
+    for candidate in candidates or []:
+        player_id = str((candidate or {}).get("player_id") or "")
+        position = str((candidate or {}).get("position") or "").upper()
+        if not player_id:
+            missing_ids.add(player_id)
+        elif player_id not in supported_ids or position not in positions:
+            unsupported_ids.add(player_id)
+    blocker = blockers[0] if blockers else None
+    freshness_state = ownership.get("freshness_state", "UNAVAILABLE")
+    completeness_state = ownership.get("completeness_state", "INCOMPLETE")
+    availability = waiver_evidence_contract(
+        domain="waiver availability",
+        league_id=league_id,
+        source="Derived from current Sleeper rosters and supported player pool",
+        source_record_time=None,
+        retrieved_at=ownership.get("retrieved_at"),
+        age=ownership.get("age"),
+        freshness_threshold_id=ownership.get("freshness_threshold_id"),
+        freshness_state=freshness_state,
+        completeness_state=completeness_state,
+        blocker=blocker,
+        authority_state="DERIVED",
+        authority_detail=(
+            "Availability is derived from current league roster ownership "
+            "and the supported player pool."
+        ),
+        recommendation_impact="AVAILABLE",
+    )
+    availability.update(
+        eligible_player_ids=supported_ids - owned_ids - unsupported_ids,
+        excluded_rostered_player_ids=sorted(owned_ids),
+        unsupported_player_ids=sorted(unsupported_ids),
+        missing_candidate_id_count=len(missing_ids),
+        derivation="supported player universe minus active-league rostered player IDs",
+        identity_diagnostics=dict(identity_diagnostics or {}),
+    )
+    return availability
 
 
 def waiver_roster_coverage(rosters, expected_count=None):
@@ -188,6 +432,8 @@ def waiver_evidence_contract(
     freshness_state="UNAVAILABLE",
     completeness_state="INCOMPLETE",
     blocker=None,
+    authority_state="UNKNOWN",
+    authority_detail=None,
     fallback_used=None,
     recommendation_impact="BLOCKED",
     expected_active_roster_count=None,
@@ -238,6 +484,8 @@ def waiver_evidence_contract(
         "freshness_state": state,
         "completeness_state": completeness,
         "blocker": blocker,
+        "authority_state": authority_state,
+        "authority_detail": authority_detail,
         "fallback_used": fallback_used,
         "expected_active_roster_count": expected_active_roster_count,
         "observed_active_roster_count": observed_active_roster_count,
@@ -271,15 +519,22 @@ def evaluate_waiver_availability(candidates, ownership, eligibility):
     owned_ids = {str(player_id) for player_id in ownership.get("owned_player_ids") or []}
     eligible_ids = {str(player_id) for player_id in eligibility.get("eligible_player_ids") or []}
     published = []
+    published_ids = set()
     for candidate in candidates or []:
         row = dict(candidate)
         player_id = str(row.get("player_id") or "")
-        if not player_id or player_id in owned_ids or player_id not in eligible_ids:
+        if (
+            not player_id
+            or player_id in owned_ids
+            or player_id not in eligible_ids
+            or player_id in published_ids
+        ):
             continue
         row["verified_available"] = True
         row["ownership_evidence"] = ownership
         row["eligibility_evidence"] = eligibility
         published.append(row)
+        published_ids.add(player_id)
     return {
         "candidates": published,
         "allowed": True,

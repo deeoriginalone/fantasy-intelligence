@@ -1,5 +1,21 @@
 # Metric Definitions and Display Contract
 
+## Fantasy Intelligence 2.0 Metric Direction
+
+Metrics exist only to improve a league-specific manager decision. Keep metric displays understandable, informational where authority is incomplete, and fail closed when inputs are missing or contradictory. No metric may imply ranking, confidence, probability, FAAB, or recommendation authority beyond its documented contract.
+
+## Evidence-first architecture
+
+The standard path is `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. Evidence may be useful before it is authoritative. Each evidence contract may carry evidence confidence, evidence level, and confidence rationale; confidence means evidence certainty, not player quality.
+
+Evidence levels:
+
+- **ESTABLISHED:** Sufficient evidence for authoritative metrics when the metric contract permits it.
+- **PRELIMINARY:** Supported informational evidence that may be shown with sample, freshness, limitations, and context-only impact, but may not independently drive recommendations or be labeled authoritative.
+- **INSUFFICIENT:** Supported evidence too weak to display as a meaningful metric.
+
+Never fabricate rank, score, confidence, recommendation, probability, authority, or freshness. Use unavailable only when no meaningful supported evidence exists.
+
 ## Rule
 
 A metric must not be displayed as authoritative until its implementation documents the fields below and the related tests pass.
@@ -40,6 +56,17 @@ Multi-source corroboration does not authorize a metric by itself. For every metr
 - Decision use: Provide context for START, SIT, FLEX, or MONITOR. Matchup Rank must not independently determine a decision.
 - Owner service or contract: Matchup evidence supplied through the UX.2 Team Accuracy contract.
 - Validation tests: Population and directionality contract tests, missing and stale evidence tests, template tests, route-payload tests, and active /team rendered-page verification.
+
+## Matchup Signal
+
+- Status: INFORMATIONAL ONLY until the Matchup Rank authority contract is complete.
+- Purpose: Show supported directional matchup context without presenting it as an authoritative rank.
+- Scale or unit: A disclosed signal such as “5th easiest defense,” tied to the supplied population, directionality, scoring context, and sample.
+- Inputs: The supported matchup evidence used by Matchup Rank, including source, retrieval time, freshness, completed-game sample, and limitations.
+- Evidence level: `PRELIMINARY` when current evidence is useful but the authority threshold or another rank contract field is incomplete; `ESTABLISHED` only when the governing contract permits authoritative use.
+- Missing-data behavior: Show `INSUFFICIENT` or `UNAVAILABLE` when evidence cannot support a meaningful signal. Never substitute a neutral signal.
+- Decision use: Context only while preliminary; it must not independently drive START, SIT, FLEX, MONITOR, or another recommendation.
+- Historical behavior: Historical evidence may inform stability, governance, baselines, and trends but may not become current-season Matchup Signal or Rank automatically.
 
 ## Roster Strength
 

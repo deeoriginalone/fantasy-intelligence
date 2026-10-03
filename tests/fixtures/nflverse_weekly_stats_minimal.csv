@@ -1,0 +1,5 @@
+player_id,full_name,position,defense_team,game_id,game_completed,passing_yards,passing_tds,interceptions,rushing_yards,rushing_tds,receiving_yards,receiving_tds,receptions,two_point_conversions,fumbles_lost
+p1,Quarterback One,QB,ARI,g1,true,250,2,0,0,0,0,0,0,0,0
+p2,Receiver One,WR,ARI,g1,true,0,0,0,0,0,100,1,8,0,0
+p3,Receiver Two,WR,ARI,g2,false,0,0,0,0,0,200,2,20,0,0
+p4,Kicker One,K,ARI,g1,true,0,0,0,0,0,0,0,0,0,0

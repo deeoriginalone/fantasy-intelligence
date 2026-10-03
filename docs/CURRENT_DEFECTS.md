@@ -1,5 +1,15 @@
 ## Current Defects and QA Findings
 
+## Fantasy Intelligence 2.0 Defect Priority
+
+Prioritize defects that prevent a manager from making a supported weekly or season decision: broken core pages, missing persisted history, ownership or identity errors, misleading authority, stale evidence, recovery failures, and confusing action-first presentation. Defer enterprise or process-only defects unless they affect data truth, safety, recovery, or manager value.
+
+## Evidence-first defect rule
+
+When authority is blocked, defect acceptance must distinguish unsafe authority from lost usefulness. Preserve fail-closed behavior for rank, score, confidence, recommendation, probability, authority, and freshness claims, while exposing supported preliminary evidence with its evidence level, sample, freshness, limitations, and recommendation impact. “Unavailable” is correct only when no meaningful supported evidence exists.
+
+Navigation simplification and legacy-page disposition are planned work only. They do not close, downgrade, or otherwise change any existing defect status.
+
 ### Status rules
 - **REPORTED:** observed during hands-on QA but not yet reproduced in a controlled test.
 - **REPRODUCED:** confirmed on the active route with evidence.

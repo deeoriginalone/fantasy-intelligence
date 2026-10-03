@@ -1,11 +1,9 @@
 from __future__ import annotations
 from datetime import datetime
+from services.lineup_evidence import build_matchup_evidence
 from services.schedule_bye_evidence import evidence_contract as schedule_bye_evidence_contract
 from services.ux_evidence import weekly_evidence_contract
-from services.lineup_evidence import build_lineup_evidence, build_matchup_evidence, build_projection_evidence
 from services.ux_evidence import weekly_evidence_contract
-from services.authoritative_week import acquire_authoritative_week
-from services.sleeper_service import get_nfl_state
 
 TEAM_ALIASES = {
     "ARI":"ARI","ATL":"ATL","BAL":"BAL","BUF":"BUF","CAR":"CAR","CHI":"CHI","CIN":"CIN","CLE":"CLE",
@@ -33,9 +31,12 @@ def normalize_team(value):
     if not value: return None
     return TEAM_ALIASES.get(str(value).upper().strip(), str(value).upper().strip())
 
-def current_week(cur, season=2026, sleeper_state_reader=get_nfl_state):
-    context = acquire_authoritative_week(cur, sleeper_state_reader, season=season)
-    return context["week"] if context["authoritative"] else None
+def current_week(cur, season=2026):
+    cur.execute("SELECT state_value FROM application_state WHERE state_key='current_week'")
+    row=cur.fetchone()
+    if row and row[0] and row[0].get("week"):
+        return int(row[0]["week"])
+    return 1
 
 def set_current_week(cur, week, season=2026):
     import json
@@ -115,13 +116,11 @@ def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True
         m = None
         if allow_local_weekly_data:
             cur.execute(
-            """SELECT defense_rank,fp_per_game_allowed,source,retrieved_at,completeness_state,blocker,
-                              version,checksum,source_recorded_at,lineage,completed_games
+            """SELECT defense_rank,fp_per_game_allowed,source,retrieved_at,completeness_state,blocker,version,checksum,source_recorded_at,lineage,completed_games
                                      FROM defense_matchups WHERE season=%s AND position=%s AND defense_team=%s
                                          AND source LIKE 'automated:nflverse%%' AND completeness_state='COMPLETE'
                                      UNION ALL
-                                      SELECT defense_rank,fp_per_game_allowed,source,retrieved_at,completeness_state,blocker,
-                                          version,checksum,source_recorded_at,lineage,completed_games
+                                     SELECT defense_rank,fp_per_game_allowed,source,retrieved_at,completeness_state,blocker,version,checksum,source_recorded_at,lineage,completed_games
                                      FROM defense_matchups WHERE season=%s AND position=%s AND defense_team=%s
                                          AND source LIKE 'csv:%%' AND NOT EXISTS (
                                              SELECT 1 FROM defense_matchups WHERE season=%s AND position=%s AND defense_team=%s
@@ -134,25 +133,27 @@ def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True
         matchup_source=m[2] if m and len(m)>2 and m[2] else "Unavailable"
         matchup_retrieved_at=m[3] if m and len(m)>3 else None
         p["matchup_source"]=f"nfl_schedule + {matchup_source}" if sched and matchup_source != "Unavailable" else matchup_source
-        p["matchup_source_authority"] = "automated" if matchup_source.startswith("automated:") else "UNVERIFIED"
-        p["matchup_version"] = m[6] if m and len(m)>6 else None
-        p["matchup_checksum"] = m[7] if m and len(m)>7 else None
-        p["matchup_source_recorded_at"] = m[8] if m and len(m)>8 else None
-        p["matchup_publication_lineage"] = m[9] if m and len(m)>9 else None
-        p["matchup_sample_size"] = m[10] if m and len(m)>10 else None
         p["matchup_retrieved_at"]=matchup_retrieved_at
-        p["matchup_updated_at"]=matchup_retrieved_at
-        # Population/directionality/threshold are only trusted from the automated
-        # nflverse publication contract embedded at publish time (never invented here).
-        publication_contracts = p["matchup_publication_lineage"].get("publication_contracts") if isinstance(p["matchup_publication_lineage"], dict) else None
-        publication_contracts = publication_contracts or {}
-        threshold_contract = publication_contracts.get("threshold") or {}
-        population_contract = publication_contracts.get("population") or {}
-        directionality_contract = publication_contracts.get("directionality") or {}
-        p["matchup_sample_threshold_id"] = threshold_contract.get("identifier") if threshold_contract.get("state") == "VERIFIED" else None
-        p["matchup_population"] = population_contract.get("name") or None
-        p["matchup_directionality"] = directionality_contract.get("value") or None
-        p["matchup_lineage"]={"source":p["matchup_source"],"source_recorded_at":p["matchup_source_recorded_at"],"retrieved_at":matchup_retrieved_at,"publication":p["matchup_publication_lineage"]}
+        publication_lineage = m[9] if m and len(m) > 9 and isinstance(m[9], dict) else {}
+        contracts = publication_lineage.get("publication_contracts") or {}
+        threshold_contract = contracts.get("threshold") or {}
+        population_contract = contracts.get("population") or {}
+        directionality_contract = contracts.get("directionality") or {}
+        automated_complete = bool(m and matchup_source.startswith("automated:nflverse") and m[4] == "COMPLETE" and not m[5])
+        p["matchup_version"] = m[6] if m and len(m) > 6 else None
+        p["matchup_checksum"] = m[7] if m and len(m) > 7 else None
+        p["matchup_source_recorded_at"] = m[8] if m and len(m) > 8 else None
+        p["matchup_sample_size"] = m[10] if m and len(m) > 10 else None
+        p["matchup_publication_lineage"] = publication_lineage
+        p["matchup_lineage"]={"source":p["matchup_source"],"source_recorded_at":p["matchup_source_recorded_at"],"retrieved_at":matchup_retrieved_at,**publication_lineage}
+        p["matchup_source_authority"] = "automated" if automated_complete else None
+        p["matchup_sample_threshold_id"] = threshold_contract.get("identifier") if automated_complete and threshold_contract.get("state") == "VERIFIED" else None
+        p["matchup_sample_threshold_value"] = threshold_contract.get("value") if automated_complete and threshold_contract.get("state") == "VERIFIED" else None
+        p["matchup_population"] = population_contract.get("name") if automated_complete else None
+        p["matchup_population_size"] = population_contract.get("size") if automated_complete else None
+        p["matchup_directionality"] = directionality_contract.get("value") if automated_complete else None
+        p["matchup_scoring_context"] = population_contract.get("scoring_context") if automated_complete else None
+        p["matchup_updated_at"] = matchup_retrieved_at
         p["matchup_completeness"]="COMPLETE" if sched and m and matchup_retrieved_at else "UNAVAILABLE"
         if not m or not sched:
             p["evidence_gaps"].append("MATCHUP_EVIDENCE_UNAVAILABLE")
@@ -172,25 +173,12 @@ def enrich_players(cur, players, week, season=2026, allow_local_weekly_data=True
             p["weekly_evidence"] = {
                 "schedule": schedule_bye_evidence_contract("schedule", source=(sched[3] if sched and len(sched)>3 else None), source_recorded_at=(sched[4] if sched and len(sched)>4 else None), retrieved_at=(sched[5] if sched and len(sched)>5 else None), imported_at=(sched[6] if sched and len(sched)>6 else None)),
                 "bye": schedule_bye_evidence_contract("bye", source=(bye_row[1] if bye_row and len(bye_row)>1 else None), source_recorded_at=(bye_row[2] if bye_row and len(bye_row)>2 else None), retrieved_at=(bye_row[3] if bye_row and len(bye_row)>3 else None), imported_at=(bye_row[4] if bye_row and len(bye_row)>4 else None)),
-                "matchup": weekly_evidence_contract(domain="matchup", blocker="MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE"),
+                "matchup": build_matchup_evidence(p, season=season, week=week),
                 "projection": weekly_evidence_contract(domain="projection", blocker="PROJECTION_AUTOMATED_SOURCE_UNAVAILABLE"),
             }
-            # Matchup is informational only: roster (schedule/bye) and
-            # projection evidence remain the hard blockers for weekly values.
-            hard_evidence_blocked = any(
-                not item["authoritative"]
-                and domain not in ("projection", "matchup")
-                for domain, item in p["weekly_evidence"].items()
-            )
-            projection_missing = p.get("projection") is None or not p.get("projection_retrieved_at")
-            p["matchup_confidence_reduced"] = not p["weekly_evidence"]["matchup"]["authoritative"]
-            if hard_evidence_blocked or projection_missing:
+            if not all(item["authoritative"] for item in p["weekly_evidence"].values()):
                 p["weekly_baseline"] = None
                 p["weekly_score"] = None
-            p["lineup_evidence"] = build_lineup_evidence(
-                build_projection_evidence(p, season=season, week=week),
-                build_matchup_evidence(p, season=season, week=week),
-            )
         else:
             p["weekly_evidence"] = {}
         enriched.append(p)

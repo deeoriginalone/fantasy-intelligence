@@ -1,5 +1,6 @@
 """Read-only access to published snap-share evidence."""
 from __future__ import annotations
+import json
 from typing import Any
 
 COLUMNS = ("season", "week", "player_id", "pfr_player_id", "team", "opponent_team", "snap_share", "source", "source_authority", "source_recorded_at", "retrieved_at", "artifact_id", "version", "checksum", "freshness_threshold_id", "freshness_state", "completeness_state", "lineage", "publication_state")
@@ -33,11 +34,29 @@ def read_snap_share(connection: Any, *, player_id: Any, season: Any, week_start:
         return base
     finally:
         cursor.close()
+    for row in rows:
+        lineage = row.get("lineage")
+        if isinstance(lineage, str):
+            try:
+                lineage = json.loads(lineage)
+            except (TypeError, ValueError):
+                lineage = {}
+        sample = (lineage or {}).get("sample") or {}
+        row["sample"] = sample
+        row["position"] = sample.get("position")
+        row["participation_domain"] = sample.get("participation_domain")
+        row["source_snap_count"] = sample.get("snap_count")
+        row["source_percentage_field"] = sample.get("percentage_field")
     if not rows:
         base["blockers"] = ["SNAP_SHARE_READER_NO_ROWS"]
         return base
-    if any(row.get("freshness_state") not in {"FRESH", "AGING"} for row in rows):
-        base.update(state="STALE", rows=rows, blockers=["SNAP_SHARE_EVIDENCE_STALE"], source=rows[0].get("source"), freshness_state=rows[0].get("freshness_state"), completeness_state=rows[0].get("completeness_state"), age=None, lineage=rows[0].get("lineage"), freshness_threshold_id=rows[0].get("freshness_threshold_id"))
+    current = rows[0]
+    current_freshness = current.get("freshness_state")
+    if current.get("snap_share") is None:
+        base.update(state="UNAVAILABLE", rows=rows, blockers=["SNAP_SHARE_VALUE_UNAVAILABLE"], source=current.get("source"), freshness_state=current_freshness, completeness_state=current.get("completeness_state"), age=None, lineage=current.get("lineage"), freshness_threshold_id=current.get("freshness_threshold_id"))
         return base
-    base.update(state="AVAILABLE", rows=rows, source=rows[0].get("source"), freshness_state=rows[0].get("freshness_state"), completeness_state=rows[0].get("completeness_state"), age=None, lineage=rows[0].get("lineage"), freshness_threshold_id=rows[0].get("freshness_threshold_id"))
+    if current_freshness not in {"FRESH", "AGING"}:
+        base.update(state="STALE", rows=rows, blockers=["SNAP_SHARE_EVIDENCE_STALE"], source=current.get("source"), freshness_state=current_freshness, completeness_state=current.get("completeness_state"), age=None, lineage=current.get("lineage"), freshness_threshold_id=current.get("freshness_threshold_id"))
+        return base
+    base.update(state="AVAILABLE", rows=rows, source=current.get("source"), freshness_state=current_freshness, completeness_state=current.get("completeness_state"), age=None, lineage=current.get("lineage"), freshness_threshold_id=current.get("freshness_threshold_id"))
     return base

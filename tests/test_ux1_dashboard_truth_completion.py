@@ -23,6 +23,45 @@ def test_template_surfaces():
     assert "Data last checked" in text
 
 
+def test_command_center_surfaces_supported_summary_links():
+    text=Path("templates/dashboard.html").read_text()
+    for label in ("League Overview", "Start/Sit", "Waivers", "Trades", "Survivor", "NFL Highlights", "What Changed", "Risk Alerts"):
+        assert label in text
+    assert "owner_ops.waivers_page" in text
+    assert "owner_ops.trades_page" in text
+    assert "nfl_intelligence.home" in text
+    assert "{% set decision_center = none %}" in text
+    assert text.count('id="command-center-title"') == 1
+    assert "Evidence and diagnostics" in text
+
+
+def test_command_center_context_uses_existing_dashboard_fields():
+    text=Path("templates/dashboard.html").read_text()
+    for label in ("Teams", "Format", "Season", "Draft", "Freshness", "Status"):
+        assert f"<dt>{label}</dt>" in text
+    assert "league_overview.draft_type" in text
+    assert "league_overview.draft_status" in text
+
+
+def test_command_center_reuses_league_overview_facts():
+    text=Path("templates/dashboard.html").read_text()
+    for label in ("My Team", "Record", "Format", "Draft Slot", "Playoff Teams", "FAAB Budget"):
+        assert f"<dt>{label}</dt>" in text
+    assert "league_overview.teams" in text
+    assert "overview_owner" in text
+    assert "league-identity" in text
+    assert "League identity" in text
+
+
+def test_navigation_groups_preserve_core_and_supporting_destinations():
+    text=Path("templates/base.html").read_text()
+    for label in ("Season Planning", "Admin", "Command Center", "My Team", "Waivers", "Trades", "Survivor", "NFL Intelligence", "Team Changes", "Draft Board", "Mock Draft", "Sleeper Hub", "Diagnostics"):
+        assert label in text
+    assert ">Primary<" not in text
+    assert "Market Intelligence" not in text
+    assert "League Overview" not in text
+
+
 def test_shared_league_facts_available_and_fail_closed():
     available=shared_league_facts({"season":"2026","status":"in_season"})
     assert available["season"]["state"]=="AVAILABLE"

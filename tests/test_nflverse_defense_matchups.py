@@ -1,11 +1,14 @@
 import json
+from datetime import datetime
 
 import pytest
 
+import services.integrity.integrity_service as integrity_service
 from services.defense_matchup_calculation import calculate_defense_matchups, full_ppr_points
 from services.nflverse_identity_resolution import resolve_player_identity
 from services.nflverse_ingestion_validator import validate_nflverse_weekly_stats
 from services.defense_matchup_publication import publish_defense_matchups, select_authoritative_matchups
+from services.preliminary_matchup_context import build_preliminary_matchup_context
 
 
 def row(position, defense, game, points, completed=True):
@@ -18,6 +21,13 @@ def complete_rows(points=1):
 
 
 NOW = "2026-09-15T12:00:00+00:00"
+
+
+@pytest.fixture(autouse=True)
+def fixed_freshness_clock(monkeypatch):
+    # calculate_defense_matchups exposes no evaluation time, so freshness is evaluated at this fixed instant.
+    fixed = datetime.fromisoformat(NOW)
+    monkeypatch.setattr(integrity_service, "_utc_now", lambda now=None: integrity_service._parse_timestamp(now) if now else fixed)
 
 
 def test_full_ppr_and_completed_games_only():
@@ -67,6 +77,36 @@ def test_zero_and_insufficient_samples_fail_closed():
     assert calculate_defense_matchups([], season=2026, sample_threshold=1)["status"] == "UNAVAILABLE"
     assert calculate_defense_matchups(complete_rows(), season=2026, sample_threshold=2, retrieved_at=NOW)["status"] == "INSUFFICIENT_SAMPLE"
     assert calculate_defense_matchups(complete_rows(), season=2026, retrieved_at=NOW)["status"] == "BLOCKED"
+
+
+def test_stale_and_expired_evidence_block_authority():
+    stale = calculate_defense_matchups(complete_rows(), season=2026, sample_threshold=1, retrieved_at="2026-09-14T00:00:00+00:00")
+    expired = calculate_defense_matchups(complete_rows(), season=2026, sample_threshold=1, retrieved_at="2026-09-10T12:00:00+00:00")
+    assert (stale["status"], stale["blocker"], stale["authoritative"]) == ("BLOCKED", "MATCHUP_DATA_STALE", False)
+    assert (expired["status"], expired["blocker"], expired["authoritative"]) == ("BLOCKED", "MATCHUP_DATA_EXPIRED", False)
+    with pytest.raises(ValueError, match="MATCHUP_DATA_EXPIRED"):
+        publish_defense_matchups(FakeConnection(), expired)
+
+
+@pytest.mark.parametrize("configured", ["bad", "0", "-1"])
+def test_malformed_or_nonpositive_thresholds_have_no_default(configured):
+    evidence = calculate_defense_matchups(complete_rows(), season=2026, threshold_environment={"MATCHUP_MIN_COMPLETED_GAMES": configured}, retrieved_at=NOW)
+    assert evidence["blocker"] == "MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED"
+    assert evidence["authoritative"] is False
+    assert evidence["publication_contracts"]["threshold"]["state"] == "UNAVAILABLE"
+    assert evidence["publication_contracts"]["threshold"]["value"] is None
+    assert select_authoritative_matchups(evidence) is None
+
+
+def test_insufficient_sample_stays_informational_without_decision_effect():
+    evidence = calculate_defense_matchups(complete_rows(), season=2026, sample_threshold=2, retrieved_at=NOW)
+    assert evidence["status"] == "INSUFFICIENT_SAMPLE" and evidence["authoritative"] is False
+    assert select_authoritative_matchups(evidence) is None
+    preliminary = build_preliminary_matchup_context(evidence)
+    assert preliminary["authority"] == "INFORMATIONAL_ONLY"
+    assert preliminary["decision_effect"] == "NONE"
+    with pytest.raises(ValueError, match="MATCHUP_SAMPLE_BELOW_THRESHOLD"):
+        publish_defense_matchups(FakeConnection(), evidence)
 
 
 def test_exclusions_unresolved_identity_and_scoring():

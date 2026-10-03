@@ -45,6 +45,8 @@ def acquire_nflverse_player_metadata(
         "checksum": checksum,
         "source_recorded_at": source_recorded_at,
         "retrieved_at": retrieved,
+        "coverage_state": "COMPLETE",
+        "record_count": len(rows),
         "schema_version": SCHEMA_VERSION,
     }
     return {

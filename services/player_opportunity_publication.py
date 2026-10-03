@@ -55,6 +55,7 @@ def publish_player_opportunity(conn: Any, evidence: Mapping[str, Any]) -> int:
     source_authority = "automated" if str(source or "").startswith("automated:") else "UNVERIFIED"
     threshold_id = (evidence.get("publication_contracts") or {}).get("threshold", {}).get("identifier")
     artifact_id = f"stats_player_week_{evidence['season']}"
+    batch_production = provenance.get("production_evidence") or {}
     cursor = conn.cursor()
     try:
         weeks = sorted({int(week) for week in (evidence.get("weeks") or [row["week"] for row in evidence["rows"]])})
@@ -65,6 +66,9 @@ def publish_player_opportunity(conn: Any, evidence: Mapping[str, Any]) -> int:
             (evidence["season"], list(weeks)),
         )
         for row in evidence["rows"]:
+            production_key = f"{row['player_id']}:{row['week']}"
+            # Each row carries only its own production entry; the reader resolves it by this key.
+            row_lineage = {**provenance, "production_evidence": {production_key: batch_production[production_key]} if production_key in batch_production else {}}
             cursor.execute(
                 """INSERT INTO player_opportunity_evidence(
                     season, week, player_id, team, position, opponent_team,
@@ -98,7 +102,7 @@ def publish_player_opportunity(conn: Any, evidence: Mapping[str, Any]) -> int:
                     provenance.get("source_recorded_at"), provenance.get("retrieved_at"),
                     artifact_id, provenance.get("version"), provenance.get("checksum"),
                     threshold_id, row.get("freshness_state"), row.get("completeness_state"),
-                    json.dumps(provenance), "PUBLISHED",
+                    json.dumps(row_lineage), "PUBLISHED",
                 ),
             )
         conn.commit()

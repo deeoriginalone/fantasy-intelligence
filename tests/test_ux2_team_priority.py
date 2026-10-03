@@ -45,6 +45,21 @@ def test_health_monitoring_priority_targets_player():
     assert result["blockers"] == ["PLAYER_HEALTH_UNAVAILABLE"]
 
 
+def test_current_out_starter_outranks_recommended_bench_health_review():
+    current = starter(player="Rico Dowle", injury_status="Out", sleeper_current_starter=True, slot="RB2")
+    benched = starter(player="Joe Burrow", injury_status="Healthy", sleeper_current_starter=False, slot="QB", decision="MONITOR")
+    result = build_team_priority_action([benched], needs(), {"state": "AVAILABLE"}, accuracy(), current_starters=[current])
+    assert result["action"] == "Review Rico Dowle's availability before lineup lock"
+    assert result["urgency"] == "CRITICAL"
+
+
+def test_current_questionable_starter_outranks_bench_review():
+    current = starter(player="Mike Evans", injury_status="Questionable", sleeper_current_starter=True, slot="FLEX")
+    benched = starter(player="Joe Burrow", injury_status="Healthy", sleeper_current_starter=False, slot="QB", decision="MONITOR")
+    result = build_team_priority_action([benched], needs(), {"state": "AVAILABLE"}, accuracy(), current_starters=[current])
+    assert result["action"] == "Monitor Mike Evans before lineup lock"
+
+
 def test_depth_action_preserves_driver():
     result = build_team_priority_action([starter()], needs(RB={"state": "AVAILABLE", "strategic_need": "ADD_DEPTH", "drivers": ["3 RB options are available against a depth target of 4."]}), {"state": "AVAILABLE"}, accuracy())
     assert result["action"] == "Add RB depth"

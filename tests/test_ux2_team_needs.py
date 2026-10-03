@@ -77,3 +77,10 @@ def test_missing_settings_fail_closed():
 
 def test_each_supported_result_has_a_driver():
     assert all(item["drivers"] for item in contract("QB","RB","RB","WR","WR","TE","K","DEF").values())
+
+
+def test_shared_need_result_exposes_all_requested_fields_for_all_positions():
+    result = contract("QB", "RB", "WR", "TE", "K", "DEF")
+    assert set(result) == {"QB", "RB", "WR", "TE", "FLEX", "K", "DEF"}
+    for item in result.values():
+        assert {"available", "action", "strategic_need", "starter_coverage", "depth_current", "depth_target", "severity", "reasons", "blockers", "source", "freshness"} <= set(item)

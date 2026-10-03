@@ -1,5 +1,9 @@
 # Copilot Repository Context Rule
 
+## Fantasy Intelligence 2.0 Context
+
+The repository is a personal, league-specific fantasy football decision assistant. The primary destinations are Command Center, My Team, Waivers, Trades, Survivor, and NFL Intelligence. Preserve existing data, integrations, historical records, ownership logic, evidence contracts, and recovery artifacts. Use canonical project memory as the continuity source.
+
 When working on Fantasy Intelligence:
 
 Use the repository context bundle before performing

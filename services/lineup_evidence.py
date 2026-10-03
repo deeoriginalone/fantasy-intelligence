@@ -18,6 +18,20 @@ PROJECTION_WARNING_BLOCKERS = {
     "PROJECTION_FRESHNESS_THRESHOLD_UNVERIFIED",
     "PROJECTION_LINEAGE_VERSION_UNAVAILABLE",
 }
+# Only rank-authority gaps (e.g. an unverified sample threshold) may leave a preliminary signal visible.
+SIGNAL_DISQUALIFYING_BLOCKERS = {
+    "MATCHUP_PLAYER_IDENTITY_UNAVAILABLE",
+    "MATCHUP_OPPONENT_IDENTITY_UNAVAILABLE",
+    "MATCHUP_SEASON_UNAVAILABLE",
+    "MATCHUP_WEEK_UNAVAILABLE",
+    "MATCHUP_SOURCE_UNAVAILABLE",
+    "MATCHUP_RETRIEVAL_TIME_UNAVAILABLE",
+    "MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE",
+    "MATCHUP_POPULATION_UNVERIFIED",
+    "MATCHUP_DIRECTIONALITY_UNVERIFIED",
+    "MATCHUP_DATA_STALE",
+    "MATCHUP_FRESHNESS_UNAVAILABLE",
+}
 
 
 def build_projection_evidence(player: Mapping[str, Any], *, season: Any, week: Any, now: Any = None) -> dict[str, Any]:
@@ -98,19 +112,40 @@ def build_matchup_evidence(player: Mapping[str, Any], *, season: Any, week: Any,
         blockers.append("MATCHUP_POPULATION_UNVERIFIED")
     if not directionality:
         blockers.append("MATCHUP_DIRECTIONALITY_UNVERIFIED")
+    position = str(player.get("position") or "").upper().replace("DST", "DEF")
+    if position not in {"K", "DEF"}:
+        if player.get("matchup_rank") is None:
+            blockers.append("MATCHUP_RANK_MISSING")
+        elif any(blocker in blockers for blocker in ("MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED", "MATCHUP_POPULATION_UNVERIFIED", "MATCHUP_DIRECTIONALITY_UNVERIFIED")):
+            blockers.append("MATCHUP_RANK_CONTRACT_INCOMPLETE")
     freshness_state = _freshness(retrieved_at, now, "matchup")
     if freshness_state == "STALE":
         blockers.append("MATCHUP_DATA_STALE")
     elif freshness_state == "UNAVAILABLE":
         blockers.append("MATCHUP_FRESHNESS_UNAVAILABLE")
+    signal = None if SIGNAL_DISQUALIFYING_BLOCKERS.intersection(blockers) else _matchup_signal(player.get("matchup_rank"), population_size, directionality)
+    evidence_level = "ESTABLISHED" if not blockers else "PRELIMINARY" if signal else "INSUFFICIENT"
     return _domain(
         domain="matchup", season=season, week=week, identity=identity,
         value=player.get("matchup_rank"), source=source, retrieved_at=retrieved_at,
         freshness_state=freshness_state, completeness_state="COMPLETE" if not blockers else "INCOMPLETE",
         blockers=blockers, lineage=player.get("matchup_publication_lineage") or player.get("matchup_lineage"),
         source_authority="automated" if automated_source_verified else "UNVERIFIED",
-        extra={"opponent_identity": opponent, "position": player.get("position"), "scoring_context": "FULL_PPR", "rank_directionality": directionality, "comparison_population": population, "comparison_population_size": population_size, "sample_size": player.get("matchup_sample_size"), "sample_threshold_id": sample_threshold_id, "version": player.get("matchup_version"), "checksum": player.get("matchup_checksum"), "artifact_id": player.get("matchup_artifact_id"), "release_id": player.get("matchup_release_id"), "source_recorded_at": player.get("matchup_source_recorded_at")},
+        extra={"opponent_identity": opponent, "position": player.get("position"), "scoring_context": "FULL_PPR", "rank_directionality": directionality, "comparison_population": population, "comparison_population_size": population_size, "sample_size": player.get("matchup_sample_size"), "sample_games": player.get("matchup_sample_size"), "sample_threshold_id": sample_threshold_id, "version": player.get("matchup_version"), "checksum": player.get("matchup_checksum"), "artifact_id": player.get("matchup_artifact_id"), "release_id": player.get("matchup_release_id"), "source_recorded_at": player.get("matchup_source_recorded_at"), "matchup_signal": signal, "evidence_level": evidence_level, "recommendation_impact": "CONTEXT_ONLY" if evidence_level in {"PRELIMINARY", "ESTABLISHED"} else "NONE"},
     )
+
+
+def _matchup_signal(rank: Any, population_size: Any, directionality: Any) -> str | None:
+    try:
+        rank = int(rank)
+        population_size = int(population_size)
+    except (TypeError, ValueError):
+        return None
+    if rank < 1 or population_size < rank or directionality != "LOWER_IS_HARDER":
+        return None
+    easiest_rank = population_size - rank + 1
+    suffix = "th" if 10 < easiest_rank % 100 < 14 else {1: "st", 2: "nd", 3: "rd"}.get(easiest_rank % 10, "th")
+    return f"{easiest_rank}{suffix} easiest defense"
 
 
 def build_lineup_evidence(projection: Mapping[str, Any], matchup: Mapping[str, Any]) -> dict[str, Any]:

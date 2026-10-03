@@ -414,3 +414,32 @@ def test_failed_refresh_does_not_touch_prior_publish_in_same_connection_lifetime
     # The failed refresh never reached the database: no new DELETE/INSERT statements appended.
     statements_after_failed_refresh = len(conn.cursor_instance.statements)
     assert statements_after_failed_refresh == 5  # 1 delete + 4 inserts from the first, successful publish only
+
+
+def test_publish_scopes_row_lineage_to_own_production_evidence_readable_by_reader():
+    from services.player_opportunity_reader import _normalize_row
+    evidence = calculate_player_opportunity(
+        [stat_row("p1", "KC", "DEN", targets=8, receptions="6", receiving_yards="91", receiving_tds="1"), stat_row("p2", "KC", "DEN", targets=2, carries=15, rushing_yards="70")],
+        season=2026, retrieved_at=NOW, now=NOW, threshold_environment=FRESH_ENV,
+        source="automated:nflverse", version="stats_player_week_2026", checksum="abc123", source_recorded_at=NOW,
+    )
+    conn = FakeConnection()
+    publish_player_opportunity(conn, evidence)
+    inserts = {params[2]: params for sql, params in conn.cursor_instance.statements if sql.strip().startswith("INSERT")}
+    p1_lineage = json.loads(inserts["p1"][28])
+    assert list(p1_lineage["production_evidence"]) == ["p1:3"]
+    assert p1_lineage["checksum"] == "abc123" and p1_lineage["attribution"]
+    p1 = _normalize_row({"player_id": "p1", "week": 3, "lineage": inserts["p1"][28]})
+    assert p1["receptions"] == 6 and p1["receiving_yards"] == 91 and p1["receiving_tds"] == 1
+    missing = _normalize_row({"player_id": "p9", "week": 3, "lineage": inserts["p1"][28]})
+    assert missing["receiving_yards"] is None
+
+
+def test_through_week_excludes_incomplete_later_weeks(tmp_path, monkeypatch):
+    week_rows = [stat_row("p1", "KC", "DEN", week=3, targets=4), stat_row("p2", "KC", "DEN", week=3, carries=5), stat_row("p1", "KC", "LV", week=4, targets=6), stat_row("p2", "KC", "LV", week=4, carries=7)]
+    monkeypatch.setattr(opportunity_import, "load_weekly_stats", lambda path: (week_rows, "sha256:test"))
+    bounded = build_evidence(tmp_path / "weekly.csv", season=2026, threshold_environment=FRESH_ENV, through_week=3)
+    unbounded = build_evidence(tmp_path / "weekly.csv", season=2026, threshold_environment=FRESH_ENV)
+    assert {int(row["week"]) for row in bounded["rows"]} == {3}
+    assert {int(row["week"]) for row in unbounded["rows"]} == {3, 4}
+    assert bounded["reconciliation"]["reconciled"] is True

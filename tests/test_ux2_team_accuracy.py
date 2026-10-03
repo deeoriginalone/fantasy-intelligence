@@ -51,6 +51,11 @@ def test_missing_matchup_is_unavailable_not_neutral():
     assert "MATCHUP_RANK_MISSING" in result["matchups"]["rows"][0]["blockers"]
     assert result["matchups"]["rows"][0]["matchup_rank"] is None
 
+
+def test_k_and_def_are_not_applicable():
+    result = build_team_accuracy_contract([], [starter(position="K"), starter(position="DEF")], settings(), needs(), health())
+    assert [row["state"] for row in result["matchups"]["rows"]] == ["NOT_APPLICABLE", "NOT_APPLICABLE"]
+
 def test_blocked_health_reduces_trust():
     blocked={"state":"BLOCKED","source":"Sleeper","freshness_state":"BLOCKED","blocker":"HEALTH_REFRESH_FAILED"}
     result=build_team_accuracy_contract([], [starter()], settings(), needs(), blocked)
@@ -141,3 +146,12 @@ def test_unfavorable_rank_is_distinct_from_unavailable():
     result = build_team_accuracy_contract([], [starter(matchup_rank=32)], settings(), needs(), health())
     row = result["matchups"]["rows"][0]
     assert row["matchup_rank"] == 32
+
+
+def test_preliminary_signal_is_visible_without_authoritative_rank():
+    result = build_team_accuracy_contract([], [starter(matchup_sample_threshold_id=None, matchup_publication_lineage={"publication_contracts": {"population": {"size": 32}}})], settings(), needs(), health())
+    row = result["matchups"]["rows"][0]
+    assert row["matchup_rank"] is None
+    assert row["matchup_signal"] == "21st easiest defense"
+    assert row["evidence_level"] == "PRELIMINARY"
+    assert row["recommendation_impact"] == "CONTEXT_ONLY"

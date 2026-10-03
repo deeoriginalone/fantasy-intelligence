@@ -52,6 +52,81 @@ def test_nfl_current_week_conflict_renders_insufficient_evidence_page(monkeypatc
     assert "No prediction or recommendation is published." in body
 
 
+def test_missing_week_authority_key_fails_closed_for_both_routes(monkeypatch):
+    app = make_app(monkeypatch)
+    app.config.pop("WEEK_AUTHORITY_ACQUIRER")
+    client = app.test_client()
+
+    survivor = client.get("/survivor?season=2026")
+    nfl = client.get("/nfl-intelligence?season=2026")
+
+    assert survivor.status_code == 200
+    assert nfl.status_code == 200
+    assert "UNAVAILABLE" in survivor.get_data(as_text=True)
+    assert "UNAVAILABLE" in nfl.get_data(as_text=True)
+
+
+def test_survivor_no_week_preserves_verified_history_without_recommendation(monkeypatch):
+    import survivor_routes
+
+    monkeypatch.setattr(survivor_routes, "history", lambda pool, season: [{"week": 1, "team": "JAX", "status": "pending", "pool_key": pool, "season": season}])
+    monkeypatch.setattr(survivor_routes, "used_teams", lambda pool, season: ["JAX", "KC"])
+    app = make_app(monkeypatch)
+    app.config.pop("WEEK_AUTHORITY_ACQUIRER")
+
+    response = app.test_client().get("/survivor?season=2026")
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Week 1: JAX" in body
+    assert "JAX, KC" in body
+    assert "PICK THIS WEEK" not in body
+    assert "No survivor recommendation can be published for this week." in body
+
+
+def test_survivor_no_week_history_failure_remains_blocked(monkeypatch):
+    import survivor_routes
+
+    def fail(*_args):
+        raise survivor_routes.SurvivorHistoryReadError("history unavailable")
+
+    monkeypatch.setattr(survivor_routes, "history", fail)
+    monkeypatch.setattr(survivor_routes, "used_teams", fail)
+    app = make_app(monkeypatch)
+    app.config.pop("WEEK_AUTHORITY_ACQUIRER")
+
+    response = app.test_client().get("/survivor?season=2026")
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "ELIGIBILITY BLOCKED" in body
+    assert "History could not be verified" in body
+
+
+def test_survivor_default_week_passes_authoritative_week_to_context(monkeypatch):
+    app = make_app(monkeypatch)
+    captured = {}
+
+    monkeypatch.setattr(
+        survivor_routes,
+        "_context",
+        lambda season, week, pool_key, strategy: captured.update(
+            season=season, week=week, pool_key=pool_key, strategy=strategy
+        ) or {},
+    )
+    monkeypatch.setattr(survivor_routes, "render_template", lambda template, **context: context)
+    app.config["WEEK_AUTHORITY_ACQUIRER"] = lambda season: {
+        "authoritative": True, "season": season, "week": 1
+    }
+
+    response = app.test_client().get("/survivor?season=2026")
+
+    assert response.status_code == 200
+    assert captured == {
+        "season": 2026, "week": 1, "pool_key": "default", "strategy": "balanced"
+    }
+
+
 def test_explicit_week_remains_supported_for_both_routes(monkeypatch):
     app = make_app(monkeypatch)
     client = app.test_client()

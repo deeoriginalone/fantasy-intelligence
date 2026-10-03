@@ -1,9 +1,115 @@
 ###### Development Roadmap
 
-####### Last recorded repository checkpoint
-- Date: 2026-09-15
+## Fantasy Intelligence 2.0 Roadmap
+
+The six-page architecture is an approved target direction, not completed navigation work. Primary navigation has not yet been simplified; the Command Center target is not complete; no redirect, route archive, or route removal has been completed. Supporting routes remain operational. `MERGE`, `REDIRECT`, and `ARCHIVE` are future classifications.
+
+These pending plans include navigation simplification, route merging, new redirects, and archive actions. Decision Journal, Process vs Results, and Season Planning are planned priorities, not delivered capabilities.
+
+## Evidence-first delivery rule
+
+Roadmap work follows `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. A blocked authority boundary must not erase a supported informational result. Deliver evidence levels as `ESTABLISHED`, `PRELIMINARY`, or `INSUFFICIENT`, with sample, freshness, limitations, confidence rationale, and recommendation impact. Preliminary evidence may be shown but may not independently drive recommendations; unsupported authority remains fail-closed.
+
+## Current My Team delivery boundary
+
+The current My Team implementation is decision-first: pending lineup changes and normalized Start/Sit Decisions precede roster and evidence detail; Contingency Depth is roster-minus-recommended-starters; Matchup Signal and diagnostics remain secondary. This is a presentation and aggregation boundary only. Recommendation, ranking, score, confidence, health, matchup authority, database, and transaction behavior remain unchanged.
+
+Recovery Ready is a planned mandatory standard, not a completed checkpoint. Recovery Ready planned work remains pending. It will require a runnable checkpoint, documented startup verification, database backup, canonical-memory snapshot, Notebook/reference export, and six-core-page verification.
+
+Priority order:
+1. Decision Center
+2. My Team
+3. Waivers
+4. Trades
+5. Survivor
+6. NFL Intelligence
+7. What Changed
+8. Decision Journal
+9. Process vs Results
+10. Season Planning
+
+Other work is deferred, merged, or retained as internal support until it directly improves manager value. No existing functionality, route, database, integration, or historical data is deleted by this roadmap.
+
+## Navigation Reconciliation Target
+
+### Primary navigation
+
+Command Center, My Team, Waivers, Trades, Survivor, NFL Intelligence, and What Changed.
+
+### Command Center responsibilities
+
+The Command Center is the primary landing page and summarizes League Overview, Must Act, Start/Sit Summary, Waiver Priorities, Trade Watch, Survivor Status, NFL Intelligence Highlights, What Changed, and Risk Alerts. League Overview is incorporated into the Command Center and is not a separate destination. The Command Center links to owning pages and does not duplicate their engines.
+
+### NFL Intelligence consolidation
+
+NFL Intelligence is the single NFL-wide intelligence destination. Market Intelligence is merged into it. Responsibilities include Top Picks, Top Risk Games, Game Predictions, Market Intelligence, Weather, Injury Context, Insights, Blockers, and Diagnostics. Market Intelligence is not a separate navigation item.
+
+### Season Planning and Admin
+
+Draft Board and Mock Draft remain preserved and accessible for recurring seasonal value. Sleeper Hub, Draft Day Readiness, Draft Intelligence & Learning Center, Imports, Readiness, and Diagnostics are intended for an Admin area.
+
+### Intended route disposition
+
+| Destination | Intended disposition |
+|---|---|
+| Command Center | Primary |
+| League Overview | Merge into Command Center |
+| My Team | Primary |
+| Waivers | Primary |
+| Trades | Primary |
+| Survivor | Primary |
+| NFL Intelligence | Primary |
+| Market Intelligence | Merge into NFL Intelligence |
+| What Changed | Primary / Secondary |
+| Draft Board | Keep |
+| Mock Draft | Keep |
+| Sleeper Hub | Admin |
+| Draft Day Readiness | Admin |
+| Draft Intelligence & Learning Center | Admin |
+| Imports | Admin |
+| Readiness | Admin |
+| Diagnostics | Admin |
+
+This is target navigation documentation only. Navigation simplification, merges, and Admin placement remain planned work.
+
+####### Current repository checkpoint
+- Date: 2026-10-03
 - Branch: test-weekly-evidence-trust
-- HEAD: bc1acb6a56524e5e6c281937c7bc2a422d45e2f4
+- HEAD: df7de8a6b68152858ee44d17960ea156d754435a
+
+## Current committed delivery boundary
+
+- Branch: `test-weekly-evidence-trust`.
+- HEAD: `df7de8a6b68152858ee44d17960ea156d754435a` - `Publish healthy waiver suggestions with verified ranking review context`.
+- Completion boundary: the eight-file waiver publication boundary is committed and reviewed. Healthy, identity-resolved, verified-unrostered/eligible candidates remain visible; unsafe or stale health is excluded from normal suggestions. Active with no listed injury is not itself an injury exclusion. Genuinely missing health is retained for verification, not assumed healthy or unavailable.
+- Committed manager value: `/waivers` provides a roster-ID selector, paginated healthy-review cards, separate weekly/ROS focus and ordering, matched-week production comparisons, current-starter weekly baselines, provisional add/keep/monitor review, and live Sleeper-budget-backed spending bands. No external fantasy transaction is submitted and no current starter is automatically dropped.
+- Ranking/source boundary: FantasyPros PPR positional consensus arrives through commit-pinned DynastyProcess artifacts. Lower mean expert rank is better; it is ordinal context, not projected points, expected gain, calibrated confidence, or a guaranteed winning bid. Published identity links remain distinct from the owner's explicitly approved unique name/position/current-team exception; ambiguous or conflicting links remain pending. Historical GSIS, snap-share, and health recovery evidence remains preserved in the explicitly labeled sections below.
+- Freshness boundary: ranking acquisition runs on Waivers use when cache age or NFL scope requires it; every read reevaluates source dates, current week, identity, and game timing. No continuously running app or manual upload is required. Downloading old data does not renew its publication date; failures retain explicit diagnostics and withhold affected stale-rank advice.
+- Validation boundary: recorded staged-copy validation for this commit passed 72 focused tests, with 63 deselected; all five changed Python files compiled and the cached diff check passed. The validated index tree was `6e8da2af966851b52975d5ae6b25aefb086af768`. Prior full-worktree runs and older validation counts are historical evidence, not additional current-HEAD closure claims. No tests or live audits were rerun during this canonical reconciliation.
+- Outstanding blockers: the last recorded audit retains three weekly missing-team/game records and one ROS identity record as pending verification, not proof of unavailability. Matchup Rank authority, verified future-role/opportunity-duration models, exact winning-bid authority, full PostgreSQL parity, recovery/failure-injection evidence, production readiness, and defect closure remain unclaimed.
+- Delivery status: committed locally; not pushed. Publishing all 24 outgoing commits is the release-grouping recommendation, not push approval. These canonical source edits are uncommitted. The recorded continuity run completed successfully for current HEAD: canonical synchronization PASS and bundle validation PASS. Unrelated dirty implementation and artifacts are not part of this committed waiver boundary.
+- Defect boundary: `docs/CURRENT_DEFECTS.md` remains authoritative and unchanged. Existing VALIDATED statuses are not promoted; no new CLOSED status is supported without the required closure evidence and continuity validation.
+
+## Current validation and continuity status
+
+- Current implementation validation is the recorded staged-copy boundary above: 72 passed, 63 deselected, five changed Python files compiled, cached diff check passed. Older counts below remain historical or preserved evidence, not fresh validation of current HEAD.
+- Current recorded continuity result: canonical synchronization PASS; bundle validation PASS for `test-weekly-evidence-trust` at `df7de8a6b68152858ee44d17960ea156d754435a`.
+- Continuity was not rerun during this focused documentation correction. Generated outputs predate these wording-only edits; no new byte-for-byte bundle synchronization is claimed. The prior successful run remains recorded and does not grant publication approval or defect promotion.
+
+####### Historical waiver recovery boundary (through ee451ca; verified 2026-10-03)
+- Recovery commits: `98dee6a` corrects candidate health from live Sleeper status; `34e55d3` publishes source-backed snap share; `ee451ca` restores exact waiver GSIS identity from DynastyProcess player IDs.
+- Manager-facing result: `/waivers` returned HTTP 200 with 19 candidates. The 13 candidates previously lacking GSIS identity now resolve through exact `sleeper_id` to `gsis_id` from `DynastyProcess/files/db_playerids.csv` (GPL-3.0); names, team/position, and similarity do not authorize identity. Source artifact, version, checksum, schema, source/retrieval times, completeness, and reconciliation remain in lineage; the artifact is not committed. Live Sleeper health fails closed when missing, unresolved, contradictory, or unsupported; supported injured-reserve variants do not render healthy, and the local "Healthy / Not listed" placeholder is not verified health.
+- Evidence boundary: all 19 candidates have fresh current-season production and opportunity evidence; `What Changed` consumes published multiweek opportunity rows. All 19 also have source-backed snap-share evidence from nflverse `offense_pct`, joined by exact PFR-to-GSIS identity with CC BY 4.0 attribution. Snap share remains informational only.
+- Operational database state: the week 1-3 refresh published 1,078 opportunity rows and 4,480 resolved snap-share rows; 51 snap rows cover the 19 waiver candidates. `opportunity.evidence.v1` and `snap_share.evidence.v1` retain their 86,400-second contracts. Source and retrieval times remain distinct; stale evidence expires normally and requires legitimate reacquisition/republication, never timestamp copying. Database publications are not Git content.
+- Decision authority: these identity, opportunity, and snap-share changes do not alter ranking, priority, confidence, FAAB, ownership, eligibility, or health, add formulas, or authorize external fantasy transactions. The health repair corrects health evidence only. Candidate order/count and existing `What Changed` behavior remain unchanged.
+- Validation recorded: opportunity-focused tests passed 200; identity staged-copy validation passed 3 source and 14 waiver identity/invariance tests; snap staged-copy validation passed 47 snap and 4 consumer tests. The post-publication read-only `/waivers` check returned 19 FRESH snap-share candidates.
+- Remaining limits: eight non-waiver snap rows across three unresolved PFR identities remain excluded, and partial Week 4 snap evidence remains unpublished. Expected-role and opportunity-duration contracts remain unavailable. Production readiness, full PostgreSQL parity, failure injection, rollback/recovery, guarded cleanup, and repeatability remain unclaimed. Matchup Rank authority and unrelated Survivor, Command Center, navigation, trade, and lineup boundaries are unchanged.
+
+####### Historical validated delivery boundary (2026-10-02)
+- Completed commits reconcile current/recommended lineups; add informational waiver comparison and repair trust-panel candidate evidence; repair per-player GSIS/ESPN identity assignment and unmatched-roster injury status; expose preliminary matchup signal without authorizing rank; and stabilize nflverse matchup contract tests.
+- Focused matchup (15), preliminary-context (8), lineup, identity/injury, and waiver tests passed together (148 total).
+- Matchup Signal remains informational-only. Matchup Rank/publication remain fail-closed under `MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED`; no recommendation influence, full authority, production readiness, parity completion, or recovery completion is claimed.
+- The Command Center milestone below remains supported; the immediate implementation batch is **Build Command Center decision-center aggregation boundary**.
 
 The branch, HEAD, and working-tree state must be reverified from the repository before import, staging, validation, or commit.
 
@@ -38,7 +144,7 @@ The branch, HEAD, and working-tree state must be reverified from the repository 
 - `git diff --check` passed.
 - `git diff --cached --check` passed.
 
-####### Active milestone: UX.2 My Team Accuracy, Explainability, and League-Settings Validation
+####### Historical active milestone: UX.2 My Team Accuracy, Explainability, and League-Settings Validation
 
 **Status: VALIDATED AT FOCUSED, CONTROLLED ACTIVE-ROUTE, AND LIVE CURRENT-STATE BOUNDARY.**
 
@@ -74,7 +180,7 @@ Definition-of-done evidence:
 - Exact commit-scope review.
 - Canonical synchronization and notebook-bundle validation.
 
-####### Current UX.2 remediation evidence
+####### Historical UX.2 remediation evidence
 - The My Team route now selects one deterministic priority action from vacant slots, affected health recommendations, supported Team Needs, or fail-closed evidence review.
 - Recommendation evidence visibly carries weekly-value availability, health source, health freshness, health impact, confidence, reason, and targeted blockers.
 - Focused UX.2 validation passed with 85 tests.
@@ -121,7 +227,7 @@ Presentation and active-route proof:
 - `/team` renders successfully for supported, degraded, unavailable, and blocked states.
 - The final render contains no unexplained grade, undefined aggregate score, contradictory Team Needs message, or recommendation without confidence and reason.
 
-####### UX.2.1: My Team Product Hardening and All-Season Usability
+####### Preserved UX.2.1: My Team Product Hardening and All-Season Usability (historical validation)
 
 **Status: VALIDATED AT VISUAL HIERARCHY, CONTRADICTION, AND DISCLOSURE BOUNDARY.**
 
@@ -130,7 +236,7 @@ Presentation and active-route proof:
 - Isolated browser captures for complete, healthy, multiple-monitor, no-urgent, unavailable, stale, blocked, bench-unavailable, and missing-league states passed at 1440px and 390px; no primary overflow or clipped cards remained after the Team Needs wrap repair.
 - Personal-use verdict: YES for the tested My Team boundary.
 
-####### UX.3: Waiver Correctness and Availability Validation
+####### Historical UX.3: Waiver Correctness and Availability Validation
 
 **Status: VALIDATED AT THE SUPPORTED, READ-ONLY PUBLICATION BOUNDARY.**
 
@@ -143,12 +249,12 @@ Validated:
 - The focused UX.3 suite passes 78 tests; Python compilation, whitespace checks, and rendered supported-state verification pass.
 - UXQA-001 is VALIDATED, not CLOSED.
 
-Remaining enhancements:
+Remaining enhancements at this historical boundary:
 - Candidate-level role, opportunity duration, roster fit, confidence, risk, suggested drop, and evidence-backed FAAB sophistication.
 - Formal browser validation and separate UX.3 enhancement review.
 - Commit review, canonical synchronization, and continuity validation required before defect closure.
 
-####### UX.4: Trade Center Integrity and Freshness Provenance
+####### Historical validated UX.4: Trade Center Integrity and Freshness Provenance
 
 **Status: UX.4.1-UX.4.12 VALIDATED AT FOCUSED WRITER, ENRICHMENT, INTEGRITY, TEMPLATE, CONTROLLED-BROWSER, AND LIVE NINE-PARTNER DROPDOWN BOUNDARY.**
 
@@ -167,7 +273,7 @@ Remaining closure controls:
 - Canonical continuity validation and narrow exact-path commit review.
 - Do not claim transaction acceptance, negotiation, rest-of-season impact, production readiness, or defect closure.
 
-####### UX.5: Lineup Explainability and Bench Redesign
+####### Historical UX.5: Lineup Explainability and Bench Redesign
 
 **Status: ACTION-FIRST CROSS-PAGE VISUAL SYSTEM IMPLEMENTED; FORMAL COMPLETION REVIEW PENDING.**
 
@@ -183,41 +289,12 @@ The visual system has since been applied to My Team, Waivers, and Trades. My Tea
 
 **Status: PARTIAL LINEAGE AND DIAGNOSTIC FOUNDATION PRESERVED; FORMAL COMPLETION REVIEW PENDING.**
 
-####### Product pace and proportional rigor
-
-- At least one active implementation priority must produce or materially improve a manager-facing fantasy decision. Infrastructure-only work may not indefinitely displace useful START, SIT, FLEX, MONITOR, ADD, DROP, TRADE FOR, TRADE AWAY, or Survivor functionality.
-- Use the fewest searches, reads, tool calls, tests, browser checks, and output tokens that can truthfully prove the requested boundary. Stop when the question is answered or precise missing evidence is identified. Do not use Class C continuity procedures for ordinary read-only investigation or focused implementation.
-- Before a substantial foundation batch, name its decision consumer, prevented incorrect decision, smallest safe implementation, shortest evidence path, and deferral condition.
-
-####### Yahoo Survivor planning milestone
-
-- The owner reports approved Yahoo API access and a Yahoo Survivor league. This is a planning fact only. Verify scopes, authentication, endpoints, fields, rate limits, identifiers, contest support, licensing, league access, and source timestamps before claiming capability.
-- Evaluate Yahoo as a read-only source for Survivor state and as a possible supplemental evidence layer. Do not assume an endpoint, silently override local truth, or change recommendation behavior. Conflicts and missing or stale evidence fail closed.
-- Yahoo Survivor verification is a user-value milestone. Evaluate Survivor state, Survivor history, Survivor eligibility, Survivor selections, and contest truth before broader Yahoo enrichment. Do not assume support until each capability is verified.
-
-####### Owner success enforcement
-
-- The primary measure of progress is improved fantasy-football decision quality for the owner. The project exists to help the owner win fantasy leagues, not to maximize infrastructure completeness.
-- A foundation with no identified near-term consumer is normally deferred. Before a major foundation, evidence, lineage, provenance, metric, architecture, schema, ingestion, publication, reconciliation, synchronization, or abstraction batch, answer which decision improves, which page consumes it, whether the owner benefits this season, whether it is required for the current priority, which incorrect decision it prevents, the smallest safe implementation, and the shortest evidence path. If the first four answers cannot be given, defer by default except for repository integrity, security, ownership, freshness, identity, or major data-corruption prevention.
-
-## Value Delivered Register
-
-Record only delivered value and supported outcomes. The register is the authoritative place for answering: “What fantasy value already exists today?” Do not add future roadmap items or speculative benefits.
-
-| Milestone | Manager-Facing Benefit | Decision Protected or Improved | Consumer |
-|------------|------------|------------|------------|
-| UX.3 Waiver correctness | Eliminates rostered-player waiver recommendations | ADD | Waivers |
-| UX.2 My Team validation | Provides Full-PPR team-needs and priority-action context | ADD/DROP | My Team |
-| UX.5 Lineup explainability | Presents explicit lineup calls with evidence and confidence | START/SIT/FLEX/MONITOR | My Team / Weekly Lineup |
-| UX.4 Trade Center integrity | Provides read-only roster-fit and trade-impact context with blockers | TRADE FOR/TRADE AWAY | Trades |
-| UX.8 Survivor foundation | Prevents recommendations for used or ineligible Survivor teams when eligibility evidence is unavailable or blocked | Survivor Selection | Survivor |
-
 ####### Strategic Intelligence Roadmap
 
 The following systems remain planned and deferred, not abandoned:
 - A.11 VOR Engine
 - A.12 Floor / Median / Ceiling Model
-- A.13 Opportunity Metrics Engine: automated nflverse target-share, carry-share, and touch-share retrieval, calculation, deterministic reconciliation, and atomic publication are operational. The current validated 2026 publication reconciles 1,190 input rows into 379 PUBLISHED/FRESH rows, 811 inclusive excluded rows, and 2 unresolved identities across Weeks 1 and 2 for 357 players. GSIS-first identity resolution with scoped ESPN fallback, the published reader, the multi-week What Changed foundation, and the My Team informational consumer are operational. Six roster identities resolve; eight remain unavailable. All six resolved identities have Week 1 evidence, while Week 2 source evidence is absent and remains `SOURCE_REASON_UNAVAILABLE`. Snap-share publication, route participation, red-zone usage, and role classification remain incomplete; recommendation, ranking, confidence, score, and transaction authority remain deferred.
+- A.13 Opportunity Metrics Engine: evidence foundation implemented; authoritative ingestion remains deferred
 - A.14 Schedule and Matchup Forecaster
 - A.15 Correlation Engine
 - A.16 Vegas Integration
@@ -232,7 +309,7 @@ The following systems remain planned and deferred, not abandoned:
 - Live-route validation where required for later milestones.
 - Production deployment and recovery proof are not claimed.
 
-####### UX.8 Survivor Intelligence completion boundary (VALIDATED)
+####### Preserved UX.8 Survivor Intelligence progress (historical validation; in-progress, not complete)
 
 - History/eligibility contract implemented: Week 1 JAX (season 2026) recorded through a conflict-safe write (`SurvivorConflictError`) and a distinct history-read-failure signal (`SurvivorHistoryReadError`); used-team exclusion verified live and by test.
 - Week-state contract implemented (`OPEN` / `PENDING_RESULT` / `COMPLETED` / `UNAVAILABLE` / `BLOCKED`); the occupied-week contradiction is fixed — a locked week no longer offers another actionable pick or “Record… pick” control.
@@ -248,11 +325,9 @@ The following systems remain planned and deferred, not abandoned:
 - Added CSRF protection to `/survivor/select` and `/survivor/status` (previously unprotected, same class of gap fixed earlier on the market-refresh endpoint).
 - Added `_verified_current_week()` using Sleeper's `get_nfl_state()` to replace the hardcoded default week only when no week is explicitly requested; fails closed (never guesses) on network error or season mismatch.
 - Focused survivor + security tests: 84 passed, 1 xfailed (up from 68 earlier this session).
-- UX.8 is VALIDATED at the current read-only manager-facing boundary. The completion review satisfied verified week handling, persisted history and history-read blocking, used-team exclusion, all required week states, one OPEN-week selection workflow with eligible manual override, separated probability/evidence confidence, fail-closed future evidence, truthful roadmap unavailability, exact blocker effects, read-only external behavior, collapsed lineage, and desktop/390px presentation.
-- Future prediction contract repair accepts both calculated and persisted prediction shapes and fails closed when probability evidence is missing. Focused Survivor validation passed 63 tests with 1 expected xfail; compilation, whitespace checks, and live route rendering passed.
-- Yahoo Survivor capabilities remain UNKNOWN_PENDING_VERIFICATION and are not part of UX.8 authority. Production readiness, external transaction behavior, and continuity closure remain unclaimed.
+- UX.8 is not yet formally complete; remaining boundary work is tracked under the Next milestone below.
 
-####### UX.9 My Team + Weekly Lineup Consolidation (complete at verified boundary)
+####### Preserved UX.9 My Team + Weekly Lineup Consolidation (complete at recorded validation boundary)
 
 - `/lineup` is retired as a rendered page and now returns HTTP 302 to `/team#lineup`; verified live and by test, preserving existing bookmarks.
 - `/team` is now the single roster command center: hero (verdict/action/projected score/confidence/biggest risk) → Next Best Team Action → Lineup Snapshot → Recommended Starting Lineup (formation, now also carrying the authoritative START/SIT/FLEX/MONITOR call and a bench-swap flag per slot) → Bench Priority → Biggest Risks → Team Needs → Roster Outlook → What Changed This Week → Why This Lineup Is Trusted → collapsed diagnostics.
@@ -261,7 +336,7 @@ The following systems remain planned and deferred, not abandoned:
 - Focused team/lineup route-contract tests: 20 passed (5 pre-existing, unrelated `/trades` failures unchanged).
 - Completion check answered: no functionality on `/lineup` still justifies a separate page.
 
-####### NFL Intelligence MVP (implemented; operational data coverage remains bounded)
+####### Historical NFL Intelligence MVP snapshot (implemented; recorded data coverage bounded)
 
 - Read-only `/nfl-intelligence` is implemented with Top Picks, Top Risk Games, All Games, Insights, Blockers, and collapsed Diagnostics. The primary experience is manager-facing; raw Elo, matchup edge, injury totals, and weather values are confined to Diagnostics.
 - All scheduled games for the selected loaded week render. Prediction absence is explicit as `INSUFFICIENT EVIDENCE`; no prediction is fabricated.
@@ -269,7 +344,7 @@ The following systems remain planned and deferred, not abandoned:
 - Verified current coverage: Week 1 has 16 scheduled games and 7 provider-matched predictions; Week 2 has 16 scheduled games and 0 provider-matched predictions. The complete 2026 source schedule (`nfl_schedule`) contains Weeks 1-18, but only Weeks 1-2 are currently seeded into `yahoo_pickem_games`.
 - Matching uses the complete provider full-name-to-standard-abbreviation map and exact away/home pairs. Recorded runs show Week 1 received/matched/wrote 7/7/7; Week 2 received 6 provider games and matched/wrote 0/0. This is a current provider-slate versus stored-schedule mismatch, not a verified naming failure.
 - Focused NFL Intelligence validation: 29 passed. Python compilation for `nfl_intelligence.py` and `nfl_intelligence_routes.py`, whitespace validation, and live Week 1/Week 2 rendering passed. Desktop and 390px renders had no horizontal overflow.
-- Current repository checkpoint: 2026-09-16, branch `test-weekly-evidence-trust`, HEAD `0e01c27530f312149cb4d8554faf795c7185365a`. Preserve unrelated working-tree changes.
+- Historical repository checkpoint: 2026-09-14, branch `feature/evidence-bundle-pipeline`, HEAD `e5285b1918a97e6df7b9e74cd94385ecf489b721`. NFL Intelligence implementation and canonical documentation were committed at that snapshot; this is not the active branch or HEAD.
 
 ####### Verified product architecture and roadmap
 
@@ -288,7 +363,7 @@ The following systems remain planned and deferred, not abandoned:
 - Priority 3: rebuild Dashboard as the Decision Center, summarizing Must Act, Start/Sit, Waivers, Trades, Opportunity Alerts, Risk Alerts, and No Action Needed while linking to owning pages instead of duplicating their engines.
 - Priority 4: persist immutable pre-decision snapshots before Process versus Results evaluation. Priority 5: provide narrative manager learning before any Manager Report Card grade. Rest-of-season and playoff strategy follow only after these decision foundations are trusted.
 
-####### Schedule and Bye Provenance Contract (installed; not yet authoritative for live decisions)
+####### Historical Schedule and Bye Provenance installation boundary
 
 - The additive provenance contract is installed and validated: 24 focused tests, Python compilation, `git diff --check`, `git diff --cached --check`, and live route inspection passed.
 - Verified schedule state: all 272 2026 `nfl_schedule` rows are owned by `csv:nfl-2026-UTC.csv`, with `source_recorded_at=2026-05-14T00:00:00Z` and preserved import time. CSV fallback is disclosed and cannot overwrite automated, verified-cache, unknown, or differently-owned CSV rows.
@@ -304,74 +379,16 @@ The following systems remain planned and deferred, not abandoned:
 - Replace default CSV-derived weekly matchup inputs with automated, timestamped sources before using them authoritatively. Until then, preserve fail-closed recommendation behavior.
 - Do not add advanced player opportunity, buy/sell, post-week process, or playoff-strategy features until their source, freshness, metric authority, and missing-data contracts are defined and validated.
 
-####### End-of-day evidence reconciliation (2026-09-14)
+####### Historical end-of-day evidence reconciliation (2026-09-14)
 
 - The Schedule/Bye Threshold Registry is installed and validated: 40 focused tests, Python compilation, `git diff --check`, and `git diff --cached --check` passed. Its stable IDs are `schedule.evidence.v1` and `bye.evidence.v1`; absent, malformed, zero, and negative environment values fail closed without a numeric default.
 - Automated nflverse matchup implementation: VALIDATED at official retrieval, provenance, Full-PPR calculation, `LA` to `LAR` normalization, completeness, freshness, fail-closed publication, and PostgreSQL transaction boundaries. Migration `013_nflverse_defense_matchups.sql` is applied and idempotent.
 - Source: `stats_player`; artifact: `stats_player_week_{season}.csv.gz`. Refreshed real 2026 Week 1 calculation reached 128 rows and 32-of-32 defenses for QB, RB, WR, and TE. `KC` and `DEN` are present; identity resolution is complete. Rank directionality is `LOWER_IS_HARDER`. Preliminary context is informational-only and does not influence recommendations.
 - Current publication remains BLOCKED by `MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED`. Automated 2026 rows remain 0; 136 historical 2025 CSV rows remain preserved and historical-only. Current consumers may show preliminary context but cannot use authoritative Matchup Rank; production readiness, full current-season authority, and milestone completion remain unclaimed.
 
-####### Current verified matchup authority boundary (2026-09-16)
-- Automated NFLverse matchup calculation and publication are present. Publication metadata propagation is complete for source authority, source-recorded time, retrieved-at time, version, checksum, lineage, and completed games.
-- Implementation-backed informational publication contracts now exist for threshold metadata, population metadata, and directionality metadata. They do not grant Matchup Rank authority.
-- Matchup Rank remains non-authoritative. The blockers `MATCHUP_SAMPLE_THRESHOLD_UNVERIFIED`, `MATCHUP_POPULATION_UNVERIFIED`, and `MATCHUP_DIRECTIONALITY_UNVERIFIED` remain active in shared lineup evidence.
-- Snapshot capture remains blocked. Recommendation behavior remains unchanged, including START, SIT, FLEX, MONITOR, Weekly Score, confidence, waiver, trade, matchup, and transaction behavior.
-- Focused authority tests passed 37 tests; focused evidence and consumer regression validation passed 146 tests. Python compilation, `git diff --check`, and `git diff --cached --check` passed.
-
-####### Team Accuracy matchup authority consumer completion (2026-09-17)
-- Team Accuracy (`services/ux2_team_accuracy.py`) now consumes the shared `services/lineup_evidence.py::build_matchup_evidence` contract as its sole Matchup Rank authority result. The prior duplicate four-field presence check (population, directionality, source, updated-at only) is removed; no second authority calculation exists.
-- Matchup Rank on `/team` is fail-closed through the same contract already governing other consumers: verified sample threshold, verified population, verified directionality, structured automated source authority, current freshness, resolved player identity, and resolved opponent are all required before a rank is shown.
-- Comparison population and a plain-language directionality explanation (for example, "Rank 1 is hardest; rank 32 is easiest") are now manager-visible next to Matchup Rank. Population size is shown only when the automated publication contract supplies it and is never invented.
-- Recommendation, projection, waiver, trade, ranking, confidence, and transaction behavior are unchanged by this batch.
-- Automated 2026 matchup rows remain 0 in the database. The blockers remain active whenever authoritative automated matchup evidence is unavailable. The consumer now correctly honors those blockers through the shared matchup contract; this batch changed the consumer, not the underlying data availability.
-- Focused authority, Team Accuracy, template, and route-matrix validation completed with one pre-existing unrelated failure retained outside the changed boundary (`test_team_template_wires_accuracy_partial`). Related-suite validation passed 118 of 120 tests (2 pre-existing unrelated matchup-calculation staleness failures). Python compilation, `git diff --check`, and `git diff --cached --check` passed.
-- Rendered `/team` verification at desktop and 390px confirmed no primary horizontal overflow, no clipped content, all technical diagnostics collapsed by default, and visually distinct authoritative versus unavailable matchup states.
-- Production readiness, PostgreSQL parity, and recovery validation remain unclaimed.
-
-####### Automated player-opportunity ingestion boundary (2026-09-17)
-- Direct opportunity-importer execution now loads repository `.env` with dotenv's default `override=False` behavior. The approved `OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS=86400` threshold is runtime-available; exported values retain precedence and malformed or missing values remain fail-closed.
-- Automated nflverse weekly-stat retrieval (reusing existing artifact, checksum, and version conventions), target-share/carry-share/touch-share calculation, and atomic PostgreSQL publication are operational. The current verified 2026 production publication contains 379 rows for 357 distinct players across Weeks 1 and 2; rows are FRESH, COMPLETE, PUBLISHED, and carry reconciled lineage. The source batch contained 1,190 rows, with 811 inclusive excluded rows and 2 unresolved identities; duplicate and contradictory counts were 0.
-- Waiver Recent Performance consumes the published reader informationally. Active coverage improved from `AVAILABLE=0`, `BLOCKED=3`, `UNAVAILABLE=7`, `UNSUPPORTED=0` to `AVAILABLE=3`, `BLOCKED=0`, `UNAVAILABLE=7`, `UNSUPPORTED=0`; no waiver ranking, FAAB, confidence, ordering, or transaction authority changed.
-- Deterministic batch reconciliation accounts for every input row as published, unresolved, duplicate, or contradictory. Publication is blocked when accounting does not reconcile, when a duplicate or contradictory player-week identity exists, or when source, checksum, retrieved_at, or the opportunity freshness threshold is missing or unverified.
-- Publication replaces only the season/week scope present in the batch; it does not delete other weeks or other seasons. A blocked or failed refresh writes zero rows and preserves the prior valid automated publication. Verified against the real database: successful publish, deterministic rerun without duplication, atomic rollback on a blocked batch, cross-week preservation, and cross-season preservation.
-- Persisted fields: targets, carries, target_share, carry_share, touch_share, source, source authority, source_recorded_at, retrieved_at, artifact_id, version, checksum, freshness_threshold_id, freshness_state, completeness_state, lineage (including reconciliation detail), and publication_state.
-- The published opportunity table still does not own snap_share, route_participation, red_zone_share, or role_classification. Snap share now has a separate dedicated reader/publication path and waiver consumer; route_participation, red_zone_share, and role_classification remain unavailable because no supporting ingested source contract exists.
-- Focused opportunity calculation, ingestion, publication, evidence, and consumer-contract validation passed. Python compilation, git diff --check, and git diff --cached --check passed.
-- Role evidence beyond the current informational snap-share delivery boundary, production readiness, full PostgreSQL parity, and recovery validation remain unclaimed. No recommendation, confidence, ranking, score, waiver ordering, FAAB, trade, or transaction behavior is changed by this informational evidence.
-
-####### Player role-evidence contract and snap-share delivery boundary (2026-09-20)
-- A fail-closed player role-evidence contract is implemented and committed (commit e07bcd2, "Add fail-closed player role evidence contract"); snap share, route participation, red-zone usage, and role classification each report `SOURCE_UNAVAILABLE` by default with `decision_effect = INFORMATIONAL_ONLY`.
-- The official nflverse `snap_counts` artifact is retrieved and normalized, reusing the existing generic retrieval/checksum helper; offense_pct is verified as a provider-supplied 0-1 ratio, not a percentage.
-- A deterministic `pfr_id -> gsis_id` identity crosswalk is built from the official nflverse `players` release and verified against real 2026 data: 1490 of 1492 snap_counts rows resolve (99.87%), 2 remain unresolved, and 0 are ambiguous. Unresolved, ambiguous, and cross-batch contradictory identity mappings fail closed and are never guessed.
-- Snap share has a dedicated publication/reader path separate from `player_opportunity_evidence`. The waiver evidence builder consumes it informationally in Usage Evidence when a candidate has a resolved identity and a published row.
-- The owner-approved display window is `SNAP_SHARE_EVIDENCE_MAX_AGE_SECONDS=86400` with threshold ID `snap_share.evidence.v1`. This is an informational consumer window, not a source-published cadence guarantee.
-- Snap-share display uses `authority_state = INFORMATIONAL_ONLY` and `decision_effect = NONE`. It does not change waiver ranking, ordering, FAAB, confidence, recommendation labels, ownership, eligibility, or transaction behavior.
-- Stale snap-share rows are preserved as factual historical observations with supported week and `STALE` labeling; they are not presented as current. Missing snap value, identity, source metadata, or publication remains `UNAVAILABLE` and never becomes zero.
-- Waiver cards prioritize factual evidence through Recent Production, Usage Evidence, and What Changed. Repeated Role/Duration/Latest News/Ranking unavailable copy is collapsed into one Evidence limitations section.
-- Focused snap-share and waiver validation passed 96 tests. Python compilation for changed Python files, `git diff --check`, `git diff --cached --check`, and `/waivers` desktop plus 390px render verification passed.
-- route_participation, red_zone_share, role_classification, player news, and opportunity duration remain unimplemented and fail closed. No production readiness, recommendation authority, confidence authority, or role-classification completion is claimed.
-
-####### FantasyPros projection consumption boundary (2026-09-16)
-- FantasyPros automated source integration, live endpoint validation, deterministic identity overlap, non-authoritative evidence publication, and structured blocker metadata are implemented.
-- Present, resolved, retrieved projection evidence may contribute to weekly lineup intelligence and trade evidence readiness. Projection authority concerns remain visible warnings; missing projections and hard-blocked non-projection evidence remain fail-closed.
-- Present projection evidence may contribute as a deterministic secondary comparison input for verified-unrostered waiver candidates. Existing ownership, roster coverage, eligibility, stable identity, and `WAIVER_RANKING_SOURCE_UNVERIFIED` protections remain unchanged.
-- `authority_state = NON_AUTHORITATIVE` and `decision_effect = NONE` remain unchanged. No projection persistence, snapshot capture, external transaction, transaction acceptance, or production-readiness claim exists.
-- The five projection warnings remain active and structured: `PROJECTION_SOURCE_USE_UNVERIFIED`, `PROJECTION_UNIT_UNVERIFIED`, `PROJECTION_SOURCE_TIMESTAMP_UNAVAILABLE`, `PROJECTION_FRESHNESS_THRESHOLD_UNVERIFIED`, and `PROJECTION_LINEAGE_VERSION_UNAVAILABLE`.
-- Lineup/trade projection-consumption validation passed 44 tests; waiver projection-contribution validation passed 70 tests. Python compilation and both diff checks passed for each batch.
-
-####### Repository reality reconciliation (2026-09-19)
-
-- UX.8 Survivor Intelligence has reached a validated model-only future-evidence boundary: canonical Week 3 schedule, full historical NFLverse replay, canonical identities, 32/32 scheduled-team ratings, 16/16 usable games, producer-owned per-game handoff, and complementary informational probabilities are proven.
-- The probability and Elo outputs remain non-authoritative. Freshness is `UNAVAILABLE` because no exact Elo/future-probability threshold is supported by a registry, operational cadence evidence, repeated retrieval history, or a defined consumer window. Do not make the output recommendation-eligible by default.
-- NFL Intelligence MVP remains read-only and bounded by provider/schedule coverage; Opportunity Evidence and What Changed remain fail-closed informational foundations with unsupported metrics and periods explicitly unavailable. Shared integrity, schedule/bye provenance, snapshot, and unified decision-context foundations remain installed without broader recommendation authority.
-- Yahoo OAuth foundation now supports redacted token handling, authorization/exchange/refresh, authenticated-access checks, and capability inventory. Yahoo Survivor capability remains unverified and must not be treated as a product completion boundary.
-
 ## Next milestone
 
-**Verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, GSIS identity, timestamps, season/week scope, and permitted use are verified.**
+**Build the Fantasy Intelligence 2.0 Command Center and simplify the experience around six core destinations.**
 
-Verified opportunity publication, GSIS-first identity resolution with scoped ESPN fallback, the published opportunity reader, the multi-week What Changed foundation, and the My Team informational consumer are operational at their verified boundaries.
-
-Preserve fail-closed behavior and SOURCE_REASON_UNAVAILABLE for unsupported source omissions.
-
-Defer Buy Low, Sell High, Breakout, Regression, recommendation authority, ranking authority, confidence authority, score authority, and transaction behavior until the required evidence contracts are complete.
+Navigation reconciliation supports this milestone but does not outrank decision quality. The next implementation batch is **Build Command Center decision-center aggregation boundary**: summarize existing owning-page evidence without inventing priority or changing decision payloads. Opportunity detection is the next competitive advantage after weekly trust; Decision Center, Process versus Results, manager development, and season strategy follow in that order. UX.8 retains its recorded in-progress boundary. Existing defects retain their evidence-supported statuses; production readiness, PostgreSQL parity, recovery, and defect closure remain unclaimed.
+Before any publication or generated continuity update, review these reconciled canonical sources and resolve required companion-change/release approvals separately; no push, defect closure, or continuity completion is authorized by this reconciliation.
