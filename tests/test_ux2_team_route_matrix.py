@@ -78,16 +78,31 @@ def make_app(monkeypatch, health, weekly_score=None, league_available=True, unkn
         rows[name.lower().replace(" ", "")] = (
             name, position, "T", 20, 12.0, 2, 50.0, 8, status,
         )
+    owner_roster_ids = [str(index) for index in range(len(POSITIONS))]
+    partner_roster_ids = []
     if trade_partner:
-        players["partner"] = {"full_name": "Partner", "position": "WR", "team": "T", "injury_status": "Healthy"}
-        rows["partner"] = ("Partner", "WR", "T", 20, 12.0, 2, 50.0, 8, "Healthy")
+        for index in range(3):
+            player_id = f"owner-rb-{index}"
+            name = f"Owner Reserve RB {index}"
+            players[player_id] = {"full_name": name, "position": "RB", "team": "T", "injury_status": "Healthy"}
+            rows[name.lower().replace(" ", "")] = (name, "RB", "T", 20, 12.0, 2, 50.0, 8, "Healthy")
+            owner_roster_ids.append(player_id)
+        partner_positions = [("QB", 2), ("RB", 4), ("WR", 4), ("TE", 3), ("K", 1), ("DEF", 1)]
+        for position, count in partner_positions:
+            for index in range(count):
+                player_id = f"partner-{position.lower()}-{index}"
+                name = f"Partner {position} {index}"
+                players[player_id] = {"full_name": name, "position": position, "team": "T", "injury_status": "Healthy"}
+                projection = 12.0 if position == "TE" else 1000.0
+                rows[name.lower().replace(" ", "")] = (name, position, "T", 20, projection, 2, 50.0, 8, "Healthy")
+                partner_roster_ids.append(player_id)
 
     def current_roster_rows(roster):
         output = []
         for index, player in enumerate(roster):
             row = dict(player)
             row.update({
-                "slot": ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")[index],
+                "slot": ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")[index] if index < len(POSITIONS) else "BN",
                 "vacant": False,
                 "is_bye": False,
                 "opponent": "SF",
@@ -137,7 +152,7 @@ def make_app(monkeypatch, health, weekly_score=None, league_available=True, unkn
         lambda: connection,
         lambda league_id: league,
         lambda league_id: [{"user_id": "owner", "is_owner": True}, *([{"user_id": "partner", "display_name": "Partner"}] if trade_partner else [])],
-        lambda league_id: [{"owner_id": "owner", "players": [key for key in players if key != "partner"]}, *([{"owner_id": "partner", "roster_id": 2, "players": ["partner"]}] if trade_partner else [])],
+        lambda league_id: [{"owner_id": "owner", "players": owner_roster_ids}, *([{"owner_id": "partner", "roster_id": 2, "players": partner_roster_ids}] if trade_partner else [])],
         lambda: players,
         lambda value: str(value).lower().replace(" ", ""),
     )
@@ -280,6 +295,8 @@ def test_trades_route_renders_blocked_integrity_when_partner_is_unavailable(monk
     response = make_app(monkeypatch, health_payload()).test_client().get("/trades?team=2")
     html = response.get_data(as_text=True)
     assert response.status_code == 200
+    assert "Diagnostics" in html
+    assert "<details class=\"trade-diagnostics\">" in html
     assert "Trade Center Integrity" in html
     assert "READY</small><h3>NO" in html
     assert "PARTNER_ROSTER_EMPTY" in html
@@ -295,16 +312,34 @@ def test_trades_route_publishes_packages_with_fresh_source_timestamps(monkeypatc
     html = response.get_data(as_text=True)
     assert response.status_code == 200
     assert "READY</small><h3>YES" in html
-    assert "Trade Recommendation" in html
+    assert "TRADE RECOMMENDATION" in html
+    assert "EXPLORE" in html
+    assert "WHY THIS TRADE EXISTS" in html
+    assert "Need improved" in html
     assert "Controlled matchup" in html
     assert "Controlled projection" in html
+    assert "RECEIVE" in html
+    assert "GIVE" in html
+    assert "POSITION CHANGE" in html
 
 
-@pytest.mark.parametrize("scenario,expected", [("ready", "Review Partner"), ("ready_empty", "READY: No evidence-supported trade package qualifies."), ("degraded", "RISK IMPACT"), ("blocked", "BLOCKED: Trade recommendations are unavailable."), ("identity_ambiguity", "TRADE_IDENTITY_AMBIGUOUS")])
+@pytest.mark.parametrize("scenario,expected", [("ready", "NO TRADE RECOMMENDATION"), ("ready_empty", "MONITOR"), ("degraded", "NO TRADE RECOMMENDATION"), ("preliminary", "NO TRADE RECOMMENDATION"), ("blocked", "BLOCKED"), ("identity_ambiguity", "TRADE_IDENTITY_AMBIGUOUS")])
 def test_trade_scenarios_render_through_testing_only_route(monkeypatch, scenario, expected):
     response = make_app(monkeypatch, health_payload(), trade_scenario=scenario).test_client().get(f"/trades?trade_scenario={scenario}")
     html = response.get_data(as_text=True)
     assert response.status_code == 200
     assert expected in html
     assert "<details class=\"trade-integrity\">" in html
-    assert "<details class=\"trade-identity\">" in html
+    assert "<details class=\"trade-diagnostics\">" in html
+    assert "<details class=\"trade-diagnostics\" open" not in html
+    if scenario == "preliminary":
+        assert "Trade Identity Lineage" in html
+    else:
+        assert "class=\"trade-card trade-identity\"" in html
+    if scenario in {"ready", "ready_empty", "degraded", "preliminary"}:
+        assert "WHY NO TRADE EXISTS" in html
+        assert "Monitor this team." in html
+    else:
+        assert "WHY NO TRADE EXISTS" not in html
+    if scenario in {"ready_empty", "ready", "degraded", "preliminary"}:
+        assert "Evidence level:" not in html

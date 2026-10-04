@@ -4,7 +4,7 @@ from services.trade_scenarios import build_trade_scenario
 from services.trade_target_center import build_trade_target_center
 
 
-@pytest.mark.parametrize("name,state,allowed", [("ready", "READY", True), ("ready_empty", "READY", True), ("degraded", "DEGRADED", True), ("blocked", "BLOCKED", False), ("identity_ambiguity", "BLOCKED", False)])
+@pytest.mark.parametrize("name,state,allowed", [("ready", "READY", True), ("ready_empty", "READY", True), ("degraded", "DEGRADED", True), ("preliminary", "PRELIMINARY", True), ("blocked", "BLOCKED", False), ("identity_ambiguity", "BLOCKED", False)])
 def test_controlled_trade_scenario_states(name, state, allowed):
     result = build_trade_scenario(name)
     assert result["publication_state"] == state

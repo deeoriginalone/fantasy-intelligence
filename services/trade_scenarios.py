@@ -35,7 +35,7 @@ def _player(name, position, player_id, age=60):
 
 
 def build_trade_scenario(name):
-    if name not in {"ready", "ready_empty", "degraded", "blocked", "unsupported_partner_fit", "identity_ambiguity"}:
+    if name not in {"ready", "ready_empty", "degraded", "preliminary", "blocked", "unsupported_partner_fit", "identity_ambiguity"}:
         name = "blocked"
         unknown = True
     else:
@@ -49,6 +49,8 @@ def build_trade_scenario(name):
     if name == "degraded":
         partner[0]["matchup_updated_at"] = (datetime.now(timezone.utc) - timedelta(seconds=70000)).isoformat()
     if name == "blocked":
+        partner[0]["ownership_state"] = "UNRESOLVED"
+    if name == "preliminary":
         partner[0]["projection_retrieved_at"] = None
     if name == "identity_ambiguity":
         partner[0]["identity_state"] = "AMBIGUOUS"
