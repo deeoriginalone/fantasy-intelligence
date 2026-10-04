@@ -19,7 +19,8 @@
   <section class="waiver-verdict"><div><small>Waiver verdict</small><h2>{% if preliminary_suggestions %}PRELIMINARY HEALTHY SUGGESTIONS AVAILABLE{% else %}NO VERIFIED-HEALTHY CANDIDATE SUGGESTION{% endif %}</h2><span>{% if preliminary_suggestions %}Fresh FantasyPros PPR consensus ranks support separate weekly and rest-of-season review when both player identities are verified. Missing or outdated ranks withhold the affected advice. FAAB ranges remain provisional spending estimates, not predicted winning bids.{% elif waiver_evidence and not waiver_evidence.allowed %}Ownership or eligibility evidence is insufficient to publish candidates.{% else %}No candidate currently has verified healthy status and sufficient supported evidence for review.{% endif %}</span></div><div><small>Healthy players to review</small><strong>{{ preliminary_suggestions|length }}</strong><span>Available players · rank coverage shown per focus</span></div><div><small>FAAB remaining</small><strong>{% if balance.state == 'AVAILABLE' %}${{ balance.remaining }}{% else %}Unavailable{% endif %}</strong><span>{% if balance.state == 'AVAILABLE' %}Sleeper API · ${{ balance.spent }} spent of ${{ balance.budget }} budget{% else %}{{ balance.reason|default('Live owner budget is not verified.') }}{% endif %}</span></div></section>
   {% if vacancies %}<div class="warning"><strong>Vacant starters:</strong> {{ vacancies|join(', ') }}. Roster-need context only; no claim recommendation is supported.</div>{% endif %}
   {% set ranking_status = ranking_source|default({}) %}
-  <section aria-label="Ranking updates"><p><strong>FantasyPros consensus via DynastyProcess</strong> · PPR · checked automatically when Waivers is used.</p><p id="ranking-update-time"></p>{% if ranking_status.refresh_error %}<p class="warning">{{ ranking_status.refresh_error }}. Only source-date and NFL-week-valid ranks may be used.</p>{% endif %}</section>
+  {% set ranking_cache_age = ranking_status.cache_age_seconds|default(none) %}
+  <section aria-label="Ranking updates"><p><strong>FantasyPros consensus via DynastyProcess</strong> · PPR</p><p><strong>Last successful refresh:</strong> {{ ranking_status.last_successful_refresh|default('Not recorded', true) }} · <strong>Cache age:</strong> {% if ranking_cache_age is not none %}{{ (ranking_cache_age // 3600) }}h {{ ((ranking_cache_age % 3600) // 60) }}m{% else %}Unavailable{% endif %} · <strong>Freshness:</strong> {{ ranking_status.cache_freshness_state|default('UNAVAILABLE') }}</p><form method="post" action="/waivers"><button type="submit">Refresh Waiver Intelligence</button></form>{% if ranking_status.refresh_error %}<p class="warning">{{ ranking_status.refresh_error }}. Cached ranks are retained when available; only source-date and NFL-week-valid ranks may be used.</p>{% endif %}</section>
   {% for horizon, label in [('this_week', 'This week'), ('rest_of_season', 'Rest of season')] %}{% set status = (ranking_status.horizons|default({})).get(horizon, {}) %}<p class="muted"><strong>{{ label }} source:</strong> {{ status.state|default('UNAVAILABLE') }}{% if status.state == 'AVAILABLE' %} · {{ status.ranks|length }} identity-verified ranks{% else %} · No current verified ranks; affected advice is withheld.{% endif %}</p>{% endfor %}
   <details id="ranking-record-review"><summary>Ranking-data checks and pending identity verification</summary>
     <p>These are checks on source ranks and game data, not injury exclusions. Active players with no listed injury are not rejected for an empty injury designation.</p>
@@ -66,15 +67,12 @@
     <script type="application/json" id="wda-roster-data">{{ wda_roster|tojson }}</script>
     <script type="application/json" id="wda-candidates-data">{{ wda_candidates|tojson }}</script>
     <script type="application/json" id="wda-balance-data">{{ balance|tojson }}</script>
-    <script type="application/json" id="wda-ranking-update">{{ (ranking_status.last_successful_refresh|default(none))|tojson }}</script>
     <script type="application/json" id="wda-grades-data">{{ (grades or {})|tojson }}</script>
     <script>
     (function(){
       var rosterData = JSON.parse(document.getElementById('wda-roster-data').textContent);
       var candidateData = JSON.parse(document.getElementById('wda-candidates-data').textContent);
       var balanceData = JSON.parse(document.getElementById('wda-balance-data').textContent);
-      var checked = JSON.parse(document.getElementById('wda-ranking-update').textContent);
-      document.getElementById('ranking-update-time').textContent = checked ? 'Last successful refresh: ' + new Intl.DateTimeFormat('en-US', {dateStyle:'long',timeStyle:'short',timeZone:'America/Los_Angeles'}).format(new Date(checked)) + ' Pacific Time' : 'No successful ranking refresh is recorded.';
       var select = document.getElementById('wda-player-select');
       var result = document.getElementById('wda-result');
       var pagination = document.getElementById('wda-pagination');

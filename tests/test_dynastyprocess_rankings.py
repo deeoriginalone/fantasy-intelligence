@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 import json
 from unittest.mock import Mock
 
-from services.dynastyprocess_rankings import evaluate, refresh
+from services.dynastyprocess_rankings import evaluate, read_cached_rankings, refresh, refresh_rankings
 
 NOW = datetime(2026, 10, 3, 12, tzinfo=timezone.utc)
 STATE = {"season": "2026", "week": 4, "season_type": "regular", "season_start_date": "2026-09-10"}
@@ -136,6 +136,57 @@ def test_failed_refresh_keeps_source_age_and_reports_failure(tmp_path):
     assert updated["last_successful_refresh"] == original["last_successful_refresh"]
     assert updated["refresh_error"]
     assert not evaluate(updated, STATE, NOW + timedelta(days=8))["horizons"]["rest_of_season"]["ranks"]
+    result = read_cached_rankings(path, STATE, now=NOW + timedelta(days=8))
+    assert result["last_successful_refresh"] == original["last_successful_refresh"]
+    assert result["refresh_error"]
+    assert result["cache_freshness_state"] == "STALE"
+
+
+def test_cached_read_never_acquires_and_publishes_cache_age(tmp_path, monkeypatch):
+    from services import dynastyprocess_rankings
+
+    path = tmp_path / "rankings.json"
+    path.write_text(json.dumps(snapshot()))
+    acquire = Mock(side_effect=AssertionError("cached read attempted a refresh"))
+    monkeypatch.setattr(dynastyprocess_rankings, "acquire", acquire)
+
+    result = read_cached_rankings(path, STATE, now=NOW + timedelta(hours=2))
+
+    assert result["cache_missing"] is False
+    assert result["cache_age_seconds"] == 7200
+    assert result["cache_freshness_state"] == "FRESH"
+    assert result["horizons"]["this_week"]["ranks"]["s-1"]["ecr"] == 12.5
+    acquire.assert_not_called()
+
+
+def test_missing_and_future_dated_cache_fail_closed(tmp_path):
+    path = tmp_path / "missing.json"
+    missing = read_cached_rankings(path, STATE, now=NOW)
+    assert missing["cache_missing"] is True
+    assert missing["cache_freshness_state"] == "UNAVAILABLE"
+    assert missing["horizons"]["this_week"]["state"] == "UNAVAILABLE"
+
+    future = snapshot()
+    future["last_successful_refresh"] = (NOW + timedelta(minutes=1)).isoformat()
+    path.write_text(json.dumps(future))
+    result = read_cached_rankings(path, STATE, now=NOW)
+    assert result["cache_age_seconds"] is None
+    assert result["cache_freshness_state"] == "UNAVAILABLE"
+
+
+def test_forced_refresh_updates_cache_even_when_recent(tmp_path, monkeypatch):
+    from services import dynastyprocess_rankings
+
+    acquire = Mock(return_value=snapshot())
+    monkeypatch.setattr(dynastyprocess_rankings, "acquire", acquire)
+    path = tmp_path / "rankings.json"
+    path.write_text(json.dumps({**snapshot(), "last_attempt": NOW.isoformat()}))
+
+    result = refresh_rankings(path, STATE, now=NOW + timedelta(minutes=1), force=True)
+
+    assert acquire.call_count == 1
+    assert result["last_successful_refresh"] == (NOW + timedelta(minutes=1)).isoformat()
+    assert result["cache_freshness_state"] == "FRESH"
 
 
 def test_on_use_refresh_reuses_recent_snapshot_but_refreshes_after_break_or_week_change(tmp_path, monkeypatch):

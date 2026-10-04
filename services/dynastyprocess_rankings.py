@@ -232,10 +232,48 @@ def refresh(path, *, fetch=_fetch, now=None, force=False, scope=None):
     return snapshot
 
 
-def read_rankings(path, nfl_state, *, now=None, sleeper_catalog=None):
+def _load_snapshot(path):
+    try:
+        snapshot = json.loads(Path(path).read_text())
+        return snapshot if isinstance(snapshot, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _ranking_result(snapshot, nfl_state, now, sleeper_catalog=None):
+    result = evaluate(snapshot, nfl_state, now, sleeper_catalog=sleeper_catalog)
+    result["cache_missing"] = not bool(snapshot.get("artifacts"))
+    refreshed_at = snapshot.get("last_successful_refresh")
+    try:
+        age = int((now - _time(refreshed_at)).total_seconds())
+        if age < 0:
+            raise ValueError("Ranking cache timestamp is in the future")
+        freshness = "FRESH" if age <= REFRESH_SECONDS else "AGING" if age <= 86400 else "STALE"
+    except (TypeError, ValueError, OverflowError):
+        age = None
+        freshness = "UNAVAILABLE"
+    result["cache_age_seconds"] = age
+    result["cache_freshness_state"] = freshness
+    return result
+
+
+def read_cached_rankings(path, nfl_state, *, now=None, sleeper_catalog=None):
+    now = now or datetime.now(timezone.utc)
+    try:
+        return _ranking_result(_load_snapshot(path), nfl_state, now, sleeper_catalog)
+    except (OSError, ValueError, TypeError, AttributeError):
+        return _ranking_result({"refresh_error": "Ranking cache unavailable"}, nfl_state, now)
+
+
+def refresh_rankings(path, nfl_state, *, now=None, sleeper_catalog=None, force=False):
     now = now or datetime.now(timezone.utc)
     try:
         scope = ":".join(str(nfl_state.get(key)) for key in ("season", "season_type", "week"))
-        return evaluate(refresh(path, now=now, scope=scope), nfl_state, now, sleeper_catalog=sleeper_catalog)
+        snapshot = refresh(path, now=now, scope=scope, force=force)
+        return _ranking_result(snapshot, nfl_state, now, sleeper_catalog)
     except (OSError, ValueError, TypeError, AttributeError):
-        return evaluate({"refresh_error": "Ranking cache unavailable"}, nfl_state, now)
+        return _ranking_result({"refresh_error": "Ranking cache unavailable"}, nfl_state, now)
+
+
+def read_rankings(path, nfl_state, *, now=None, sleeper_catalog=None):
+    return refresh_rankings(path, nfl_state, now=now, sleeper_catalog=sleeper_catalog)

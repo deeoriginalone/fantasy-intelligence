@@ -1380,7 +1380,7 @@ class WaiverRouteConnection:
         pass
 
 
-def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparison=False, candidate_health=None, include_missing_candidate=False, ranking_source_verified=False, extra_candidate_count=0, production_rows=None, faab_settings=None, consensus=None):
+def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparison=False, candidate_health=None, include_missing_candidate=False, ranking_source_verified=False, extra_candidate_count=0, production_rows=None, faab_settings=None, consensus=None, request_method="GET", testing=True):
     from flask import Flask
     import owner_operations
     catalog = {
@@ -1446,7 +1446,7 @@ def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparis
     )
     app = Flask(__name__, root_path=str(Path(__file__).resolve().parents[1]), template_folder="templates")
     app.config.update(
-        TESTING=True, SLEEPER_LEAGUE_ID="controlled",
+        TESTING=testing, SLEEPER_LEAGUE_ID="controlled",
         NFLVERSE_PLAYER_METADATA=[{"gsis_id": "gsis-wr", "player_id": "gsis-wr"}, {"gsis_id": "gsis-owned", "player_id": "gsis-owned"}],
         NFLVERSE_PLAYER_METADATA_LINEAGE={"source": "nflverse", "source_authority": "automated:nflverse", "artifact_id": "players", "version": "v1", "retrieved_at": COMPARISON_NOW, "coverage_state": "COMPLETE"},
     )
@@ -1458,9 +1458,61 @@ def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparis
     app.jinja_env.globals["ux_roster_lineage"] = lambda roster: []
     from services.ux_evidence import route_payload_evidence
     app.jinja_env.globals["ux_route_evidence"] = route_payload_evidence
-    response = app.test_client().get("/waivers")
+    response = app.test_client().open("/waivers", method=request_method)
     captured["executed_queries"] = list(connection.executed_queries)
     return response, captured
+
+
+def test_waiver_route_get_uses_cached_rankings_without_refresh(monkeypatch):
+    import owner_operations
+
+    cached = {"cache_missing": False, "last_successful_refresh": "2026-10-03T10:00:00+00:00", "cache_age_seconds": 7200, "cache_freshness_state": "AGING", "horizons": {}}
+    reads = []
+    monkeypatch.setattr(owner_operations, "get_nfl_state", lambda: {"season": 2026, "season_type": "regular", "week": 4})
+    monkeypatch.setattr(owner_operations, "read_cached_rankings", lambda *args, **kwargs: reads.append(args[0]) or cached)
+    monkeypatch.setattr(owner_operations, "refresh_rankings", lambda *args, **kwargs: pytest.fail("GET refreshed rankings despite a cache"))
+
+    response, _ = render_waiver_route(monkeypatch, testing=False)
+
+    assert response.status_code == 200
+    assert len(reads) == 1
+    assert "Cache age:</strong> 2h 0m" in response.get_data(as_text=True)
+    assert "Freshness:</strong> AGING" in response.get_data(as_text=True)
+
+
+def test_waiver_route_missing_cache_refreshes_once_and_discloses_failure(monkeypatch):
+    import owner_operations
+
+    calls = []
+    missing = {"cache_missing": True, "cache_age_seconds": None, "cache_freshness_state": "UNAVAILABLE", "horizons": {}}
+    failed = {**missing, "refresh_error": "Ranking refresh failed: OSError"}
+    monkeypatch.setattr(owner_operations, "get_nfl_state", lambda: {"season": 2026, "season_type": "regular", "week": 4})
+    monkeypatch.setattr(owner_operations, "read_cached_rankings", lambda *args, **kwargs: missing)
+    monkeypatch.setattr(owner_operations, "refresh_rankings", lambda *args, **kwargs: calls.append(kwargs) or failed)
+
+    response, _ = render_waiver_route(monkeypatch, testing=False)
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert len(calls) == 1
+    assert "Ranking refresh failed: OSError" in html
+    assert "Freshness:</strong> UNAVAILABLE" in html
+    assert "No current verified ranks" in html
+
+
+def test_waiver_route_manual_refresh_redirects_without_rendering_page(monkeypatch):
+    import owner_operations
+
+    calls = []
+    monkeypatch.setattr(owner_operations, "get_nfl_state", lambda: {"season": 2026, "season_type": "regular", "week": 4})
+    monkeypatch.setattr(owner_operations, "refresh_rankings", lambda path, state, **kwargs: calls.append((path, state, kwargs)))
+
+    response, _ = render_waiver_route(monkeypatch, request_method="POST")
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/waivers")
+    assert len(calls) == 1
+    assert calls[0][2]["force"] is True
 
 
 def published_view(recommendations):

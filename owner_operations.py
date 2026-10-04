@@ -28,6 +28,7 @@ from services.dynastyprocess_identity_source import acquire_dynastyprocess_ident
 from services.nflverse_player_metadata import acquire_nflverse_player_metadata
 from services.sleeper_service import get_trending_adds, get_trending_drops, get_nfl_state
 from services.dynastyprocess_rankings import read_rankings
+from services.dynastyprocess_rankings import read_cached_rankings, refresh_rankings
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
@@ -1398,7 +1399,16 @@ def create_owner_operations_blueprint(
         return redirect(url_for("owner_ops.team_page") + "#lineup", code=302)
 
     @bp.route("/waivers")
+    @bp.route("/waivers", methods=["GET", "POST"])
     def waivers_page():
+        rankings_path = current_app.instance_path + "/dynastyprocess-rankings.json"
+        if request.method == "POST":
+            try:
+                nfl_state = get_nfl_state()
+            except Exception:
+                nfl_state = {}
+            refresh_rankings(rankings_path, nfl_state, force=True)
+            return redirect(url_for("owner_ops.waivers_page"))
         conn = get_db_connection(); cur = conn.cursor()
         try:
             context, roster, meta = current_roster(cur)
@@ -1547,7 +1557,9 @@ def create_owner_operations_blueprint(
                 nfl_state = get_nfl_state()
             except Exception:
                 nfl_state = {}
-            rankings = read_rankings(current_app.instance_path + "/dynastyprocess-rankings.json", nfl_state, sleeper_catalog=meta.get("sleeper_catalog"))
+            rankings = read_cached_rankings(rankings_path, nfl_state, sleeper_catalog=meta.get("sleeper_catalog"))
+            if rankings.get("cache_missing"):
+                rankings = refresh_rankings(rankings_path, nfl_state, sleeper_catalog=meta.get("sleeper_catalog"))
         rankings = rankings or {"source": "FantasyPros consensus via DynastyProcess", "horizons": {}, "refresh_error": "Current ranking evidence is unavailable."}
         source_enabled = not current_app.testing or current_app.config.get("DYNASTYPROCESS_RANKINGS") is not None
         for candidate in wda_candidates:
