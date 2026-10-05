@@ -5,8 +5,22 @@ from services.fantasypros_projection import (
     fetch_fantasypros_projections,
     map_fantasypros_identity,
 )
+from imports.import_draft_intelligence import update_projection_without_source_freshness
 
 NOW = "2026-09-16T12:00:00+00:00"
+
+
+def test_unverified_csv_projection_update_clears_instead_of_renewing_freshness():
+    class Cursor:
+        rowcount = 1
+        def execute(self, query, params):
+            self.query = query
+            self.params = params
+    cursor = Cursor()
+    update_projection_without_source_freshness(cursor, 7, 18.4)
+    assert "projection_retrieved_at = NULL" in cursor.query
+    assert "projection_retrieved_at = NOW()" not in cursor.query
+    assert cursor.params == (18.4, 7)
 
 
 def payload():

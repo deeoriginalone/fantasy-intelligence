@@ -37,6 +37,7 @@ section[aria-labelledby="decision-explanation-title"]{display:none}
 .team-page .table-wrap{display:block;width:100%;max-width:100%;overflow-x:auto}
 .team-page .table-wrap table{width:100%;max-width:100%;min-width:0;table-layout:fixed;overflow-wrap:anywhere}
 .team-page .table-wrap th,.team-page .table-wrap td{overflow-wrap:anywhere;word-break:break-word}
+.verdict{grid-template-columns:minmax(0,1fr)}
 .verdict-main{display:block;position:relative;min-height:0;padding:18px 20px}
 .verdict{margin-bottom:16px}
 .verdict-main{min-height:0;padding:18px 20px;row-gap:8px}
@@ -51,6 +52,7 @@ section[aria-labelledby="decision-explanation-title"]{display:none}
 .verdict-action{grid-column:1;grid-row:2}
 @media(max-width:600px){.verdict-main{display:flex;padding:16px}.verdict-main>div:first-child{display:block}.verdict-kicker,.verdict-main h2,.verdict-main>div:first-child>p{width:auto;max-width:none}.hero-change-list{position:static;width:auto;margin-top:12px;padding:10px 0 0;border-top:1px solid rgba(255,255,255,.2);border-left:0}.verdict-action{grid-column:auto;grid-row:auto}}
 </style>
+{% if false %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.formation .player-value.unavailable').forEach((node) => { node.textContent = 'Weekly Value unavailable'; });
@@ -110,7 +112,136 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.bench-card .decision-reason').forEach((node) => { if (!node.textContent.trim() || node.textContent.includes('No additional explanation supplied')) node.remove(); });
   document.querySelectorAll('.bench-card .bench-meta').forEach((node) => { if (node.textContent.includes('Unavailable')) node.textContent = node.textContent.replace('Unavailable', 'Opponent unavailable'); });
 });
-</script>
+ </script>
+{% endif %}
+<style>
+.team-page .primary-section{margin:18px 0 28px}
+.team-page .primary-section>h2{margin:0 0 14px;font-size:22px}
+.team-page .team-header{display:block;margin:0;padding:0 0 14px;border-bottom:1px solid var(--team-line)}
+.team-page .team-header h1{font-size:28px}
+.team-page .team-header p{margin:5px 0;color:var(--team-muted)}
+.team-page .lineup-count{margin:0 0 12px;color:var(--team-blue);font-weight:800}
+.team-page .recommended-lineup{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.team-page .recommended-slot{min-width:0;padding:12px;border:1px solid var(--team-line);border-radius:8px;background:#fff;overflow-wrap:anywhere}
+.team-page .recommended-slot h3{margin:6px 0 3px;font-size:16px}
+.team-page .recommended-slot p{margin:4px 0;color:var(--team-muted);font-size:13px}
+.team-page .decision-list{display:grid;gap:9px}
+.team-page .primary-decision{padding:12px;border:1px solid var(--team-line);border-radius:8px;background:#fff}
+.team-page .primary-decision h3{margin:0 0 10px;font-size:17px}
+.team-page .primary-decision p{margin:8px 0;color:#41516a;font-size:13px;line-height:1.45}
+.team-page .primary-decision h4{margin:10px 0 2px;font-size:12px}
+.team-page .health-list{display:grid;gap:8px}
+.team-page .health-row{padding:10px 12px;border-left:4px solid var(--team-line);background:#fff}
+.team-page .support-section{margin:16px 0 22px}
+.team-page .support-section>h3{margin:0 0 10px;font-size:18px}
+.team-page #data-model-diagnostics{margin-top:26px}
+.team-page #data-model-diagnostics>summary{cursor:pointer;font-size:20px;font-weight:800}
+@media(max-width:700px){.team-page .recommended-lineup{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:430px){.team-page .recommended-lineup{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+{% macro team_starter_projection(player) %}
+  {% if player.weekly_score is not none %}<p>{{ '%.2f'|format(player.weekly_score) }} projected</p>{% endif %}
+{% endmacro %}
+{% macro team_decision_projection(change, recommended_projection, alternative_projection, alternative_player) %}
+  <h4>Projection</h4><p>{% if recommended_projection.get('projected_ppg') is not none and alternative_projection.get('projected_ppg') is not none %}{{ '%.2f'|format(recommended_projection.projected_ppg) }} vs {{ '%.2f'|format(alternative_projection.projected_ppg) }}{% elif change.recommended_player.weekly_score is defined and change.recommended_player.weekly_score is not none and alternative_player.item and alternative_player.item.weekly_score is not none %}{{ '%.2f'|format(change.recommended_player.weekly_score) }} vs {{ '%.2f'|format(alternative_player.item.weekly_score) }} weekly value{% else %}Not available. Compatible player projections are not currently available.{% endif %}</p>
+{% endmacro %}
+<main class="team-page" aria-labelledby="team-title">
+  <section class="primary-section" id="my-team-header" aria-labelledby="team-title">
+    <header class="team-header"><h1 id="team-title">MY TEAM</h1><p>Week {{ meta.week if meta.week is defined and meta.week else 'Unavailable' }} &middot; {{ league_settings.scoring_format|default('Scoring format unavailable', true) }}</p><p>{{ meta.team_name|default('', true) }}</p><p>Read-only decision support</p></header>
+  </section>
+  <section class="primary-section" id="your-lineup" aria-labelledby="your-lineup-title">
+    <h2 id="your-lineup-title">🎯 YOUR LINEUP</h2>
+    <p class="lineup-count">{{ lineup_reconciliation.changes|length }} {{ 'decision needs' if lineup_reconciliation.changes|length == 1 else 'decisions need' }} attention</p>
+    <div class="recommended-lineup">
+      {% for player in lineup_intelligence.starters|default([], true) %}
+        {% set decision = decisions_by_slot.get(player.slot) if decisions_by_slot is defined else none %}
+        {% set changed = namespace(item=none) %}
+        {% for change in lineup_reconciliation.changes|default([], true) %}{% if change.slot == player.slot %}{% set changed.item = change %}{% endif %}{% endfor %}
+        {% set decision_label = decision.decision|default(player.decision|default('MONITOR')) if decision else player.decision|default('MONITOR') %}
+        {% set watched = decision.watch_item|default(none) if decision else none %}
+        {% set confidence = player.confidence|default({}) %}
+        {% set confidence_label = confidence.get('label', '')|upper %}
+        <article class="recommended-slot">
+          <span class="slot-label">{{ player.slot }}</span>
+          <h3>{{ '🟡' if changed.item or decision_label == 'MONITOR' or watched or player.evidence_gaps|default([]) or confidence_label not in ('', 'HIGH') else '🟢' }} {{ decision_label }} {{ player.player }}</h3>
+          {% if player.opponent %}<p>vs {{ player.opponent }}</p>{% endif %}
+          {{ team_starter_projection(player) }}
+          {% if changed.item %}
+            <p>{{ changed.item.current }} is the current alternative</p>
+            {% if decision and decision.alternative == changed.item.current and decision.weekly_score_delta is not none and decision.weekly_score_delta > 0 %}<p>+{{ '%.2f'|format(decision.weekly_score_delta) }} vs {{ changed.item.current }}</p>{% endif %}
+          {% endif %}
+        </article>
+      {% else %}<p>Recommended starting lineup unavailable.</p>{% endfor %}
+    </div>
+  </section>
+  <section class="primary-section" id="health-availability" aria-labelledby="health-availability-title">
+    <h2 id="health-availability-title">🚨 HEALTH &amp; AVAILABILITY</h2>
+    {% set health_rows = namespace(items=[]) %}
+    {% for player in roster|default([], true) %}
+      {% set status = player.injury_status|string|trim|upper %}
+      {% if status in ('OUT', 'IR', 'INJURED RESERVE', 'RESERVE/INJURED') or 'RESERVE-RET' in status %}{% set health_rows.items = health_rows.items + [(1, 'OUT', '🔴', 'Remove from consideration', player.player)] %}
+      {% elif status == 'DOUBTFUL' %}{% set health_rows.items = health_rows.items + [(2, 'DOUBTFUL', '🟠', 'Monitor before kickoff', player.player)] %}
+      {% elif status == 'QUESTIONABLE' %}{% set health_rows.items = health_rows.items + [(3, 'QUESTIONABLE', '🟠', 'Monitor before kickoff', player.player)] %}
+      {% elif status in ('ACTIVE', 'HEALTHY', 'AVAILABLE', 'HEALTHY / NOT LISTED', 'NOT LISTED') %}{% set health_rows.items = health_rows.items + [(4, 'ACTIVE', '🟢', 'Available', player.player)] %}
+      {% elif status == 'NOT APPLICABLE' %}{% set health_rows.items = health_rows.items + [(6, 'NOT APPLICABLE', '⚪', 'Not applicable', player.player)] %}
+      {% else %}{% set health_rows.items = health_rows.items + [(5, 'UNKNOWN', '⚪', 'Availability information unavailable', player.player)] %}{% endif %}
+    {% endfor %}
+    {% if health_rows.items %}<div class="health-list">{% for rank, label, icon, impact, player_name in health_rows.items|sort(attribute=0) %}<article class="health-row">{{ icon }} <strong>{{ player_name }} — {{ label }}</strong><br>{{ impact }}</article>{% endfor %}</div>{% else %}<p>No roster health statuses are available.</p>{% endif %}
+  </section>
+  <section class="primary-section" id="biggest-decisions" aria-labelledby="biggest-decisions-title">
+    <h2 id="biggest-decisions-title">⚖️ BIGGEST DECISIONS</h2>
+    {% if lineup_reconciliation.changes %}<div class="decision-list">{% for change in lineup_reconciliation.changes %}<article class="primary-decision decision-item"><strong>{{ change.slot }}</strong><p>{{ change.recommended }} vs {{ change.current }}</p></article>{% endfor %}</div>{% else %}<p>No supported changed-slot decisions.</p>{% endif %}
+  </section>
+  <section class="primary-section" id="why-these-decisions" aria-labelledby="why-these-decisions-title">
+    <h2 id="why-these-decisions-title">📊 WHY THESE DECISIONS?</h2>
+    {% if lineup_reconciliation.changes %}<div class="decision-list">
+      {% for change in lineup_reconciliation.changes %}
+        {% set projections = change.provider_projection|default({}) %}{% set recommended_projection = projections.get('recommended', {}) %}{% set alternative_projection = projections.get('current', {}) %}
+        {% set current_health = namespace(value=none) %}{% for current in lineup_reconciliation.current|default([], true) %}{% if current.player_id == change.current_id %}{% set current_health.value = current.injury_status %}{% endif %}{% endfor %}
+        {% set alternative_player = namespace(item=none) %}{% for candidate in roster|default([], true) %}{% if candidate.source_player_id == change.current_id %}{% set alternative_player.item = candidate %}{% endif %}{% endfor %}
+        <article class="primary-decision">
+          <h3>START {{ change.recommended }} over {{ change.current }}</h3>
+          {{ team_decision_projection(change, recommended_projection, alternative_projection, alternative_player) }}
+          <h4>Matchup</h4><p>{{ change.recommended_player.matchup_signal|default('Not available. Matchup evidence is not currently strong enough to affect this recommendation.', true) }}</p>
+          <h4>Opportunity</h4><p>Not available. Supported opportunity context is not currently available.</p>
+          <h4>Usage</h4><p>Not available. Supported usage context is not currently available.</p>
+          <h4>Game environment</h4><p>Not available. Supported game-environment context is not currently available.</p>
+          <h4>Health</h4><p>{{ change.recommended_player.injury_status|default('Unknown', true) }} vs {{ current_health.value|default('Unknown', true) }}</p>
+          <h4>Floor / Ceiling</h4><p>Not available. Supported floor and ceiling evidence is not currently available.</p>
+          <h4>Confidence</h4><p>{{ change.confidence.label|default('Not available', true) if change.confidence else 'Not available' }}</p>
+          <h4>Risk</h4><p>{% if change.watch_item %}{{ {'HEALTH_EVIDENCE_STALE':'Health information needs a pre-kickoff check.','HEALTH_REFRESH_FAILED':'Health information needs a pre-kickoff check.','HEALTH_UNAVAILABLE':'Player availability information is unavailable.','HEALTH_BLOCKED':'Player availability information is blocked.','INJURY_STATUS_UNRESOLVED':'Player availability is unconfirmed.','MATCHUP_EVIDENCE_UNAVAILABLE':'Matchup evidence is unavailable.','MATCHUP_RANK_UNAVAILABLE':'Matchup evidence is unavailable.','MATCHUP_PLAYER_IDENTITY_UNAVAILABLE':'Matchup evidence could not be matched to this player.','MATCHUP_OPPONENT_IDENTITY_UNAVAILABLE':'Opponent matchup evidence is unavailable.','OPPONENT_DATA_MISSING':'Opponent evidence is unavailable.','WEEKLY_EVIDENCE_INCOMPLETE':'Some lineup evidence is incomplete.','TEAM_HEALTH_UNAVAILABLE':'Team health information is unavailable.','TEAM_HEALTH_STALE':'Team health information needs a pre-kickoff check.'}.get(change.watch_item, 'Additional lineup evidence needs review.') }}{% else %}No supported blocker or watch item.{% endif %}</p>
+          <h4>Verdict</h4><p>{{ change.reason|default('Supported lineup recommendation.', true) }}</p>
+        </article>
+      {% endfor %}
+    </div>{% else %}<p>No supported changed-slot decisions to explain.</p>{% endif %}
+  </section>
+  <section class="primary-section" id="what-could-change" aria-labelledby="what-could-change-title">
+    <h2 id="what-could-change-title">🌦️ WHAT COULD CHANGE?</h2>
+    {% set watch_labels = {'HEALTH_EVIDENCE_STALE':'Health information needs a pre-kickoff check.','HEALTH_REFRESH_FAILED':'Health information needs a pre-kickoff check.','HEALTH_UNAVAILABLE':'Player availability information is unavailable.','HEALTH_BLOCKED':'Player availability information is blocked.','INJURY_STATUS_UNRESOLVED':'Player availability is unconfirmed.','MATCHUP_EVIDENCE_UNAVAILABLE':'Matchup evidence is unavailable.','MATCHUP_RANK_UNAVAILABLE':'Matchup evidence is unavailable.','MATCHUP_PLAYER_IDENTITY_UNAVAILABLE':'Matchup evidence could not be matched to this player.','MATCHUP_OPPONENT_IDENTITY_UNAVAILABLE':'Opponent matchup evidence is unavailable.','OPPONENT_DATA_MISSING':'Opponent evidence is unavailable.','WEEKLY_EVIDENCE_INCOMPLETE':'Some lineup evidence is incomplete.','TEAM_HEALTH_UNAVAILABLE':'Player availability information is unavailable.','TEAM_HEALTH_STALE':'Health information needs a pre-kickoff check.'} %}
+    {% set supported_watches = lineup_reconciliation.changes|default([], true)|selectattr('watch_item')|list %}
+    {% if supported_watches %}<h3>Players to monitor</h3>{% for change in supported_watches %}<p><strong>{{ change.recommended }}</strong> — {{ watch_labels.get(change.watch_item, 'Additional lineup evidence needs review.') }}</p>{% endfor %}{% endif %}
+    {% if not supported_watches %}<p>No supported alert currently available.</p>{% endif %}
+  </section>
+  <section class="primary-section" id="supporting-roster-details" aria-labelledby="supporting-roster-title">
+    <h2 id="supporting-roster-title">SUPPORTING ROSTER DETAILS</h2>
+    <section class="support-section" aria-labelledby="current-sleeper-lineup-title"><h3 id="current-sleeper-lineup-title">Current Sleeper Lineup</h3>{% if lineup_reconciliation.state == 'AVAILABLE' %}<div class="decision-grid">{% for player in lineup_reconciliation.current %}<article class="decision-card"><span class="slot-label">{{ player.slot }}</span><h4>{{ player.player }}</h4><p>{{ player.position }} · {{ player.injury_status }}</p></article>{% endfor %}</div>{% else %}<p>{{ lineup_comparison_unavailable }}</p>{% endif %}</section>
+    <section class="support-section" aria-labelledby="bench-title"><h3 id="bench-title">Bench Priority</h3><div class="bench-strip">{% for player in lineup_intelligence.bench|default([], true) %}<article class="bench-card"><span class="bench-rank">#{{ player.bench_order|default(loop.index) }}</span><h4>{{ player.player }}</h4><p>{{ player.position }} · {{ player.opponent|default('Opponent unavailable', true) }}</p></article>{% endfor %}</div></section>
+    <section class="support-section" aria-labelledby="weekly-risks-title"><h3 id="weekly-risks-title">Biggest Risks This Week</h3>{% include "_team_risks.html" %}</section>
+    <section class="support-section" aria-labelledby="team-needs-title"><h3 id="team-needs-title">Team Needs</h3>{% include "_team_needs_summary.html" %}</section>
+    <section class="support-section" aria-labelledby="roster-outlook-title"><h3 id="roster-outlook-title">Roster Outlook</h3>{% include "_team_outlook.html" %}</section>
+    <section class="support-section" aria-labelledby="changes-title"><h3 id="changes-title">What Changed This Week</h3><p>{{ changes.message|default('No prior-week comparison supplied. Historical changes are unavailable and are not inferred.', true) }}</p></section>
+    <section class="support-section" aria-labelledby="lineup-trust-title"><h3 id="lineup-trust-title">Why This Lineup Is Trusted</h3>{% include "_team_trust.html" %}</section>
+  </section>
+  <details class="card diagnostic-details" id="data-model-diagnostics">
+    <summary>⚙️ DATA &amp; MODEL DIAGNOSTICS</summary>
+    {% include "_team_snapshot.html" %}
+    <section aria-labelledby="matchup-signal-title"><h3 id="matchup-signal-title">Matchup Evidence Context</h3>{% set signal_players = lineup_intelligence.starters|default([])|selectattr('matchup_signal')|list %}{% if signal_players %}{% for player in signal_players %}<p>{{ player.player }} · {{ player.matchup_signal }} · {{ player.evidence_level|default('UNAVAILABLE') }} · Sample {{ player.sample_games|default('Unavailable') }} games · {{ player.freshness|default('UNAVAILABLE') }}</p>{% endfor %}{% else %}<p>Matchup evidence context unavailable.</p>{% endif %}</section>
+    <details id="additional-evidence-diagnostics"><summary>Additional evidence diagnostics</summary>{% include "_opportunity_evidence.html" %}{% include "_preliminary_matchup_context.html" %}</details>
+    <details id="evidence-settings"><summary>Evidence and Settings</summary>{% include "_team_accuracy.html" %}</details>
+    {% set ux_title = 'Roster Identity and Data Lineage' %}{% set supplied_lineage = team.lineage|default([]) if team is defined else [] %}{% set ux_lineage = supplied_lineage if supplied_lineage else ux_roster_lineage(roster) %}{% include '_ux_completion_panel.html' %}
+  </details>
+</main>
+{% if false %}
 <main class="team-page" aria-labelledby="team-title">
   <header class="team-header"><div><p class="eyebrow">{{ context.mode }} / Roster view</p><h1 id="team-title">My Team</h1><p>Turn roster evidence into the next best manager action. Decision support only.</p></div><span class="mode-tag">{{ meta.team_name }}</span></header>
   <section class="verdict" id="lineup" aria-labelledby="verdict-title">
@@ -122,7 +253,72 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="verdict-stat"><small>Biggest risk</small><strong>{{ 'Review' if verdict.biggest_risk|default('') else 'None' }}</strong><span>{{ verdict.biggest_risk|default('No active lineup risk identified.') }}</span></div>
   </section>
   <section class="lineup-section action-section" aria-labelledby="primary-changes-title"><div class="section-heading"><div><p class="eyebrow">Next manager action</p><h2 id="primary-changes-title">Proposed Changes</h2></div><p>Review supported lineup changes before the formation details.</p></div>{% if lineup_reconciliation.state == 'AVAILABLE' and lineup_reconciliation.changes %}<div class="change-card">{% for change in lineup_reconciliation.changes %}<p><strong>{{ 'START' if change.authority in ('START', 'FLEX') else 'REVIEW' }} {{ change.recommended }} over {{ change.current }} at {{ change.slot }}</strong></p>{% endfor %}</div>{% elif lineup_reconciliation.state == 'AVAILABLE' %}<p>KEEP: The supported recommendation matches the current Sleeper lineup.</p>{% else %}<p class="lineup-comparison-unavailable">{{ lineup_comparison_unavailable }}</p>{% endif %}</section>
-  <section class="lineup-section" aria-labelledby="start-sit-decisions-title"><div class="section-heading"><div><p class="eyebrow">Decision surface</p><h2 id="start-sit-decisions-title">Start/Sit Decisions</h2></div><p>One supported decision per changed slot.</p></div>{% if lineup_reconciliation.changes %}{% for change in lineup_reconciliation.changes %}<article class="change-card"><strong>{{ change.slot }}</strong><h3>{{ change.authority }} {{ change.recommended }}</h3><p>SIT {{ change.current }}</p>{% if change.reason %}<p><strong>Why:</strong> {{ change.reason }}</p>{% endif %}{% if change.watch_item %}<p><strong>What could change this:</strong> {{ change.watch_item }}</p>{% endif %}</article>{% endfor %}{% elif lineup_reconciliation.state == 'AVAILABLE' %}<p>No lineup changes recommended.</p>{% else %}<p class="lineup-comparison-unavailable">{{ lineup_comparison_unavailable }}</p>{% endif %}</section>
+  <style>
+    .start-sit-card{display:block}
+    .start-sit-evidence{margin:8px 0;color:var(--team-muted);font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+    .decision-projection{font-size:15px;color:var(--team-ink)}
+    .decision-watch,.decision-change{color:#41516a;font-size:13px;line-height:1.45}
+    .decision-details{margin-top:12px;border-top:1px solid var(--team-line);padding-top:9px}
+    .decision-details summary{cursor:pointer;color:var(--team-blue);font-size:12px;font-weight:900}
+    .health-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .health-item{display:grid;grid-template-columns:1fr auto;gap:4px 12px;border:1px solid var(--team-line);border-radius:10px;padding:12px;background:#fff}
+    .health-item small{grid-column:1/-1;color:var(--team-muted)}
+    @media(max-width:600px){.health-grid{grid-template-columns:1fr}}
+  </style>
+  <section class="lineup-section" aria-labelledby="start-sit-decisions-title">
+    <div class="section-heading"><div><p class="eyebrow">Decision surface</p><h2 id="start-sit-decisions-title">Biggest Decisions This Week</h2></div><p>Changed lineup slots, using the existing recommendation.</p></div>
+    {% if lineup_reconciliation.changes %}
+      {% for change in lineup_reconciliation.changes %}
+        {% set projection_pair = change.provider_projection|default({}) %}
+        {% set recommended_projection = projection_pair.get('recommended', {}) %}
+        {% set current_projection = projection_pair.get('current', {}) %}
+        <article class="change-card start-sit-card">
+          <strong>{{ change.slot }}</strong>
+          <h3>{{ change.authority }} {{ change.recommended }}</h3>
+          <p>SIT {{ change.current }}</p>
+          {% if recommended_projection.get('projected_ppg') is not none and current_projection.get('projected_ppg') is not none %}
+            <p class="decision-projection"><strong>Projection (informational only):</strong> {{ '%.2f'|format(recommended_projection.projected_ppg) }} vs {{ '%.2f'|format(current_projection.projected_ppg) }} points/game{% if recommended_projection.state == 'PRELIMINARY' or current_projection.state == 'PRELIMINARY' %} · PRELIMINARY{% endif %}</p>
+          {% else %}
+            <p class="decision-projection"><strong>Projection:</strong> UNAVAILABLE</p>
+          {% endif %}
+          <p><strong>Why:</strong> {{ change.reason|default('Recommendation reason unavailable.', true) }}</p>
+          <p><strong>Confidence:</strong> {% if change.confidence and change.confidence.label %}{{ change.confidence.label }}{% else %}UNAVAILABLE{% endif %}</p>
+          {% set watch_labels = {'HEALTH_EVIDENCE_STALE': 'Health information needs a pre-kickoff check.', 'HEALTH_REFRESH_FAILED': 'Health information needs a pre-kickoff check.', 'HEALTH_UNAVAILABLE': 'Player availability information is unavailable.', 'HEALTH_BLOCKED': 'Player availability information is blocked.', 'INJURY_STATUS_UNRESOLVED': 'Player availability is unconfirmed.', 'MATCHUP_EVIDENCE_UNAVAILABLE': 'Matchup evidence is unavailable.', 'MATCHUP_RANK_UNAVAILABLE': 'Matchup evidence is unavailable.', 'MATCHUP_PLAYER_IDENTITY_UNAVAILABLE': 'Matchup evidence could not be matched to this player.', 'MATCHUP_OPPONENT_IDENTITY_UNAVAILABLE': 'Opponent matchup evidence is unavailable.', 'OPPONENT_DATA_MISSING': 'Opponent evidence is unavailable.', 'WEEKLY_EVIDENCE_INCOMPLETE': 'Some lineup evidence is incomplete.', 'TEAM_HEALTH_UNAVAILABLE': 'Team health information is unavailable.', 'TEAM_HEALTH_STALE': 'Team health information needs a pre-kickoff check.'} %}
+          {% set watch_text = watch_labels.get(change.watch_item, 'Additional lineup evidence needs review.') if change.watch_item else 'No specific watch item was supplied.' %}
+          <p class="decision-watch"><strong>Watch:</strong> {{ watch_text }}</p>
+          <p class="decision-change"><strong>What could change this decision:</strong> An updated player status, inactive designation, projection, or matchup evidence before kickoff.</p>
+          <details class="decision-details">
+            <summary>Projection source details</summary>
+            {% for projection in [recommended_projection, current_projection] %}
+              {% if projection.get('projected_ppg') is not none %}
+                <p class="start-sit-evidence">{{ projection.metric_name|default('Provider projection') }} · {{ projection.scoring_format|default('Unavailable')|upper }} · {{ projection.season|default('Unavailable') }} Week {{ projection.week|default('Unavailable') }} · data through Week {{ projection.data_through_week|default('Unavailable') }} · generated {{ projection.source_record_time|default('Unavailable') }} · age {{ projection.age_seconds if projection.age_seconds is not none else 'Unavailable' }}s · freshness {{ projection.freshness_state|default('UNAVAILABLE') }} · {{ projection.evidence_level|default('UNAVAILABLE') }} / {{ projection.recommendation_impact|default('INFORMATIONAL_ONLY') }}{% if projection.attribution %} · {{ projection.attribution }}{% endif %}</p>
+              {% endif %}
+            {% endfor %}
+          </details>
+        </article>
+      {% endfor %}
+    {% elif lineup_reconciliation.state == 'AVAILABLE' %}
+      <p>No lineup changes recommended.</p>
+    {% else %}
+      <p class="lineup-comparison-unavailable">{{ lineup_comparison_unavailable }}</p>
+    {% endif %}
+  </section>
+  <section class="lineup-section" aria-labelledby="health-availability-title">
+    <div class="section-heading"><div><p class="eyebrow">Player availability</p><h2 id="health-availability-title">Health &amp; Availability</h2></div><p>Roster health statuses supplied to My Team.</p></div>
+    {% set health_players = roster|default([], true) %}
+    {% if health_players %}
+      <div class="health-grid">
+        {% for player in health_players %}
+          {% set health_status = player.injury_status|string|trim %}
+          {% set health_key = health_status|lower %}
+          {% set visible_health_status = health_status|upper if health_key not in ('', 'unknown', 'not available', 'unavailable', 'none') else 'UNAVAILABLE' %}
+          <article class="health-item"><strong>{{ player.player }}</strong><strong>{{ visible_health_status }}</strong><small>{% if health_key in ('out', 'ir', 'injured reserve', 'reserve/injured') or 'reserve-ret' in health_key %}Remove from consideration{% elif health_key in ('questionable', 'doubtful') %}Monitor before kickoff{% elif health_key in ('active', 'healthy', 'available', 'healthy / not listed', 'none', 'not listed') %}Available{% elif visible_health_status == 'UNAVAILABLE' %}Availability information unavailable{% else %}Status requires review{% endif %}</small></article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p>Health status UNAVAILABLE.</p>
+    {% endif %}
+  </section>
   <section class="lineup-section decision-explanation" aria-labelledby="decision-explanation-title"><div class="section-heading"><div><p class="eyebrow">Decision explanation</p><h2 id="decision-explanation-title">Why these lineup changes?</h2></div><p>Uses only the supplied recommendation reasons and current starter assignments.</p></div>{% if lineup_reconciliation.changes %}{% for change in lineup_reconciliation.changes %}<article class="change-card"><strong>{{ change.slot }}</strong><p>{{ change.current }} &rarr; {{ change.recommended }}</p><span>{{ change.recommended_player.reason|default('Supported lineup recommendation.') }}</span></article>{% endfor %}{% elif lineup_reconciliation.state == 'AVAILABLE' %}<p>No lineup changes recommended.</p>{% else %}<p class="lineup-comparison-unavailable">{{ lineup_comparison_unavailable }}</p>{% endif %}</section>
   <section class="lineup-section" aria-labelledby="matchup-signal-title"><div class="section-heading"><div><p class="eyebrow">Evidence context</p><h2 id="matchup-signal-title">Matchup Signal</h2></div><p>Preliminary context only; authoritative Matchup Rank remains separate and fail-closed.</p></div>{% set signal_players = lineup_intelligence.starters|selectattr('matchup_signal')|list %}{% if signal_players %}{% for player in signal_players %}<p><strong>{{ player.player }}</strong> · {{ player.matchup_signal }} · {{ player.evidence_level }} · Sample {{ player.sample_games|default('Unavailable') }} games · {{ player.freshness|default('UNAVAILABLE') }} · Context only</p>{% endfor %}{% else %}<p>Matchup Signal unavailable: current matchup evidence has not reached the My Team lineup payload.</p>{% endif %}</section>
   <details class="card diagnostic-details" id="additional-evidence-diagnostics"><summary>Additional evidence diagnostics</summary>{% include "_opportunity_evidence.html" %}{% include "_preliminary_matchup_context.html" %}</details>
@@ -141,6 +337,11 @@ document.addEventListener('DOMContentLoaded', () => {
   {% set ux_title = 'Roster Identity and Data Lineage' %}{% set supplied_lineage = team.lineage|default([]) if team is defined else [] %}{% set ux_lineage = supplied_lineage if supplied_lineage else ux_roster_lineage(roster) %}{% include '_ux_completion_panel.html' %}
 </main>
 <script>
+const teamHeader = document.querySelector('.team-header');
+const biggestDecisions = document.querySelector('#start-sit-decisions-title')?.closest('section');
+const healthAvailability = document.querySelector('#health-availability-title')?.closest('section');
+if (teamHeader && biggestDecisions) teamHeader.after(biggestDecisions);
+if (biggestDecisions && healthAvailability) biggestDecisions.after(healthAvailability);
 const teamFormation = document.querySelector('section[aria-labelledby="formation-title"]');
 if (teamFormation) teamFormation.remove();
 const legacyChanges = document.querySelector('section[aria-labelledby="proposed-changes-title"]');
@@ -154,4 +355,5 @@ const teamTrust = document.querySelector('#lineup-trust');
 if (teamTrust && teamSignal) teamTrust.parentElement.insertBefore(teamSignal, teamTrust);
 if (teamTrust && teamDiagnostics) teamTrust.parentElement.insertBefore(teamDiagnostics, teamTrust);
 </script>
+{% endif %}
 {% endblock %}

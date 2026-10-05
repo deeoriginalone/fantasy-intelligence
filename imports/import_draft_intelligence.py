@@ -144,6 +144,19 @@ def unique_by_key(rows):
     }
 
 
+def update_projection_without_source_freshness(cur, player_id, projection):
+    cur.execute(
+        """
+        UPDATE players
+        SET projected_points = %s,
+            projection_retrieved_at = NULL,
+            updated_at = NOW()
+        WHERE id = %s
+        """,
+        (projection, player_id),
+    )
+
+
 def main():
     projection_map = unique_by_key(load_projection_rows())
     adp_map = unique_by_key(load_adp_rows())
@@ -213,16 +226,7 @@ def main():
                 tier = tier_row["tier"]
 
             if projection is not None:
-                cur.execute(
-                    """
-                    UPDATE players
-                    SET projected_points = %s,
-                        projection_retrieved_at = NOW(),
-                        updated_at = NOW()
-                    WHERE id = %s
-                    """,
-                    (projection, player_id),
-                )
+                update_projection_without_source_freshness(cur, player_id, projection)
                 updated_projection += cur.rowcount
 
             if adp is not None:

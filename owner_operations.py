@@ -6,6 +6,7 @@ from math import ceil, isfinite
 from flask import Blueprint, current_app, redirect, render_template, request, session, url_for
 from weekly_intelligence import enrich_players, current_week, upcoming_byes
 from services.weekly_lineup_intelligence import build_lineup_intelligence, decision, optimize_lineup, sort_key
+from services.jerrygm_projections import build_changed_slot_projections
 from services.trade_intelligence import build_trade_intelligence
 from services.opportunity_evidence import build_opportunity_view, build_waiver_player_comparison
 from services.trade_target_center import build_trade_target_center
@@ -1392,6 +1393,15 @@ def create_owner_operations_blueprint(
             lineup_intelligence["verdict"].update(status="ACTION REQUIRED", action=f"{len(lineup_reconciliation['changes'])} lineup changes recommended", why="Review the supported lineup changes before lineup lock.")
         lineup_snapshot = build_lineup_snapshot(starters, bench_decisions, current_starters=current_sleeper_starters, lineup_changes=lineup_reconciliation.get("changes"))
         lineup_intelligence["starters"] = attach_preliminary_matchup_display(lineup_intelligence.get("starters"))
+        if context["mode"] == "LIVE" and lineup_reconciliation.get("changes"):
+            provider_projections = build_changed_slot_projections(
+                roster,
+                lineup_reconciliation["changes"],
+                season=meta.get("season"),
+                week=meta.get("week"),
+            )
+            for change in lineup_reconciliation["changes"]:
+                change["provider_projection"] = provider_projections.get(change.get("slot"), {})
         return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_intelligence=lineup_intelligence, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context, opportunity_view=opportunity_view, opportunity_changes=opportunity_changes, lineup_reconciliation=lineup_reconciliation)
 
     @bp.route("/lineup")
