@@ -188,10 +188,23 @@ WAIVER_FRESHNESS_STATES = ("FRESH", "AGING", "STALE", "UNAVAILABLE", "BLOCKED")
 WAIVER_OWNERSHIP_THRESHOLD_ID = "integrity.roster.v1"
 
 
-def resolve_waiver_candidate_identity(candidate, catalog, name_normalizer):
+def build_waiver_catalog_name_index(catalog, name_normalizer):
+    index = {}
+    for player_id, raw in (catalog or {}).items():
+        raw = raw or {}
+        name = raw.get("full_name") or " ".join(
+            part for part in (raw.get("first_name"), raw.get("last_name")) if part
+        )
+        normalized = name_normalizer(name)
+        if normalized:
+            index.setdefault(normalized, []).append((str(player_id), raw))
+    return index
+
+
+def resolve_waiver_candidate_identity(candidate, catalog, name_normalizer, normalized_catalog_index=None):
     """Resolve one waiver candidate to a catalog-backed Sleeper player ID."""
     candidate = dict(candidate or {})
-    catalog = dict(catalog or {})
+    catalog = catalog or {}
     input_player_id = str(candidate.get("player_id") or "").strip()
     candidate_name = candidate.get("player") or candidate.get("name")
     candidate_team = str(candidate.get("nfl_team") or candidate.get("team") or "").upper()
@@ -227,18 +240,8 @@ def resolve_waiver_candidate_identity(candidate, catalog, name_normalizer):
         normalized = name_normalizer(candidate_name or "")
         if not normalized:
             return base
-        matches = [
-            (str(player_id), raw or {})
-            for player_id, raw in catalog.items()
-            if name_normalizer(
-                (raw or {}).get("full_name")
-                or " ".join(
-                    part
-                    for part in ((raw or {}).get("first_name"), (raw or {}).get("last_name"))
-                    if part
-                )
-            ) == normalized
-        ]
+        name_index = normalized_catalog_index if normalized_catalog_index is not None else build_waiver_catalog_name_index(catalog, name_normalizer)
+        matches = name_index.get(normalized, [])
         if not matches:
             return base
         if len(matches) != 1:

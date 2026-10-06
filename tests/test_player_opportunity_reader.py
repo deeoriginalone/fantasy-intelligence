@@ -106,6 +106,23 @@ def test_production_reader_returns_newest_supported_week_first_and_contract_meta
     assert result["rows"][0]["lineage"]
 
 
+def test_production_reader_reuses_only_matching_validated_opportunity_scope():
+    connection = ReaderConnection([row(1), row(2, fantasy_points_ppr=14.8)])
+    opportunity = read_player_opportunity(connection, player_id="p1", season=2026, **CURRENT)
+    production = read_player_production(None, player_id="p1", season=2026, reader_result=opportunity, **CURRENT)
+
+    assert len(connection.reader_cursor.statements) == 1
+    assert production["state"] == "AVAILABLE"
+    assert [item["week"] for item in production["rows"]] == [2, 1]
+    mismatched = read_player_production(
+        None, player_id="other", season=2026,
+        reader_result=opportunity, **CURRENT,
+    )
+    assert mismatched["state"] == "BLOCKED"
+    assert mismatched["rows"] == []
+    assert mismatched["blockers"] == ["PLAYER_WEEK_PRODUCTION_READER_SCOPE_MISMATCH"]
+
+
 def test_production_reader_fails_closed_for_k_and_def():
     for position in ("K", "DEF", "DST"):
         result = read_player_production(ReaderConnection(), player_id="p1", season=2026, position=position, **CURRENT)

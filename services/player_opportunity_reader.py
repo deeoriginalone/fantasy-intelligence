@@ -160,6 +160,7 @@ def read_player_production(
     position: Any = None,
     now: Any = None,
     threshold_environment: Mapping[str, str] | None = None,
+    reader_result: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Read published historical Full-PPR production without calculating during reads."""
     normalized_position = str(position or "").upper().replace("DST", "DEF")
@@ -173,16 +174,35 @@ def read_player_production(
             "reason": "Authoritative scoring inputs are unavailable for this position.",
             "decision_effect": "INFORMATIONAL_ONLY",
         }
-    result = read_player_opportunity(
-        db_connection,
-        player_id=player_id,
-        season=season,
-        week=week,
-        week_start=week_start,
-        week_end=week_end,
-        now=now,
-        threshold_environment=threshold_environment,
-    )
+    if reader_result is None:
+        result = read_player_opportunity(
+            db_connection,
+            player_id=player_id,
+            season=season,
+            week=week,
+            week_start=week_start,
+            week_end=week_end,
+            now=now,
+            threshold_environment=threshold_environment,
+        )
+    else:
+        scope = reader_result.get("request_scope") or {}
+        if not isinstance(scope, Mapping) or any(
+            scope.get(key) != expected
+            for key, expected in (
+                ("player_id", player_id), ("season", season), ("week", week),
+                ("week_start", week_start), ("week_end", week_end),
+            )
+        ):
+            return {
+                "schema_version": "player-production-reader.v1",
+                "state": "BLOCKED",
+                "rows": [],
+                "supported_weeks": [],
+                "blockers": ["PLAYER_WEEK_PRODUCTION_READER_SCOPE_MISMATCH"],
+                "decision_effect": "INFORMATIONAL_ONLY",
+            }
+        result = dict(reader_result)
     production = {
         "schema_version": "player-production-reader.v1",
         "state": result["state"],

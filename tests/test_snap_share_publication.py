@@ -1,5 +1,6 @@
 import json
 import pytest
+from datetime import datetime, timezone
 from pathlib import Path
 
 from services.snap_share_publication import publish_snap_share
@@ -86,7 +87,7 @@ def test_publication_rolls_back_on_transaction_failure():
 def test_reader_returns_published_snap_share_newest_first():
     lineage = json.dumps({"sample": {"position": "WR", "participation_domain": "OFFENSE", "snap_count": 52, "percentage_field": "offense_pct"}})
     rows = [(2026, 2, "gsis-1", "pfr-1", "KC", "DEN", 0.5, "automated:nflverse", "automated", "2026-09-19", "2026-09-20", "snap_counts", "snap_counts_2026", "sha256:test", "snap_share.evidence.v1", "FRESH", "COMPLETE", lineage, "PUBLISHED")]
-    result = read_snap_share(Connection(rows), player_id="gsis-1", season=2026)
+    result = read_snap_share(Connection(rows), player_id="gsis-1", season=2026, now=datetime(2026, 9, 20, 12, tzinfo=timezone.utc))
     assert result["state"] == "AVAILABLE"
     assert result["rows"][0]["snap_share"] == 0.5
     assert result["rows"][0]["sample"]["snap_count"] == 52
@@ -95,7 +96,7 @@ def test_reader_returns_published_snap_share_newest_first():
 
 def test_reader_preserves_stale_snap_share_as_historical_fact():
     rows = [(2026, 1, "gsis-1", "pfr-1", "KC", "DEN", 0.75, "automated:nflverse", "automated", "2026-09-18", "2026-09-19", "snap_counts", "snap_counts_2026", "sha256:test", "snap_share.evidence.v1", "STALE", "COMPLETE", {}, "PUBLISHED")]
-    result = read_snap_share(Connection(rows), player_id="gsis-1", season=2026)
+    result = read_snap_share(Connection(rows), player_id="gsis-1", season=2026, now=datetime(2026, 9, 20, 12, tzinfo=timezone.utc))
     assert result["state"] == "STALE"
     assert result["rows"][0]["snap_share"] == 0.75
     assert result["blockers"] == ["SNAP_SHARE_EVIDENCE_STALE"]
@@ -108,11 +109,26 @@ def test_reader_current_fresh_row_not_overridden_by_stale_history():
         (2026, 2, "gsis-1", "pfr-1", "KC", "DEN", 0.80, "automated:nflverse", "automated", "2026-09-20", "2026-09-20", "snap_counts", "snap_counts_2026", "sha256:test", "snap_share.evidence.v1", "FRESH", "COMPLETE", {}, "PUBLISHED"),
         (2026, 1, "gsis-1", "pfr-1", "KC", "DEN", 0.75, "automated:nflverse", "automated", "2026-09-18", "2026-09-19", "snap_counts", "snap_counts_2026", "sha256:test", "snap_share.evidence.v1", "STALE", "COMPLETE", {}, "PUBLISHED"),
     ]
-    result = read_snap_share(Connection(rows), player_id="gsis-1", season=2026)
+    result = read_snap_share(Connection(rows), player_id="gsis-1", season=2026, now=datetime(2026, 9, 20, 12, tzinfo=timezone.utc))
     assert result["state"] == "AVAILABLE"
     assert result["freshness_state"] == "FRESH"
     assert result["rows"][1]["freshness_state"] == "STALE"
     assert result["blockers"] == []
+
+
+def test_reader_recomputes_persisted_fresh_state_from_current_retrieval_age():
+    rows = [(2026, 3, "gsis-1", "pfr-1", "KC", "DEN", 0.8, "automated:nflverse", "automated", "2026-10-02T11:00:00+00:00", "2026-10-03T12:00:00+00:00", "snap_counts", "snap_counts_2026", "sha256:test", "snap_share.evidence.v1", "FRESH", "COMPLETE", {}, "PUBLISHED")]
+    result = read_snap_share(
+        Connection(rows), player_id="gsis-1", season=2026,
+        now=datetime(2026, 10, 6, 4, tzinfo=timezone.utc),
+    )
+
+    assert result["state"] == "STALE"
+    assert result["freshness_state"] == "STALE"
+    assert result["age"] > 86400
+    assert result["rows"][0]["persisted_freshness_state"] == "FRESH"
+    assert result["blockers"] == ["SNAP_SHARE_EVIDENCE_STALE"]
+    assert result["rows"][0]["snap_share"] == 0.8
 
 
 def test_reader_missing_current_snap_value_is_unavailable_not_zero():
