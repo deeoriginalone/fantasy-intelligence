@@ -6,6 +6,7 @@ from math import ceil, isfinite
 from flask import Blueprint, current_app, redirect, render_template, request, session, url_for
 from weekly_intelligence import enrich_players, current_week, upcoming_byes
 from services.weekly_lineup_intelligence import build_lineup_intelligence, decision, optimize_lineup, sort_key
+from services.authoritative_week import build_authoritative_week_contract
 from services.jerrygm_projections import build_changed_slot_projections
 from services.trade_intelligence import build_trade_intelligence
 from services.opportunity_evidence import build_opportunity_view, build_waiver_player_comparison
@@ -1003,7 +1004,7 @@ def create_owner_operations_blueprint(
                 result.append(player)
         return result, league, all_players
 
-    def current_roster(cur):
+    def current_roster(cur, *, verify_live_week=False):
         context = data_context(cur)
         season = 2026
         if context["mode"] == "MOCK":
@@ -1025,8 +1026,17 @@ def create_owner_operations_blueprint(
                 "shared_facts": shared_league_facts({}, source="Season Sandbox", blocker="LIVE_LEAGUE_FACTS_NOT_APPLICABLE"),
             }
         roster, league, sleeper_catalog = live_roster(cur)
-        week = current_week(cur)
-        roster = enrich_players(cur, roster, week, allow_local_weekly_data=True, allow_local_health_fallback=False, require_automated_weekly_evidence=True)
+        week_authority = None
+        if verify_live_week:
+            acquire_week = current_app.config.get("WEEK_AUTHORITY_ACQUIRER")
+            try:
+                week_authority = acquire_week(season) if acquire_week else build_authoritative_week_contract(season=season, blockers=["WEEK_AUTHORITY_ACQUISITION_UNAVAILABLE"])
+            except Exception:
+                week_authority = build_authoritative_week_contract(season=season, blockers=["WEEK_AUTHORITY_ACQUISITION_FAILED"])
+            week = week_authority.get("week") if week_authority.get("authoritative") else None
+        else:
+            week = current_week(cur)
+        roster = enrich_players(cur, roster, week, season=season, allow_local_weekly_data=True, allow_local_health_fallback=False, require_automated_weekly_evidence=True)
         return context, roster, {
             "team_name": "DiE-HaRd-9eRs-FaN",
             "league_name": league.get("name") or "Fantasy Intelligence Champions League",
@@ -1035,6 +1045,7 @@ def create_owner_operations_blueprint(
             "season": season,
             "week": week,
             "sleeper_catalog": sleeper_catalog,
+            "week_authority": week_authority,
             "faab_balance": league.get("owner_faab_balance"),
             "shared_facts": shared_league_facts(league),
         }
@@ -1307,7 +1318,7 @@ def create_owner_operations_blueprint(
     def team_page():
         conn = get_db_connection(); cur = conn.cursor()
         try:
-            context, roster, meta = current_roster(cur)
+            context, roster, meta = current_roster(cur, verify_live_week=True)
             preliminary_matchup_context = build_preliminary_matchup_context(
                 current_app.config.get("PRELIMINARY_MATCHUP_EVIDENCE"),
                 roster=roster,

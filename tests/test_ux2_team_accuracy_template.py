@@ -3,7 +3,7 @@ from pathlib import Path
 def test_team_template_wires_accuracy_partial():
     text=Path("templates/team.html").read_text(encoding="utf-8")
     assert '{% include "_team_accuracy.html" %}' in text
-    assert text.index('{% include "_team_priority.html" %}') < text.index('{% include "_team_accuracy.html" %}')
+    assert text.index('class="team-hero"') < text.index('{% include "_team_accuracy.html" %}')
 
 def test_accuracy_partial_explains_required_domains():
     text=Path("templates/_team_accuracy.html").read_text(encoding="utf-8")

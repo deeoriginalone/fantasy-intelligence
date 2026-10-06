@@ -1,7 +1,7 @@
 from pathlib import Path
 from html.parser import HTMLParser
 
-from jinja2 import Environment
+import pytest
 
 from services.weekly_lineup_intelligence import build_lineup_intelligence
 from owner_operations import build_lineup_reconciliation, build_recommended_bench
@@ -39,7 +39,7 @@ def test_team_route_delegates_to_explainable_payload():
     end = source.index('@bp.route("/lineup")', start)
     segment = source[start:end]
 
-    assert "context, roster, meta = current_roster(cur)" in segment
+    assert "context, roster, meta = current_roster(cur, verify_live_week=True)" in segment
     assert "lineup_intelligence = build_lineup_intelligence(roster, current_starters=current_sleeper_starters)" in segment
     assert "lineup_intelligence=lineup_intelligence" in segment
 
@@ -91,7 +91,7 @@ class TeamPageContractParser(HTMLParser):
                 self.id_text[element_id] += data
 
 
-def test_team_template_renders_required_primary_page_contract():
+def render_team_page(**overrides):
     from app import app
     from flask import render_template
 
@@ -115,36 +115,53 @@ def test_team_template_renders_required_primary_page_contract():
             {"player": "Unknown Player", "injury_status": "Unknown"},
         ],
         "league_settings": {"scoring_format": "PPR"}, "lineup_reconciliation": reconciliation,
-        "lineup_comparison_unavailable": "Lineup comparison unavailable.", "lineup_intelligence": {"starters": starters, "bench": [], "verdict": {}},
+        "lineup_comparison_unavailable": "Lineup comparison unavailable.", "lineup_intelligence": {"starters": starters, "bench": [], "verdict": {"action": "Review one lineup change", "why": "Supported recommendation reason.", "status": "MONITOR", "recommendation_available": True, "confidence_percent": 0, "biggest_risk": "Check Questionable Player before kickoff"}},
         "decisions_by_slot": {"QB": {"decision": "START", "weekly_score_delta": 2.0, "alternative": "Alternative QB"}},
-        "team_accuracy": {}, "team_health": {}, "team_needs": {}, "lineup_snapshot": {"counts": {"ready": 0, "monitor": 0, "blocked": 0}}, "weekly_risks": [],
+        "team_accuracy": {}, "team_health": {"last_verified": "2026-10-05T07:00:00+00:00", "freshness_state": "STALE"}, "team_needs": {}, "lineup_snapshot": {"counts": {"ready": 0, "monitor": 0, "blocked": 0}}, "weekly_risks": [],
         "roster_outlook": {}, "changes": {}, "opportunity_changes": {}, "opportunity_view": {}, "preliminary_matchup_context": {},
         "team_trust": {"confidence": {"label": "HIGH", "score": 80}}, "team_priority_action": {}, "bench_decisions": [], "bench_plan": {}, "team": {"lineage": []},
     }
+    context.update(overrides)
     with app.test_request_context("/team"):
-        html = render_template("team.html", **context)
+        return render_template("team.html", **context)
 
+
+def test_team_template_renders_required_primary_page_contract():
+    html = render_team_page()
+    slots = ["QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF"]
     parser = TeamPageContractParser()
     parser.feed(html)
     required_ids = [
         "my-team-header", "your-lineup", "health-availability", "biggest-decisions",
-        "why-these-decisions", "what-could-change", "supporting-roster-details", "data-model-diagnostics",
+        "why-these-decisions", "what-could-change", "team-needs", "team-roster-outlook", "supporting-roster-details", "data-model-diagnostics",
     ]
     assert all(parser.id_counts.get(element_id) == 1 for element_id in required_ids)
     positions = [parser.ids.index(element_id) for element_id in required_ids]
     assert positions == sorted(positions)
     assert parser.top_level_ids == required_ids
     assert "open" not in parser.id_tags["data-model-diagnostics"][1]
+    hero_text = parser.id_text["my-team-header"]
+    assert "team-hero" in parser.id_tags["lineup"][1]["class"]
+    assert "Review one lineup change" in hero_text
+    assert "START Player QB" in hero_text and "SIT Alternative QB" in hero_text
+    assert "Team readiness" in hero_text and "MONITOR" in hero_text
+    assert "Recommended lineup available" in hero_text
+    assert "0% evidence confidence" in hero_text
+    assert "Check Questionable Player before kickoff" in hero_text
+    assert "Health verified 2026-10-05T07:00:00+00:00" in hero_text and "STALE" in hero_text
     lineup_text = parser.id_text["your-lineup"]
+    assert "YOUR LINEUP" in parser.id_text["your-lineup-title"]
+    assert "WEEK 4" in parser.id_text["your-lineup-title"]
     assert all(slot in lineup_text for slot in slots)
     assert not any(term in lineup_text.lower() for term in ("source", "lineage", "2026-", "generated", "blocker_", "age in seconds"))
     assert "Current Sleeper Lineup" in parser.id_text["supporting-roster-details"]
-    assert "Team Needs" in parser.id_text["supporting-roster-details"]
+    assert "Team Needs" in parser.id_text["team-needs"]
     assert "Bench Priority" in parser.id_text["supporting-roster-details"]
     for element_id in required_ids:
         if element_id != "supporting-roster-details":
             assert "Current Sleeper Lineup" not in parser.id_text[element_id]
-            assert "Team Needs" not in parser.id_text[element_id]
+            if element_id not in {"team-needs", "data-model-diagnostics"}:
+                assert "Team Needs" not in parser.id_text[element_id]
             assert "Bench Priority" not in parser.id_text[element_id]
     assert "Current Sleeper Lineup" not in lineup_text
     assert parser.decision_items == 1
@@ -156,9 +173,20 @@ def test_team_template_renders_required_primary_page_contract():
     assert "UNKNOWN" in health_text and "ACTIVE" in health_text
     assert parser.verdict_blocks == 0
     assert "Lineup needs attention" not in html
-    assert "Additional evidence diagnostics" in parser.id_text["data-model-diagnostics"]
+    assert "Advanced Diagnostics" in parser.id_text["data-model-diagnostics"]
     for element_id in required_ids[:-1]:
-        assert "Additional evidence diagnostics" not in parser.id_text[element_id]
+        assert "Opportunity Evidence" not in parser.id_text[element_id]
+    assert "open" not in parser.id_tags["additional-evidence-diagnostics"][1]
+    assert html.count("Additional evidence currently unavailable.") == 1
+    assert "7 unavailable evidence groups" in parser.id_text["data-model-diagnostics"]
+    assert "Not available. Supported" not in parser.id_text["why-these-decisions"]
+
+
+@pytest.mark.parametrize("meta,expected", [({"week": 4}, "WEEK 4"), ({"week": 5}, "WEEK 5"), ({"week": None}, "WEEK UNAVAILABLE"), ({"week": 0}, "WEEK UNAVAILABLE"), ({}, "WEEK UNAVAILABLE")])
+def test_team_lineup_heading_displays_only_supplied_week(meta, expected):
+    parser = TeamPageContractParser()
+    parser.feed(render_team_page(meta=meta))
+    assert expected in parser.id_text["your-lineup-title"]
 
 
 def test_lineup_route_returns_302_and_preserves_fragment():
@@ -218,11 +246,8 @@ def test_lineup_reconciliation_keeps_sleeper_truth_separate_from_recommendation(
 
 
 def render_start_sit_section(change):
-    templates = Path(__file__).resolve().parents[1] / "templates"
-    source = (templates / "team.html").read_text(encoding="utf-8")
-    start = source.index('<section class="lineup-section" aria-labelledby="start-sit-decisions-title">')
-    end = source.index("</section>", start) + len("</section>")
-    return Environment().from_string(source[start:end]).render(
+    return render_team_page(
+        lineup_intelligence={"starters": [], "bench": [], "verdict": {}},
         lineup_reconciliation={
             "state": "AVAILABLE",
             "blocker": None,
@@ -233,11 +258,9 @@ def render_start_sit_section(change):
 
 
 def render_health_section(roster):
-    templates = Path(__file__).resolve().parents[1] / "templates"
-    source = (templates / "team.html").read_text(encoding="utf-8")
-    start = source.index('<section class="lineup-section" aria-labelledby="health-availability-title">')
-    end = source.index("</section>", start) + len("</section>")
-    return Environment().from_string(source[start:end]).render(roster=roster)
+    parser = TeamPageContractParser()
+    parser.feed(render_team_page(roster=roster))
+    return parser.id_text["health-availability"]
 
 
 def test_team_start_sit_template_renders_available_confidence_and_watch():
@@ -275,11 +298,11 @@ def test_team_start_sit_template_renders_available_confidence_and_watch():
 
     assert "START Joe Burrow" in html
     assert "SIT Justin Herbert" in html
-    assert "Why:</strong> Supported reason supplied." in html
-    assert "Confidence:</strong> HIGH" in html
-    assert "Watch:</strong> Health information needs a pre-kickoff check." in html
-    assert "Projection (informational only):</strong> 18.25 vs 12.00" in html
-    assert "What could change this decision:" in html
+    assert "Supported reason supplied." in html
+    assert "<h4>Confidence</h4><p>HIGH</p>" in html
+    assert "Health information needs a pre-kickoff check." in html
+    assert "<h4>Projection (informational only)</h4><p>18.25 vs 12.00" in html
+    assert "Players to monitor" in html
     assert "generated 2026-10-05T06:20:00+00:00" in html
     assert "freshness UNAVAILABLE" in html
     assert "INFORMATIONAL_ONLY" in html
@@ -303,11 +326,63 @@ def test_team_start_sit_template_renders_unavailable_evidence_without_zero():
 
     assert "START Joe Burrow" in html
     assert "SIT Justin Herbert" in html
-    assert "Why:</strong> Supported reason supplied." in html
-    assert "Confidence:</strong> UNAVAILABLE" in html
-    assert "Watch:</strong> No specific watch item was supplied." in html
-    assert "Projection:</strong> UNAVAILABLE" in html
+    assert "Supported reason supplied." in html
+    assert "<h4>Confidence</h4><p>UNAVAILABLE</p>" in html
+    assert "No supported blocker or watch item." in html
+    assert "Provider projection: UNAVAILABLE." in html
     assert "0.00" not in html
+
+
+@pytest.mark.parametrize("state", ["UNAVAILABLE", "BLOCKED", "STALE"])
+def test_team_hero_missing_evidence_never_invents_confidence_or_freshness(state):
+    html = render_team_page(
+        lineup_intelligence={"starters": [], "bench": [], "verdict": {"status": state}},
+        lineup_reconciliation={"state": state, "changes": [], "current": []},
+        team_trust={}, team_priority_action={}, team_health={},
+    )
+    parser = TeamPageContractParser()
+    parser.feed(html)
+    hero = parser.id_text["my-team-header"]
+    assert state in hero
+    assert "UNAVAILABLE" in hero
+    assert "Review lineup evidence before lock." in hero
+    assert "No verified refresh supplied" in hero
+    assert "%" not in hero and "FRESH" not in hero
+    assert "open" not in parser.id_tags["data-model-diagnostics"][1]
+
+
+def test_team_optional_evidence_count_preserves_supported_values_and_payload():
+    from copy import deepcopy
+
+    opportunity_view = {
+        "current": {"authoritative": True, "source": "Fixture opportunity", "freshness_state": "FRESH", "completeness_state": "COMPLETE", "target_share": 0, "snap_share": 0, "route_participation": 0, "red_zone_share": 0, "role_stability": 0},
+        "market_value": {"authoritative": True, "market_value_state": "AVAILABLE", "market_value_source": "Fixture market", "freshness_state": "FRESH", "completeness_state": "COMPLETE"},
+        "market_signal": {"authoritative": True, "market_signal_state": "AVAILABLE"},
+        "trade_opportunity": {"authoritative": True, "trade_opportunity_state": "AVAILABLE"},
+    }
+    original = deepcopy(opportunity_view)
+    html = render_team_page(opportunity_view=opportunity_view, preliminary_matchup_context={"state": "PRELIMINARY", "matchups": []})
+    parser = TeamPageContractParser()
+    parser.feed(html)
+    assert "2 unavailable evidence groups" in parser.id_text["data-model-diagnostics"]
+    assert "Fixture opportunity" in parser.id_text["additional-evidence-diagnostics"]
+    assert "0.0%" in parser.id_text["additional-evidence-diagnostics"]
+    assert "Fixture market" in parser.id_text["additional-evidence-diagnostics"]
+    assert "open" not in parser.id_tags["additional-evidence-diagnostics"][1]
+    assert opportunity_view == original
+
+
+def test_team_needs_and_outlook_show_actions_but_collapse_unsupported_context():
+    html = render_team_page(
+        team_needs={"RB": {"state": "AVAILABLE", "strategic_need": "ADD_DEPTH", "drivers": ["One eligible backup"]}, "WR": {"state": "UNAVAILABLE", "blocker": "MISSING_LEAGUE_SETTINGS"}},
+        roster_outlook={"depth": {"state": "MONITOR", "label": "Review RB coverage", "action": "Check eligible depth"}, "season": {"state": "UNAVAILABLE", "label": "UNAVAILABLE"}},
+    )
+    parser = TeamPageContractParser()
+    parser.feed(html)
+    assert "ADD_DEPTH" in parser.id_text["team-needs"]
+    assert "One eligible backup" in parser.id_text["team-needs"]
+    assert "Check eligible depth" in parser.id_text["team-roster-outlook"]
+    assert "5 unavailable evidence groups" in parser.id_text["data-model-diagnostics"]
 
 
 def test_team_health_section_surfaces_status_and_missing_evidence():
@@ -320,8 +395,8 @@ def test_team_health_section_surfaces_status_and_missing_evidence():
 
     assert "Out Player" in html and "OUT" in html and "Remove from consideration" in html
     assert "Questionable Player" in html and "QUESTIONABLE" in html and "Monitor before kickoff" in html
-    assert "Healthy Player" in html and "HEALTHY" in html and "Available" in html
-    assert "Unknown Player" in html and "UNAVAILABLE" in html and "Availability information unavailable" in html
+    assert "Healthy Player" in html and "ACTIVE" in html and "Available" in html
+    assert "Unknown Player" in html and "UNKNOWN" in html and "Availability information unavailable" in html
 
 
 def test_lineup_reconciliation_numbers_duplicate_sleeper_running_back_slots():

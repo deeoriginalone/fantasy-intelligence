@@ -7,6 +7,7 @@ import owner_operations
 import services.weekly_lineup_intelligence as weekly_lineup_intelligence
 from owner_operations import create_owner_operations_blueprint
 from services.lineup_evidence import build_matchup_evidence
+from services.authoritative_week import build_sleeper_week_contract, read_application_state_week, resolve_week_owners
 
 
 POSITIONS = ("QB", "RB", "RB", "WR", "WR", "TE", "WR", "K", "DEF")
@@ -158,11 +159,74 @@ def make_app(monkeypatch, health, weekly_score=None, league_available=True, unkn
     )
     app = Flask(__name__, root_path=str(Path(__file__).resolve().parents[1]), template_folder="templates")
     app.config.update(TESTING=True, SLEEPER_LEAGUE_ID="controlled", TRADE_SCENARIO=trade_scenario)
+    app.config["WEEK_AUTHORITY_ACQUIRER"] = lambda season: build_sleeper_week_contract({"season": str(season), "week": 1}, season=season)
     app.register_blueprint(blueprint)
     app.jinja_env.globals["url_for"] = lambda *args, **kwargs: "/"
     app.jinja_env.globals["ux_roster_lineage"] = lambda roster: []
     app.jinja_env.globals["ux_route_evidence"] = lambda *args: {"fields": {}}
     return app
+
+
+def test_team_uses_sleeper_week_for_heading_and_enrichment_despite_local_week_one(monkeypatch):
+    app = make_app(monkeypatch, health_payload())
+    captured = {}
+    enrichment_weeks = []
+
+    class PersistedWeekCursor:
+        def execute(self, query):
+            pass
+
+        def fetchone(self):
+            return {"season": 2026, "week": 1}, "2026-09-07T14:35:28+00:00"
+
+    def acquire_week(season):
+        return resolve_week_owners(
+            read_application_state_week(PersistedWeekCursor(), season=season),
+            build_sleeper_week_contract({"season": str(season), "week": 4}, season=season),
+        )
+
+    def enrich(cur, roster, week, **kwargs):
+        enrichment_weeks.append((week, kwargs.get("season")))
+        return roster
+
+    original_render = owner_operations.render_template
+
+    def render(template, **payload):
+        captured.update(payload)
+        return original_render(template, **payload)
+
+    app.config["WEEK_AUTHORITY_ACQUIRER"] = acquire_week
+    monkeypatch.setattr(owner_operations, "enrich_players", enrich)
+    monkeypatch.setattr(owner_operations, "render_template", render)
+    response = app.test_client().get("/team")
+
+    assert response.status_code == 200
+    assert "YOUR LINEUP &middot; WEEK 4" in response.get_data(as_text=True)
+    assert enrichment_weeks == [(4, 2026)]
+    assert captured["meta"]["week"] == 4
+    assert captured["meta"]["week_authority"]["selected_owner"] == "sleeper.state.nfl"
+    assert "PERSISTED_WEEK_CONFLICT" in captured["meta"]["week_authority"]["warnings"]
+
+
+@pytest.mark.parametrize("failure", ["missing", "unavailable", "exception"])
+def test_team_unverified_week_does_not_fall_back_to_week_one(monkeypatch, failure):
+    app = make_app(monkeypatch, health_payload())
+    weeks = []
+    monkeypatch.setattr(owner_operations, "enrich_players", lambda cur, roster, week, **kwargs: weeks.append(week) or roster)
+    if failure == "missing":
+        app.config.pop("WEEK_AUTHORITY_ACQUIRER")
+    elif failure == "unavailable":
+        app.config["WEEK_AUTHORITY_ACQUIRER"] = lambda season: build_sleeper_week_contract({}, season=season)
+    else:
+        def fail(season):
+            raise RuntimeError("Fixture acquisition failure")
+        app.config["WEEK_AUTHORITY_ACQUIRER"] = fail
+
+    response = app.test_client().get("/team")
+
+    assert response.status_code == 200
+    assert "YOUR LINEUP &middot; WEEK UNAVAILABLE" in response.get_data(as_text=True)
+    assert weeks == [None]
 
 
 @pytest.mark.parametrize(
@@ -182,8 +246,8 @@ def test_active_team_route_health_matrix(monkeypatch, health, expected):
     assert response.status_code == 200
     assert "Next Best Team Action" in html
     assert "Expected fantasy impact" in html
-    assert "Recommended Starting Lineup" in html
-    assert "Why This Lineup Is Trusted" in html
+    assert 'id="your-lineup"' in html
+    assert "Advanced Diagnostics" in html
     assert "Bench Priority" in html
     assert "Biggest Risks This Week" in html
     assert "Actionable Team Needs" in html
