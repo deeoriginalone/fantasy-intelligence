@@ -8,11 +8,21 @@ These pending plans include navigation simplification, route merging, new redire
 
 ###### Evidence-first handoff rule
 
-Carry forward the architecture path `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. Do not hide supported evidence solely because authority is blocked. Record `ESTABLISHED`, `PRELIMINARY`, or `INSUFFICIENT` evidence level, confidence rationale, sample, freshness, limitations, and recommendation impact. Keep Matchup Rank fail-closed; expose a separate Matchup Signal only as disclosed informational context.
+The product follows `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. Fantasy Intelligence is a personal, single-manager, read-only decision-support application. Authority and usefulness are separate; authority completion alone is not a recommendation prerequisite.
+
+Repository-wide recommendation states:
+- **ESTABLISHED** -> **RECOMMENDATION** when the applicable supporting contract is complete.
+- **PRELIMINARY** -> **RECOMMENDATION WITH DISCLOSURE** when useful, truthful inputs exist but authority is incomplete.
+- **INSUFFICIENT** -> **NO RECOMMENDATION** when inputs cannot support a meaningful recommendation.
+- **CONTRADICTORY** -> **BLOCKED** when supported facts conflict.
+
+A `PRELIMINARY` recommendation requires verified identity and ownership, disclosed evidence level, freshness, and limitations, and a read-only presentation that cannot create an incorrect fantasy decision. Disclose confidence rationale when available; never fabricate confidence, freshness, probability, authority, identity, or evidence. `BLOCKED` is reserved for unresolved identity or ownership, contradictory or corrupted evidence, unsafe recommendation risk, or transaction-safety risk. Missing authority paperwork or a threshold sign-off alone is not a blocker when the underlying evidence may truthfully be used and the preliminary recommendation remains safe. Use `INSUFFICIENT` when evidence is too weak or missing for a meaningful recommendation. Matchup Signal remains context-only where its specific metric contract does not support recommendation use; Matchup Rank remains subject to its own contract.
+
+Apply this model across Command Center, My Team, Waivers, Trades, Survivor, and NFL Intelligence. Preserve each page's specific identity, ownership, eligibility, contradiction, corruption, and transaction-safety protections.
 
 ###### Current My Team handoff boundary
 
-The verified `/team` presentation is decision-first: the hero reports pending changes, normalized Start/Sit Decisions are the primary surface, Contingency Depth is derived from roster minus recommended starters, and evidence/diagnostics are secondary. The hero separates lineup recommendation availability, weekly-value availability, and evidence confidence. Preserve the existing recommendation and fail-closed authority contracts.
+The committed `/team` template orders My Team header, Your Lineup, Health & Availability, Biggest Decisions, Why These Decisions, What Could Change, Supporting Roster Details, and collapsed Data/Model Diagnostics. Current Sleeper Lineup, Bench Priority, and Team Needs remain supporting details. This supersedes the earlier hero-first presentation description; current behavioral and rendered-page validation remains unverified.
 
 ## Navigation Reconciliation Target
 
@@ -70,29 +80,39 @@ UX.2.1C presentation and disclosure repairs are recorded; owner acceptance remai
 - Focused UX.4 validation passed 90 tests; compilation and both whitespace checks passed. Do not claim transaction acceptance, negotiation, rest-of-season impact, production readiness, or defect closure.
 
 ###### Current repository checkpoint
-- Date: 2026-10-03
+- Date: 2026-10-05
 - Branch: test-weekly-evidence-trust
-- HEAD: df7de8a6b68152858ee44d17960ea156d754435a
+- HEAD: b75ed8739ea55c04aaa366e4272a84e86083f284
 - Repository: /home/deeoriginalone/fantasy-intelligence
 
 ## Current committed delivery boundary
 
 - Branch: `test-weekly-evidence-trust`.
-- HEAD: `df7de8a6b68152858ee44d17960ea156d754435a` - `Publish healthy waiver suggestions with verified ranking review context`.
-- Completion boundary: the eight-file waiver publication boundary is committed and reviewed. Healthy, identity-resolved, verified-unrostered/eligible candidates remain visible; unsafe or stale health is excluded from normal suggestions. Active with no listed injury is not itself an injury exclusion. Genuinely missing health is retained for verification, not assumed healthy or unavailable.
-- Committed manager value: `/waivers` provides a roster-ID selector, paginated healthy-review cards, separate weekly/ROS focus and ordering, matched-week production comparisons, current-starter weekly baselines, provisional add/keep/monitor review, and live Sleeper-budget-backed spending bands. No external fantasy transaction is submitted and no current starter is automatically dropped.
-- Ranking/source boundary: FantasyPros PPR positional consensus arrives through commit-pinned DynastyProcess artifacts. Lower mean expert rank is better; it is ordinal context, not projected points, expected gain, calibrated confidence, or a guaranteed winning bid. Published identity links remain distinct from the owner's explicitly approved unique name/position/current-team exception; ambiguous or conflicting links remain pending. Historical GSIS, snap-share, and health recovery evidence remains preserved in the explicitly labeled sections below.
-- Freshness boundary: ranking acquisition runs on Waivers use when cache age or NFL scope requires it; every read reevaluates source dates, current week, identity, and game timing. No continuously running app or manual upload is required. Downloading old data does not renew its publication date; failures retain explicit diagnostics and withhold affected stale-rank advice.
-- Validation boundary: recorded staged-copy validation for this commit passed 72 focused tests, with 63 deselected; all five changed Python files compiled and the cached diff check passed. The validated index tree was `6e8da2af966851b52975d5ae6b25aefb086af768`. Prior full-worktree runs and older validation counts are historical evidence, not additional current-HEAD closure claims. No tests or live audits were rerun during this canonical reconciliation.
-- Outstanding blockers: the last recorded audit retains three weekly missing-team/game records and one ROS identity record as pending verification, not proof of unavailability. Matchup Rank authority, verified future-role/opportunity-duration models, exact winning-bid authority, full PostgreSQL parity, recovery/failure-injection evidence, production readiness, and defect closure remain unclaimed.
-- Delivery status: committed locally; not pushed. Publishing all 24 outgoing commits is the release-grouping recommendation, not push approval. These canonical source edits are uncommitted. The recorded continuity run completed successfully for current HEAD: canonical synchronization PASS and bundle validation PASS. Unrelated dirty implementation and artifacts are not part of this committed waiver boundary.
-- Defect boundary: `docs/CURRENT_DEFECTS.md` remains authoritative and unchanged. Existing VALIDATED statuses are not promoted; no new CLOSED status is supported without the required closure evidence and continuity validation.
+- HEAD: `b75ed8739ea55c04aaa366e4272a84e86083f284` - `feat(team): improve My Team lineup decision experience`.
+- Scope: `templates/team.html`, `owner_operations.py`, `services/jerrygm_projections.py`, `imports/import_draft_intelligence.py`, `tests/test_ux5_lineup_route_contract.py`, `tests/test_jerrygm_projections.py`, and `tests/test_fantasypros_projection.py`.
+- Implementation boundary: My Team page structure, health presentation, changed-slot explanations and informational JerryGM projections joined by exact Sleeper IDs. CSV projection updates clear unsupported source freshness instead of renewing it.
+- Validation recorded for this commit: exact seven-file staged scope, six Python syntax checks, Jinja parsing, staged/working-tree equality, and staged whitespace checks passed. Tests were not rerun because the permitted rerun condition could not be established; no current behavioral, browser, or live-route PASS is claimed.
+- Preserved limits: provider projections do not change lineup selection or confidence; current-use freshness needs a verified provider-specific threshold. No new milestone completion, defect closure, production readiness, parity, recovery, or transaction capability is claimed.
+- Outstanding local work: `.gitignore` cleanup ignores verified local/generated outputs and TLS credentials; ignore and whitespace checks passed, but the change is uncommitted. Already-tracked bundles and continuity state remain tracked. Unrelated dirty files are preserved.
+- Immediate follow-up: establish focused My Team behavioral and rendered-page evidence before strengthening completion claims; the exact next milestone below is unchanged.
+
+## Historical committed Trade delivery boundary (2026-10-04)
+
+- Branch: `test-weekly-evidence-trust`.
+- HEAD: `c4011b18be4d3a043150f832ffebdaa0a3c772c0` - `feat(trades): enforce roster-safe trade recommendations`.
+- Completion boundary: manager-first Trade Center UX places partner selection near the top and presents a recommendation hero, EXPLORE and MONITOR states, Why No Trade Exists, position labels and flow, before/after roster impact, the best roster-fit package, published/rejected package separation, manager-facing rejection explanations, and collapsed rejected packages, diagnostics, and identity lineage. Desktop and 390px usability are verified.
+- Roster-safe publication contract: reject packages that create positional deficits, worsen existing deficits, violate minimum starter coverage, reduce supported FLEX coverage, or are need-neutral. Publish only packages that improve a verified owner need or supported FLEX coverage. Missing roster-impact inputs fail closed.
+- Validation boundary: 71 focused Trade tests and 8 controlled Trade-route cases passed; all nine Python files in the commit compiled. The rendered Trade route showed the recommendation, position impact, best roster fit, published/rejected packages, and diagnostics at 1440px and 390px with no horizontal overflow. Working-tree and staged whitespace checks passed.
+- Preserved boundaries: read-only decision support; no automatic trade submission. Trade-value, package-generation, ranked-list, and confidence formulas and transaction behavior are preserved.
+- Unsupported claims: production readiness, external transaction capability, trade-acceptance likelihood or prediction, negotiation prediction, fabricated probability, full rest-of-season authority, PostgreSQL parity completion, recovery completion, and defect closure.
+- Remaining Trade limitations: partner acceptance and transaction feasibility are unsupported, rest-of-season impact is unavailable, and missing roster-impact inputs block publication.
+- Defect boundary: `docs/CURRENT_DEFECTS.md` remains authoritative and unchanged; this commit does not close a defect.
 
 ## Current validation and continuity status
 
-- Current implementation validation is the recorded staged-copy boundary above: 72 passed, 63 deselected, five changed Python files compiled, cached diff check passed. Older counts below remain historical or preserved evidence, not fresh validation of current HEAD.
-- Current recorded continuity result: canonical synchronization PASS; bundle validation PASS for `test-weekly-evidence-trust` at `df7de8a6b68152858ee44d17960ea156d754435a`.
-- Continuity was not rerun during this focused documentation correction. Generated outputs predate these wording-only edits; no new byte-for-byte bundle synchronization is claimed. The prior successful run remains recorded and does not grant publication approval or defect promotion.
+- My Team syntax and staged-scope evidence is recorded above; current behavioral and rendered-page validation remains unverified. Historical Trade validation does not validate the new My Team boundary.
+- Historical canonical synchronization and notebook bundle validation passed at `c4011b18be4d3a043150f832ffebdaa0a3c772c0` on 2026-10-04; those reports do not certify current HEAD.
+- Canonical sources are updated for current HEAD. Bundle/checkpoint regeneration is deferred to session close; no current bundle synchronization PASS is claimed.
 
 ###### Historical waiver recovery boundary (through ee451ca; verified 2026-10-03)
 - Recovery commits: `98dee6a` corrects candidate health from live Sleeper status; `34e55d3` publishes source-backed snap share; `ee451ca` restores exact waiver GSIS identity from DynastyProcess player IDs.

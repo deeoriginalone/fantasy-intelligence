@@ -8,15 +8,15 @@ Page work is decision-first, league-specific, personal-use, informational-first,
 
 ## Evidence-first page rule
 
-Pages follow `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. Fail-closed authority does not mean hiding supported evidence. When supported evidence exists, show the evidence level, confidence, sample size, freshness, limitations, and recommendation impact.
+The product follows `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. Fantasy Intelligence is a personal, single-manager, read-only decision-support application. Authority and usefulness are separate; authority completion alone is not a recommendation prerequisite.
 
-Use these shared evidence levels:
+Repository-wide recommendation states:
+- **ESTABLISHED** -> **RECOMMENDATION** when the applicable supporting contract is complete.
+- **PRELIMINARY** -> **RECOMMENDATION WITH DISCLOSURE** when useful, truthful inputs exist but authority is incomplete.
+- **INSUFFICIENT** -> **NO RECOMMENDATION** when inputs cannot support a meaningful recommendation.
+- **CONTRADICTORY** -> **BLOCKED** when supported facts conflict.
 
-- **ESTABLISHED:** Sufficient evidence for authoritative metrics when the contract permits it.
-- **PRELIMINARY:** Useful informational evidence that may be shown but may not independently drive recommendations or appear authoritative.
-- **INSUFFICIENT:** Evidence too weak to display as a meaningful metric.
-
-Prefer authoritative evidence, then preliminary evidence, then a disclosed historical baseline, and finally unavailable only when no meaningful supported information exists. Never fabricate rank, score, confidence, recommendation, probability, authority, or freshness.
+A `PRELIMINARY` recommendation requires verified identity and ownership, disclosed evidence level, freshness, and limitations, and a read-only presentation that cannot create an incorrect fantasy decision. Disclose confidence rationale when available; never fabricate confidence, freshness, probability, authority, identity, or evidence. `BLOCKED` is reserved for unresolved identity or ownership, contradictory or corrupted evidence, unsafe recommendation risk, or transaction-safety risk. Missing authority paperwork or a threshold sign-off alone is not a blocker when the underlying evidence may truthfully be used and the preliminary recommendation remains safe; prohibited or unpermitted use remains blocked. Use `INSUFFICIENT` when evidence is too weak or missing for a meaningful recommendation. Specific metric/page contracts may restrict an individual signal to context-only when that signal alone cannot safely support a recommendation.
 
 ## Navigation Reconciliation Target
 
@@ -96,15 +96,29 @@ The primary measure of progress is improved fantasy-football decision quality fo
 
 ## Waiver and FAAB Center
 
-### Must show
-- Candidates verified as unrostered
-- Ownership and eligibility source and freshness
-- Shared team need
-- Roster fit
-- Suggested drop candidate when supported
-- Expected role and duration of opportunity
-- Recommendation risk and evidence confidence
-- FAAB rationale rather than unsupported precision
+### Current verified behavior
+- Validate player ownership and eligibility before showing add options; explain player-specific outcomes, including why a player is unavailable. For example, Isaiah Likely and Kaimi Fairbairn are explained as rostered.
+- Use fresh current-week ECR for waiver ordering: lower ECR ranks higher. Stale ECR blocks ranking; candidates without ECR remain unranked. Comparable candidates may remain tied.
+- Keep historical production and usage informational; they do not create or override a waiver rank.
+- Use the recommendation vocabulary below. Display order alone does not communicate player quality.
+- Distinguish slot-fill recommendations and their provisional guardrails from best-player rankings. A slot-fill result does not prove which player is best.
+- State that any shown FAAB guardrails are provisional, not winning bids. Winning-bid estimation and player-value-to-FAAB conversion are unavailable.
+
+### Recommendation vocabulary
+
+- **BEST SUPPORTED OPTION** — A player whose fresh authoritative evidence supports ranking above available alternatives. Disclose the ranking basis; this is not a guarantee of fantasy points.
+- **COMPARABLE OPTION** — An available candidate among others that current supported evidence cannot separate. Comparable options are not ranked by display position; display order is not player quality.
+- **SLOT-FILL OPTION** — Addresses a verified roster problem, such as a bye week, empty starter slot, or verified absence. It does not imply that the player is the best player available.
+- **BLOCKED OPTION** — A recommendation cannot be safely produced. Examples include stale ranking evidence, ownership uncertainty, unresolved identity, or unsupported health evidence. Explain the blocker.
+- **PLAYER-SPECIFIC OUTCOME** — Gives the exact reason a player is rostered, excluded, unavailable, blocked, stale, unsupported, or unrankable. For example, explain that Isaiah Likely or Kaimi Fairbairn is rostered rather than showing only a general list-level message.
+
+Stale ECR blocks ranking. Missing ECR produces **UNRANKED**; it does not mean the candidate is worse than another unranked player. Historical production and historical usage are informational only and do not create or replace a rank. Provisional guardrails are not winning bids. Winning-bid estimation and player-value-to-FAAB conversion are unavailable.
+
+### Future requirements—not current behavior
+- Role-duration or opportunity-driven ranking.
+- Player-value scoring or other ranking based on team need, schedule, or replacement value.
+- Suggested drop recommendations unless separately verified as supported.
+- Winning-bid estimation and player-value-to-FAAB conversion.
 
 ### Blocking rule
 - If ownership or eligibility cannot be verified, the candidate recommendation list is blocked.

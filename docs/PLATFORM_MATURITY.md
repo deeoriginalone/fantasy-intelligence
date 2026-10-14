@@ -12,7 +12,15 @@ This model separates feature presence from trust and decision quality. A level i
 
 ## Evidence-first maturity rule
 
-Maturity evaluates both trust and usefulness. The architecture path is `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. A capability must fail closed for unsupported authority, but it should expose supported preliminary evidence rather than collapse to “no data.” Evidence levels are `ESTABLISHED`, `PRELIMINARY`, and `INSUFFICIENT`; each displayed result must disclose its level, confidence, sample, freshness, limitations, and recommendation impact. Preliminary evidence is informational and cannot independently drive recommendations.
+The product follows `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. Fantasy Intelligence is a personal, single-manager, read-only decision-support application. Authority and usefulness are separate; authority completion alone is not a recommendation prerequisite.
+
+Repository-wide recommendation states:
+- **ESTABLISHED** -> **RECOMMENDATION** when the applicable supporting contract is complete.
+- **PRELIMINARY** -> **RECOMMENDATION WITH DISCLOSURE** when useful, truthful inputs exist but authority is incomplete.
+- **INSUFFICIENT** -> **NO RECOMMENDATION** when inputs cannot support a meaningful recommendation.
+- **CONTRADICTORY** -> **BLOCKED** when supported facts conflict.
+
+A `PRELIMINARY` recommendation requires verified identity and ownership, disclosed evidence level, freshness, and limitations, and a read-only presentation that cannot create an incorrect fantasy decision. Disclose confidence rationale when available; never fabricate confidence, freshness, probability, authority, identity, or evidence. `BLOCKED` is reserved for unresolved identity or ownership, contradictory or corrupted evidence, unsafe recommendation risk, or transaction-safety risk. Missing authority paperwork or a threshold sign-off alone is not a blocker when the underlying evidence may truthfully be used and the preliminary recommendation remains safe; prohibited or unpermitted use remains blocked. Use `INSUFFICIENT` when evidence is too weak or missing for a meaningful recommendation. Specific metric/page contracts may restrict an individual signal to context-only when that signal alone cannot safely support a recommendation.
 
 ## Level 1: Data Available
 

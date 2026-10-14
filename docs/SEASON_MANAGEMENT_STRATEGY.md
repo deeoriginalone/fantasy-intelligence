@@ -2,7 +2,21 @@
 
 ## Fantasy Intelligence 2.0 Strategy
 
-Strategy exists to improve one manager's weekly and season decisions in a specific league. Prioritize manager value over generalized platform process. Keep recommendations read-only, informational when evidence is limited, and fail closed when authority is unsupported.
+Strategy exists to improve one manager's weekly and season decisions in a specific league. Prioritize manager value over generalized platform process. Recommendations are read-only; distinguish authority from usefulness and do not block a supported, disclosed preliminary recommendation solely because authority is incomplete.
+
+## Evidence-first strategy rule
+
+The product follows `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. Fantasy Intelligence is a personal, single-manager, read-only decision-support application. Authority and usefulness are separate; authority completion alone is not a recommendation prerequisite.
+
+Repository-wide recommendation states:
+- **ESTABLISHED** -> **RECOMMENDATION** when the applicable supporting contract is complete.
+- **PRELIMINARY** -> **RECOMMENDATION WITH DISCLOSURE** when useful, truthful inputs exist but authority is incomplete.
+- **INSUFFICIENT** -> **NO RECOMMENDATION** when inputs cannot support a meaningful recommendation.
+- **CONTRADICTORY** -> **BLOCKED** when supported facts conflict.
+
+A `PRELIMINARY` recommendation requires verified identity and ownership, disclosed evidence level, freshness, and limitations, and a read-only presentation that cannot create an incorrect fantasy decision. Disclose confidence rationale when available; never fabricate confidence, freshness, probability, authority, identity, or evidence. `BLOCKED` is reserved for unresolved identity or ownership, contradictory or corrupted evidence, unsafe recommendation risk, or transaction-safety risk. Missing authority paperwork or a threshold sign-off alone is not a blocker when the underlying evidence may truthfully be used and the preliminary recommendation remains safe; prohibited or unpermitted use remains blocked. Use `INSUFFICIENT` when evidence is too weak or missing for a meaningful recommendation. Specific metric/page contracts may restrict an individual signal to context-only when that signal alone cannot safely support a recommendation.
+
+Matchup Rank remains subject to its authority contract; an unavailable rank does not automatically suppress a safe preliminary recommendation supported by other inputs. The Matchup Signal metric remains context-only unless its own contract supports decision use. Historical evidence may inform stability, governance, baselines, and trends, but never automatically becomes current-season authority.
 
 The Command Center summarizes decisions; My Team, Waivers, Trades, Survivor, and NFL Intelligence remain the owning decision pages.
 
@@ -58,9 +72,10 @@ No position may be omitted merely because it usually has lower replacement cost.
 
 - Verify current ownership and eligibility before candidate scoring.
 - Never recommend a player rostered anywhere in the active league.
-- Rank candidates by roster need, role, opportunity, expected duration of value, schedule, replacement value, and evidence confidence.
-- FAAB guidance must show whether it reflects an immediate starter, depth addition, short-term injury replacement, or speculative upside add.
-- Do not present precise FAAB guidance when ownership, role, or opportunity evidence is unavailable.
+- Current waiver ordering uses fresh current-week consensus rank (ECR); lower ECR ranks higher, stale ECR blocks ranking, and candidates without ECR remain unranked. Historical production and usage are informational only, not ranking inputs or fallbacks.
+- Ranking candidates by roster need, role, opportunity, expected duration of value, schedule, replacement value, and evidence confidence remains a strategic goal; these are not current waiver-ranking inputs.
+- Use the manager-facing waiver recommendation vocabulary defined in the Waiver and FAAB Center section of `PAGE_REQUIREMENTS.md`.
+- Any displayed FAAB guardrails are provisional, not player-value estimates. Winning-bid estimation and player-value-to-FAAB conversion are unavailable.
 
 ## Trade philosophy
 

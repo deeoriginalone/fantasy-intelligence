@@ -91,4 +91,28 @@ The owner reports approved Yahoo API access and a Yahoo Survivor league. Yahoo i
 
 ## Threshold registry
 
+### Pending Provider-ID Investigation, October 3, 2026
+
+- Final pending-record recheck: both current WR-filtered Sleeper responses (with and without `active=true`) supply no team for KhaDarel Hodge, Xavier Smith, or Lil'Jordan Humphrey. Hodge is Questionable; Smith and Humphrey are Active without listed injuries. This supersedes earlier LAR/DEN observations, but does not prove player unavailability. Ben Sauls also remains a pending identity case without an agreed NFL team.
+- A missing weekly kickoff can be corroborated only with a unique published player-ID link, current Active Sleeper team/position, and at least two distinct provider player records in the fresh weekly artifact agreeing on one current-week team kickoff. Ambiguous/stale games, missing current team, and started games fail closed. The original publisher FA/team field is retained beside the explicit game-evidence method; local CSV schedules without retrieval metadata are not used to authorize ranks.
+
+- Subsequent owner approval permits a contextual exception only when normalized full name, canonical position, and current NFL team agree uniquely between the ranking source and Sleeper. Method: `OWNER_APPROVED_UNIQUE_NAME_POSITION_TEAM`; not a source-published crosswalk. Name/position alone, FA/missing team, duplicate candidates, and conflicting published IDs do not qualify. These matches are reevaluated against current Sleeper data on each read and retain provider ID, Sleeper ID, team evidence, source version, and checksum.
+- Under this explicitly approved rule, the pinned-source audit recovered 15 weekly and 12 ROS links, producing 514 weekly and 445 ROS ranks on October 3, 2026. Missing kickoff rows and nonqualifying identities remain pending rather than being inferred healthy, unavailable, or resolved.
+
+- Missing ranking-provider links are not injury exclusions. The prior live audit confirmed Active/no-listed-injury kickers whose published crosswalk lacks FantasyPros IDs, and a differing FantasyPros ID for Roman Wilson. Name/position leads remain research-only.
+- Checked the latest DynastyProcess player-ID release metadata: October 2, 2026. The cached ranking/crosswalk evidence remains the reproducible starting point; a new retrieval must not be described as a corrected identity unless the mapping actually changes.
+- Targeted FantasyPros profile checks produced HTTP 403 for Tyler Loop and an unusable advertising redirect for Roman Wilson. No access restriction was bypassed and no stable-ID link was recovered from those responses.
+- The candidate ffverse `playerids` release endpoint returned HTTP 404. The app's existing nflverse player-metadata endpoint returned HTTP 200, but its header exposes GSIS/ESPN IDs and no FantasyPros ID; it cannot prove these missing provider links.
+- No additional identity mappings were published in this investigation. Resolution requires a supported updated crosswalk or explicitly reviewed stable-ID evidence; pending players must remain visible in the ranking-data review queue, not be declared unavailable or ranked from a guessed name join.
+
+### Private Waiver Consensus
+
+- Implementation owner: `services/dynastyprocess_rankings.py`. FantasyPros PPR consensus is obtained from commit-pinned DynastyProcess artifacts for the owner's private app, without redistribution.
+- Opening Waivers refreshes a missing cache, a cache older than six hours, or a changed NFL season/type/week. No always-running app, manager upload, or system timer is required. Failed attempts retry after 15 minutes of subsequent use.
+- Every visit evaluates source dates, independently of retrieval time: weekly ranks have a 48-hour maximum age; ROS ranks have a seven-day maximum age. These are explicit operational limits for the upstream publication cadence, not promises of forecast accuracy.
+- A successful download never changes `scrape_date`. A failed refresh retains the last successful snapshot and exposes the failure, but source-age/week gates still withhold outdated ranks and affected advice.
+- Weekly scope is corroborated with current Sleeper NFL state and source kickoff dates; started games are excluded. ROS requires explicit ROS positional-page labels. Draft, dynasty, non-PPR skill-position pages, and historical points are not silent substitutes.
+- Each supported row is reconciled to a published rank or a diagnostic record. Exact player crosswalks normalize `PK` to `K`; team defenses use exact supported Sleeper team IDs. Pending mapping/game verification is distinct from confirmed stale/started-game/invalid-rank evidence.
+- The atomic cache lives in the Flask instance directory as `dynastyprocess-rankings.json`. Last attempt, last successful retrieval, source dates, source URLs, commit version, checksums, and failure status remain available separately.
+
 Exact thresholds should be maintained in one implementation-owned registry and validated by tests. This document should link to that registry after it exists.

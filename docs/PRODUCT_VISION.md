@@ -37,26 +37,22 @@ Every season-management page should help answer at least one of these questions:
 
 ## Evidence-first architecture
 
-The governing information path is:
+The product follows `DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`. Fantasy Intelligence is a personal, single-manager, read-only decision-support application. Authority and usefulness are separate; authority completion alone is not a recommendation prerequisite.
 
-`DATA -> EVIDENCE -> CONFIDENCE -> MODEL -> DECISION`
+Repository-wide recommendation states:
+- **ESTABLISHED** -> **RECOMMENDATION** when the applicable supporting contract is complete.
+- **PRELIMINARY** -> **RECOMMENDATION WITH DISCLOSURE** when useful, truthful inputs exist but authority is incomplete.
+- **INSUFFICIENT** -> **NO RECOMMENDATION** when inputs cannot support a meaningful recommendation.
+- **CONTRADICTORY** -> **BLOCKED** when supported facts conflict.
 
-Authority and usefulness are separate contracts. Fail-closed behavior applies to authority, recommendations, rankings, scores, confidence claims, probabilities, and transactions; it does not require hiding supported informational evidence. When supported evidence exists, show it with its evidence level, confidence, sample size, freshness, limitations, and recommendation impact.
+A `PRELIMINARY` recommendation requires verified identity and ownership, disclosed evidence level, freshness, and limitations, and a read-only presentation that cannot create an incorrect fantasy decision. Disclose confidence rationale when available; never fabricate confidence, freshness, probability, authority, identity, or evidence. `BLOCKED` is reserved for unresolved identity or ownership, contradictory or corrupted evidence, unsafe recommendation risk, or transaction-safety risk. Missing authority paperwork or a threshold sign-off alone is not a blocker when the underlying evidence may truthfully be used and the preliminary recommendation remains safe; prohibited or unpermitted use remains blocked. Use `INSUFFICIENT` when evidence is too weak or missing for a meaningful recommendation. Specific metric/page contracts may restrict an individual signal to context-only when that signal alone cannot safely support a recommendation.
 
-Evidence tiers are:
-
-- **ESTABLISHED:** Sufficient evidence; may support authoritative metrics when the complete contract allows it.
-- **PRELIMINARY:** Useful informational evidence; may be shown, must not independently drive recommendations, and may not be represented as authoritative.
-- **INSUFFICIENT:** Supported evidence is too weak to display as a meaningful metric; show the applicable limitation or unavailable state.
-
-Never fabricate rank, score, confidence, recommendation, probability, authority, or freshness. Prefer authoritative evidence, then preliminary evidence, then a disclosed historical baseline, and finally unavailable when no meaningful supported information exists.
-
-For matchup data, Matchup Rank is authoritative and remains fail-closed. Matchup Signal is a separate informational projection of supported evidence, such as “5th easiest defense,” and must disclose evidence level, sample, freshness, directionality, population, limitations, and context-only recommendation impact. Historical evidence may support stability analysis, threshold governance, baseline comparison, and trend analysis, but may not automatically become current-season authority, rank, or confidence.
+For matchup data, Matchup Rank remains subject to its authority contract. Matchup Signal is a separate context-only metric and must disclose evidence level, sample, freshness, directionality, population, limitations, and recommendation impact. Historical evidence may support stability analysis, threshold governance, baseline comparison, and trend analysis, but may not automatically become current-season authority, rank, or confidence.
 
 - **Owner success:** The project exists to help the owner win fantasy leagues, not to maximize infrastructure completeness.
 - **Primary progress measure:** The primary measure of progress is improved fantasy-football decision quality for the owner. Infrastructure is successful only when it directly improves START, SIT, FLEX, MONITOR, ADD, DROP, TRADE FOR, TRADE AWAY, or Survivor Selection decisions, or protects them from incorrect outputs.
 
-- **Trust before sophistication:** current ownership, eligibility, health, matchup, and league settings must be correct before advanced recommendations are shown.
+- **Trust before sophistication:** identity, ownership, eligibility, and other safety-critical facts must be verified. Incomplete freshness or authority on otherwise supported inputs calls for a disclosed PRELIMINARY recommendation when safe, not automatic suppression.
 - **Sleeper-first where supported:** Sleeper should be the preferred live source for supported league, roster, ownership, draft, and matchup facts.
 - **Fail closed:** unavailable or stale evidence must not be presented as verified truth.
 - **Action before diagnostics:** the recommended team-management action and expected impact come before technical evidence.
