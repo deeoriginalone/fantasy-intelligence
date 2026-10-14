@@ -9,6 +9,19 @@
 @media(max-width:900px){.candidate-grid,.waiver-page .waiver-candidate-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.waiver-header{align-items:flex-start;flex-direction:column}}
 @media(max-width:600px){.waiver-page{padding-top:10px}.waiver-header h1{font-size:32px}.mode-tag{align-self:flex-start}.waiver-verdict{display:block}.waiver-verdict>div+div{border-left:0;border-top:1px solid rgba(255,255,255,.13)}.candidate-grid,.waiver-page .waiver-candidate-grid,.waiver-page .waiver-evidence-grid{grid-template-columns:1fr}.candidate-card{padding:15px}}
 .waiver-page .warning,.waiver-page .waiver-trust-panel,.waiver-page .waiver-trust-panel p{min-width:0;overflow-wrap:anywhere}
+.manager-waiver{border:1px solid var(--w-line);border-radius:14px;background:#fff;padding:18px;margin:16px 0;box-shadow:0 4px 14px rgba(20,33,61,.04)}
+.manager-waiver h2,.manager-waiver h3{margin:0 0 10px}
+.manager-position-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.manager-position{min-width:0;border:1px solid var(--w-line);border-radius:10px;padding:14px}
+.manager-position.priority{border-color:#d5a852;background:#fffaf0}
+.manager-decision{border-top:1px solid var(--w-line);margin-top:12px;padding-top:10px}
+.manager-decision p,.manager-position p{margin:5px 0;line-height:1.4}
+.manager-alternatives{margin:8px 0 0;padding-left:20px}
+.manager-alternatives li{margin:5px 0}
+.manager-outcome[hidden]{display:none}
+.manager-outcome{border-top:1px solid var(--w-line);padding:8px 0}
+.manager-search{max-width:440px;width:100%;min-height:40px;padding:8px;border:1px solid var(--w-line);border-radius:6px}
+@media(max-width:700px){.manager-position-grid{grid-template-columns:1fr}}
 </style>
 <main class="waiver-page" aria-labelledby="waiver-title">
   {% set preliminary_suggestions = preliminary_suggestions|default([]) %}
@@ -20,12 +33,197 @@
   {% set selected_screened_summary = selected_screened_summary|default({"count": 0, "reason_counts": {}}) %}
   {% set selected_focus = selected_focus|default('all') %}
   {% set waiver_opportunity_status = waiver_opportunity_status|default({}) %}
-  <header class="waiver-header"><div><p class="eyebrow">{{ (context|default({})).mode|default('LIVE') }} / Acquisition view</p><h1 id="waiver-title">Waiver and FAAB Center</h1><p>Review verified ownership, eligibility, health, and player evidence. No waiver transaction is submitted.</p></div><span class="mode-tag">{{ (meta|default({})).team_name|default('My Team') }}</span></header>
+  <header class="waiver-header"><div><p class="eyebrow">{{ (context|default({})).mode|default('LIVE') }} / Read-only waiver guidance</p><h1 id="waiver-title">YOUR WAIVER PLAN</h1><p>Review available claims and fallbacks. No waiver transaction is submitted.</p></div><span class="mode-tag">{{ (meta|default({})).team_name|default('My Team') }}</span></header>
   {% set balance = faab_balance|default({}) %}
-  <section class="waiver-verdict"><div><small>Waiver evidence</small><h2>{% if preliminary_suggestions %}PRELIMINARY ROSTER-FIT EVIDENCE{% else %}NO SUPPORTED ACQUISITION RECOMMENDATION{% endif %}</h2><span>{% if preliminary_suggestions %}Consensus rank is informational only. Immediate impact is limited to supported active-slot needs; expected role, duration, and projected points gain remain unavailable.{% elif waiver_evidence and not waiver_evidence.allowed %}Ownership or eligibility evidence is insufficient to publish candidates.{% else %}No candidate currently has verified healthy status and sufficient evidence for a roster-specific recommendation.{% endif %}</span></div><div><small>Healthy players to review</small><strong>{{ preliminary_suggestions|length }}</strong><span>Rank does not determine acquisition priority</span></div><div><small>FAAB remaining</small><strong>{% if balance.state == 'AVAILABLE' %}${{ balance.remaining }}{% else %}Unavailable{% endif %}</strong><span>{% if balance.state == 'AVAILABLE' %}Sleeper API · ${{ balance.spent }} spent of ${{ balance.budget }} budget{% else %}{{ balance.reason|default('Live owner budget is not verified.') }}{% endif %}</span></div></section>
-
+  {% set plan = waiver_plan|default({}) %}
+  <section class="waiver-verdict"><div><small>YOUR WAIVER PLAN</small><h2>{% if plan.problems and plan.state == 'PLAN' %}CLAIMS TO REVIEW{% elif waiver_evidence and not waiver_evidence.allowed %}CLAIMS BLOCKED{% else %}NO SUPPORTED CLAIM{% endif %}</h2><span>{% if plan.problems and plan.state == 'PLAN' %}The listed options address verified one-week roster needs. No player is called best unless supported evidence separates the alternatives.{% elif waiver_evidence and not waiver_evidence.allowed %}Current roster ownership or player eligibility could not be verified.{% else %}No supported current waiver claim is available; comparable players may still be reviewed below.{% endif %}</span></div><div><small>Available players to review</small><strong>{{ preliminary_suggestions|length }}</strong><span>Only verified candidates are included</span></div><div><small>FAAB remaining</small><strong>{% if balance.state == 'AVAILABLE' %}${{ balance.remaining }}{% else %}Unavailable{% endif %}</strong><span>{% if balance.state == 'AVAILABLE' %}${{ balance.spent }} spent of ${{ balance.budget }} budget{% else %}{{ balance.reason|default('Owner budget is not verified.') }}{% endif %}</span></div></section>
+  {% set manager_sections = waiver_position_sections|default([]) %}
+  {% set outcomes = waiver_candidate_outcomes|default([]) %}
+  {% set more_available = waiver_more_available|default([]) %}
+  {% set week_auth = (meta|default({})).week_authority|default({}) %}
+  {% set page_meta = meta|default({}) %}
+  <section class="manager-waiver" id="your-waiver-decisions" aria-labelledby="your-waiver-decisions-title">
+    <p class="eyebrow">Read-only decision support</p>
+    <h2 id="your-waiver-decisions-title">CLAIMS BY POSITION</h2>
+    <p>{% if week_auth.authoritative %}Current week {{ week_auth.week }}.{% else %}Current week is not verified.{% endif %} FAAB remaining: {% if balance.state == 'AVAILABLE' %}${{ balance.remaining }}{% else %}unavailable{% endif %}. No claim or drop will be submitted.</p>
+    <section aria-labelledby="manager-needs-title">
+      <h3 id="manager-needs-title">YOUR ROSTER NEEDS</h3>
+      {% for section in manager_sections %}{% if section.priority_need or section.need.strategic_need == 'ADD_DEPTH' %}
+      <p><strong>{{ section.position }}:</strong> {{ section.need_message }}</p>
+      {% endif %}{% else %}<p>Roster needs could not be verified.</p>{% endfor %}
+    </section>
+    <section aria-labelledby="manager-options-title">
+      <h3 id="manager-options-title">PLAYERS TO CONSIDER</h3>
+      <div class="manager-position-grid">
+      {% for section in manager_sections %}
+        <article class="manager-position{% if section.priority_need %} priority{% endif %}" data-position="{{ section.position }}">
+          <h4>{{ section.position }} · {{ section.label }}</h4>
+          <p><strong>Roster need:</strong> {{ section.need_message }}</p>
+          {% if section.options %}
+            <p>{{ section.explanation }}</p>
+            {% set first_option = section.options[0] %}
+            {% set first_player = first_option.candidate %}
+            {% set first_claim = first_option.claim or {} %}
+            {% set first_drop = first_claim.conditional_drop|default({}) %}
+            {% set first_slot_bid = first_claim.faab|default({}) %}
+            {% set first_value = first_option.value|default({}) %}
+            {% set first_bids = first_player.waiver_bid_estimates|default({}) %}
+            {% set game = first_option.game_context or {} %}
+            {% set bye = first_option.bye_evidence or {} %}
+            <div class="manager-decision">
+              {% if first_claim %}<p><strong>ACTION:</strong> SLOT-FILL OPTION</p>{% else %}<p><strong>ACTION:</strong> CONSIDER</p>{% endif %}
+              <p><strong>PLAYER:</strong> {{ first_claim.candidate|default(first_player.player|default('Player unavailable')) }} · {{ first_claim.candidate_team|default(first_player.nfl_team|default('Team unavailable')) }} · {{ section.position }}</p>
+              <p><strong>THIS WEEK:</strong>
+                {% if game.game_context_state == 'AVAILABLE' %}
+                  Week {{ game.week }} · {% if game.venue == 'HOME' %}Home vs{% elif game.venue == 'AWAY' %}Away at{% else %}Opponent{% endif %} {{ game.opponent }} ·
+                {% else %}Week {{ page_meta.week|default('unverified') }} · opponent unavailable · {% endif %}
+                {% if bye.authoritative and bye.freshness_state == 'FRESH' %}{% if bye.is_current_week_bye %}On bye{% else %}Not on bye{% endif %}{% else %}Bye status unavailable{% endif %}
+              </p>
+              <p><strong>WHY:</strong>
+                {% if first_value.state == 'RANKED' %}{{ first_claim.manager_reason|default('') }} Fresh {{ first_value.horizon|replace('_', ' ') }} positional consensus rank {{ '%.1f'|format(first_value.rank) }} (position #{{ first_value.position_rank }}); lower rank is better.
+                {% elif first_value.state == 'TIED' %}{{ first_claim.manager_reason|default('') }} Tied at consensus rank {{ '%.1f'|format(first_value.rank) }}; no consensus distinction from tied options.
+                {% elif first_claim %}{{ first_claim.manager_reason|default('Fills a verified required starter slot; alternatives are not distinguished by supported player-value evidence.') }}
+                {% elif section.need.state == 'AVAILABLE' and (section.need.starter_shortage or section.need.depth_shortage) %}Addresses a verified {{ section.position }} roster need, but current evidence does not rank it above the other available options.
+                {% else %}No current {{ section.position }} roster shortage is verified; available players are for consideration only.{% endif %}
+              </p>
+              {% if first_value.state == 'RANKED' %}<p><strong>POSITION RANK:</strong> #{{ first_value.position_rank }} · ECR {{ '%.1f'|format(first_value.rank) }} · {{ first_value.horizon|replace('_', ' ') }} · {{ first_value.source }} · {{ first_value.source_date }} · {{ first_value.freshness_state|lower }}.</p>
+              {% elif first_value.state == 'TIED' %}<p><strong>POSITION RANK:</strong> Tied at ECR {{ '%.1f'|format(first_value.rank) }} · {{ first_value.horizon|replace('_', ' ') }} · {{ first_value.source }} · {{ first_value.source_date }} · {{ first_value.freshness_state|lower }}.</p>
+              {% else %}<p><strong>POSITION RANK:</strong> UNRANKED · {{ first_value.reason }}{% if first_value.source_date %} · {{ first_value.source_date }} · {{ first_value.freshness_state|lower }}{% endif %} · {{ first_value.source }}.</p>{% endif %}
+              {% set first_support = first_player.waiver_supporting_evidence|default({}) %}
+              {% if first_support.statistics_used %}<p><strong>SUPPORTING ONLY:</strong> Recent historical comparison: {% for stat in first_support.statistics_used[:3] %}{{ stat.label }} {{ '%.3f'|format(stat.value) }}{% if not loop.last %}; {% endif %}{% endfor %}. Does not set the player rank.</p>{% endif %}
+              <p><strong>VALUE-BASED BID:</strong> Unavailable; no supported player-value-to-FAAB model.</p>
+              {% if first_slot_bid.state == 'PROVISIONAL' %}<p><strong>PROVISIONAL SLOT-FILL GUARDRAIL:</strong> ${{ first_slot_bid.recommended }} (${{ first_slot_bid.low }}–${{ first_slot_bid.high }}); ${{ first_slot_bid.remaining }} remains. {{ first_slot_bid.rationale }} This is not an estimated winning bid.</p>{% endif %}
+              <p><strong>ESTIMATED WINNING BID:</strong> Unavailable; historical winning/losing bids and verified competing-team demand are missing.</p>
+              <p><strong>MAXIMUM BID:</strong> Unavailable until a value-based bid is supported.</p>
+              {% if (first_bids.market_demand|default({})).reason|default('') %}<p><strong>MARKET DEMAND:</strong> {{ first_bids.market_demand.reason }}</p>{% endif %}
+              <p><strong>DROP:</strong>
+                {% if first_drop.state == 'CONDITIONAL' %}Conditional only (not automatic): {{ first_drop.reason }}{% if 'not automatic' not in first_drop.reason|default('')|lower and 'not an automatic' not in first_drop.reason|default('')|lower %} This is not an automatic drop.{% endif %}
+                {% else %}No supported drop recommendation.{% endif %}
+              </p>
+              {% if section.options|length > 1 %}
+              <p><strong>ALTERNATIVES:</strong> Separate contingent claims; bids are not cumulative.</p>
+              <ul class="manager-alternatives">{% for alternative in section.options[1:] %}
+                {% set alt_claim = alternative.claim or {} %}{% set alt_player = alternative.candidate %}
+                {% set alt_bid = alt_claim.faab|default({}) %}
+                {% set alt_game = alternative.game_context or {} %}
+                {% set alt_value = alternative.value|default({}) %}
+                <li>{{ alt_claim.candidate|default(alt_player.player|default('Player unavailable')) }} · {{ alt_claim.candidate_team|default(alt_player.nfl_team|default('Team unavailable')) }} · {{ section.position }} ·
+                  {% if alt_game.game_context_state == 'AVAILABLE' %}Week {{ alt_game.week }} {% if alt_game.venue == 'HOME' %}Home vs{% elif alt_game.venue == 'AWAY' %}Away at{% else %}vs{% endif %} {{ alt_game.opponent }}{% else %}opponent unavailable{% endif %} · Comparable option
+                  {% if alt_value.state == 'RANKED' %} · ECR {{ '%.1f'|format(alt_value.rank) }} (rank #{{ alt_value.position_rank }})
+                  {% elif alt_value.state == 'TIED' %} · tied at ECR {{ '%.1f'|format(alt_value.rank) }}
+                  {% else %} · UNRANKED: {{ alt_value.reason }}{% endif %}
+                  {% if alt_bid.state == 'PROVISIONAL' %} · ${{ alt_bid.recommended }} provisional slot-fill guardrail; not a winning-bid estimate{% else %} · bid unavailable{% endif %}
+                </li>
+              {% endfor %}</ul>
+              {% endif %}
+            </div>
+          {% else %}
+            <p>{{ section.explanation }}</p>
+          {% endif %}
+        </article>
+      {% endfor %}
+      </div>
+    </section>
+    <section aria-labelledby="manager-omissions-title">
+      <h3 id="manager-omissions-title">WHY PLAYERS WERE NOT RECOMMENDED</h3>
+      <form method="get" action="/waivers">
+        <label for="waiver-player-outcome-search">Search a player name</label>
+        <input class="manager-search" id="waiver-player-outcome-search" name="explain_player" type="search" value="{{ waiver_explain_player|default('') }}" placeholder="For example, Isaiah Likely">
+        {% if selected_player.player_id %}<input type="hidden" name="player_id" value="{{ selected_player.player_id }}">{% endif %}
+        <input type="hidden" name="focus" value="{{ selected_focus|default('all') }}">
+        <button type="submit">Check player</button>
+      </form>
+      <p id="waiver-player-outcome-empty">{% if waiver_explain_player %}No current result is available for that name.{% else %}Enter a player name to see the current availability or evidence result.{% endif %}</p>
+      <div id="waiver-player-outcomes" aria-live="polite">
+        {% for outcome in outcomes %}{% if outcome.player %}
+        <article class="manager-outcome"{% if not waiver_explain_player %} hidden{% endif %} data-player="{{ outcome.player|lower }}">
+          <strong>{{ outcome.player }}</strong>{% if outcome.team %} · {{ outcome.team }}{% endif %}{% if outcome.position %} · {{ outcome.position }}{% endif %}
+          <p>{{ outcome.message }}</p>
+          {% set outcome_details = outcome.details|default({}) %}
+          {% set value = outcome_details.waiver_value|default({}) %}
+          {% if outcome_details.rankings is defined %}
+          <p>Ownership: {{ outcome_details.ownership|default('not verified', true)|replace('VERIFIED_UNROSTERED', 'available')|replace('ROSTERED', 'already rostered')|replace('NOT_EVALUATED', 'not evaluated') }} · identity: {{ 'verified' if outcome_details.identity.resolution_state|default('') == 'RESOLVED' or outcome_details.identity == 'RESOLVED' else 'unresolved or unavailable' }} · health: {{ outcome_details.health.state|default('not verified', true) }} ({{ outcome_details.health.freshness|default('freshness unavailable', true) }}).</p>
+          {% for horizon_key, horizon_label in [('this_week', 'Current week'), ('rest_of_season', 'Rest of season')] %}
+            {% set rank_row = outcome_details.rankings.get(horizon_key) %}
+            <p>{{ horizon_label }} rank:
+              {% if rank_row %}ECR {{ '%.1f'|format(rank_row.ecr) }} · {{ rank_row.source_date }} · fresh
+              {% else %}UNRANKED{% if value.horizon == horizon_key and value.reason %} — {{ value.reason }}{% if value.source_date %} · {{ value.source_date }} · {{ value.freshness_state|lower }}{% endif %}{% else %} — no fresh rank available{% endif %}{% endif %}
+            </p>
+          {% endfor %}
+          <p>Ranking horizon used: {{ outcome_details.ranking_horizon|default('not ranked') }} · source: {{ outcome_details.rank_source|default('unavailable') }}.</p>
+          {% if outcome_details.roster_fit %}<p>Roster fit: {{ outcome_details.roster_fit.drivers|default([])|join('; ') or outcome_details.roster_fit.strategic_need|default('No verified starter or depth need') }}.</p>{% endif %}
+          {% if value.position_rank %}<p>Final position rank: #{{ value.position_rank }} · {{ value.reason }}.</p>{% else %}<p>Final position rank: UNRANKED — {{ outcome_details.final_rank_reason|default(value.reason|default(outcome.message)) }}.</p>{% endif %}
+          {% set supporting = outcome_details.supporting_evidence|default({}) %}
+          {% if supporting.statistics_used %}<p>Recent production and usage (supporting only): {% for stat in supporting.statistics_used[:4] %}{{ stat.label }} {{ '%.3f'|format(stat.value) }}{% if not loop.last %}; {% endif %}{% endfor %}. These do not override consensus rank.</p>{% endif %}
+          {% elif value.reason %}<p>Rank status: UNRANKED — {{ value.reason }}.</p>{% endif %}
+        </article>
+        {% endif %}{% endfor %}
+      </div>
+    </section>
+    {% if more_available %}
+    <section aria-labelledby="manager-more-available-title">
+      <h3 id="manager-more-available-title">MORE AVAILABLE PLAYERS</h3>
+      <ul class="manager-alternatives">{% for option in more_available %}
+        {% set player = option.candidate %}{% set game = option.game_context or {} %}
+        <li>{{ player.player }} · {{ player.nfl_team|default('Team unavailable') }} · {{ player.position }} ·
+          {% if game.game_context_state == 'AVAILABLE' %}Week {{ game.week }} {% if game.venue == 'HOME' %}Home vs{% elif game.venue == 'AWAY' %}Away at{% else %}vs{% endif %} {{ game.opponent }}{% else %}opponent unavailable{% endif %}
+        </li>
+      {% endfor %}</ul>
+    </section>
+    {% endif %}
+  </section>
+  <script>
+  (() => {
+    const input = document.getElementById('waiver-player-outcome-search');
+    const empty = document.getElementById('waiver-player-outcome-empty');
+    const outcomes = Array.from(document.querySelectorAll('.manager-outcome'));
+    if (!input || !empty) return;
+    const updateOutcomes = () => {
+      const query = input.value.trim().toLocaleLowerCase();
+      let matches = 0;
+      outcomes.forEach((item) => {
+        item.hidden = !query || !item.dataset.player.includes(query);
+        if (!item.hidden) matches += 1;
+      });
+      empty.hidden = matches > 0;
+      empty.textContent = query && matches === 0 ? 'No current result is available for that name.' : 'Enter a player name to see the current availability or evidence result.';
+    };
+    input.addEventListener('input', updateOutcomes);
+    updateOutcomes();
+  })();
+  </script>
+  <details class="manager-waiver" id="waiver-data-details">
+    <summary>DATA DETAILS AND OPTIONAL PLAYER COMPARISONS</summary>
+  {% if plan %}
+  <section class="waiver-card" id="your-waiver-plan" aria-labelledby="your-waiver-plan-title" style="overflow-wrap:anywhere">
+    <p class="eyebrow">Read-only decision support · no waiver, drop or lineup transaction is submitted</p>
+    <h2 id="your-waiver-plan-title">YOUR WAIVER PLAN</h2>
+    <p id="plan-week-faab"><strong>Week {{ plan.week|default('unverified') }}</strong> · FAAB remaining {% if plan.faab_remaining is not none %}${{ plan.faab_remaining }}{% if plan.faab_budget is not none %} of ${{ plan.faab_budget }}{% endif %}{% else %}unavailable{% endif %}</p>
+    {% if plan.problems %}<h3>Your roster needs</h3><ul id="plan-needs">{% for problem in plan.problems %}<li>{{ problem.position }}: {{ problem.detail }}</li>{% endfor %}</ul>{% endif %}
+    {% if plan.state == 'PASS' %}<p class="blocked"><strong>PASS.</strong> {{ plan.pass_reason }}</p>{% endif %}
+    {% for problem in plan.problems %}
+    <article class="wda-suggestion" id="plan-problem-{{ problem.priority }}">
+      <h3>#{{ problem.priority }} · {{ problem.need|replace('_', ' ')|title }} · {{ problem.position }}</h3>
+      <p><strong>Roster player:</strong> {{ problem.selected_player }} ({{ problem.selected_team }} {{ problem.position }})</p>
+      {% if problem.claims %}{% set primary = problem.claims[0] %}{% set g = primary.game_context %}
+      <p><strong>PRELIMINARY · Review {{ primary.candidate }} — {{ primary.candidate_team }} {{ primary.candidate_position }} — Week {{ g.week }} {{ g.display_matchup }}</strong> ({{ g.venue|lower }} game{% if g.kickoff_pacific %} · {{ g.kickoff_pacific }} PT{% endif %})</p>
+      <p><strong>Rental:</strong> {{ primary.rental.status|replace('_', ' ')|title }} — {{ primary.rental.reason }}</p>
+      {% set f = primary.faab %}
+      <p><strong>{{ f.label|default('PROVISIONAL SLOT-FILL FAAB') }}:</strong> {% if f.state == 'PROVISIONAL' %}${{ f.recommended }} (range ${{ f.low }}–${{ f.high }}, {{ f.percent_of_remaining }}% of remaining) · {{ f.rationale }}{% else %}unavailable — {{ f.reason }}{% endif %}</p>
+      <p><strong>{{ primary.conditional_drop.label|default('Drop') }}:</strong> {{ primary.conditional_drop.reason }}</p>
+      <p><strong>Why:</strong> {{ primary.manager_reason }}</p>
+      <p><strong>Fallbacks:</strong> {{ problem.fallback_count }}. {{ problem.ordering_note }}</p>
+      {% if problem.claims|length > 1 %}<ol id="plan-fallbacks-{{ problem.priority }}">{% for fb in problem.claims[1:] %}<li>{{ fb.candidate }} — {{ fb.candidate_team }} {{ fb.candidate_position }} — Week {{ fb.game_context.week }} {{ fb.game_context.display_matchup }} · verified not on bye this week · {% if fb.faab.state == 'PROVISIONAL' %}${{ fb.faab.recommended }} (${{ fb.faab.low }}–${{ fb.faab.high }}){% else %}FAAB unavailable{% endif %} · {% if fb.waiver_value_result.state == 'RANKED' %}current consensus ECR {{ '%.1f'|format(fb.waiver_value_result.rank) }}{% else %}UNRANKED: {{ fb.waiver_value_result.reason|default('no fresh consensus rank') }}{% endif %}</li>{% endfor %}</ol>{% endif %}
+      <p class="muted">Sources: schedule {{ g.schedule_freshness }}, retrieved {{ g.schedule_retrieved_at }}{% if primary.bye_evidence %}; bye {{ primary.bye_evidence.team }} week {{ primary.bye_evidence.bye_week }}, retrieved {{ primary.bye_evidence.retrieved_at }}{% endif %}</p>
+      <details><summary>Technical details</summary><p><code>{{ g.contract_id }}</code> · <code>{{ f.contract_id|default('') }}</code> · {{ g.schedule_source }}</p><p>{{ (f.limitations|default([]))|join(' ') }}</p></details>
+      {% else %}<p class="blocked"><strong>NO SUPPORTED CLAIM.</strong> {{ problem.blocker }}</p>{% endif %}
+    </article>
+    {% endfor %}
+    {% if plan.problems and plan.state == 'PLAN' %}<p id="plan-totals"><strong>Total recommended FAAB (primary claims):</strong> {% if plan.total_recommended_faab is not none %}${{ plan.total_recommended_faab }} · projected remaining ${{ plan.projected_remaining_faab }}{% else %}unavailable{% endif %}. {{ plan.total_note }}</p>{% endif %}
+  </section>
+  {% endif %}
   <section class="waiver-card" id="best-waiver-moves" aria-labelledby="best-waiver-moves-title">
-    <p class="eyebrow">Roster-specific decisions</p><h2 id="best-waiver-moves-title">Best Waiver Moves for Your Team</h2>
+    <p class="eyebrow">Roster-specific decisions</p>    <h2 id="best-waiver-moves-title">Player-to-Roster Checks</h2>
     {% set best_moves = namespace(count=0) %}
     <div class="candidate-grid">
     {% for candidate in preliminary_suggestions %}{% set evaluation = candidate.acquisition_evaluation|default({}) %}{% if evaluation.evidence_relevance in ('MEANINGFUL_COMPARISON', 'DIRECTIONAL_SIGNAL') and evaluation.action in ('ADD', 'CONSIDER', 'STASH', 'MONITOR') and best_moves.count < 3 %}{% set best_moves.count = best_moves.count + 1 %}
@@ -33,7 +231,7 @@
         <p><strong>Roster impact:</strong> {{ evaluation.roster_fit|default('Unavailable') }}</p>
         <p><strong>Would start:</strong> {{ evaluation.would_start|default('UNAVAILABLE') }}{% if evaluation.affected_slot %} · {{ evaluation.affected_slot }} slot{% endif %}</p>
         <p><strong>Suggested drop:</strong> {{ evaluation.suggested_drop.reason|default('Unavailable') }}</p>
-        <p><strong>FAAB category:</strong> {{ evaluation.faab.category|default('UNAVAILABLE') }} · <strong>FAAB:</strong> {% if evaluation.faab.state == 'PROVISIONAL' %}PROVISIONAL ${{ evaluation.faab.low }}–${{ evaluation.faab.high }} of ${{ evaluation.faab.remaining }} remaining. {{ evaluation.faab.rationale }}{% elif evaluation.faab.state == 'NO_BID' %}$0 · {{ evaluation.faab.rationale }}{% elif evaluation.faab.state == 'UNAVAILABLE' and evaluation.action != 'ADD' %}$0 · No bid suggested until an ADD decision is supported.{% else %}UNAVAILABLE. {{ evaluation.faab.rationale|default('No supported valuation is available.') }}{% endif %}</p>
+        <p><strong>FAAB category:</strong> {{ evaluation.faab.category|default('UNAVAILABLE') }} · <strong>FAAB:</strong> {% if evaluation.faab.state == 'PROVISIONAL' %}PROVISIONAL ${{ evaluation.faab.low }}–${{ evaluation.faab.high }} of ${{ evaluation.faab.remaining }} remaining. {{ evaluation.faab.rationale }}{% elif evaluation.faab.state == 'NO_BID' %}No bid for this decision. {{ evaluation.faab.rationale }}{% elif evaluation.faab.state == 'UNAVAILABLE' and evaluation.action != 'ADD' %}Unavailable; no supported bid is available for this decision.{% else %}UNAVAILABLE. {{ evaluation.faab.rationale|default('No supported valuation is available.') }}{% endif %}</p>
         <p><strong>Primary reason:</strong> {{ evaluation.reasons[0] if evaluation.reasons else evaluation.confidence_rationale|default('No supported roster-fit evidence.') }}</p>
         <p><strong>Primary risk:</strong> {{ evaluation.risks[0] if evaluation.risks else 'Evidence risk unavailable.' }}</p>
         {% set best_depth = candidate.sleeper_depth_chart|default({}) %}
@@ -90,18 +288,35 @@
     {% set selected_drop = selected_result.suggested_drop|default({}) %}
     {% set selected_secondary = selected_result.secondary_context|default({}) %}
     <section id="wda-result" aria-live="polite" aria-labelledby="selected-waiver-result-title">
-      <h3 id="selected-waiver-result-title">Best Move for This Selection</h3>
+      <h3 id="selected-waiver-result-title">Move for This Selection</h3>
       <p><strong>Selected:</strong> {{ selected_player.player|default('Unavailable') }} · {{ selected_player.position|default('Unavailable') }} · <strong>Focus:</strong> {{ selected_focus|default('all')|replace('_', ' ')|title }}</p>
+      {% set week_auth = ((meta.week_authority if meta else none) or {}) %}
+      <p class="week-authority" id="waiver-week-authority"><strong>Current week:</strong> {% if week_auth.authoritative %}{{ week_auth.week }} · {{ week_auth.source }} · retrieved {{ week_auth.retrieved_at }}{% if week_auth.warnings %} · {{ week_auth.warnings|join(', ') }}{% endif %}{% else %}unverified · bye and lineup-slot checks are disabled until the NFL week is verified{% endif %}</p>
       <article class="wda-suggestion" id="selected-waiver-primary">
-        <h4>{% if selected_decision == 'ADD' and primary %}ADD {{ primary.player }} → DROP {{ selected_player.player }}{% elif selected_decision == 'HOLD' %}HOLD {{ selected_player.player }}{% elif selected_decision == 'MONITOR' and primary %}MONITOR {{ primary.player }}{% elif selected_decision == 'BLOCKED' %}BLOCKED{% else %}NO ACTIONABLE UPGRADE{% endif %}</h4>
-        <p><strong>Evidence level:</strong> {{ selected_result.evidence_level|default('INSUFFICIENT') }}</p>
+        <h4>{% if selected_decision == 'ADD' and primary %}ADD {{ primary.player }} → DROP {{ selected_player.player }}{% elif selected_decision == 'HOLD' %}HOLD {{ selected_player.player }}{% elif selected_decision == 'MONITOR' and primary %}MONITOR {{ primary.player }}{% elif selected_decision == 'PRELIMINARY_RECOMMENDATION' and primary %}PRELIMINARY RECOMMENDATION · Review {{ selected_result.candidate }} — {{ selected_result.candidate_team }} {{ selected_result.candidate_position }} — Week {{ selected_result.week }} {{ selected_result.game_context.display_matchup }}{% elif selected_decision == 'BLOCKED' %}BLOCKED{% else %}NO ACTIONABLE UPGRADE{% endif %}</h4>
+        {% if selected_decision == 'PRELIMINARY_RECOMMENDATION' %}
+        {% set slot_bye = selected_result.bye_evidence|default(none) %}
+        <div class="preliminary-recommendation" id="preliminary-recommendation" style="overflow-wrap:anywhere">
+          <p><strong>Authority:</strong> {{ selected_result.authority }} · <strong>Basis:</strong> {{ selected_result.decision_basis|replace('_', ' ')|title }}</p>
+          <p><strong>Reason:</strong> {{ selected_result.manager_reason }}</p>
+          <p><strong>Disclosure:</strong> {{ selected_result.disclosure }}</p>
+          <p><strong>Impact:</strong> {{ selected_result.recommendation_impact }}</p>
+          {% set sf = selected_result.faab|default({}) %}
+          <p><strong>Rental:</strong> {{ selected_result.rental.status|replace('_', ' ')|title }} — {{ selected_result.rental.reason }}</p>
+          <p><strong>{{ sf.label|default('FAAB') }}:</strong> {% if sf.state == 'PROVISIONAL' %}${{ sf.recommended }} (range ${{ sf.low }}–${{ sf.high }}, {{ sf.percent_of_remaining }}% of ${{ sf.remaining }} remaining) · {{ sf.rationale }}{% else %}unavailable — {{ sf.reason|default('no amount is supported') }}{% endif %}</p>
+          <p><strong>{{ selected_result.conditional_drop.label|default('Drop') }}:</strong> {{ selected_result.conditional_drop.reason }}</p>
+          <p><strong>Evidence used:</strong> {{ selected_result.evidence_used|join('; ') }}</p>
+          {% if slot_bye %}<p><strong>Bye evidence:</strong> {{ slot_bye.team }} bye week {{ slot_bye.bye_week }} · current week {{ slot_bye.current_week }} · {{ slot_bye.freshness_state }} · source {{ slot_bye.source }} · last verified {{ slot_bye.retrieved_at|default(slot_bye.source_recorded_at|default('unavailable')) }}</p>{% endif %}
+        </div>
+        {% endif %}
+        {% if selected_decision != 'PRELIMINARY_RECOMMENDATION' and selected_result.bye_evidence %}<p class="bye-evidence-state"><strong>Bye evidence:</strong> {% if selected_result.bye_evidence.bye_week %}{{ selected_result.bye_evidence.team }} bye week {{ selected_result.bye_evidence.bye_week }} · current week {{ selected_result.bye_evidence.current_week|default('unverified') }} · {% if selected_result.bye_evidence.is_current_week_bye %}on bye this week{% else %}not on bye this week{% endif %} · {% endif %}{{ selected_result.bye_evidence.freshness_state }}{% if selected_result.bye_evidence.blocker %} <details style="display:inline"><summary>{{ selected_result.bye_evidence.recommendation_impact }}</summary><code>{{ selected_result.bye_evidence.blocker }}</code></details>{% endif %}</p>{% endif %} {{ selected_result.evidence_level|default('INSUFFICIENT') }}</p>
         <p><strong>Roster effect:</strong> {{ selected_result.roster_effect|default('No roster change is supported.') }}</p>
         {% set comparison = selected_result.comparison_summary|default({}) %}
         {% if comparison.candidate_average|default(none) is not none and comparison.selected_average|default(none) is not none %}<p><strong>Observed comparison:</strong> Candidate {{ '%.2f'|format(comparison.candidate_average) }} vs selected {{ '%.2f'|format(comparison.selected_average) }} Full-PPR points/game{% if comparison.sample_size %} · {{ comparison.sample_size }} matched weeks: {% for week in comparison.weeks %}{{ week.season }} Wk {{ week.week }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}.</p><p><strong>Freshness:</strong> {{ comparison.freshness_states|default([])|join(', ') or 'Unavailable' }} · <strong>Source:</strong> {{ comparison.sources|default([])|join(', ') or 'Unavailable' }} · <strong>Retrieved:</strong> {{ comparison.retrieved_at|default([])|join(', ') or 'Unavailable' }}</p><p class="muted">{{ comparison.disclosure|default('Historical evidence, not a forecast.') }}</p>
         {% elif comparison.metric == 'snap_share' %}<p><strong>Observed comparison:</strong> Candidate snap share {{ comparison.candidate_share }} vs selected {{ comparison.selected_share }} · Week {{ comparison.week }} · {{ comparison.disclosure }}</p>
         {% elif comparison.candidate_average|default(none) is not none and comparison.selected_average|default(none) is not none %}<p><strong>Observed comparison:</strong> Candidate average {{ '%.2f'|format(comparison.candidate_average) }} vs selected average {{ '%.2f'|format(comparison.selected_average) }}. {{ comparison.disclosure }}</p>
         {% else %}<p><strong>Observed comparison:</strong> {{ comparison.reason|default(comparison.disclosure|default('UNAVAILABLE')) }}</p>{% endif %}
-        {% if selected_decision == 'ADD' and selected_result.faab.state == 'PROVISIONAL' %}<p class="selected-faab"><strong>Suggested FAAB:</strong> ${{ selected_result.faab.low }}–${{ selected_result.faab.high }} provisional · {{ selected_result.faab.category }} · ${{ selected_result.faab.remaining }} remaining. {{ selected_result.faab.rationale }}</p>{% else %}<p class="selected-faab"><strong>Suggested FAAB:</strong> $0 · No bid suggested for {{ selected_decision }}.</p>{% endif %}
+        {% if selected_decision == 'ADD' and selected_result.faab.state == 'PROVISIONAL' %}<p class="selected-faab"><strong>FAAB:</strong> ${{ selected_result.faab.low }}–${{ selected_result.faab.high }} provisional · {{ selected_result.faab.category }} · ${{ selected_result.faab.remaining }} remaining. {{ selected_result.faab.rationale }}</p>{% elif selected_decision == 'PRELIMINARY_RECOMMENDATION' %}{% else %}<p class="selected-faab"><strong>FAAB:</strong> Not suggested for {{ selected_decision }}.</p>{% endif %}
         <p><strong>Secondary context:</strong> {% if selected_secondary.consensus_rank|default(none) is not none %}Current consensus ECR {{ selected_secondary.consensus_rank }} · published {{ selected_secondary.source_date|default('date unavailable') }} · informational only{% else %}Current-horizon consensus rank unavailable · informational only{% endif %}</p>
         {% set depth_context = selected_result.depth_chart_context|default({}) %}
         {% set selected_depth = depth_context.selected_player|default({}) %}{% set candidate_depth = depth_context.candidate|default({}) %}
@@ -391,8 +606,9 @@
   {% include "_opportunity_evidence.html" %}
   </details>
   <details class="waiver-card"><summary>▶ Availability &amp; Identity Evidence</summary>
-  {% set waiver_candidates = selected_comparisons %}{% include '_waiver_trust_panel.html' %}
+  {% set waiver_candidates = wda_candidates %}{% include '_waiver_trust_panel.html' %}
   </details>
   {% set ux_evidence = ux_route_evidence('waivers', preliminary_suggestions|length) %}{% set ux_title = 'Waiver Availability Evidence' %}{% include '_ux_completion_panel.html' %}
+  </details>
 </main>
 {% endblock %}

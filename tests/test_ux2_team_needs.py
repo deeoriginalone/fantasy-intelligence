@@ -1,4 +1,5 @@
 from services.team_needs import build_team_needs_summary, league_settings_contract, team_needs_contract
+from owner_operations import apply_waiver_ranking, build_candidate_faab_guidance, build_waiver_decision_surface, build_waiver_universe_comparison
 
 
 def league():
@@ -84,3 +85,24 @@ def test_shared_need_result_exposes_all_requested_fields_for_all_positions():
     assert set(result) == {"QB", "RB", "WR", "TE", "FLEX", "K", "DEF"}
     for item in result.values():
         assert {"available", "action", "strategic_need", "starter_coverage", "depth_current", "depth_target", "severity", "reasons", "blockers", "source", "freshness"} <= set(item)
+
+
+def test_position_level_league_demand_is_not_player_pressure_or_faab_input():
+    candidate = {"player": "RB", "position": "RB", "projection": 120, "projection_retrieved_at": "2026-09-30T00:00:00Z"}
+    ranked = apply_waiver_ranking(build_waiver_universe_comparison([candidate], contract("QB")))
+    assert "league_demand" in ranked[0]
+    assert "player_bid_pressure" not in ranked[0]
+    guidance = build_candidate_faab_guidance({"health": {"state": "USABLE", "risk_penalty": 0}, "roster_fit": {"state": "STRONG"}, "quality_score": 8, "team_need": {"strategic_need": "ADD_STARTER"}, "expected_role": {"state": "ESTABLISHED"}, "opportunity_duration": {"state": "ESTABLISHED"}}, {"competition_available": True, "demand_level": "HIGH"}, 100)
+    assert guidance["competition_adjustment"] == 0
+
+
+def test_comparison_basis_is_preliminary_or_exact_alphabetical_fallback():
+    preliminary = build_waiver_decision_surface([
+        {"player": "Zed", "position": "RB", "player_id": "z", "projection": 120, "projection_retrieved_at": "2026-09-30T00:00:00Z"},
+    ], {"allowed": True, "blockers": [], "ownership": {"freshness_state": "FRESH", "completeness_state": "COMPLETE"}, "eligibility": {"freshness_state": "FRESH", "completeness_state": "COMPLETE"}}, position="RB")
+    evidence = {"allowed": True, "blockers": [], "ownership": {"freshness_state": "FRESH", "completeness_state": "COMPLETE"}, "eligibility": {"freshness_state": "FRESH", "completeness_state": "COMPLETE"}}
+    fallback = build_waiver_decision_surface([{"player": "Zed", "position": "RB", "player_id": "z"}], evidence, position="RB")
+    assert preliminary["comparison_state"] == "PRELIMINARY"
+    assert fallback["comparison_basis"] == "Alphabetical display, not recommendation order"
+    assert preliminary["authoritative_rank"] is False
+    assert preliminary["authoritative_faab"] is False

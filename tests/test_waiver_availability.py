@@ -697,13 +697,16 @@ def test_waiver_page_renders_action_before_diagnostics_and_separates_horizons():
 
     positions = [rendered.index(marker) for marker in (
         'id="waiver-title"', 'class="waiver-verdict"',
+        'id="your-waiver-decisions"',
         'id="best-waiver-moves-title"', 'id="waiver-board-title"',
         'id="waiver-decision-assistant"', 'id="selected-waiver-primary"',
         'id="waiver-what-changed-title"',
         'id="waiver-evidence-methodology"',
     )]
     assert positions == sorted(positions)
-    assert "Best Waiver Moves for Your Team" in rendered
+    assert "YOUR WAIVER PLAN" in rendered
+    assert "Best Waiver Moves for Your Team" not in rendered
+    assert "Player-to-Roster Checks" in rendered
     assert "Rest of Season" in rendered and "Upside / Stash" in rendered
     assert "expected role and acquisition duration are not supported" in rendered
     assert 'data-acquisition-action="CONSIDER"' in rendered
@@ -731,10 +734,10 @@ def test_selected_suggested_faab_is_prominent_immediately_after_comparison():
     )
 
     observed = rendered.index("Observed comparison:")
-    suggested = rendered.index("Suggested FAAB:")
+    suggested = rendered.index('<p class="selected-faab">')
     depth = rendered.index("Sleeper depth chart:")
     assert observed < suggested < depth
-    assert "Suggested FAAB:</strong> $1–$3 provisional · FLEX_CHALLENGER · $79 remaining" in rendered
+    assert "FAAB:</strong> $1–$3 provisional · FLEX_CHALLENGER · $79 remaining" in rendered
 
 
 def test_pagewide_best_moves_hides_team_need_only_candidate():
@@ -1505,7 +1508,7 @@ class WaiverRouteConnection:
         pass
 
 
-def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparison=False, candidate_health=None, include_missing_candidate=False, ranking_source_verified=False, extra_candidate_count=0, production_rows=None, faab_settings=None, consensus=None, request_method="GET", testing=True, selected_player_id=None, extra_rostered_player=None, selected_focus="all"):
+def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparison=False, candidate_health=None, include_missing_candidate=False, ranking_source_verified=False, extra_candidate_count=0, production_rows=None, faab_settings=None, consensus=None, request_method="GET", testing=True, selected_player_id=None, extra_rostered_player=None, selected_focus="all", extra_pool_candidates=(), explain_player=None):
     from flask import Flask
     import owner_operations
     catalog = {
@@ -1531,6 +1534,19 @@ def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparis
     if include_missing_candidate:
         catalog["s-te"] = {"full_name": "Avail TE", "position": "TE", "team": "SEA", "gsis_id": None}
         pool_rows.append(("Avail TE", "TE", "SEA", 4, 90.0, 4, 40.0, 9, None))
+    for index, candidate in enumerate(extra_pool_candidates):
+        player_id = candidate["player_id"]
+        catalog[player_id] = {
+            "full_name": candidate["name"],
+            "position": candidate["position"],
+            "team": candidate["team"],
+            "gsis_id": candidate.get("gsis_id"),
+            "injury_status": candidate.get("injury_status", "Healthy"),
+        }
+        pool_rows.append((
+            candidate["name"], candidate["position"], candidate["team"], index + 100,
+            candidate.get("projection"), candidate.get("tier"), None, None, None,
+        ))
     for index in range(extra_candidate_count):
         name = f"Deep Candidate {index}"
         status = ("Healthy", "Out", "IR", "Questionable")[index % 4]
@@ -1603,6 +1619,8 @@ def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparis
         lambda value: str(value).lower().replace(" ", ""),
     )
     app = Flask(__name__, root_path=str(Path(__file__).resolve().parents[1]), template_folder="templates")
+    from services.authoritative_week import build_sleeper_week_contract
+    app.config["WEEK_AUTHORITY_ACQUIRER"] = lambda season: build_sleeper_week_contract({"season": str(season), "week": 3}, season=season)
     app.config.update(
         TESTING=testing, SLEEPER_LEAGUE_ID="controlled",
         NFLVERSE_PLAYER_METADATA=[{"gsis_id": "gsis-wr", "player_id": "gsis-wr"}, {"gsis_id": "gsis-owned", "player_id": "gsis-owned"}, *([{"gsis_id": extra_rostered_player["gsis_id"], "player_id": extra_rostered_player["gsis_id"]}] if extra_rostered_player and extra_rostered_player.get("gsis_id") else [])],
@@ -1616,7 +1634,9 @@ def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparis
     app.jinja_env.globals["ux_roster_lineage"] = lambda roster: []
     from services.ux_evidence import route_payload_evidence
     app.jinja_env.globals["ux_route_evidence"] = route_payload_evidence
-    query = {"player_id": selected_player_id, "focus": selected_focus} if selected_player_id else {}
+    query = {"player_id": selected_player_id, "focus": selected_focus}
+    if explain_player:
+        query["explain_player"] = explain_player
     response = app.test_client().open("/waivers", method=request_method, query_string=query)
     captured["executed_queries"] = list(connection.executed_queries)
     captured["source_reads"] = source_reads
@@ -1709,7 +1729,7 @@ def test_waiver_route_attaches_comparison_only_to_published_candidates(monkeypat
     assert "No verified-healthy preliminary candidates are available at " in html
     assert 'id="preliminary-candidates-title"' not in html
     assert '<td>Visible Preliminary Candidate Count</td><td>1</td>' in html
-    assert "Consensus rank is informational only" in html
+    assert "Consensus remains informational only" in html
 
 
 def test_selected_player_id_reaches_reader_and_recomputes_comparison(monkeypatch):
@@ -1984,7 +2004,7 @@ def test_unverified_ranking_template_hides_all_authoritative_actions():
     )
     for unsupported in ("RECOMMENDATIONS READY", "Top priority", "POTENTIAL UPGRADE", "NO PROJECTED UPGRADE FOUND", "Make the claim decision", "Priority score", "Suggested FAAB", "Recommended Add"):
         assert unsupported not in rendered
-    assert "PRELIMINARY ROSTER-FIT EVIDENCE" in rendered
+    assert "NO SUPPORTED CLAIM" in rendered
     assert 'id="preliminary-candidates-title"' not in rendered
     assert "Waiver Move Checker" in rendered
     assert "Selected-player guidance is unavailable." in rendered
@@ -2049,7 +2069,11 @@ def test_waiver_acquisition_evaluation_uses_roster_need_not_player_rank():
     assert "no points improvement is projected" in supported["roster_fit"]
     assert supported["faab"]["state"] == "NO_BID"
 
-    directional_candidate = {**available, "player_comparison": {"what_changed": {"state": "AVAILABLE", "changes": [{"field": "target_share", "direction": "UP"}]}}}
+    directional_candidate = {
+        **available,
+        "player_comparison": {"what_changed": {"state": "AVAILABLE", "changes": [{"field": "target_share", "direction": "UP"}]}},
+        "opportunity_metrics": {"rows": [{"freshness_state": "FRESH"}]},
+    }
     monitor = waiver_acquisition_evaluation(directional_candidate, needs, settings, balance={"state": "AVAILABLE", "remaining": 79})
     assert monitor["action"] == "CONSIDER"
     assert monitor["evidence_relevance"] == "DIRECTIONAL_SIGNAL"
@@ -2063,6 +2087,313 @@ def test_waiver_acquisition_evaluation_uses_roster_need_not_player_rank():
     no_need_wr = waiver_acquisition_evaluation({**available, "position": "WR", "source_rankings": {"this_week": {"ecr": 1}}}, {"WR": {"state": "AVAILABLE", "position": "WR", "starter_shortage": 0, "depth_shortage": 0}}, settings)
     assert available["source_rankings"]["this_week"]["ecr"] > 1
     assert evaluation["sort_group"] == no_need_wr["sort_group"]
+
+
+def test_waiver_value_ranking_uses_shared_fresh_te_stats_not_name_order():
+    from owner_operations import waiver_value_ranking
+
+    def candidate(player_id, player, target_share, routes, ppr):
+        return {
+            "player_id": player_id,
+            "player": player,
+            "position": "TE",
+            "candidate_disposition": "PRELIMINARY_SUGGESTION",
+            "identity_resolution": {"resolution_state": "RESOLVED"},
+            "opportunity_identity_state": "RESOLVED",
+            "evidence_context": {
+                "ownership_state": "VERIFIED", "eligibility_state": "VERIFIED",
+                "health_state": "HEALTHY", "health_freshness_state": "FRESH", "health_source": "Sleeper API",
+            },
+            "opportunity_metrics": {
+                "state": "AVAILABLE",
+                "rows": [
+                    {"season": 2026, "week": week, "freshness_state": "FRESH", "target_share": target_share,
+                     "route_participation": routes, "targets": 5, "fantasy_points_ppr": ppr}
+                    for week in (3, 4)
+                ],
+            },
+        }
+
+    result = waiver_value_ranking(
+        [candidate("z-player", "Z Player", .30, .80, 12), candidate("a-player", "A Player", .10, .40, 4)],
+        position="TE", season=2026, current_week=5, need={"state": "AVAILABLE", "depth_shortage": 1},
+    )
+
+    assert result["z-player"]["position_rank"] == 1
+    assert result["a-player"]["position_rank"] == 2
+    assert result["z-player"]["positive_reasons"]
+    assert result["z-player"]["roster_need"]["depth_shortage"] == 1
+    starter_need = {"state": "AVAILABLE", "starter_shortage": 1}
+    missing_schedule = waiver_value_ranking(
+        [candidate("z-player", "Z Player", .30, .80, 12), candidate("a-player", "A Player", .10, .40, 4)],
+        position="TE", season=2026, current_week=5, need=starter_need,
+    )
+    assert missing_schedule["z-player"]["state"] == "INSUFFICIENT_EVIDENCE"
+    scheduled_candidates = [
+        candidate("z-player", "Z Player", .30, .80, 12),
+        candidate("a-player", "A Player", .10, .40, 4),
+    ]
+    for item in scheduled_candidates:
+        item["waiver_game_context"] = {"game_context_state": "AVAILABLE", "week": 5}
+        item["waiver_bye_evidence"] = {"authoritative": True, "freshness_state": "FRESH", "is_current_week_bye": False}
+    scheduled = waiver_value_ranking(
+        scheduled_candidates, position="TE", season=2026, current_week=5, need=starter_need,
+    )
+    assert scheduled["z-player"]["position_rank"] == 1
+
+
+def test_waiver_consensus_ranking_uses_fresh_lower_current_ecr_and_never_usage_as_rank():
+    from owner_operations import waiver_consensus_ranking
+
+    def candidate(player_id, name, *, usage_value, ownership="VERIFIED"):
+        return {
+            "player_id": player_id, "player": name, "position": "TE",
+            "candidate_disposition": "PRELIMINARY_SUGGESTION",
+            "identity_resolution": {"resolution_state": "RESOLVED"},
+            "evidence_context": {
+                "ownership_state": ownership, "eligibility_state": "VERIFIED",
+                "health_state": "HEALTHY", "health_freshness_state": "FRESH", "health_source": "Sleeper API",
+            },
+            "opportunity_metrics": {"state": "AVAILABLE", "usage": usage_value},
+        }
+
+    likely = candidate("likely", "Isaiah Likely", usage_value=99)
+    barner = candidate("barner", "AJ Barner", usage_value=1)
+    def rank(ecr):
+        return {
+            "position": "TE", "ecr": ecr, "source_date": "2026-10-13",
+            "source_age_seconds": 3600, "horizon": "this_week", "scoring": "PPR",
+            "season": 2026, "week": 6, "identity_method": "PUBLISHED_PROVIDER_CROSSWALK",
+        }
+
+    results = waiver_consensus_ranking(
+        [likely, barner], position="TE", horizon="this_week", season=2026, current_week=6,
+        horizon_data={"state": "AVAILABLE", "max_age_seconds": 172800, "ranks": {"likely": rank(8), "barner": rank(30)}},
+    )
+    assert results["likely"]["rank"] == 8
+    assert results["likely"]["position_rank"] == 1
+    assert results["barner"]["rank"] == 30
+    assert results["barner"]["position_rank"] == 2
+    assert results["likely"]["freshness_state"] == "FRESH"
+
+
+def test_waiver_consensus_missing_stale_and_ros_horizon_fail_closed():
+    from owner_operations import waiver_consensus_ranking
+
+    candidate = {
+        "player_id": "kicker", "player": "Kaimi Fairbairn", "position": "K",
+        "candidate_disposition": "PRELIMINARY_SUGGESTION",
+        "identity_resolution": {"resolution_state": "RESOLVED"},
+        "evidence_context": {
+            "ownership_state": "VERIFIED", "eligibility_state": "VERIFIED",
+            "health_state": "HEALTHY", "health_freshness_state": "FRESH", "health_source": "Sleeper API",
+        },
+    }
+    missing = waiver_consensus_ranking(
+        [candidate], position="K", horizon="this_week", season=2026, current_week=6,
+        horizon_data={"state": "AVAILABLE", "max_age_seconds": 172800, "ranks": {}},
+    )
+    assert missing["kicker"]["state"] == "UNRANKED"
+    assert "No fresh this week" in missing["kicker"]["reason"]
+
+    stale_row = {
+        "position": "K", "ecr": 4, "source_date": "2026-10-01",
+        "source_age_seconds": 999999, "horizon": "this_week", "scoring": "PPR",
+        "season": 2026, "week": 6,
+    }
+    stale = waiver_consensus_ranking(
+        [candidate], position="K", horizon="this_week", season=2026, current_week=6,
+        horizon_data={"state": "AVAILABLE", "max_age_seconds": 172800, "ranks": {"kicker": stale_row}},
+    )
+    assert stale["kicker"]["state"] == "UNRANKED"
+    assert "freshness is stale" in stale["kicker"]["reason"]
+
+    ros_row = {**stale_row, "source_age_seconds": 3600, "horizon": "rest_of_season", "week": None}
+    ros = waiver_consensus_ranking(
+        [candidate], position="K", horizon="rest_of_season", season=2026, current_week=6,
+        horizon_data={"state": "AVAILABLE", "max_age_seconds": 604800, "ranks": {"kicker": ros_row}},
+    )
+    assert ros["kicker"]["state"] == "RANKED"
+    assert ros["kicker"]["horizon"] == "rest_of_season"
+
+
+def test_waiver_consensus_route_propagates_current_ecr_to_candidate_and_explanation(monkeypatch):
+    rank_row = {
+        "position": "WR", "ecr": 12, "source_date": "2026-10-13",
+        "source_age_seconds": 3600, "horizon": "this_week", "scoring": "PPR",
+        "season": 2026, "week": 3, "identity_method": "PUBLISHED_PROVIDER_CROSSWALK",
+    }
+    consensus = {
+        "source": "FantasyPros consensus via DynastyProcess",
+        "horizons": {"this_week": {
+            "state": "AVAILABLE", "max_age_seconds": 172800,
+            "ranks": {"s-wr": rank_row},
+        }, "rest_of_season": {"state": "UNAVAILABLE", "max_age_seconds": 604800, "ranks": {}}},
+    }
+    response, captured = render_waiver_route(monkeypatch, consensus=consensus, explain_player="Avail WR")
+    candidate = next(row for row in captured["preliminary_suggestions"] if row["player"] == "Avail WR")
+    outcome = next(row for row in captured["waiver_candidate_outcomes"] if row["player"] == "Avail WR")
+    assert response.status_code == 200
+    assert candidate["waiver_value_result"]["state"] == "RANKED"
+    assert candidate["waiver_value_result"]["rank"] == 12
+    assert candidate["waiver_value_result"]["horizon"] == "this_week"
+    assert "current-week positional consensus rank 12" in outcome["message"]
+    assert outcome["details"]["rankings"]["this_week"]["ecr"] == 12
+
+
+def test_waiver_consensus_route_uses_ros_rank_only_for_explicit_ros_focus(monkeypatch):
+    current = {
+        "position": "WR", "ecr": 40, "source_date": "2026-10-13",
+        "source_age_seconds": 3600, "horizon": "this_week", "scoring": "PPR",
+        "season": 2026, "week": 3,
+    }
+    ros = {
+        "position": "WR", "ecr": 6, "source_date": "2026-10-13",
+        "source_age_seconds": 3600, "horizon": "rest_of_season", "scoring": "PPR",
+        "season": 2026, "week": None,
+    }
+    response, captured = render_waiver_route(
+        monkeypatch,
+        selected_focus="rest_of_season",
+        explain_player="Avail WR",
+        consensus={"source": "FantasyPros consensus via DynastyProcess", "horizons": {
+            "this_week": {"state": "AVAILABLE", "max_age_seconds": 172800, "ranks": {"s-wr": current}},
+            "rest_of_season": {"state": "AVAILABLE", "max_age_seconds": 604800, "ranks": {"s-wr": ros}},
+        }},
+    )
+    candidate = next(row for row in captured["preliminary_suggestions"] if row["player"] == "Avail WR")
+    outcome = next(row for row in captured["waiver_candidate_outcomes"] if row["player"] == "Avail WR")
+    assert response.status_code == 200
+    assert candidate["waiver_value_result"]["horizon"] == "rest_of_season"
+    assert candidate["waiver_value_result"]["rank"] == 6
+    assert "rest-of-season positional consensus rank 6" in outcome["message"]
+
+
+def test_waiver_route_orders_same_position_options_by_lower_fresh_ecr_not_name(monkeypatch):
+    def rank(ecr):
+        return {
+            "position": "WR", "ecr": ecr, "source_date": "2026-10-13",
+            "source_age_seconds": 3600, "horizon": "this_week", "scoring": "PPR",
+            "season": 2026, "week": 3,
+        }
+
+    response, captured = render_waiver_route(
+        monkeypatch,
+        extra_pool_candidates=[{
+            "player_id": "s-zulu", "name": "Zulu WR", "position": "WR", "team": "ARI",
+            "projection": 90.0, "tier": 4,
+        }],
+        consensus={"source": "FantasyPros consensus via DynastyProcess", "horizons": {
+            "this_week": {"state": "AVAILABLE", "max_age_seconds": 172800, "ranks": {"s-wr": rank(40), "s-zulu": rank(5)}},
+            "rest_of_season": {"state": "UNAVAILABLE", "max_age_seconds": 604800, "ranks": {}},
+        }},
+    )
+    wr_section = next(section for section in captured["waiver_position_sections"] if section["position"] == "WR")
+    assert response.status_code == 200
+    assert wr_section["options"][0]["candidate"]["player"] == "Zulu WR"
+    assert wr_section["options"][0]["value"]["rank"] == 5
+    assert wr_section["options"][1]["candidate"]["player"] == "Avail WR"
+    assert wr_section["options"][1]["value"]["rank"] == 40
+    assert wr_section["label"] == "BEST SUPPORTED OPTION"
+
+
+def test_waiver_value_ranking_ties_and_fails_closed_for_stale_or_unsupported_positions():
+    from owner_operations import waiver_value_ranking
+
+    def candidate(player_id, value, freshness="FRESH", position="TE"):
+        return {
+            "player_id": player_id,
+            "position": position,
+            "candidate_disposition": "PRELIMINARY_SUGGESTION",
+            "identity_resolution": {"resolution_state": "RESOLVED"},
+            "opportunity_identity_state": "RESOLVED",
+            "evidence_context": {
+                "ownership_state": "VERIFIED", "eligibility_state": "VERIFIED",
+                "health_state": "HEALTHY", "health_freshness_state": "FRESH", "health_source": "Sleeper API",
+            },
+            "opportunity_metrics": {"state": "AVAILABLE", "rows": [
+                {"season": 2026, "week": week, "freshness_state": freshness, "target_share": .2,
+                 "route_participation": .6, "fantasy_points_ppr": value}
+                for week in (3, 4)
+            ]},
+        }
+
+    tied = waiver_value_ranking(
+        [candidate("first", 8), candidate("second", 8)],
+        position="TE", season=2026, current_week=5, need={},
+    )
+    assert tied["first"]["state"] == tied["second"]["state"] == "TIED"
+    assert tied["first"]["position_rank"] == tied["second"]["position_rank"] == 1
+
+    route_first = candidate("route-first", 12)
+    production_first = candidate("production-first", 8)
+    for row in route_first["opportunity_metrics"]["rows"]:
+        row.update(target_share=.1, route_participation=.9)
+    for row in production_first["opportunity_metrics"]["rows"]:
+        row.update(target_share=.3, route_participation=.5)
+    tradeoff = waiver_value_ranking(
+        [route_first, production_first],
+        position="TE", season=2026, current_week=5, need={},
+    )
+    assert tradeoff["route-first"]["state"] == tradeoff["production-first"]["state"] == "INCOMPARABLE"
+    assert tradeoff["route-first"]["recommendation"] == "NO_CLEAR_WINNER"
+
+    stale = waiver_value_ranking(
+        [candidate("first", 12, freshness="STALE"), candidate("second", 8, freshness="STALE")],
+        position="TE", season=2026, current_week=5, need={},
+    )
+    assert stale["first"]["position_rank"] is None
+    assert any("matching fresh completed weeks" in reason for reason in stale["first"]["missing_important_statistics"])
+
+    defenses = waiver_value_ranking(
+        [candidate("kc", 12, position="DEF"), candidate("ari", 8, position="DEF")],
+        position="DEF", season=2026, current_week=5, need={},
+    )
+    assert defenses["kc"]["position_rank"] is None
+    assert defenses["kc"]["state"] == "INSUFFICIENT_EVIDENCE"
+
+
+def test_waiver_qb_value_ranking_uses_published_passing_production_and_usage():
+    from owner_operations import waiver_value_ranking
+
+    candidate = {
+        "player_id": "qb-1",
+        "position": "QB",
+        "candidate_disposition": "PRELIMINARY_SUGGESTION",
+        "identity_resolution": {"resolution_state": "RESOLVED"},
+        "opportunity_identity_state": "RESOLVED",
+        "evidence_context": {
+            "ownership_state": "VERIFIED", "eligibility_state": "VERIFIED",
+            "health_state": "HEALTHY", "health_freshness_state": "FRESH", "health_source": "Sleeper API",
+        },
+        "opportunity_metrics": {"state": "AVAILABLE", "rows": [
+            {"season": 2026, "week": week, "freshness_state": "FRESH", "fantasy_points_ppr": 20,
+             "carries": 3, "snap_share": .95}
+            for week in (3, 4)
+        ]},
+        "recent_production": {"state": "AVAILABLE", "rows": [
+            {"season": 2026, "week": week, "freshness_state": "FRESH", "passing_yards": 250 + week,
+             "passing_tds": 2, "passing_interceptions": 1, "rushing_yards": 15}
+            for week in (3, 4)
+        ]},
+    }
+    result = waiver_value_ranking(
+        [candidate], position="QB", season=2026, current_week=5, need={},
+    )
+
+    assert result["qb-1"]["state"] == "RANKED"
+    assert "passing_yards" in {stat["field"] for stat in result["qb-1"]["statistics_used"]}
+
+
+def test_waiver_bid_contracts_do_not_call_budget_guardrail_a_winning_bid():
+    from owner_operations import waiver_bid_estimates
+
+    estimates = waiver_bid_estimates({"player": "Candidate"}, {"state": "AVAILABLE", "remaining": 79, "budget": 100})
+    assert estimates["value_based_bid"]["state"] == "UNAVAILABLE"
+    assert estimates["estimated_winning_bid"]["state"] == "UNAVAILABLE"
+    assert estimates["maximum_bid"]["state"] == "UNAVAILABLE"
+    assert estimates["maximum_bid"]["remaining_faab"] == 79
+    assert estimates["market_demand"]["likely_competitors"] == []
 
 
 def test_waiver_acquisition_evaluation_keeps_flex_duration_and_faab_states_distinct():
@@ -2443,3 +2774,366 @@ def test_waiver_route_trust_panel_uses_candidate_evidence_without_changing_publi
     monkeypatch.undo()
     assert view == published_view(render_waiver_route(monkeypatch)[1]["preliminary_suggestions"])
     assert len(view) == 1
+
+
+def test_manager_waiver_view_does_not_promote_alphabetical_options():
+    options = [
+        {"candidate": {"player": "Arizona Cardinals", "nfl_team": "ARI", "position": "DEF"},
+         "claim": None, "game_context": {"game_context_state": "UNAVAILABLE"},
+         "bye_evidence": {"authoritative": False}},
+        {"candidate": {"player": "Atlanta Falcons", "nfl_team": "ATL", "position": "DEF"},
+         "claim": None, "game_context": {"game_context_state": "UNAVAILABLE"},
+         "bye_evidence": {"authoritative": False}},
+        {"candidate": {"player": "Baltimore Ravens", "nfl_team": "BAL", "position": "DEF"},
+         "claim": None, "game_context": {"game_context_state": "UNAVAILABLE"},
+         "bye_evidence": {"authoritative": False}},
+    ]
+    section = {
+        "position": "DEF", "label": "PLAYERS TO CONSIDER",
+        "need": {"state": "AVAILABLE", "strategic_need": "NO_ACTION"},
+        "need_message": "No current DEF starter or depth shortage is verified.",
+        "explanation": "These are comparable verified options. The display order is not a quality ranking.",
+        "options": options, "more_options": [], "available_count": 3,
+        "priority_need": False,
+    }
+    html = render_waivers(waiver_position_sections=[section])
+    primary = html[html.index('id="your-waiver-decisions"'):html.index('<details class="manager-waiver"')]
+    assert "Arizona Cardinals" in primary and "Atlanta Falcons" in primary and "Baltimore Ravens" in primary
+    assert "comparable verified options" in primary
+    assert "display order is not a quality ranking" in primary
+    assert "BEST SUPPORTED OPTION" not in primary
+    assert 'id="waiver-data-details"' in html
+    assert '<details class="manager-waiver" id="waiver-data-details">' in html
+
+
+def test_manager_waiver_view_explains_slot_fill_and_keeps_bid_and_drop_qualified():
+    claim = {
+        "candidate": "Free K", "candidate_team": "SEA", "candidate_position": "K",
+        "manager_reason": "Fills the verified required K starter slot; no player-value advantage is claimed.",
+        "faab": {"state": "PROVISIONAL", "recommended": 2, "low": 1, "high": 3, "remaining": 79, "rationale": "Small provisional one-week guardrail."},
+        "conditional_drop": {"state": "CONDITIONAL", "reason": "Only if a roster slot must be opened."},
+    }
+    option = {
+        "candidate": {"player": "Free K", "nfl_team": "SEA", "position": "K"},
+        "claim": claim,
+        "game_context": {"game_context_state": "AVAILABLE", "week": 6, "venue": "HOME", "opponent": "SF"},
+        "bye_evidence": {"authoritative": True, "freshness_state": "FRESH", "is_current_week_bye": False},
+    }
+    fallback = {
+        "candidate": {"player": "Fallback K", "nfl_team": "CHI", "position": "K"},
+        "claim": {
+            "candidate": "Fallback K", "candidate_team": "CHI", "candidate_position": "K",
+            "faab": {"state": "PROVISIONAL", "recommended": 1, "low": 1, "high": 2},
+        },
+        "game_context": {"game_context_state": "AVAILABLE", "week": 6, "venue": "AWAY", "opponent": "ATL"},
+        "bye_evidence": {"authoritative": True, "freshness_state": "FRESH", "is_current_week_bye": False},
+    }
+    section = {
+        "position": "K", "label": "SLOT-FILL OPTION",
+        "need": {"state": "AVAILABLE", "strategic_need": "ADD_STARTER", "starter_shortage": 1},
+        "need_message": "1 required K starter slot needs filling.",
+        "explanation": "This fills a verified one-week starter need.",
+        "options": [option, fallback], "more_options": [], "available_count": 2,
+        "priority_need": True,
+    }
+    html = render_waivers(waiver_position_sections=[section])
+    primary = html[html.index('id="your-waiver-decisions"'):html.index('<details class="manager-waiver"')]
+    assert "ACTION:</strong> SLOT-FILL OPTION" in primary
+    assert "Week 6" in primary and "Home vs SF" in primary and "Not on bye" in primary
+    assert "Fills the verified required K starter slot" in primary
+    assert "VALUE-BASED BID:</strong> Unavailable" in primary
+    assert "PROVISIONAL SLOT-FILL GUARDRAIL:</strong> $2 ($1–$3)" in primary
+    assert "This is not an estimated winning bid." in primary
+    assert "ESTIMATED WINNING BID:</strong> Unavailable" in primary
+    assert "Separate contingent claims; bids are not cumulative." in primary
+    assert "$1 provisional slot-fill guardrail; not a winning-bid estimate" in primary
+    assert "Conditional only (not automatic):" in primary and "not an automatic drop" in primary
+
+
+def test_manager_waiver_view_shows_searchable_player_specific_outcome():
+    html = render_waivers(waiver_candidate_outcomes=[{
+        "player_id": "s-likely", "player": "Isaiah Likely", "team": "NYG", "position": "TE",
+        "message": "Available, but there is not enough current evidence to rank this player above alternatives.",
+    }], waiver_explain_player="Isaiah Likely")
+    assert 'placeholder="For example, Isaiah Likely"' in html
+    assert 'data-player="isaiah likely"' in html
+    assert "Available, but there is not enough current evidence to rank this player above alternatives." in html
+    assert 'class="manager-outcome" data-player="isaiah likely"' in html
+
+
+def test_live_waiver_route_exposes_isaiah_likely_specific_outcome(monkeypatch):
+    response, captured = render_waiver_route(
+        monkeypatch,
+        include_missing_candidate=True,
+        extra_pool_candidates=[{
+            "player_id": "s-likely", "name": "Isaiah Likely", "position": "TE",
+            "team": "NYG", "projection": 90.0, "tier": 4,
+        }],
+        explain_player="Isaiah Likely",
+    )
+    assert response.status_code == 200
+    outcome = next(row for row in captured["waiver_candidate_outcomes"] if row["player"] == "Isaiah Likely")
+    assert outcome["message"].startswith("Available, but unranked for current-week:")
+    assert outcome["details"]["waiver_value"]["state"] == "UNRANKED"
+    assert outcome["details"]["waiver_value"]["horizon"] == "this_week"
+    html = response.get_data(as_text=True)
+    assert 'data-player="isaiah likely"' in html
+    assert outcome["message"] in html
+    assert "matching recent production and position-relevant usage across these alternatives are unavailable.." not in html.lower()
+
+
+def test_live_waiver_route_always_returns_explicit_outcome_for_kaimi_fairbairn(monkeypatch):
+    response, captured = render_waiver_route(
+        monkeypatch,
+        explain_player="Kaimi Fairbairn",
+        consensus={"source": "FantasyPros consensus via DynastyProcess", "horizons": {}},
+    )
+    assert response.status_code == 200
+    outcomes = captured["waiver_candidate_outcomes"]
+    assert len(outcomes) == 1
+    assert outcomes[0]["player"] == "Kaimi Fairbairn"
+    assert outcomes[0]["message"].startswith("Not in the evaluated candidate pool")
+    assert outcomes[0]["details"]["ownership"] == "NOT_EVALUATED"
+    assert outcomes[0]["details"]["identity"]["resolution_state"] == "UNRESOLVED"
+    assert outcomes[0]["details"]["ranking_horizon"] == "this_week"
+
+SLOT_NOW = "2026-10-13T00:00:00+00:00"
+
+
+FAAB_BALANCE = {"state": "AVAILABLE", "budget": 100, "remaining": 79, "min_bid": 0}
+
+
+def game_context(**overrides):
+    base = {"contract_id": "schedule.game_context.v1", "season": 2026, "week": 6, "team": "SEA", "opponent": "SF", "venue": "HOME", "display_matchup": "vs SF",
+            "kickoff_pacific": "2026-10-18 13:05:00", "schedule_source": "automated:nflverse-schedules:games.csv.gz:sha256:x", "schedule_retrieved_at": SLOT_NOW,
+            "schedule_freshness": "FRESH", "game_context_state": "AVAILABLE", "blocker": None}
+    return {**base, **overrides}
+
+
+def slot_fill_fixture(position="K", *, starter=True, bye=None, health="HEALTHY", shortage=0, candidate_overrides=None, settings_state="AVAILABLE", candidate_bye="default", empty_slots=None, game="default", balance="default", roster_extra=0):
+    from owner_operations import waiver_selected_player_comparison
+    selected = {"source_player_id": "s-sel", "player_id": "s-sel", "player": f"Rostered {position}", "position": position, "team": "MIN",
+                "sleeper_current_starter": starter, "lineup_slot": position if starter else None, "empty_required_slots": empty_slots, "health_state": health, "health_freshness_state": "FRESH",
+                "recent_production": {"state": "UNAVAILABLE", "rows": [], "blockers": ["PLAYER_WEEK_PRODUCTION_INPUT_UNAVAILABLE:x"]},
+                "opportunity_metrics": {"state": "STALE", "rows": [], "blockers": ["OPPORTUNITY_DATA_STALE"]}}
+    candidate = {"player_id": "s-cand", "player": f"Free {position}", "position": position, "team": "SEA", "candidate_disposition": "PRELIMINARY_SUGGESTION",
+                 "recommendation_state": "PRELIMINARY_SUGGESTION", "identity_resolution": {"resolution_state": "RESOLVED"},
+                 "evidence_context": {"ownership_state": "VERIFIED", "eligibility_state": "VERIFIED", "health_state": "HEALTHY", "health_freshness_state": "FRESH", "health_source": "Sleeper API"},
+                 "recent_production": {"state": "UNAVAILABLE", "rows": []}, "opportunity_metrics": {"state": "UNAVAILABLE", "rows": []}, **(candidate_overrides or {})}
+    need = {position: {"state": "AVAILABLE", "position": position, "required_starters": 1, "starter_shortage": shortage, "depth_target": 1}}
+    settings = {"state": settings_state, "starter_slots": {position: 1}, "flex_eligible_positions": ["RB", "WR", "TE"]}
+    return waiver_selected_player_comparison(selected, candidate, need, settings, FAAB_BALANCE if balance == "default" else balance, True, [selected] + [{"position": "WR"}] * roster_extra, 2026, "all", bye_evidence=bye,
+                                              candidate_game_context=game_context() if game == "default" else game, roster_capacity=14,
+                                              candidate_bye_evidence=bye_contract(team="SEA", bye_week=9, is_current_week_bye=False) if candidate_bye == "default" else candidate_bye)
+
+
+def bye_contract(**overrides):
+    base = {"domain": "bye", "team": "MIN", "season": 2026, "bye_week": 6, "current_week": 6, "is_current_week_bye": True, "authoritative": True,
+            "authority_mode": "SEASON_STATIC", "contract_id": "bye.season_static.v1", "freshness_state": "FRESH", "completeness_state": "COMPLETE", "blocker": None, "source": "automated:nflverse-schedules:derived-bye", "retrieved_at": SLOT_NOW}
+    return {**base, **overrides}
+
+
+@pytest.mark.parametrize("position", ["K", "DEF"])
+def test_mandatory_slot_on_authoritative_bye_is_preliminary_recommendation(position):
+    result = slot_fill_fixture(position, bye=bye_contract())
+    assert result["decision"] == "PRELIMINARY_RECOMMENDATION" and result["authority"] == "PRELIMINARY"
+    assert result["decision_basis"] == "MANDATORY_STARTER_SLOT" and result["evidence_level"] == "PRELIMINARY"
+    assert result["disclosure"] and result["evidence_used"] and result["missing_evidence"] and result["recommendation_impact"] and result["manager_reason"]
+    assert result["faab"]["state"] == "PROVISIONAL" and result["suggested_drop"]["player"] is None and result["conditional_drop"]["state"] == "UNAVAILABLE"
+    assert not any(key in result for key in ("rank", "priority_score", "confidence", "expected_gain"))
+    assert "production and opportunity comparison: NOT_APPLICABLE for K/DEF" in result["missing_evidence"]
+    assert not any("OPPORTUNITY_DATA_STALE" in item for item in result["missing_evidence"])
+
+
+def test_empty_required_slot_and_unusable_health_trigger_without_bye():
+    assert slot_fill_fixture("K", starter=False, shortage=1)["decision"] == "PRELIMINARY_RECOMMENDATION"
+    assert slot_fill_fixture("K", health="OUT")["decision_basis"] == "MANDATORY_STARTER_SLOT"
+
+
+def test_usable_starter_not_on_bye_stays_no_actionable_upgrade():
+    assert slot_fill_fixture("K")["decision"] == "NO_ACTIONABLE_UPGRADE"
+    assert slot_fill_fixture("K", bye=bye_contract(is_current_week_bye=False, bye_week=9))["decision"] == "NO_ACTIONABLE_UPGRADE"
+
+
+@pytest.mark.parametrize("bye", [
+    bye_contract(authoritative=False, freshness_state="UNAVAILABLE", blocker="BYE_TEAM_COVERAGE_INCOMPLETE", is_current_week_bye=False),
+    bye_contract(authoritative=False, freshness_state="UNAVAILABLE", blocker="BYE_SOURCE_TIMESTAMP_UNVERIFIED", is_current_week_bye=False),
+    bye_contract(authoritative=False, freshness_state="BLOCKED", blocker="BYE_WEEK_CONFLICT", is_current_week_bye=False),
+    bye_contract(authoritative=False, completeness_state="INCOMPLETE", is_current_week_bye=False),
+    bye_contract(team="SEA"),
+])
+def test_non_authoritative_or_mismatched_bye_cannot_trigger(bye):
+    assert slot_fill_fixture("DEF", bye=bye)["decision"] == "NO_ACTIONABLE_UPGRADE"
+
+
+def test_unverified_candidate_or_league_slot_truth_stays_blocked_or_unchanged():
+    unverified = slot_fill_fixture("K", bye=bye_contract(), candidate_overrides={"evidence_context": {"ownership_state": "UNAVAILABLE", "eligibility_state": "VERIFIED", "health_state": "HEALTHY", "health_freshness_state": "FRESH", "health_source": "Sleeper API"}})
+    assert unverified["decision"] == "BLOCKED"
+    assert slot_fill_fixture("K", bye=bye_contract(), settings_state="UNAVAILABLE")["decision"] == "NO_ACTIONABLE_UPGRADE"
+
+
+def test_preliminary_slot_fill_renders_without_authoritative_language():
+    result = slot_fill_fixture("K", bye=bye_contract())
+    candidate = {"player": "Free K", "player_id": "s-cand", "position": "K", "selected_comparison": result}
+    html = render_waivers(preliminary_suggestions=[{"player_id": "s-cand", "player": "Free K", "position": "K", "recommendation_state": "PRELIMINARY_SUGGESTION"}], wda_roster=[{"player_id": "s-sel", "player": "Rostered K", "position": "K"}], selected_result=result, selected_comparisons=[candidate], selected_player={"player": "Rostered K", "position": "K", "player_id": "s-sel", "valid": True},
+                          selected_screened_summary={"count": 0, "reason_counts": {}}, selected_focus="all")
+    assert "PRELIMINARY RECOMMENDATION" in html and "Mandatory Starter Slot" in html and "MIN bye week 6" in html
+    assert "ADD Free K" not in html and "NO ACTIONABLE UPGRADE" not in html
+
+
+def test_unavailable_bye_state_is_visible_without_recommendation():
+    result = slot_fill_fixture("K", bye=bye_contract(authoritative=False, freshness_state="UNAVAILABLE", blocker="BYE_TEAM_COVERAGE_INCOMPLETE", is_current_week_bye=False, recommendation_impact="Bye evidence is present but does not cover every NFL team."))
+    html = render_waivers(preliminary_suggestions=[{"player_id": "s-cand", "player": "Free K", "position": "K", "recommendation_state": "PRELIMINARY_SUGGESTION"}], wda_roster=[{"player_id": "s-sel", "player": "Rostered K", "position": "K"}], selected_result=result, selected_comparisons=[], selected_player={"player": "Rostered K", "position": "K", "player_id": "s-sel", "valid": True},
+                          selected_screened_summary={"count": 0, "reason_counts": {}}, selected_focus="all")
+    assert "NO ACTIONABLE UPGRADE" in html and "BYE_TEAM_COVERAGE_INCOMPLETE" in html
+
+
+def test_season_static_bye_contract_drives_slot_fill_without_age_threshold(monkeypatch):
+    from services.schedule_bye_evidence import team_bye_evidence
+    monkeypatch.delenv("BYE_EVIDENCE_MAX_AGE_SECONDS", raising=False)
+    teams = [f"T{index:02d}" for index in range(31)] + ["MIN"]
+    rows = [{"season": 2026, "team": team, "bye_week": 6, "source": "automated:nflverse-schedules:derived-bye:games.csv.gz:sha256:x",
+             "source_recorded_at": "2026-10-04T08:36:32+00:00", "retrieved_at": "2026-10-04T09:57:59+00:00"} for team in teams]
+    bye = team_bye_evidence(rows, season=2026, team="MIN", week=6, now=SLOT_NOW)
+    result = slot_fill_fixture("DEF", bye=bye)
+    assert bye["authoritative"] and result["decision"] == "PRELIMINARY_RECOMMENDATION" and result["slot_trigger"] == "BYE_WEEK"
+
+
+@pytest.mark.parametrize("candidate_bye", [None, bye_contract(team="SEA", bye_week=6, is_current_week_bye=True), bye_contract(team="SEA", authoritative=False, is_current_week_bye=False, blocker="BYE_TEAM_COVERAGE_INCOMPLETE")])
+def test_candidate_on_bye_or_unverified_bye_cannot_fill_the_slot(candidate_bye):
+    result = slot_fill_fixture("K", bye=bye_contract(), candidate_bye=candidate_bye)
+    assert result["decision"] == "NO_ACTIONABLE_UPGRADE"
+
+
+def test_sleeper_empty_lineup_slot_with_unusable_only_player_triggers_slot_fill():
+    from owner_operations import sleeper_empty_required_slots
+    positions = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF", "BN", "BN"]
+    starters = ["1", "2", "3", "4", "5", "6", "7", "0", "0"]
+    assert sleeper_empty_required_slots(starters, positions) == ["K", "DEF"]
+    assert sleeper_empty_required_slots(starters[:-1], positions) is None
+    result = slot_fill_fixture("K", starter=False, bye=bye_contract(), empty_slots=["K", "DEF"])
+    assert result["decision"] == "PRELIMINARY_RECOMMENDATION" and result["slot_trigger"] == "BYE_WEEK"
+    assert slot_fill_fixture("K", starter=False, empty_slots=["K"])["decision"] == "NO_ACTIONABLE_UPGRADE"
+    assert slot_fill_fixture("K", starter=False, bye=bye_contract(), empty_slots=[])["decision"] == "NO_ACTIONABLE_UPGRADE"
+    assert slot_fill_fixture("K", starter=False, bye=bye_contract(), empty_slots=None)["decision"] == "NO_ACTIONABLE_UPGRADE"
+
+
+def test_team_defense_health_is_not_applicable_but_unknown_player_health_stays_unavailable():
+    from owner_operations import _waiver_candidate_health, _waiver_health_state
+    now = datetime.now(timezone.utc).isoformat()
+    defense = _waiver_candidate_health({"position": "DEF", "injury_status": None, "status": None}, now, True)
+    assert defense["health_status_available"] and _waiver_health_state(defense["injury_status"]) == "HEALTHY" and defense["health_blocker"] is None
+    player = _waiver_candidate_health({"position": "K", "injury_status": None, "status": None}, now, True)
+    assert player["health_status_available"] is False
+
+
+def plan_inputs(position="K", candidates=None, **kw):
+    roster_player = {"player_id": "s-sel", "source_player_id": "s-sel", "player": f"Rostered {position}", "position": position, "team": "MIN", "is_starter": False, "lineup_slot": None,
+                     "empty_required_slots": [position], "health_state": "HEALTHY", "health_freshness_state": "FRESH"}
+    def cand(pid, name, team):
+        return {"player_id": pid, "player": name, "position": position, "team": team, "candidate_disposition": "PRELIMINARY_SUGGESTION", "recommendation_state": "PRELIMINARY_SUGGESTION",
+                "identity_resolution": {"resolution_state": "RESOLVED"}, "recommendation_blockers": [],
+                "evidence_context": {"ownership_state": "VERIFIED", "eligibility_state": "VERIFIED", "health_state": "HEALTHY", "health_freshness_state": "FRESH", "health_source": "Sleeper API"},
+                "recent_production": {"state": "UNAVAILABLE", "rows": []}, "opportunity_metrics": {"state": "UNAVAILABLE", "rows": []}}
+    cands = [cand(*c) for c in (candidates or [("c2", "Zed Kicker", "SEA"), ("c1", "Abe Kicker", "NE"), ("c3", "Mid Kicker", "KC")])]
+    bye_rows = [{"season": 2026, "team": team, "bye_week": 6 if team in ("MIN", "KC") else 9, "source": "automated:nflverse-schedules:derived-bye:x", "source_recorded_at": SLOT_NOW, "retrieved_at": SLOT_NOW}
+                for team in ["MIN", "SEA", "NE", "KC"] + [f"T{i:02d}" for i in range(28)]]
+    games = [{"home_team": "SEA", "away_team": "SF", "game_time_pacific": "2026-10-18 13:05:00", "source": "automated:nflverse-schedules:games.csv.gz:sha256:x", "source_recorded_at": SLOT_NOW, "retrieved_at": SLOT_NOW},
+             {"home_team": "DEN", "away_team": "NE", "game_time_pacific": "2026-10-18 10:00:00", "source": "automated:nflverse-schedules:games.csv.gz:sha256:x", "source_recorded_at": SLOT_NOW, "retrieved_at": SLOT_NOW}]
+    needs = {position: {"state": "AVAILABLE", "position": position, "required_starters": 1, "starter_shortage": 0, "depth_target": 1, "rostered": 1}}
+    settings = {"state": "AVAILABLE", "starter_slots": {position: 1}}
+    from owner_operations import build_waiver_plan
+    args = dict(wda_roster=[roster_player], wda_candidates=cands, team_needs=needs, league_settings=settings, faab_balance=FAAB_BALANCE, roster=[roster_player] * 14, season=2026, week=6,
+                bye_rows=bye_rows, schedule_rows=games, roster_capacity=14)
+    args.update(kw)
+    return build_waiver_plan(**args)
+
+
+def test_plan_k_and_def_show_team_opponent_home_away_and_reject_bye_candidates():
+    plan = plan_inputs("K")
+    names = [c["candidate"] for c in plan["problems"][0]["claims"]]
+    assert names == ["Abe Kicker", "Zed Kicker"] and "Mid Kicker" not in names
+    by_name = {c["candidate"]: c["game_context"] for c in plan["problems"][0]["claims"]}
+    assert by_name["Zed Kicker"]["display_matchup"] == "vs SF" and by_name["Zed Kicker"]["venue"] == "HOME"
+    assert by_name["Abe Kicker"]["display_matchup"] == "at DEN" and by_name["Abe Kicker"]["venue"] == "AWAY"
+    assert plan_inputs("DEF", candidates=[("d1", "Seattle Seahawks", "SEA")])["problems"][0]["claims"][0]["game_context"]["opponent"] == "SF"
+
+
+def test_plan_ordering_is_not_input_order_and_is_labeled_equivalent():
+    plan = plan_inputs("K")
+    problem = plan["problems"][0]
+    assert problem["claims"][0]["candidate"] == "Abe Kicker" and problem["ordering"] == "VERIFIED_EQUIVALENT_OPTIONS"
+    assert "Verified equivalent slot-fill options" in problem["ordering_note"] and problem["fallback_count"] == 1
+
+
+def test_plan_missing_schedule_blocks_publication_and_renders_no_supported_claim():
+    plan = plan_inputs("K", schedule_rows=[])
+    problem = plan["problems"][0]
+    assert plan["state"] == "NO_SUPPORTED_CLAIM" and problem["claims"] == [] and problem["state"] == "NO_SUPPORTED_CLAIM"
+    html = render_waivers(waiver_plan=plan)
+    assert "NO SUPPORTED CLAIM" in html
+
+
+def test_plan_pass_when_no_mandatory_slot_problem():
+    plan = plan_inputs("K", wda_roster=[{"player_id": "te", "player": "TE One", "position": "TE", "team": "SEA"}])
+    assert plan["state"] == "PASS" and plan["problems"] == [] and "PASS." in render_waivers(waiver_plan=plan)
+
+
+def test_team_game_context_fails_closed_on_missing_conflict_and_identity():
+    from services.schedule_bye_evidence import team_game_context
+    row = {"home_team": "SEA", "away_team": "SF", "source": "automated:nflverse-schedules:x", "source_recorded_at": SLOT_NOW, "retrieved_at": SLOT_NOW}
+    ok = team_game_context([row], season=2026, week=6, team="SF")
+    assert ok["display_matchup"] == "at SEA" and ok["venue"] == "AWAY" and ok["game_context_state"] == "AVAILABLE"
+    assert team_game_context([row], season=2026, week=None, team="SF")["blocker"] == "SCHEDULE_WEEK_UNVERIFIED"
+    assert team_game_context([row], season=2026, week=6, team="DEN")["blocker"] == "SCHEDULE_GAME_NOT_FOUND"
+    assert team_game_context([row, dict(row)], season=2026, week=6, team="SF")["game_context_state"] == "BLOCKED"
+    assert team_game_context([{**row, "away_team": "SEA"}], season=2026, week=6, team="SEA")["blocker"] == "SCHEDULE_TEAM_IDENTITY_MISMATCH"
+    assert team_game_context([{**row, "source": "csv:x"}], season=2026, week=6, team="SF")["blocker"] == "SCHEDULE_SOURCE_NOT_AUTOMATED"
+    assert team_game_context([{**row, "retrieved_at": None}], season=2026, week=6, team="SF")["game_context_state"] == "UNAVAILABLE"
+
+
+@pytest.mark.parametrize("position,remaining,alternatives", [("K", 79, 0), ("K", 250, 3), ("DEF", 79, 0), ("DEF", 400, 1), ("DEF", 400, 2), ("K", 10, 0), ("K", 1, 0)])
+def test_slot_fill_faab_derives_from_remaining_and_stays_conservative(position, remaining, alternatives):
+    from owner_operations import slot_fill_faab
+    f = slot_fill_faab(position, {"state": "AVAILABLE", "budget": 500, "remaining": remaining, "min_bid": 0}, one_week_rental=True, equivalent_alternatives=alternatives)
+    percent = 2 if position == "DEF" and alternatives < 2 else 1
+    assert f["state"] == "PROVISIONAL" and f["recommended"] == max(1, int(remaining * percent / 100 + 0.5)) if remaining > 1 else f["recommended"] == 1
+    assert 1 <= f["recommended"] <= f["high"] <= remaining and f["low"] <= f["recommended"]
+    assert f["high"] <= max(f["recommended"], int(remaining * 0.03)) and f["posture"] == "CONSERVATIVE_ONE_WEEK_RENTAL"
+    assert "winning bid" in f["rationale"] and "confidence" not in f
+
+
+def test_slot_fill_faab_unavailable_not_zero_for_unknown_conflicting_or_exhausted_budget():
+    from owner_operations import slot_fill_faab
+    for balance in (None, {}, {"state": "UNAVAILABLE", "remaining": None, "min_bid": 0}, {"state": "AVAILABLE", "budget": 10, "remaining": 20, "min_bid": 0},
+                    {"state": "AVAILABLE", "budget": 100, "remaining": 50, "min_bid": None}, {"state": "AVAILABLE", "budget": 100, "remaining": 0, "min_bid": 0}):
+        f = slot_fill_faab("K", balance, one_week_rental=True)
+        assert f["state"] == "UNAVAILABLE" and f["recommended"] is None
+    assert slot_fill_faab("TE", FAAB_BALANCE, one_week_rental=True)["state"] == "UNAVAILABLE"
+
+
+def test_plan_totals_count_primary_claims_only_and_never_fallbacks():
+    plan = plan_inputs("K")
+    primary = plan["problems"][0]["claims"][0]["faab"]["recommended"]
+    assert plan["total_recommended_faab"] == primary and plan["projected_remaining_faab"] == 79 - primary
+    unknown = plan_inputs("K", faab_balance={"state": "UNAVAILABLE"})
+    assert unknown["total_recommended_faab"] is None and unknown["projected_remaining_faab"] is None
+
+
+def test_conditional_drop_and_rental_wording_and_no_unsupported_claims():
+    claim = plan_inputs("DEF", candidates=[("d1", "Seattle Seahawks", "SEA")])["problems"][0]["claims"][0]
+    drop = claim["conditional_drop"]
+    assert drop["label"] == "CONDITIONAL DROP FOR THIS CLAIM" and drop["roster_full"] is True and "not an automatic transaction" in drop["reason"]
+    assert claim["rental"] == {"status": "ONE_WEEK_RENTAL", "reason": "Fills the required Week 6 slot. Reevaluate after the bye."}
+    html = render_waivers(waiver_plan=plan_inputs("K"))
+    for forbidden in ("Waiver Score", "ROS value", "confidence %", "Floor", "Ceiling", "Vegas", "implied"):
+        assert forbidden not in html
+    assert "YOUR WAIVER PLAN" in html and "PROVISIONAL SLOT-FILL FAAB" in html and "<details><summary>Technical details" in html
+
+
+def test_candidate_without_schedule_context_cannot_fill_slot_and_blockers_stay():
+    assert slot_fill_fixture("K", bye=bye_contract(), game=game_context(game_context_state="UNAVAILABLE", blocker="SCHEDULE_GAME_NOT_FOUND", opponent=None))["decision"] == "NO_ACTIONABLE_UPGRADE"
+    assert slot_fill_fixture("K", bye=bye_contract(), game=game_context(team="DEN"))["decision"] == "NO_ACTIONABLE_UPGRADE"
+    assert slot_fill_fixture("K", bye=bye_contract(), balance={"state": "UNAVAILABLE"})["faab"]["state"] == "UNAVAILABLE"
+    blocked = slot_fill_fixture("K", bye=bye_contract(), candidate_overrides={"evidence_context": {"ownership_state": "UNAVAILABLE", "eligibility_state": "VERIFIED", "health_state": "HEALTHY", "health_freshness_state": "FRESH", "health_source": "Sleeper API"}})
+    assert blocked["decision"] == "BLOCKED"
