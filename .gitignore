@@ -38,9 +38,6 @@ archive/**
 # Ignore generated batch artifacts
 **/*_batch.zip
 
-echo ".env" >> .gitignore
-
-cat >> .git/info/exclude <<'EOF'
 .batch_*_backup_*/
 .batch_*_test_backup_*/
 Batch_A_*/
@@ -52,7 +49,6 @@ Batch_C_*.zip
 batch_*_install_report.json
 batch_*_schema.sql
 batch_*_verified_input.txt
-EOF
 
 # backups
 *.before_*
@@ -86,4 +82,33 @@ __pycache__/
 
 # packaged deliveries
 *.zip
-``
+
+# Generated bundles
+/notebook_bundle/
+/notebook_bundle.tar.gz
+/ux17_source_bundle/
+/ux17_source_bundle.tar.gz
+
+# Local backups, captures, and exports
+/.batch_backups/
+/.reference_backups/
+/.schedule_bye_provenance_audit/
+/_copilot_capture/
+/reference_exports/
+/batch_inputs/
+/data_integrity_cycle_inputs.tar.gz
+/artifacts/pdf_exports/
+/artifacts/reports/
+/artifacts/recovery/*.zip.sha256
+/batch_b_raw_evidence.txt
+/end_of_day_status.txt
+/end_of_day_diffstat.txt
+
+# Unpacked local delivery packages
+/evidence-first-architecture-update-20260921/
+/ux2_repository_accurate/
+
+# Local TLS credentials and generated bundle state
+/ssl/server.key
+/ssl/server.crt
+/.continuity/last_bundle_manifest.json
