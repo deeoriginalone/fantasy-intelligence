@@ -4,6 +4,12 @@ from services.ux_evidence import dashboard_agreement_evidence, dashboard_state_c
 def test_pacific_timestamp():
     assert format_pacific_datetime(0).endswith(("PST", "PDT"))
 
+def test_unsupported_season_and_draft_state_fail_closed():
+    fields = dashboard_state_contract({"season": "future"}, {"status": "unknown", "type": "unsupported"})
+    assert fields["season"]["state"] == "UNSUPPORTED"
+    assert fields["draft_status"]["state"] == "UNSUPPORTED"
+    assert fields["draft_type"]["state"] == "UNSUPPORTED"
+
 def test_invalid_timestamp_fails_closed():
     item=dashboard_state_contract({}, {"start_time":"bad"})["draft_start_time"]
     assert item["state"]=="UNKNOWN"
@@ -25,7 +31,7 @@ def test_template_surfaces():
 
 def test_command_center_surfaces_supported_summary_links():
     text=Path("templates/dashboard.html").read_text()
-    for label in ("League Overview", "Start/Sit", "Waivers", "Trades", "Survivor", "NFL Highlights", "What Changed", "Risk Alerts"):
+    for label in ("League Overview", "Start/Sit", "Waiver/Drop", "Trade Watch", "Injury/Availability", "Upcoming Risk", "Data Alerts"):
         assert label in text
     assert "owner_ops.waivers_page" in text
     assert "owner_ops.trades_page" in text
@@ -41,6 +47,7 @@ def test_command_center_context_uses_existing_dashboard_fields():
         assert f"<dt>{label}</dt>" in text
     assert "league_overview.draft_type" in text
     assert "league_overview.draft_status" in text
+    assert "dashboard_evidence.fields.draft_start_time" in text
 
 
 def test_command_center_reuses_league_overview_facts():

@@ -43,10 +43,10 @@ def test_duplicate_ids_fail_closed():
         rank_actions([item, item])
 
 
-def test_lineup_adapter_uses_only_swap_decisions():
+def test_lineup_adapter_uses_only_explicit_start_decisions():
     intel = {"blockers": [], "missing_evidence_players": [], "start_sit_decisions": [
-        {"action": "HOLD", "slot": "QB", "start": {"player": "A"}, "sit": {"player": "B"}, "weekly_score_delta": 1, "confidence": {"score": 100}, "reason": "Hold"},
-        {"action": "SWAP", "slot": "FLEX", "start": {"player": "C"}, "sit": {"player": "D"}, "weekly_score_delta": 4.2, "confidence": {"score": 80}, "reason": "C ahead"},
+        {"decision": "MONITOR", "slot": "QB", "start": {"player": "A"}, "sit": {"player": "B"}, "weekly_score_delta": 1, "confidence": {"score": 100}, "reason": "Evidence incomplete"},
+        {"decision": "FLEX", "slot": "FLEX", "start": {"player": "C"}, "sit": {"player": "D"}, "weekly_score_delta": 4.2, "confidence": {"score": 80}, "reason": "C ahead"},
     ]}
     rows = lineup_actions(intel)
     assert len(rows) == 1

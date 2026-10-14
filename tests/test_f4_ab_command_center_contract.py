@@ -7,6 +7,8 @@ def test_gm_template_contract():
     assert "decision_ranking.actions" in t and "decision_ranking.blocked_actions" in t
     assert "matchup_intelligence.favorable_matchups" in t and "matchup_intelligence.difficult_matchups" in t
     assert "No lineup, waiver, or trade transaction is submitted" in t
+    assert all(label in t for label in ("Start/Sit", "Waiver/Drop", "Trade Watch", "Injury/Availability", "Upcoming Risk", "Data Alerts"))
+    assert "GRADE" not in t and "WEEKLY SCORE" not in t
 
 def test_owner_integration_contract():
     t=Path("owner_operations.py").read_text(encoding="utf-8")

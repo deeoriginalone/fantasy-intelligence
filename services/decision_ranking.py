@@ -172,7 +172,8 @@ def lineup_actions(intelligence: Mapping[str, Any]) -> list[DecisionAction]:
     missing = set(intelligence.get("missing_evidence_players") or ())
     rows = []
     for index, decision in enumerate(intelligence.get("start_sit_decisions") or (), 1):
-        if decision.get("action") != "SWAP":
+        visible_decision = _text(decision.get("decision") or decision.get("action")).upper()
+        if visible_decision not in {"START", "FLEX"}:
             continue
         start = decision.get("start") or {}
         sit = decision.get("sit") or {}
