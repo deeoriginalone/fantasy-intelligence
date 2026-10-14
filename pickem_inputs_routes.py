@@ -1,8 +1,10 @@
 from __future__ import annotations
 from decimal import Decimal, InvalidOperation
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from auth import admin_required
 from pickem_pg_store import connect, seed_from_schedule
+from services.authoritative_week import acquire_authoritative_week
+from services.sleeper_service import get_nfl_state
 
 pickem_inputs_bp = Blueprint('pickem_inputs', __name__)
 
@@ -40,13 +42,12 @@ def current_week_from_postgres() -> int:
     conn = connect()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT state_value FROM application_state WHERE state_key='current_week'")
-            row = cur.fetchone()
-            if row and row[0] and row[0].get('week'):
-                return int(row[0]['week'])
+            context = acquire_authoritative_week(cur, get_nfl_state, season=2026)
+            if context["authoritative"]:
+                return context["week"]
     finally:
         conn.close()
-    return 1
+    return None
 
 
 def list_week_games(season: int, week: int):
@@ -69,7 +70,11 @@ def list_week_games(season: int, week: int):
 @admin_required
 def inputs_home():
     season = request.values.get('season', 2026, type=int)
-    week = request.values.get('week', type=int) or current_week_from_postgres()
+    week = request.values.get('week', type=int)
+    if week is None:
+        week = current_week_from_postgres()
+        if week is None:
+            abort(503, description="authoritative week unavailable")
     week = max(1, min(25, week))
 
     if request.method == 'POST':

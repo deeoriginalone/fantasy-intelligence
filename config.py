@@ -1,5 +1,11 @@
 import os
+import time
 from typing import Any
+
+APPLICATION_TIME_ZONE = os.getenv("TIME_ZONE", "America/Los_Angeles").strip() or "America/Los_Angeles"
+os.environ["TZ"] = APPLICATION_TIME_ZONE
+if hasattr(time, "tzset"):
+    time.tzset()
 
 REQUIRED_ENV_VARS = (
     "FLASK_SECRET_KEY",
@@ -46,6 +52,7 @@ class Config:
     DB_PASSWORD = _require("DB_PASSWORD")
     SLEEPER_LEAGUE_ID = _require("SLEEPER_LEAGUE_ID")
     SLEEPER_DRAFT_ID = _require("SLEEPER_DRAFT_ID")
+    TIME_ZONE = APPLICATION_TIME_ZONE
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "uploads")
     JSON_AS_ASCII = False
     SESSION_COOKIE_HTTPONLY = True

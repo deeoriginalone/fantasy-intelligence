@@ -5,13 +5,19 @@ from psycopg2.extras import Json,RealDictCursor
 from pickem_pg_store import connect,seed_from_schedule
 from providers.the_odds_api import TheOddsAPI
 from market_intelligence import build_week,summarize,MODEL_VERSION,no_vig_home
+from services.authoritative_week import acquire_authoritative_week
+from services.sleeper_service import get_nfl_state
 
 def migrate(conn):
     from pathlib import Path
     with conn.cursor() as c:c.execute((Path(__file__).parent/'migrations/006_market_intelligence.sql').read_text())
     conn.commit()
 def current_week(conn):
-    with conn.cursor() as c:c.execute("SELECT state_value FROM application_state WHERE state_key='current_week'"); r=c.fetchone(); return int(r[0].get('week',1)) if r and r[0] else 1
+    with conn.cursor() as c:
+        context = acquire_authoritative_week(c, get_nfl_state, season=2026)
+    if not context["authoritative"]:
+        raise RuntimeError(f"authoritative week unavailable: {context['blockers']}")
+    return context["week"]
 def run(season,week,strategy='balanced',dry_run=False):
     seed_from_schedule(season,week); conn=connect(); migrate(conn); errors=[]
     with conn.cursor() as c:c.execute("INSERT INTO market_intelligence_runs(season,week) VALUES(%s,%s) RETURNING id",(season,week)); rid=c.fetchone()[0]

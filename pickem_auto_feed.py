@@ -5,6 +5,8 @@ from psycopg2.extras import Json
 from pickem_pg_store import connect, seed_from_schedule
 from pickem_pg_context import build_pickem_context
 from providers.http_json import HTTPJSONCrowdProvider, HTTPJSONOddsProvider
+from services.authoritative_week import acquire_authoritative_week
+from services.sleeper_service import get_nfl_state
 
 def american_implied(odds):
     if odds==0: raise ValueError('moneyline cannot be zero')
@@ -25,8 +27,10 @@ def migrate(conn):
 
 def current_week(conn):
     with conn.cursor() as cur:
-        cur.execute("SELECT state_value FROM application_state WHERE state_key='current_week'"); row=cur.fetchone()
-        return int(row[0].get('week',1)) if row and row[0] else 1
+        context = acquire_authoritative_week(cur, get_nfl_state, season=2026)
+    if not context["authoritative"]:
+        raise RuntimeError(f"authoritative week unavailable: {context['blockers']}")
+    return context["week"]
 
 def start_run(conn,season,week,provider):
     with conn.cursor() as cur:
