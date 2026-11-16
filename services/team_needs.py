@@ -3,11 +3,29 @@ from collections import Counter
 REQUIRED_NEED_KEYS = ("QB", "RB", "WR", "TE", "FLEX", "K", "DEF")
 FLEX_ELIGIBLE = ("RB", "WR", "TE")
 DEFAULT_DEPTH_TARGETS = {"QB": 2, "RB": 4, "WR": 4, "TE": 2, "K": 1, "DEF": 1}
+NON_STARTER_SLOTS = {"BN", "BENCH", "IR", "TAXI"}
+RECEPTION_FORMATS = {1.0: "Full-PPR", 0.5: "Half-PPR", 0.0: "Standard (no PPR)"}
 
 
 def normalize_position(value):
     value = str(value or "").upper()
     return "DEF" if value == "DST" else value
+
+
+def _scoring_contract(league):
+    """Describe league reception scoring only from supplied settings; never assume a format."""
+    scoring = league.get("scoring_settings")
+    if not isinstance(scoring, dict) or not scoring:
+        return {"scoring_settings_state": "UNAVAILABLE", "reception_points": None, "scoring_format": None}
+    rec = scoring.get("rec")
+    try:
+        reception_points = None if rec is None or isinstance(rec, bool) else float(rec)
+    except (TypeError, ValueError):
+        reception_points = None
+    if reception_points is None:
+        return {"scoring_settings_state": "INCOMPLETE", "reception_points": None, "scoring_format": None}
+    label = RECEPTION_FORMATS.get(reception_points) or f"Custom reception scoring ({reception_points:g} per reception)"
+    return {"scoring_settings_state": "AVAILABLE", "reception_points": reception_points, "scoring_format": label}
 
 
 def league_settings_contract(league, source="Sleeper API", blocker=None):
@@ -19,8 +37,12 @@ def league_settings_contract(league, source="Sleeper API", blocker=None):
             "source": source,
             "blocker": blocker or "LEAGUE_ROSTER_POSITIONS_UNAVAILABLE",
             "starter_slots": {},
+            "starter_slot_sequence": [],
             "flex_eligible_positions": [],
             "full_ppr": None,
+            "scoring_settings_state": "UNAVAILABLE",
+            "reception_points": None,
+            "scoring_format": None,
         }
     aliases = {"BN": "BENCH", "W/R/T": "FLEX", "WRRB_FLEX": "FLEX", "REC_FLEX": "FLEX", "DST": "DEF"}
     slots = [aliases.get(str(item).upper(), str(item).upper()) for item in raw]
@@ -31,8 +53,11 @@ def league_settings_contract(league, source="Sleeper API", blocker=None):
         "source": source,
         "blocker": None,
         "starter_slots": dict(starters),
+        # Raw Sleeper slot codes in lineup order; lineup eligibility must use these, not the aliased counts.
+        "starter_slot_sequence": [str(item).upper() for item in raw if str(item).upper() not in NON_STARTER_SLOTS],
         "flex_eligible_positions": list(FLEX_ELIGIBLE) if starters.get("FLEX") else [],
         "full_ppr": rec in (1, 1.0),
+        **_scoring_contract(league),
     }
 
 

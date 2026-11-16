@@ -4,7 +4,37 @@ from html.parser import HTMLParser
 import pytest
 
 from services.weekly_lineup_intelligence import build_lineup_intelligence
+from services.lineup_decision_intelligence import build_lineup_decision, lineup_reconciliation_view
+from services.team_needs import league_settings_contract
 from owner_operations import build_lineup_reconciliation, build_recommended_bench
+
+TEMPLATE_SLOTS = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF", "BN", "BN"]
+FRESH_HEALTH = {"state": "AVAILABLE", "source": "Sleeper API", "freshness_state": "FRESH", "last_verified": "2026-10-05T07:00:00+00:00"}
+
+
+def open_locks(roster):
+    """Controlled schedule-owned evidence: every player's kickoff is verified and still ahead."""
+    return {"players": {row["source_player_id"]: {"state": "OPEN", "label": "Open", "kickoff_utc": "2026-10-11T17:00:00+00:00", "kickoff_display": "Sun Oct 11 10:00 AM PDT",
+                                                   "no_game": False, "blocker": None, "reason": "Controlled kickoff fixture."} for row in roster}}
+
+
+def lineup_row(name, position, value, slot=None, index=None, status="Active"):
+    return {
+        "player": name, "position": position, "source_player_id": name, "injury_status": status, "health_status_available": True,
+        "opponent": "NYJ", "is_bye": False, "weekly_score": value, "weekly_baseline": value, "matchup_modifier": 0.0, "injury_multiplier": 1.0,
+        "sleeper_current_starter": slot is not None, "sleeper_lineup_slot": slot, "sleeper_lineup_index": index,
+    }
+
+
+def team_lineup_decision(roster=None, positions=TEMPLATE_SLOTS, provider_projections=None):
+    roster = roster if roster is not None else [
+        lineup_row("Alternative QB", "QB", 15.0, "QB", 0), lineup_row("Player RB1", "RB", 12.0, "RB", 1), lineup_row("Player RB2", "RB", 11.0, "RB", 2),
+        lineup_row("Player WR1", "WR", 14.0, "WR", 3), lineup_row("Questionable Player", "WR", 12.0, "WR", 4, status="Questionable"),
+        lineup_row("Player TE", "TE", 9.0, "TE", 5), lineup_row("Player FLEX", "WR", 10.0, "FLEX", 6), lineup_row("Player K", "K", 7.0, "K", 7),
+        lineup_row("Player DEF", "DEF", 6.0, "DEF", 8, status=""), lineup_row("Player QB", "QB", 18.0),
+    ]
+    settings = league_settings_contract({"roster_positions": positions, "scoring_settings": {"rec": 1.0}})
+    return build_lineup_decision(roster, league_settings=settings, team_health=FRESH_HEALTH, season=2026, week=4, provider_projections=provider_projections, game_locks=open_locks(roster))
 
 
 def player(name, position, score=10.0):
@@ -40,8 +70,10 @@ def test_team_route_delegates_to_explainable_payload():
     segment = source[start:end]
 
     assert "context, roster, meta = current_roster(cur, verify_live_week=True)" in segment
-    assert "lineup_intelligence = build_lineup_intelligence(roster, current_starters=current_sleeper_starters)" in segment
-    assert "lineup_intelligence=lineup_intelligence" in segment
+    assert "lineup_decision = build_lineup_decision(roster, **lineup_inputs)" in segment
+    assert "starters, bench, total, vacancies = legacy_lineup_rows(lineup_decision, roster)" in segment
+    assert "lineup_decision=lineup_decision" in segment
+    assert "optimize_lineup(" not in segment and "build_lineup_intelligence(" not in segment
 
 
 class TeamPageContractParser(HTMLParser):
@@ -95,17 +127,7 @@ def render_team_page(**overrides):
     from app import app
     from flask import render_template
 
-    slots = ["QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF"]
-    starters = [
-        {"slot": slot, "player": f"Player {slot}", "position": slot.rstrip("0123456789"), "weekly_score": 10.0, "opponent": "NYJ", "injury_status": "Healthy", "decision": "START", "vacant": False}
-        for slot in slots
-    ]
-    changes = [{"slot": "QB", "current": "Alternative QB", "current_id": "old-qb", "recommended": "Player QB", "recommended_id": "new-qb", "authority": "START", "reason": "Supported recommendation reason.", "recommended_player": {**starters[0], "injury_status": "Healthy"}}]
-    reconciliation = {
-        "state": "AVAILABLE", "blocker": None,
-        "current": [{"slot": slot, "player": f"Current {slot}", "player_id": f"current-{slot}", "position": slot.rstrip("0123456789"), "injury_status": "Healthy"} for slot in slots],
-        "changes": changes,
-    }
+    lineup_decision = team_lineup_decision()
     context = {
         "title": "My Team", "context": {"mode": "LIVE"}, "meta": {"week": 4, "team_name": "Test Team"},
         "roster": [
@@ -114,11 +136,9 @@ def render_team_page(**overrides):
             {"player": "Healthy Player", "injury_status": "Healthy"},
             {"player": "Unknown Player", "injury_status": "Unknown"},
         ],
-        "league_settings": {"scoring_format": "PPR"}, "lineup_reconciliation": reconciliation,
-        "lineup_comparison_unavailable": "Lineup comparison unavailable.", "lineup_intelligence": {"starters": starters, "bench": [], "verdict": {"action": "Review one lineup change", "why": "Supported recommendation reason.", "status": "MONITOR", "recommendation_available": True, "confidence_percent": 0, "biggest_risk": "Check Questionable Player before kickoff"}},
-        "decisions_by_slot": {"QB": {"decision": "START", "weekly_score_delta": 2.0, "alternative": "Alternative QB"}},
-        "team_accuracy": {}, "team_health": {"last_verified": "2026-10-05T07:00:00+00:00", "freshness_state": "STALE"}, "team_needs": {}, "lineup_snapshot": {"counts": {"ready": 0, "monitor": 0, "blocked": 0}}, "weekly_risks": [],
-        "roster_outlook": {}, "changes": {}, "opportunity_changes": {}, "opportunity_view": {}, "preliminary_matchup_context": {},
+        "league_settings": {"scoring_format": "Full-PPR"}, "lineup_decision": lineup_decision, "lineup_reconciliation": lineup_reconciliation_view(lineup_decision),
+        "team_accuracy": {}, "team_health": FRESH_HEALTH, "team_needs": {}, "lineup_snapshot": {"counts": {"ready": 0, "monitor": 0, "blocked": 0}}, "weekly_risks": [],
+        "roster_outlook": {}, "opportunity_changes": {}, "opportunity_view": {}, "preliminary_matchup_context": {},
         "team_trust": {"confidence": {"label": "HIGH", "score": 80}}, "team_priority_action": {}, "bench_decisions": [], "bench_plan": {}, "team": {"lineage": []},
     }
     context.update(overrides)
@@ -142,13 +162,13 @@ def test_team_template_renders_required_primary_page_contract():
     assert "open" not in parser.id_tags["data-model-diagnostics"][1]
     hero_text = parser.id_text["my-team-header"]
     assert "team-hero" in parser.id_tags["lineup"][1]["class"]
-    assert "Review one lineup change" in hero_text
+    assert "START Player QB over Alternative QB" in hero_text
     assert "START Player QB" in hero_text and "SIT Alternative QB" in hero_text
-    assert "Team readiness" in hero_text and "MONITOR" in hero_text
+    assert "Team readiness" in hero_text and "ACTION REQUIRED" in hero_text
     assert "Recommended lineup available" in hero_text
-    assert "0% evidence confidence" in hero_text
-    assert "Check Questionable Player before kickoff" in hero_text
-    assert "Health verified 2026-10-05T07:00:00+00:00" in hero_text and "STALE" in hero_text
+    assert "Decision confidence" in hero_text and "DEGRADED" in hero_text and "%" not in hero_text
+    assert "Questionable Player" in hero_text
+    assert "Health verified 2026-10-05T07:00:00+00:00" in hero_text and "FRESH" in hero_text
     lineup_text = parser.id_text["your-lineup"]
     assert "YOUR LINEUP" in parser.id_text["your-lineup-title"]
     assert "WEEK 4" in parser.id_text["your-lineup-title"]
@@ -164,8 +184,8 @@ def test_team_template_renders_required_primary_page_contract():
                 assert "Team Needs" not in parser.id_text[element_id]
             assert "Bench Priority" not in parser.id_text[element_id]
     assert "Current Sleeper Lineup" not in lineup_text
-    assert parser.decision_items == 1
-    assert "1 decision needs attention" in lineup_text
+    assert parser.decision_items == 2
+    assert "2 decisions need attention" in lineup_text
     health_text = parser.id_text["health-availability"]
     assert health_text.index("Out Player") < health_text.index("Questionable Player")
     assert health_text.index("Questionable Player") < health_text.index("Healthy Player")
@@ -245,16 +265,9 @@ def test_lineup_reconciliation_keeps_sleeper_truth_separate_from_recommendation(
     assert "weekly_score_edge" not in result["changes"][0]
 
 
-def render_start_sit_section(change):
-    return render_team_page(
-        lineup_intelligence={"starters": [], "bench": [], "verdict": {}},
-        lineup_reconciliation={
-            "state": "AVAILABLE",
-            "blocker": None,
-            "current": [],
-            "changes": [change],
-        },
-    )
+def render_start_sit_section(roster, provider_projections=None):
+    lineup_decision = team_lineup_decision(roster, positions=["QB", "BN"], provider_projections=provider_projections)
+    return render_team_page(lineup_decision=lineup_decision, lineup_reconciliation=lineup_reconciliation_view(lineup_decision))
 
 
 def render_health_section(roster):
@@ -263,80 +276,54 @@ def render_health_section(roster):
     return parser.id_text["health-availability"]
 
 
-def test_team_start_sit_template_renders_available_confidence_and_watch():
-    html = render_start_sit_section({
-        "slot": "QB",
-        "authority": "START",
-        "recommended": "Joe Burrow",
-        "current": "Justin Herbert",
-        "reason": "Supported reason supplied.",
-        "recommended_player": {"player": "Joe Burrow", "reason": "Supported reason supplied."},
-        "confidence": {"label": "HIGH", "score": 80},
-        "watch_item": "HEALTH_EVIDENCE_STALE",
-        "provider_projection": {
-            "recommended": {
-                "state": "PRELIMINARY", "projected_ppg": 18.25,
-                "metric_name": "Provider Full-PPR Projection", "unit": "fantasy_points_per_game",
-                "scoring_format": "ppr", "season": 2026, "week": 4,
-                "data_through_week": 3, "source_record_time": "2026-10-05T06:20:00+00:00",
-                "age_seconds": 3480, "freshness_state": "UNAVAILABLE",
-                "evidence_level": "PRELIMINARY", "recommendation_impact": "INFORMATIONAL_ONLY",
-                "attribution": "JerryGM projections attribution",
-            },
-            "current": {
-                "state": "PRELIMINARY", "projected_ppg": 12.0,
-                "metric_name": "Provider Full-PPR Projection", "unit": "fantasy_points_per_game",
-                "scoring_format": "ppr", "season": 2026, "week": 4,
-                "data_through_week": 3, "source_record_time": "2026-10-05T06:20:00+00:00",
-                "age_seconds": 3480, "freshness_state": "UNAVAILABLE",
-                "evidence_level": "PRELIMINARY", "recommendation_impact": "INFORMATIONAL_ONLY",
-                "attribution": "JerryGM projections attribution",
-            },
-            "comparison": {"state": "UNAVAILABLE", "blocker": "JERRYGM_FRESHNESS_THRESHOLD_UNVERIFIED"},
-        },
-    })
+def provider_projection(player_id, ppg):
+    return {
+        "state": "PRELIMINARY", "projected_ppg": ppg, "sleeper_id": player_id,
+        "metric_name": "Provider Full-PPR Projection", "unit": "fantasy_points_per_game", "source": "JerryGM jgm_baseline",
+        "scoring_format": "ppr", "season": 2026, "week": 4, "data_through_week": 3,
+        "source_record_time": "2026-10-05T06:20:00+00:00", "retrieved_at": "2026-10-05T07:18:00+00:00",
+        "age_seconds": 3480, "freshness_state": "UNAVAILABLE", "completeness_state": "INCOMPLETE",
+        "evidence_level": "PRELIMINARY", "recommendation_impact": "INFORMATIONAL_ONLY",
+        "blockers": ["JERRYGM_FRESHNESS_THRESHOLD_UNVERIFIED"], "attribution": "JerryGM projections attribution", "limitations": [],
+    }
 
-    assert "START Joe Burrow" in html
-    assert "SIT Justin Herbert" in html
-    assert "Supported reason supplied." in html
-    assert "<h4>Confidence</h4><p>HIGH</p>" in html
-    assert "Health information needs a pre-kickoff check." in html
-    assert "<h4>Projection (informational only)</h4><p>18.25 vs 12.00" in html
-    assert "Players to monitor" in html
+
+def test_team_start_sit_template_renders_supported_change_with_withheld_provider_difference():
+    html = render_start_sit_section(
+        [lineup_row("Justin Herbert", "QB", 15.0, "QB", 0), lineup_row("Joe Burrow", "QB", 18.0)],
+        {"state": "AVAILABLE", "players": {"Joe Burrow": provider_projection("Joe Burrow", 18.25), "Justin Herbert": provider_projection("Justin Herbert", 12.0)}, "blockers": []},
+    )
+
+    assert "<strong>START Joe Burrow</strong>" in html and "SIT Justin Herbert" in html
+    assert "Joe Burrow&#39;s supported weekly value (18.00) is 3.00 points higher than Justin Herbert&#39;s (15.00)." in html
+    assert "<strong>Decision confidence:</strong> PRELIMINARY." in html
+    assert "18.25 per game" in html and "12.00 per game" in html
+    assert "Difference withheld: the provider freshness threshold is unverified." in html
     assert "generated 2026-10-05T06:20:00+00:00" in html
     assert "freshness UNAVAILABLE" in html
     assert "INFORMATIONAL_ONLY" in html
     assert "JerryGM projections attribution" in html
-    assert "HEALTH_EVIDENCE_STALE" not in html
-    assert "JERRYGM_FRESHNESS_THRESHOLD_UNVERIFIED" not in html
+    assert "JERRYGM_FRESHNESS_THRESHOLD_UNVERIFIED" not in html and "JERRYGM_COMPARISON_FRESHNESS_UNAVAILABLE" not in html
     assert "6.25" not in html
 
 
 def test_team_start_sit_template_renders_unavailable_evidence_without_zero():
-    html = render_start_sit_section({
-        "slot": "QB",
-        "authority": "START",
-        "recommended": "Joe Burrow",
-        "current": "Justin Herbert",
-        "reason": "Supported reason supplied.",
-        "recommended_player": {"player": "Joe Burrow", "reason": "Supported reason supplied."},
-        "confidence": None,
-        "watch_item": None,
-    })
+    parser = TeamPageContractParser()
+    parser.feed(render_start_sit_section([lineup_row("Justin Herbert", "QB", None, "QB", 0), lineup_row("Joe Burrow", "QB", None)]))
 
-    assert "START Joe Burrow" in html
-    assert "SIT Justin Herbert" in html
-    assert "Supported reason supplied." in html
-    assert "<h4>Confidence</h4><p>UNAVAILABLE</p>" in html
-    assert "No supported blocker or watch item." in html
-    assert "Provider projection: UNAVAILABLE." in html
-    assert "0.00" not in html
+    assert "START Justin Herbert" in parser.all_text
+    assert "SIT Justin Herbert" not in parser.all_text
+    assert "No supported change" in parser.all_text
+    assert "INSUFFICIENT_EVIDENCE" in parser.all_text
+    assert "Weekly value unavailable" in parser.all_text
+    assert "Provider projection: Justin Herbert, Joe Burrow (not requested for this page)" in parser.all_text
+    assert "0.00" not in parser.all_text
 
 
 @pytest.mark.parametrize("state", ["UNAVAILABLE", "BLOCKED", "STALE"])
 def test_team_hero_missing_evidence_never_invents_confidence_or_freshness(state):
     html = render_team_page(
-        lineup_intelligence={"starters": [], "bench": [], "verdict": {"status": state}},
+        lineup_decision={"state": state, "summary": {"status": state, "decision_confidence": {"state": state}}},
         lineup_reconciliation={"state": state, "changes": [], "current": []},
         team_trust={}, team_priority_action={}, team_health={},
     )

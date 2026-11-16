@@ -7,7 +7,10 @@ from flask import Blueprint, current_app, redirect, render_template, request, se
 from weekly_intelligence import enrich_players, current_week, upcoming_byes, normalize_team
 from services.weekly_lineup_intelligence import build_lineup_intelligence, decision, optimize_lineup, sort_key
 from services.authoritative_week import build_authoritative_week_contract
-from services.jerrygm_projections import build_changed_slot_projections
+from services.jerrygm_projections import build_roster_projections, provider_scoring_preset
+from services.game_lock import build_roster_game_locks
+from services.lineup_decision_intelligence import build_lineup_decision, legacy_lineup_rows, lineup_reconciliation_view, provider_projection_players
+from services.lineup_projection import recent_workload
 from services.trade_intelligence import build_trade_intelligence
 from services.opportunity_evidence import build_opportunity_view, build_waiver_player_comparison
 from services.trade_target_center import build_trade_target_center
@@ -85,10 +88,12 @@ def build_team_opportunity_changes(connection, roster, *, season, week, nflverse
     ) if nflverse_records is not None else [dict(player) for player in (roster or [])]
     for player in mapped_roster:
         name = player.get("player") or "Unnamed player"
+        source_player_id = player.get("source_player_id")
         opportunity_player_id = player.get("opportunity_player_id")
         if not isinstance(opportunity_player_id, str) or not opportunity_player_id.strip():
             result["players"].append({
                 "player": name,
+                "source_player_id": source_player_id,
                 "state": "UNAVAILABLE",
                 "opportunity_identity_state": player.get("opportunity_identity_state", "UNRESOLVED"),
                 "blockers": ["OPPORTUNITY_PLAYER_IDENTITY_UNAVAILABLE"],
@@ -122,10 +127,11 @@ def build_team_opportunity_changes(connection, roster, *, season, week, nflverse
             comparison["snap_share_change"] = {"state": "UNAVAILABLE", "reason": "Snap-share comparison unavailable because prior and current published rows are not both present."}
         usage_result = read_player_opportunity(connection, player_id=opportunity_player_id, season=season, week_start=1, week_end=week)
         usage_rows = usage_result.get("rows") or []
+        comparison["recent_workload"] = recent_workload(usage_result, comparison["snap_share"])
         comparison["opportunity_strength"] = opportunity_strength(usage_row=(usage_rows[-1] if usage_rows else None), snap_row=(snap_rows[0] if snap_rows else None))
         comparison["usage_stability"] = usage_stability(current_usage=(usage_rows[-1] if usage_rows else None), prior_usage=(usage_rows[-2] if len(usage_rows) > 1 else None), current_snap=(snap_rows[0] if snap_rows else None), prior_snap=(snap_rows[1] if len(snap_rows) > 1 else None))
         comparison["opportunity_trend"] = opportunity_trend(strength=comparison["opportunity_strength"], stability=comparison["usage_stability"])
-        result["players"].append({"player": name, "opportunity_player_id": opportunity_player_id, **comparison})
+        result["players"].append({"player": name, "source_player_id": source_player_id, "opportunity_player_id": opportunity_player_id, **comparison})
     if not result["players"]:
         result["blockers"] = ["OPPORTUNITY_ROSTER_EMPTY"]
     elif all(item["state"] == "AVAILABLE" for item in result["players"]):
@@ -1122,8 +1128,8 @@ def sleeper_empty_required_slots(starters, roster_positions):
 def read_week_schedule_rows(cur, season, week):
     if not isinstance(week, int):
         return []
-    cur.execute("SELECT home_team, away_team, game_time_pacific, source, source_recorded_at, retrieved_at FROM nfl_schedule WHERE season=%s AND week=%s", (season, week))
-    return [dict(zip(("home_team", "away_team", "game_time_pacific", "source", "source_recorded_at", "retrieved_at"), row)) for row in cur.fetchall() or []]
+    cur.execute("SELECT home_team, away_team, game_time_pacific, source, source_recorded_at, retrieved_at, game_time_utc FROM nfl_schedule WHERE season=%s AND week=%s", (season, week))
+    return [dict(zip(("home_team", "away_team", "game_time_pacific", "source", "source_recorded_at", "retrieved_at", "game_time_utc"), row)) for row in cur.fetchall() or []]
 
 
 SLOT_FILL_FAAB_CONTRACT_ID = "waiver.slot_fill_faab.v1"
@@ -2441,6 +2447,7 @@ def create_owner_operations_blueprint(
 
     @bp.route("/team")
     def team_page():
+        now = datetime.now(timezone.utc)
         conn = get_db_connection(); cur = conn.cursor()
         try:
             context, roster, meta = current_roster(cur, verify_live_week=True)
@@ -2449,8 +2456,6 @@ def create_owner_operations_blueprint(
                 roster=roster,
             )
             opportunity_view = build_opportunity_view(current_app.config.get("OPPORTUNITY_EVIDENCE"))
-            starters, bench, total, vacancies = optimize_lineup(roster)
-            counts, grades, _, overall, score = roster_analysis(roster, vacancies)
             league_payload = get_league(current_app.config.get("SLEEPER_LEAGUE_ID", "")) or {} if context["mode"] == "LIVE" else {}
             league_settings = league_settings_contract(league_payload, source="Sleeper API" if context["mode"] == "LIVE" else "Season Sandbox", blocker=None if context["mode"] == "LIVE" else "LIVE_LEAGUE_SETTINGS_NOT_APPLICABLE")
             team_needs = team_needs_contract(roster, league_settings)
@@ -2467,7 +2472,6 @@ def create_owner_operations_blueprint(
                 health_meta = {"freshness_state": "UNAVAILABLE", "last_verified": None, "age": None}
                 health_source = "Season Sandbox"
             team_health = team_health_contract(roster, source=health_source, **health_meta)
-            team_accuracy = build_team_accuracy_contract(roster, starters, league_settings, team_needs, team_health)
             nflverse_records = current_app.config.get("NFLVERSE_PLAYER_METADATA")
             nflverse_lineage = current_app.config.get("NFLVERSE_PLAYER_METADATA_LINEAGE")
             if nflverse_records is None and not current_app.testing:
@@ -2484,8 +2488,22 @@ def create_owner_operations_blueprint(
                 nflverse_lineage=nflverse_lineage,
                 sleeper_records=meta.get("sleeper_catalog"),
             )
+            game_locks = build_roster_game_locks(roster, schedule_rows=team_schedule_rows(cur, context, meta), season=meta.get("season"), week=meta.get("week"),
+                                                 now=now, mode=context["mode"])
         finally:
             cur.close(); conn.close()
+        # Kickoff locks are schedule-owned; weekly consensus is display-only context with no lineup authority.
+        lineup_inputs = dict(league_settings=league_settings, team_health=team_health, mode=context["mode"], season=meta.get("season"), week=meta.get("week"), opportunity=opportunity_changes,
+                             consensus_ranks=team_consensus_rankings(context, meta), game_locks=game_locks, scoring_settings=league_payload.get("scoring_settings"),
+                             consensus_authority=False, now=now)
+        lineup_decision = build_lineup_decision(roster, **lineup_inputs)
+        provider_projections = team_provider_projections(context, roster, meta, league_settings, lineup_decision)
+        if provider_projections is not None:
+            # Provider projections are informational context; the second pass cannot change selection.
+            lineup_decision = build_lineup_decision(roster, provider_projections=provider_projections, **lineup_inputs)
+        starters, bench, total, vacancies = legacy_lineup_rows(lineup_decision, roster)
+        counts, grades, _, overall, score = roster_analysis(roster, vacancies)
+        team_accuracy = build_team_accuracy_contract(roster, starters, league_settings, team_needs, team_health)
         weekly_defaults = {
             "weekly_baseline": 0.0, "matchup_modifier": 0.0,
             "injury_multiplier": 1.0, "weekly_score": None,
@@ -2518,27 +2536,52 @@ def create_owner_operations_blueprint(
         bench_plan = build_bench_plan(bench_decisions)
         weekly_risks = build_weekly_risks(starters, team_needs, team_health, team_accuracy, current_starters=current_sleeper_starters)
         roster_outlook = build_roster_outlook(team_needs, team_health)
-        lineup_intelligence = build_lineup_intelligence(roster, current_starters=current_sleeper_starters)
-        decisions_by_slot = {d.get("slot"): d for d in lineup_intelligence.get("start_sit_decisions", [])}
-        lineup_reconciliation = build_lineup_reconciliation(roster, lineup_intelligence.get("starters"), lineup_intelligence.get("start_sit_decisions"))
-        displayed_bench = build_recommended_bench(roster, lineup_intelligence.get("starters"))
-        if displayed_bench is not None:
-            lineup_intelligence["bench"] = displayed_bench
-        lineup_intelligence["changed_recommended"] = lineup_reconciliation.get("changed_recommended", [])
-        if lineup_reconciliation.get("changes"):
-            lineup_intelligence["verdict"].update(status="ACTION REQUIRED", action=f"{len(lineup_reconciliation['changes'])} lineup changes recommended", why="Review the supported lineup changes before lineup lock.")
+        lineup_reconciliation = lineup_reconciliation_view(lineup_decision)
+        decisions_by_slot = {decision["slot"]: decision for decision in lineup_decision.get("slots") or []}
         lineup_snapshot = build_lineup_snapshot(starters, bench_decisions, current_starters=current_sleeper_starters, lineup_changes=lineup_reconciliation.get("changes"))
-        lineup_intelligence["starters"] = attach_preliminary_matchup_display(lineup_intelligence.get("starters"))
-        if context["mode"] == "LIVE" and lineup_reconciliation.get("changes"):
-            provider_projections = build_changed_slot_projections(
-                roster,
-                lineup_reconciliation["changes"],
-                season=meta.get("season"),
-                week=meta.get("week"),
-            )
-            for change in lineup_reconciliation["changes"]:
-                change["provider_projection"] = provider_projections.get(change.get("slot"), {})
-        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_intelligence=lineup_intelligence, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context, opportunity_view=opportunity_view, opportunity_changes=opportunity_changes, lineup_reconciliation=lineup_reconciliation)
+        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_decision=lineup_decision, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context, opportunity_view=opportunity_view, opportunity_changes=opportunity_changes, lineup_reconciliation=lineup_reconciliation)
+
+    def team_schedule_rows(cur, context, meta):
+        """This week's automated schedule rows for kickoff locks; a failed read leaves every lock unverified."""
+        if context["mode"] != "LIVE":
+            return []
+        try:
+            return read_week_schedule_rows(cur, meta.get("season"), meta.get("week"))
+        except Exception:
+            return []
+
+    def team_consensus_rankings(context, meta):
+        """Current-week positional consensus for same-position lineup comparisons; never fetched in tests unless configured."""
+        supplier = current_app.config.get("LINEUP_CONSENSUS_RANKINGS")
+        if supplier is not None:
+            return supplier(meta) if callable(supplier) else supplier
+        if context["mode"] != "LIVE" or current_app.testing:
+            return None
+        try:
+            nfl_state = get_nfl_state()
+        except Exception:
+            nfl_state = {}
+        # Shared Waivers cache; refresh_rankings applies the documented six-hour/new-week refresh and 15-minute retry policy.
+        return refresh_rankings(current_app.instance_path + "/dynastyprocess-rankings.json", nfl_state, sleeper_catalog=meta.get("sleeper_catalog"))
+
+    def team_provider_projections(context, roster, meta, league_settings, lineup_decision):
+        """Informational provider projections for players in real decisions; never fetched in tests unless configured."""
+        fetcher = current_app.config.get("LINEUP_PROVIDER_PROJECTIONS")
+        if fetcher is None:
+            if context["mode"] != "LIVE" or current_app.testing:
+                return None
+            fetcher = build_roster_projections
+        players = provider_projection_players(lineup_decision, roster)
+        if not players:
+            return None
+        if league_settings.get("scoring_settings_state") != "AVAILABLE":
+            return {"state": "UNAVAILABLE", "players": {}, "blockers": ["PROVIDER_SCORING_UNVERIFIED"]}
+        preset = provider_scoring_preset(league_settings.get("reception_points"))
+        if preset is None:
+            return {"state": "UNAVAILABLE", "players": {}, "blockers": ["PROVIDER_SCORING_PRESET_UNSUPPORTED"]}
+        if meta.get("week") is None:
+            return {"state": "UNAVAILABLE", "players": {}, "blockers": ["PROVIDER_WEEK_UNVERIFIED"]}
+        return fetcher(players, season=meta.get("season"), week=meta.get("week"), scoring=preset)
 
     @bp.route("/lineup")
     def lineup_page():

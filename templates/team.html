@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 {% set lineup_reconciliation = lineup_reconciliation|default({'state': 'UNAVAILABLE', 'blocker': None, 'current': [], 'changes': []}, true) %}
-{% set lineup_comparison_reasons = {'CURRENT_LINEUP_UNAVAILABLE': 'Current Sleeper starters were not available.', 'CURRENT_LINEUP_IDENTITY_UNAVAILABLE': 'At least one current Sleeper starter could not be matched to a stable player ID.', 'RECOMMENDED_LINEUP_IDENTITY_UNAVAILABLE': 'At least one recommended starter lacks a stable player ID.', 'CURRENT_LINEUP_INCOMPLETE': 'The current Sleeper lineup is missing a starter for at least one recommended slot.'} %}
+{% set lineup_comparison_reasons = {'CURRENT_LINEUP_UNAVAILABLE': 'Current Sleeper starters were not available.', 'CURRENT_LINEUP_SLOT_CONTRADICTORY': 'The current Sleeper lineup does not match the league starting slots.', 'LEAGUE_SLOTS_UNAVAILABLE': 'League starting slots are not verified.', 'CURRENT_LINEUP_IDENTITY_UNAVAILABLE': 'At least one current Sleeper starter could not be matched to a stable player ID.', 'RECOMMENDED_LINEUP_IDENTITY_UNAVAILABLE': 'At least one recommended starter lacks a stable player ID.', 'CURRENT_LINEUP_INCOMPLETE': 'The current Sleeper lineup is missing a starter for at least one recommended slot.'} %}
 {% set lineup_comparison_unavailable %}Lineup comparison unavailable. The current Sleeper lineup could not be fully compared with the recommended lineup.{% if lineup_comparison_reasons.get(lineup_reconciliation.blocker) %} {{ lineup_comparison_reasons.get(lineup_reconciliation.blocker) }}{% endif %}{% endset %}
 <style>
 :root{--team-ink:#14213d;--team-muted:#60708a;--team-paper:#f4f7fb;--team-line:#dfe6ef;--team-card:#fff;--team-green:#16805c;--team-green-bg:#e7f7ef;--team-blue:#2563a8;--team-blue-bg:#e9f2ff;--team-amber:#a96713;--team-amber-bg:#fff3dd;--team-red:#b42318;--team-red-bg:#fff0ee;--team-shadow:0 12px 34px rgba(20,33,61,.08)}
@@ -15,10 +15,27 @@
 @media(max-width:900px){.decision-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.formation{grid-template-columns:repeat(3,minmax(0,1fr))}.verdict{grid-template-columns:1fr 1fr}.verdict-main{grid-column:1/-1}}
 @media(max-width:600px){.decision-grid,.formation{grid-template-columns:1fr}.formation{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.verdict{display:block}.verdict-main{min-height:0}.verdict-stat{border-top:1px solid rgba(255,255,255,.13);border-left:0;display:flex;align-items:center;justify-content:space-between;gap:16px}.verdict-stat strong{margin:0;font-size:23px}.verdict-stat span{margin:0;text-align:right}}
 </style>
-{% set verdict = lineup_intelligence.verdict|default({}) %}
-{% set changes = lineup_intelligence.changes|default({}) %}
+{% set lineup_intelligence = lineup_intelligence|default({}, true) %}
+{% set verdict = lineup_intelligence.verdict|default({}, true) %}
+{% set changes = lineup_intelligence.changes|default({}, true) %}
 {% set verdict_score = verdict.weekly_score|default(lineup_intelligence.weekly_total|default(None)) %}
 {% set verdict_status = verdict.status|default('MONITOR')|lower %}
+{% set lineup_decision = lineup_decision|default({}, true) %}
+{% set ld_summary = lineup_decision.summary|default({}, true) %}
+{% set ld_confidence = ld_summary.decision_confidence|default({}, true) %}
+{% set ld_slots = lineup_decision.slots|default([], true) %}
+{% set ld_attention = lineup_decision.attention|default([], true) %}
+{% set ld_decisions = lineup_decision.decision_list|default([], true) %}
+{% set ld_changes = lineup_decision.changes|default([], true) %}
+{% set ld_moves = lineup_decision.moves|default([], true) %}
+{% set ld_consensus = lineup_decision.consensus_basis|default({}, true) %}
+{% set show_rank = ld_consensus.state|default('NOT_REQUESTED', true) != 'NOT_REQUESTED' %}
+{% set rank_has_authority = ld_consensus.get('decision_authority', true) %}
+{% set rank_note = 'same-position ordering, not points' if rank_has_authority else 'context only, no lineup authority' %}
+{% set ld_projection = lineup_decision.projection_comparisons|default([], true) %}
+{% set ld_unresolved = ld_decisions|selectattr('status', 'equalto', 'UNRESOLVED')|list %}
+{% set ld_stable = ld_decisions|selectattr('status', 'equalto', 'STABLE')|list %}
+{% set ld_locks = lineup_decision.lock_summary|default({}, true) %}
 <style>
 .action-section{border:2px solid var(--team-blue);box-shadow:0 8px 24px rgba(17,52,86,.12)}
 .verdict-stat{display:none}
@@ -154,16 +171,105 @@ document.addEventListener('DOMContentLoaded', () => {
 @media(max-width:700px){.team-page .recommended-lineup{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:430px){.team-page .recommended-lineup{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
-{% macro team_starter_projection(player) %}
-  {% if player.weekly_score is not none %}<p>{{ '%.2f'|format(player.weekly_score) }} projected</p>{% endif %}
+<style>
+.team-page .decision-chip{display:inline-block;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:900;letter-spacing:.06em;background:var(--team-green-bg);color:var(--team-green);vertical-align:middle}
+.team-page .chip-flex{background:var(--team-blue-bg);color:var(--team-blue)}
+.team-page .chip-monitor{background:var(--team-amber-bg);color:var(--team-amber)}
+.team-page .recommended-slot.slot-change,.team-page .recommended-slot.slot-replacement_required,.team-page .recommended-slot.slot-availability_watch,.team-page .recommended-slot.slot-selection_unresolved{border-color:#f3d39b;background:#fffaf1}
+.team-page .recommended-slot.slot-vacant{border-color:#f0b7b0;background:var(--team-red-bg)}
+.team-page .recommended-slot .slot-status{font-weight:800;color:var(--team-ink)}
+.team-page .lineup-notice{margin:0 0 10px;padding:9px 11px;border-left:3px solid var(--team-amber);background:var(--team-amber-bg);color:#6b4716;font-size:13px;overflow-wrap:anywhere}
+.team-page .decision-comparison{margin:0 0 10px;padding:10px 12px;border:1px solid var(--team-line);border-radius:8px;background:#fff;min-width:0}
+.team-page .decision-comparison>summary{cursor:pointer;font-weight:800;color:var(--team-ink);overflow-wrap:anywhere}
+.team-page .decision-comparison p{margin:7px 0;color:#41516a;font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+.team-page .comparison-table th,.team-page .comparison-table td{padding:6px 7px;border-bottom:1px solid var(--team-line);text-align:left;vertical-align:top;font-size:13px}
+.team-page .comparison-table th[scope=row]{color:var(--team-muted);font-weight:700}
+.team-page .evidence-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.team-page .evidence-columns ul,.team-page .trigger-list{margin:4px 0 8px;padding-left:18px;overflow-wrap:anywhere}
+.team-page .trigger-list li{margin:4px 0;font-size:13px}
+.team-page .lock-chip{display:inline-block;border-radius:999px;padding:2px 7px;font-size:11px;font-weight:900;letter-spacing:.04em;background:#eef1f5;color:#344054}
+.team-page .lock-chip.lock-open{background:var(--team-green-bg);color:var(--team-green)}
+.team-page .lock-chip.lock-lock-unverified{background:var(--team-amber-bg);color:var(--team-amber)}
+.team-page .recommended-slot.slot-lock_unverified{border-color:#f3d39b}
+.team-page .lock-chip.lock-locked{background:#e8ecf3;color:#1f2a44}
+.team-page .lock-chip.lock-bye{background:#f1ecf9;color:#5b3f8c}
+.team-page .slot-lock-impact{margin:2px 0 6px;color:var(--team-muted);font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.team-page .team-hero .action-deadline{color:#fff;font-weight:700}
+.team-page .lock-summary{margin:0 0 12px;padding:10px 12px;border:1px solid var(--team-line);border-left:4px solid var(--team-green);border-radius:8px;background:var(--team-card);font-size:13px;line-height:1.45;overflow-wrap:anywhere;min-width:0}
+.team-page .lock-summary p{margin:4px 0;color:#41516a}
+.team-page .lock-summary .lock-summary-head{color:var(--team-ink);font-size:14px}
+.team-page .lock-summary.week-in-progress,.team-page .lock-summary.week-mostly-locked{border-left-color:var(--team-blue)}
+.team-page .lock-summary.week-complete{border-left-color:var(--team-muted)}
+.team-page .lock-summary.week-lock-coverage-incomplete{border-left-color:var(--team-amber);background:#fffaf1}
+.team-page .lock-summary details{margin-top:6px}
+.team-page .lock-summary summary{cursor:pointer;font-weight:700;color:var(--team-ink)}
+.team-page .lock-summary ul{margin:4px 0;padding-left:18px}
+.team-page .lock-summary li{margin:3px 0}
+.team-page .recommended-slot .slot-projection strong{color:var(--team-ink)}
+.team-page .projection-note{margin:4px 0 8px;color:var(--team-muted);font-size:13px;line-height:1.45}
+.team-page .projection-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:8px 0 12px}
+.team-page .projection-card{min-width:0;padding:12px;border:1px solid var(--team-line);border-top:3px solid var(--team-amber);border-radius:8px;background:#fff;overflow-wrap:anywhere}
+.team-page .projection-card.state-close-call,.team-page .projection-card.state-supported-comparison{border-top-color:var(--team-blue)}
+.team-page .projection-card p{margin:6px 0;color:#41516a;font-size:13px;line-height:1.45}
+.team-page .projection-card .projection-card-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:var(--team-ink);font-size:15px}
+@media(max-width:700px){.team-page .projection-cards{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.team-page .comparison-table th,.team-page .comparison-table td{padding:5px;font-size:12px}.team-page .evidence-columns{grid-template-columns:1fr}}
+</style>
+{% macro value_text(view) -%}
+{% if view and view.value.state == 'AVAILABLE' %}{{ '%.2f'|format(view.value.value) }}{% else %}Unavailable{% endif %}
+{%- endmacro %}
+{% macro provider_text(view) -%}
+{% if view and view.provider_projection.projected_ppg is not none %}{{ '%.2f'|format(view.provider_projection.projected_ppg) }} per game{% else %}Unavailable{% endif %}
+{%- endmacro %}
+{% macro rank_text(view) -%}
+{% if view and view.consensus_rank and view.consensus_rank.state == 'AVAILABLE' %}{{ view.consensus_rank.label }}{% elif view and view.consensus_rank and view.consensus_rank.reason %}Unranked ({{ view.consensus_rank.reason }}){% else %}Unavailable{% endif %}
+{%- endmacro %}
+{% macro projection_value(projection) -%}
+{% if projection and projection.value is not none %}{{ '%.2f'|format(projection.value) }} pts{% elif projection and projection.value_range %}{{ '%.2f'|format(projection.value_range.low) }}–{{ '%.2f'|format(projection.value_range.high) }} pts (partial scoring){% else %}Unavailable{% endif %}
+{%- endmacro %}
+{% macro lock_text(view) -%}
+{% set status = (view.lock_status if view else none) or {} %}{% set lock = (view.lock if view else none) or {} %}
+{% if status.state %}{{ status.label }} &middot; {{ status.kickoff_text }}{% elif not lock %}Unverified{% elif lock.no_game %}No game this week{% elif lock.state == 'NOT_APPLICABLE' %}Not applicable (Season Sandbox){% elif lock.kickoff_display %}{{ lock.kickoff_display }} &middot; {{ 'Locked' if lock.state == 'LOCKED' else 'Open' if lock.state == 'OPEN' else 'Lock unverified' }}{% else %}Lock unverified{% endif %}
+{%- endmacro %}
+{% macro comparison_label(state) -%}
+{{ {'SUPPORTED_COMPARISON': 'Supported comparison', 'CLOSE_CALL': 'Close call', 'INSUFFICIENT_EVIDENCE': 'Insufficient evidence', 'BLOCKED': 'Blocked'}.get(state, 'Unavailable') }}
+{%- endmacro %}
+{% macro projection_card(item) %}{% set c = item.comparison %}{% set cur = c.current %}{% set alt = c.alternative %}
+<article class="projection-card state-{{ c.state|lower|replace('_', '-') }}">
+  <p class="projection-card-head"><strong>{{ item.slot }}</strong> <span class="decision-chip {{ 'chip-flex' if c.state in ('CLOSE_CALL', 'SUPPORTED_COMPARISON') else 'chip-monitor' }}">{{ comparison_label(c.state) }}</span></p>
+  <p class="projection-edge"><strong>Edge:</strong> {% if c.projection_delta is not none and c.preferred_player %}{{ '%+.2f'|format(c.projection_delta) }} league pts ({{ alt.player }} vs {{ cur.player }}) &middot; favors {{ c.preferred_player }}{% elif c.projection_delta is not none %}Tied{% elif c.preferred_player and c.delta_range %}{{ '%+.2f'|format(c.delta_range.low) }} to {{ '%+.2f'|format(c.delta_range.high) }} league pts &middot; favors {{ c.preferred_player }}{% else %}Unavailable / Insufficient Evidence{% endif %}</p>
+  <div class="table-wrap"><table class="comparison-table">
+    <thead><tr><th scope="col">Evidence</th><th scope="col">Starter: {{ cur.player if cur else 'None' }}</th><th scope="col">Best alternative: {{ alt.player if alt else 'None' }}</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Projected points (league scoring)</th><td>{{ cur.projection_text if cur else 'Unavailable' }}</td><td>{{ alt.projection_text if alt else 'Unavailable' }}</td></tr>
+      <tr><th scope="row">Health (Sleeper)</th><td>{{ (cur.health if cur else None) or 'Unavailable' }}</td><td>{{ (alt.health if alt else None) or 'Unavailable' }}</td></tr>
+      <tr><th scope="row">Kickoff</th><td>{{ (cur.kickoff if cur else None) or 'Unverified' }}</td><td>{{ (alt.kickoff if alt else None) or 'Unverified' }}</td></tr>
+      <tr><th scope="row">Lock state</th><td>{{ (cur.lock_label if cur else None) or 'Unverified' }}</td><td>{{ (alt.lock_label if alt else None) or 'Unverified' }}</td></tr>
+      <tr><th scope="row">Recent opportunity</th><td>{{ (cur.workload if cur else None) or 'Unavailable' }}</td><td>{{ (alt.workload if alt else None) or 'Unavailable' }}</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>Why:</strong></p><ul class="trigger-list">{% for line in c.brief.why %}<li>{{ line }}</li>{% else %}<li>Unavailable / Insufficient Evidence</li>{% endfor %}</ul>
+  <p><strong>What could change:</strong></p><ul class="trigger-list">{% for line in c.brief.what_could_change %}<li>{{ line }}</li>{% else %}<li>No decision-relevant trigger identified.</li>{% endfor %}</ul>
+  <p class="confidence-pair"><strong>Projection confidence:</strong> {{ (item.projection_confidence or {}).get('state', 'UNAVAILABLE')|replace('_', ' ') }} &middot; <strong>Decision confidence:</strong> {{ item.decision_confidence.state|replace('_', ' ') }}</p>
+  {% if c.agreement and c.agreement.label %}<p><strong>Evidence agreement ({{ c.agreement.state|replace('_', ' ') }}):</strong> {{ c.agreement.label }}</p>{% endif %}
+</article>
 {% endmacro %}
-{% macro team_decision_projection(change, recommended_projection, alternative_projection, alternative_player) %}
-  {% if recommended_projection.get('projected_ppg') is not none and alternative_projection.get('projected_ppg') is not none %}
-    <h4>Projection (informational only)</h4><p>{{ '%.2f'|format(recommended_projection.projected_ppg) }} vs {{ '%.2f'|format(alternative_projection.projected_ppg) }} points/game &middot; {{ recommended_projection.evidence_level|default('PRELIMINARY', true) }}</p>
-    <details class="decision-context"><summary>Projection source details</summary>{% for projection in [recommended_projection, alternative_projection] %}<p>{{ projection.metric_name|default('Provider projection') }} &middot; {{ projection.scoring_format|default('UNAVAILABLE')|upper }} &middot; {{ projection.season|default('UNAVAILABLE') }} Week {{ projection.week|default('UNAVAILABLE') }} &middot; generated {{ projection.source_record_time|default('UNAVAILABLE') }} &middot; freshness {{ projection.freshness_state|default('UNAVAILABLE') }} &middot; {{ projection.recommendation_impact|default('INFORMATIONAL_ONLY') }}{% if projection.attribution %} &middot; {{ projection.attribution }}{% endif %}</p>{% endfor %}</details>
-  {% elif change.recommended_player.weekly_score is defined and change.recommended_player.weekly_score is not none and alternative_player.item and alternative_player.item.weekly_score is not none %}
-    <h4>Weekly value</h4><p>{{ '%.2f'|format(change.recommended_player.weekly_score) }} vs {{ '%.2f'|format(alternative_player.item.weekly_score) }} weekly value</p>
-  {% endif %}
+{% macro comparison_table(rec, alt, show_rank=false, rank_note='same-position ordering, not points') %}
+<div class="table-wrap"><table class="comparison-table">
+  <thead><tr><th scope="col">Evidence</th><th scope="col">{{ rec.player }}</th><th scope="col">{{ alt.player }}</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Weekly value (supported)</th><td>{{ value_text(rec) }}</td><td>{{ value_text(alt) }}</td></tr>
+    <tr><th scope="row">League-scored projection (preliminary)</th><td>{{ projection_value(rec.projection) }}</td><td>{{ projection_value(alt.projection) }}</td></tr>
+    {% if show_rank %}<tr><th scope="row">This week's consensus rank ({{ rank_note }})</th><td>{{ rank_text(rec) }}</td><td>{{ rank_text(alt) }}</td></tr>{% endif %}
+    <tr><th scope="row">Provider projection (informational only)</th><td>{{ provider_text(rec) }}</td><td>{{ provider_text(alt) }}</td></tr>
+    <tr><th scope="row">Health</th><td>{{ rec.health.label }}</td><td>{{ alt.health.label }}</td></tr>
+    <tr><th scope="row">Opponent</th><td>{{ rec.opponent or 'Unavailable' }}</td><td>{{ alt.opponent or 'Unavailable' }}</td></tr>
+    <tr><th scope="row">Kickoff / lock</th><td>{{ lock_text(rec) }}</td><td>{{ lock_text(alt) }}</td></tr>
+    <tr><th scope="row">Matchup</th><td>{{ rec.matchup.label }}</td><td>{{ alt.matchup.label }}</td></tr>
+    <tr><th scope="row">Opportunity / workload</th><td>{{ rec.opportunity.label }}{% if rec.opportunity.workload %}; {{ rec.opportunity.workload.text }}{% endif %}</td><td>{{ alt.opportunity.label }}{% if alt.opportunity.workload %}; {{ alt.opportunity.workload.text }}{% endif %}</td></tr>
+    <tr><th scope="row">Projection confidence</th><td>{{ rec.projection_confidence.state }}</td><td>{{ alt.projection_confidence.state }}</td></tr>
+  </tbody>
+</table></div>
 {% endmacro %}
 {% set supported_needs = namespace(items=[]) %}
 {% for position, item in team_needs|default({}, true)|items %}{% if item.state == 'AVAILABLE' %}{% set supported_needs.items = supported_needs.items + [(position, item)] %}{% endif %}{% endfor %}
@@ -177,49 +283,70 @@ document.addEventListener('DOMContentLoaded', () => {
     <header class="team-hero" id="lineup">
       <div><h1 id="team-title">MY TEAM</h1><p>{{ meta.team_name|default('', true) }} &middot; Week {{ meta.week if meta.week is defined and meta.week else 'Unavailable' }} &middot; {{ league_settings.scoring_format|default('Scoring format unavailable', true) }}</p>
         <p>Next Best Team Action</p>
-        <h2>{{ verdict.action|default(team_priority_action.action|default('Review lineup evidence before lock.', true), true) }}</h2>
-        {% if verdict.why %}<p>{{ verdict.why }}</p>{% elif team_priority_action.reason %}<p>{{ team_priority_action.reason }}</p>{% endif %}
-        {% if team_priority_action.action and team_priority_action.action != verdict.action %}<p><strong>Team priority:</strong> {{ team_priority_action.action }}</p>{% endif %}
-        {% if team_priority_action.reason and verdict.why and team_priority_action.reason != verdict.why %}<p>{{ team_priority_action.reason }}</p>{% endif %}
+        <h2>{{ ld_summary.action|default(team_priority_action.action|default('Review lineup evidence before lock.', true), true) }}</h2>
+        {% if ld_summary.action_deadline and ld_summary.action_deadline.display %}<p class="action-deadline">Decide before the {{ ld_summary.action_deadline.display }} kickoff</p>{% endif %}
+        {% if ld_summary.why %}<p>{{ ld_summary.why }}</p>{% elif team_priority_action.reason %}<p>{{ team_priority_action.reason }}</p>{% endif %}
+        {% if team_priority_action.action and team_priority_action.action != ld_summary.action %}<p><strong>Team priority:</strong> {{ team_priority_action.action }}</p>{% endif %}
+        {% if team_priority_action.reason and ld_summary.why and team_priority_action.reason != ld_summary.why %}<p>{{ team_priority_action.reason }}</p>{% endif %}
         {% if team_priority_action.metadata is defined and team_priority_action.metadata.expected_impact %}<p><strong>Expected fantasy impact:</strong> {{ team_priority_action.metadata.expected_impact }}</p>{% endif %}
-        {% if lineup_reconciliation.changes %}<ul class="hero-decisions">{% for change in lineup_reconciliation.changes %}<li><strong>{{ change.authority|default('REVIEW', true) }} {{ change.recommended }}</strong> &middot; {{ change.slot }} &middot; SIT {{ change.current }}</li>{% endfor %}</ul>{% endif %}
+        {% if ld_changes or ld_moves %}<ul class="hero-decisions">{% for change in ld_changes %}<li>{% if change.start %}<strong>{{ change.verb }} {{ change.start.player }}</strong> &middot; {{ change.slot }}{% if change.sit %} &middot; SIT {{ change.sit.player }}{% endif %}{% else %}<strong>SIT {{ change.sit.player }}</strong> &middot; {{ change.slot }} &middot; replacement not ranked{% endif %}</li>{% endfor %}{% for move in ld_moves %}<li><strong>Move {{ move.player }}</strong> &middot; {{ move.from }} to {{ move.to }}</li>{% endfor %}</ul>{% endif %}
       </div>
       <dl class="hero-facts">
-        <div><dt>Team readiness</dt><dd>{{ verdict.status|default('UNAVAILABLE', true) }}</dd></div>
-        <div><dt>Lineup status</dt><dd>{% if verdict.recommendation_available is defined and verdict.recommendation_available %}Recommended lineup available{% else %}UNAVAILABLE &middot; Review lineup evidence{% endif %}</dd></div>
-        <div><dt>Confidence state</dt><dd>{% if verdict.confidence_percent is defined and verdict.confidence_percent is not none %}{{ verdict.confidence_percent }}% evidence confidence{% elif team_trust.confidence is defined and team_trust.confidence.label %}{{ team_trust.confidence.label }}{% if team_trust.confidence.score is defined and team_trust.confidence.score is not none %} &middot; {{ team_trust.confidence.score }}%{% endif %}{% else %}UNAVAILABLE{% endif %}</dd></div>
-        <div><dt>Biggest risk</dt><dd>{{ verdict.biggest_risk|default('Risk evidence unavailable; check player availability before lock.', true) }}</dd></div>
+        <div><dt>Team readiness</dt><dd>{{ ld_summary.status|default('UNAVAILABLE', true) }}</dd></div>
+        {% if ld_locks.week_state %}<div><dt>Lineup locks</dt><dd>{{ ld_locks.week_state_label }}{% if ld_locks.week_state != 'NOT_APPLICABLE' and ld_locks.count_text %} &middot; {{ ld_locks.count_text }}{% endif %}</dd></div>{% endif %}
+        <div><dt>Lineup status</dt><dd>{% if ld_slots and lineup_decision.state != 'BLOCKED' %}Recommended lineup available{% else %}UNAVAILABLE &middot; Review lineup evidence{% endif %}</dd></div>
+        <div><dt>Decision confidence</dt><dd>{{ ld_confidence.state|default('UNAVAILABLE', true)|replace('_', ' ') }}{% if ld_confidence.reason %} &middot; {{ ld_confidence.reason }}{% endif %}</dd></div>
+        <div><dt>Biggest risk</dt><dd>{{ ld_summary.biggest_risk|default('Risk evidence unavailable; check player availability before lock.', true) }}</dd></div>
         <div><dt>Last refresh</dt><dd>{% if team_health.last_verified %}Health verified {{ team_health.last_verified }} &middot; {{ team_health.freshness_state|default('UNAVAILABLE', true) }}{% else %}UNAVAILABLE &middot; No verified refresh supplied{% endif %}</dd></div>
       </dl>
     </header>
   </section>
   <section class="primary-section" id="your-lineup" aria-labelledby="your-lineup-title">
     <h2 id="your-lineup-title">🎯 YOUR LINEUP &middot; WEEK {{ meta.week if meta.week is defined and meta.week else 'UNAVAILABLE' }}</h2>
-    <p class="lineup-count">{{ lineup_reconciliation.changes|length }} {{ 'decision needs' if lineup_reconciliation.changes|length == 1 else 'decisions need' }} attention</p>
+    <p class="lineup-count">{{ ld_attention|length }} {{ 'decision needs' if ld_attention|length == 1 else 'decisions need' }} attention{% if ld_unresolved %} &middot; {{ ld_unresolved|length }} {{ 'comparison' if ld_unresolved|length == 1 else 'comparisons' }} unresolved{% endif %}</p>
+    {% if ld_locks.week_state and ld_locks.week_state != 'NOT_APPLICABLE' %}{% set evidence = ld_locks.schedule_evidence|default({}, true) %}{% set authority = ld_locks.schedule_authority|default({}, true) %}
+    <div class="lock-summary week-{{ ld_locks.week_state|lower|replace('_', '-') }}" id="lineup-lock-summary">
+      <p class="lock-summary-head"><strong>{{ ld_locks.week_state_label|upper }}</strong>{% if ld_locks.count_text %} &middot; {{ ld_locks.count_text }}{% endif %}</p>
+      {% if ld_locks.message and ld_locks.message != ld_summary.why %}<p>{{ ld_locks.message }}</p>{% endif %}
+      {% if ld_locks.remaining_open_players and ld_locks.week_state != 'PRE_KICKOFF' %}<p><strong>Still open:</strong> {% for entry in ld_locks.remaining_open_players %}{{ entry.player }} ({{ entry.slot or 'bench' }}{% if entry.kickoff_display %}, kickoff {{ entry.kickoff_display }}{% endif %}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+      <p>{{ ld_locks.recommendation_impact }}</p>
+      <details><summary>Lock details and schedule evidence</summary>
+        {% if ld_locks.unverified_players %}<p><strong>Lock not verified ({{ ld_locks.unverified_players|length }}):</strong></p><ul>{% for entry in ld_locks.unverified_players %}<li><strong>{{ entry.player }}</strong> ({{ entry.slot or 'bench' }}) &middot; {{ entry.kickoff_text }} &middot; {{ entry.reason }} {{ entry.impact }}</li>{% endfor %}</ul>{% endif %}
+        {% if ld_locks.locked_players %}<p><strong>Locked:</strong> {{ ld_locks.locked_players|map(attribute='player')|join(', ') }}</p>{% endif %}
+        {% if ld_locks.bye_players %}<p><strong>On bye:</strong> {{ ld_locks.bye_players|map(attribute='player')|join(', ') }}</p>{% endif %}
+        <p><strong>Schedule evidence:</strong> {% if evidence.state == 'AVAILABLE' %}{{ evidence.label }}{% if evidence.recorded_display %} &middot; recorded {{ evidence.recorded_display }}{% if evidence.age_label %} ({{ evidence.age_label }} old){% endif %}{% endif %}{% if evidence.retrieved_display %} &middot; retrieved {{ evidence.retrieved_display }}{% endif %} &middot; freshness {{ evidence.freshness_states|join(', ') }}{% else %}Unavailable{% endif %}</p>
+        <p><strong>Schedule freshness threshold:</strong> {{ authority.threshold_state|default('UNVERIFIED', true) }} ({{ authority.setting|default('SCHEDULE_EVIDENCE_MAX_AGE_SECONDS', true) }}){% if authority.label %} &middot; {{ authority.label }}{% endif %}</p>
+        {% if ld_locks.display_context and ld_locks.display_context.limitation %}<p>{{ ld_locks.display_context.limitation }}</p>{% endif %}
+        <p>{{ ld_locks.lock_rule }} Lock state never depends on consensus ranks, provider projections, or opportunity evidence.</p>
+      </details>
+    </div>{% endif %}
+    {% for notice in lineup_decision.notices|default([], true) %}<p class="lineup-notice">{{ notice.label }}</p>{% endfor %}
     <div class="recommended-lineup">
-      {% for player in lineup_intelligence.starters|default([], true) %}
-        {% set decision = decisions_by_slot.get(player.slot) if decisions_by_slot is defined else none %}
-        {% set changed = namespace(item=none) %}
-        {% for change in lineup_reconciliation.changes|default([], true) %}{% if change.slot == player.slot %}{% set changed.item = change %}{% endif %}{% endfor %}
-        {% set decision_label = decision.decision|default(player.decision|default('MONITOR')) if decision else player.decision|default('MONITOR') %}
-        {% set watched = decision.watch_item|default(none) if decision else none %}
-        {% set confidence = player.confidence|default({}) %}
-        {% set confidence_label = confidence.get('label', '')|upper %}
-        <article class="recommended-slot">
-          <span class="slot-label">{{ player.slot }}</span>
-          <h3>{{ '🟡' if changed.item or decision_label == 'MONITOR' or watched or player.evidence_gaps|default([]) or confidence_label not in ('', 'HIGH') else '🟢' }} {{ decision_label }} {{ player.player }}</h3>
-          {% if player.opponent %}<p>vs {{ player.opponent }}</p>{% endif %}
-          {{ team_starter_projection(player) }}
-          {% if changed.item %}
-            <p>{{ changed.item.current }} is the current alternative</p>
-            {% if decision and decision.alternative == changed.item.current and decision.weekly_score_delta is not none and decision.weekly_score_delta > 0 %}<p>+{{ '%.2f'|format(decision.weekly_score_delta) }} vs {{ changed.item.current }}</p>{% endif %}
-          {% endif %}
+      {% for slot in ld_slots %}
+        {% set player = slot.recommended %}
+        {% set edge = slot.edge.value %}
+        <article class="recommended-slot slot-{{ slot.status|lower }}">
+          <span class="slot-label">{{ slot.slot }}</span>
+          <h3><span class="decision-chip chip-{{ slot.decision|lower }}">{{ slot.decision }}</span> {% if player %}{{ player.player }}{% elif slot.status == 'BLOCKED' %}Player identity unresolved{% elif slot.candidates %}Choose a starter{% else %}No eligible player{% endif %}</h3>
+          {% if player %}<p>{{ player.position }}{% if player.opponent %} &middot; vs {{ player.opponent }}{% endif %} &middot; {{ player.health.label }}</p>
+          <p>{% if player.value.state == 'AVAILABLE' %}{{ '%.2f'|format(player.value.value) }} weekly value{% else %}Weekly value unavailable{% endif %}{% if show_rank and player.consensus_rank.state == 'AVAILABLE' %} &middot; consensus {{ player.consensus_rank.label }}{% if not rank_has_authority %} (context only){% endif %}{% endif %}{% if player.provider_projection.projected_ppg is not none %} &middot; {{ '%.2f'|format(player.provider_projection.projected_ppg) }} provider projection (info){% endif %}</p>
+          {% set lock = player.lock or {} %}{% set lock_status = player.lock_status or {} %}{% set lock_state = lock_status.state or lock.state or 'LOCK_UNVERIFIED' %}<p class="slot-lock"><span class="lock-chip lock-{{ lock_state|lower|replace('_', '-') }}">{{ lock_status.label or {'OPEN': 'Open', 'LOCKED': 'Locked', 'LOCK_UNVERIFIED': 'Lock unverified', 'BYE': 'Bye', 'NOT_APPLICABLE': 'Lock n/a'}.get(lock_state, 'Lock unverified') }}</span> {% if lock_status.kickoff_text %}{{ lock_status.kickoff_text }}{% elif lock.no_game %}No game this week{% elif lock.kickoff_display and lock.state in ('OPEN', 'LOCKED') %}Kickoff {{ lock.kickoff_display }}{% else %}Kickoff unverified{% endif %}</p>
+          {% if lock_status.impact %}<p class="slot-lock-impact">{% if lock_state == 'LOCK_UNVERIFIED' and lock_status.reason %}{{ lock_status.reason }} {% endif %}{{ lock_status.impact }}</p>{% endif %}
+          <p class="slot-projection">League-scored projection: <strong>{{ projection_value(player.projection) }}</strong>{% if player.projection and player.projection.evidence_state not in (None, 'UNAVAILABLE') %} &middot; {{ player.projection.evidence_state }}{% endif %}</p>{% endif %}
+          <p class="slot-status">{{ slot.status_label }}{% if slot.status == 'CHANGE' and slot.outgoing %} &middot; replaces {{ slot.outgoing.player }}{% elif slot.status == 'REPLACEMENT_REQUIRED' and slot.current %} &middot; {{ slot.current.player }} {{ slot.current.health.label|lower if slot.current.availability_reason == 'HEALTH' else 'unavailable' }}{% endif %}{% if slot.moved_from %} &middot; moves from {{ slot.moved_from }}{% endif %}</p>
+          {% set rank_edge = slot.edge.consensus_rank|default({}, true) %}
+          {% if slot.best_alternative and edge.state == 'AVAILABLE' %}<p>Best alternative: {{ slot.best_alternative.player }} &middot; edge {{ '%+.2f'|format(edge.delta) }}</p>{% elif rank_edge.state == 'AVAILABLE' and slot.counterpart %}<p>Consensus vs {{ slot.counterpart.player }}: {{ slot.recommended.consensus_rank.label }} vs {{ slot.counterpart.consensus_rank.label }}</p>{% if slot.rank_uncompared %}<p>Not compared: {% for item in slot.rank_uncompared %}{{ item.player }} ({{ item.reason }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}{% elif slot.rank_uncompared %}<p>Not compared: {% for item in slot.rank_uncompared %}{{ item.player }} ({{ item.reason }}){{ ', ' if not loop.last }}{% endfor %}</p>{% elif slot.status in ('UNRESOLVED', 'SELECTION_UNRESOLVED', 'REPLACEMENT_REQUIRED') and slot.alternatives %}<p>Not ranked: {{ slot.alternatives|map(attribute='player')|join(', ') }}</p>{% endif %}
+          {% if slot.evidence_agreement and slot.evidence_agreement.state == 'DISAGREES' %}<p class="lineup-notice">Evidence conflict &middot; details below</p>{% endif %}
+          <p>Decision confidence: {{ slot.decision_confidence.state|replace('_', ' ') }}</p>
         </article>
-      {% else %}<p>Recommended starting lineup unavailable.</p>{% endfor %}
+      {% else %}<p>Recommended starting lineup unavailable{% if lineup_decision.summary %}: {{ ld_summary.why }}{% endif %}</p>{% endfor %}
     </div>
   </section>
   <section class="primary-section" id="health-availability" aria-labelledby="health-availability-title">
     <h2 id="health-availability-title">🚨 HEALTH &amp; AVAILABILITY</h2>
+    <p class="health-source">Health evidence: {{ team_health.source|default('UNAVAILABLE', true) }} &middot; {{ team_health.freshness_state|default('UNAVAILABLE', true) }}{% if team_health.last_verified %} &middot; last verified {{ team_health.last_verified }}{% endif %}. Unknown status is never treated as healthy.</p>
+    {% set lineup_roles = {} %}
+    {% for slot in ld_slots %}{% if slot.current and slot.current.availability == 'UNAVAILABLE' %}{% set _ = lineup_roles.update({slot.current.player: 'Current ' ~ slot.slot ~ ' starter: excluded, ' ~ slot.status_label|lower}) %}{% endif %}{% if slot.recommended %}{% set _ = lineup_roles.update({slot.recommended.player: 'Recommended ' ~ slot.slot ~ ' starter (' ~ slot.decision ~ ')'}) %}{% endif %}{% endfor %}
     {% set health_rows = namespace(items=[]) %}
     {% for player in roster|default([], true) %}
       {% set status = player.injury_status|string|trim|upper %}
@@ -230,39 +357,63 @@ document.addEventListener('DOMContentLoaded', () => {
       {% elif status == 'NOT APPLICABLE' %}{% set health_rows.items = health_rows.items + [(6, 'NOT APPLICABLE', '⚪', 'Not applicable', player.player)] %}
       {% else %}{% set health_rows.items = health_rows.items + [(5, 'UNKNOWN', '⚪', 'Availability information unavailable', player.player)] %}{% endif %}
     {% endfor %}
-    {% if health_rows.items %}<div class="health-list">{% for rank, label, icon, impact, player_name in health_rows.items|sort(attribute=0) %}<article class="health-row">{{ icon }} <strong>{{ player_name }} — {{ label }}</strong><br>{{ impact }}</article>{% endfor %}</div>{% else %}<p>No roster health statuses are available.</p>{% endif %}
+    {% if health_rows.items %}<div class="health-list">{% for rank, label, icon, impact, player_name in health_rows.items|sort(attribute=0) %}<article class="health-row">{{ icon }} <strong>{{ player_name }} — {{ label }}</strong><br>{{ impact }}{% if lineup_roles.get(player_name) %} &middot; {{ lineup_roles.get(player_name) }}{% elif ld_slots %} &middot; Bench{% endif %}</article>{% endfor %}</div>{% else %}<p>No roster health statuses are available.</p>{% endif %}
   </section>
   <section class="primary-section" id="biggest-decisions" aria-labelledby="biggest-decisions-title">
     <h2 id="biggest-decisions-title">⚖️ BIGGEST DECISIONS</h2>
-    {% if lineup_reconciliation.changes %}<div class="decision-list">{% for change in lineup_reconciliation.changes %}<article class="primary-decision decision-item"><strong>{{ change.slot }}</strong><p>{{ change.recommended }} vs {{ change.current }}</p></article>{% endfor %}</div>{% else %}<p>No supported changed-slot decisions.</p>{% endif %}
+    {% if lineup_reconciliation.state == 'AVAILABLE' and not ld_changes and not ld_moves and ld_slots %}<p>No lineup changes recommended.</p>{% endif %}
+    {% if ld_attention %}<div class="decision-list">{% for slot in ld_attention %}{% set rec = slot.recommended %}{% set other = slot.outgoing or slot.counterpart or slot.current %}
+      <article class="primary-decision decision-item"><strong>{{ slot.slot }} &middot; {{ slot.status_label }}</strong>
+        <p><span class="decision-chip chip-{{ slot.decision|lower }}">{{ slot.decision }}</span> {% if rec %}{{ rec.player }}{% else %}Choose a starter{% endif %}{% if other %} vs {{ other.player }}{% endif %}</p>
+        <p>{% if slot.edge.value.state == 'AVAILABLE' %}Edge vs best alternative: {{ '%+.2f'|format(slot.edge.value.delta) }} weekly value{% if slot.current_gain and slot.current_gain.state == 'AVAILABLE' and slot.outgoing is not sameas slot.counterpart %} &middot; {{ '%+.2f'|format(slot.current_gain.delta) }} vs {{ slot.outgoing.player }}{% endif %}{% elif slot.edge.consensus_rank and slot.edge.consensus_rank.state == 'AVAILABLE' %}This week's consensus: {{ rec.consensus_rank.label }} vs {{ slot.counterpart.player }} {{ slot.counterpart.consensus_rank.label }} (expert ordering, not points){% else %}Edge unavailable: {{ slot.edge.value.reason }}{% endif %}</p>
+        <p>Decision confidence: {{ slot.decision_confidence.state|replace('_', ' ') }}{% if slot.driver_labels %} &middot; {{ slot.driver_labels|join(', ') }}{% endif %}</p>
+      </article>{% endfor %}</div>
+    {% elif ld_slots %}<p>No decision currently requires action.</p>
+    {% else %}<p class="lineup-comparison-unavailable">Lineup decision unavailable{% if ld_summary.why %}: {{ ld_summary.why }}{% else %}.{% endif %}</p>{% endif %}
+    {% if ld_projection %}<h3 id="projection-comparisons-title">Projection comparisons (preliminary)</h3>
+    <p class="projection-note">Your starter vs the best eligible alternative, using provider stat lines rescored with your league's Sleeper scoring. Informational only: no validated action threshold exists, so a projected edge never changes your lineup by itself, and consensus rank never overrides it.</p>
+    <div class="projection-cards">{% for item in ld_projection[:2] %}{{ projection_card(item) }}{% endfor %}</div>
+    {% if ld_projection|length > 2 %}<details class="decision-context"><summary>All {{ ld_projection|length }} projection comparisons</summary><div class="projection-cards">{% for item in ld_projection[2:] %}{{ projection_card(item) }}{% endfor %}</div></details>{% endif %}{% endif %}
+    {% if ld_stable %}<h3>Closest supported calls</h3><ul class="trigger-list">{% for slot in ld_stable[:3] %}<li><strong>{{ slot.slot }}</strong> {{ slot.recommended.player }} over {{ slot.best_alternative.player }} &middot; {% if slot.edge.value.state == 'AVAILABLE' %}edge {{ '%+.2f'|format(slot.edge.value.delta) }}{% else %}consensus {{ slot.recommended.consensus_rank.label }} vs {{ slot.best_alternative.consensus_rank.label }}{% endif %} &middot; {{ slot.decision_confidence.state|replace('_', ' ') }}</li>{% endfor %}</ul>{% endif %}
+    {% if ld_unresolved %}<p>{{ ld_unresolved|length }} {{ 'slot has' if ld_unresolved|length == 1 else 'slots have' }} eligible alternatives that supported evidence cannot compare ({{ ld_unresolved|map(attribute='slot')|join(', ') }}); your current starter is kept. Comparisons are below.</p>{% endif %}
   </section>
   <section class="primary-section" id="why-these-decisions" aria-labelledby="why-these-decisions-title">
     <h2 id="why-these-decisions-title">📊 WHY THESE DECISIONS?</h2>
-    {% if lineup_reconciliation.changes %}<div class="decision-list">
-      {% for change in lineup_reconciliation.changes %}
-        {% set projections = change.provider_projection|default({}) %}{% set recommended_projection = projections.get('recommended', {}) %}{% set alternative_projection = projections.get('current', {}) %}
-        {% set current_health = namespace(value=none) %}{% for current in lineup_reconciliation.current|default([], true) %}{% if current.player_id == change.current_id %}{% set current_health.value = current.injury_status %}{% endif %}{% endfor %}
-        {% set alternative_player = namespace(item=none) %}{% for candidate in roster|default([], true) %}{% if candidate.source_player_id == change.current_id %}{% set alternative_player.item = candidate %}{% endif %}{% endfor %}
-        <article class="primary-decision">
-          <h3>{{ change.authority|default('REVIEW', true) }} {{ change.recommended }} over {{ change.current }}</h3>
-          <p>SIT {{ change.current }}</p>
-          {{ team_decision_projection(change, recommended_projection, alternative_projection, alternative_player) }}
-          {% if change.recommended_player.matchup_signal %}<h4>Matchup context (informational only)</h4><p>{{ change.recommended_player.matchup_signal }}</p>{% endif %}
-          <h4>Health</h4><p>{{ change.recommended_player.injury_status|default('Unknown', true) }} vs {{ current_health.value|default('Unknown', true) }}</p>
-          <h4>Confidence</h4><p>{{ change.confidence.label|default('UNAVAILABLE', true) if change.confidence else 'UNAVAILABLE' }}</p>
-          <h4>Risk</h4><p>{% if change.watch_item %}{{ {'HEALTH_EVIDENCE_STALE':'Health information needs a pre-kickoff check.','HEALTH_REFRESH_FAILED':'Health information needs a pre-kickoff check.','HEALTH_UNAVAILABLE':'Player availability information is unavailable.','HEALTH_BLOCKED':'Player availability information is blocked.','INJURY_STATUS_UNRESOLVED':'Player availability is unconfirmed.','MATCHUP_EVIDENCE_UNAVAILABLE':'Matchup evidence is unavailable.','MATCHUP_RANK_UNAVAILABLE':'Matchup evidence is unavailable.','MATCHUP_PLAYER_IDENTITY_UNAVAILABLE':'Matchup evidence could not be matched to this player.','MATCHUP_OPPONENT_IDENTITY_UNAVAILABLE':'Opponent matchup evidence is unavailable.','OPPONENT_DATA_MISSING':'Opponent evidence is unavailable.','WEEKLY_EVIDENCE_INCOMPLETE':'Some lineup evidence is incomplete.','TEAM_HEALTH_UNAVAILABLE':'Team health information is unavailable.','TEAM_HEALTH_STALE':'Team health information needs a pre-kickoff check.'}.get(change.watch_item, 'Additional lineup evidence needs review.') }}{% else %}No supported blocker or watch item.{% endif %}</p>
-          <h4>Verdict</h4><p>{{ change.reason|default('Supported lineup recommendation.', true) }}</p>
-          <details class="decision-context"><summary>Additional context</summary><p>UNAVAILABLE: Opportunity, usage, game environment, and floor / ceiling evidence.</p>{% if not change.recommended_player.matchup_signal %}<p>Matchup context: UNAVAILABLE.</p>{% endif %}{% if not recommended_projection and not alternative_projection %}<p>Provider projection: UNAVAILABLE.</p>{% endif %}</details>
-        </article>
-      {% endfor %}
-    </div>{% else %}<p>No supported changed-slot decisions to explain.</p>{% endif %}
+    {% for slot in ld_decisions %}
+      {% set rec = slot.recommended %}{% set alt = slot.counterpart %}
+      <details class="decision-comparison">
+        <summary>{{ slot.slot }} &middot; {{ slot.decision }} {% if rec %}{{ rec.player }}{% else %}(choose a starter){% endif %}{% if alt %} vs {{ alt.player }}{% endif %} &middot; {{ slot.status_label }}</summary>
+        <p><strong>Why this player:</strong> {{ slot.why }}</p>
+        {% if rec and alt %}{{ comparison_table(rec, alt, show_rank, rank_note) }}{% endif %}
+        <p><strong>Decision edge:</strong> {% if slot.edge.value.state == 'AVAILABLE' %}{{ '%+.2f'|format(slot.edge.value.delta) }} weekly value vs {{ alt.player }} (preliminary){% else %}Unavailable. {{ slot.edge.value.reason }}{% endif %}{% if slot.current_gain and slot.current_gain.state == 'AVAILABLE' and slot.outgoing is not sameas alt %}; {{ '%+.2f'|format(slot.current_gain.delta) }} vs current starter {{ slot.outgoing.player }}{% endif %}</p>
+        {% if show_rank and slot.edge.consensus_rank %}<p><strong>Consensus rank edge (same-position ordering, not points):</strong> {% if slot.edge.consensus_rank.state == 'AVAILABLE' %}{{ rec.consensus_rank.label }} vs {{ alt.player }} {{ alt.consensus_rank.label }} &middot; {{ '%g'|format(slot.edge.consensus_rank.delta) }} rank positions (PRELIMINARY){% else %}Unavailable. {{ slot.edge.consensus_rank.reason }}{% endif %}{% if slot.rank_gain and slot.rank_gain.state == 'AVAILABLE' and slot.outgoing is not sameas alt %}; {{ '%g'|format(slot.rank_gain.delta) }} rank positions vs current starter {{ slot.outgoing.player }}{% endif %}</p>{% endif %}
+        <p><strong>Provider projection difference (informational only):</strong> {% if slot.edge.provider_projection.state == 'AVAILABLE' %}{{ '%+.2f'|format(slot.edge.provider_projection.delta) }} per game{% else %}{{ slot.edge.provider_projection.reason }}{% endif %}</p>
+        {% if slot.evidence_agreement and slot.evidence_agreement.label %}<p><strong>Evidence agreement ({{ slot.evidence_agreement.state|replace('_', ' ') }}):</strong> {{ slot.evidence_agreement.label }}</p>{% endif %}
+        <p><strong>Decision drivers:</strong> {{ slot.driver_labels|join(', ') if slot.driver_labels else 'Unavailable' }}</p>
+        <p><strong>Decision confidence:</strong> {{ slot.decision_confidence.state }}. {{ slot.decision_confidence.reason }}</p>
+        {% if rec %}<p><strong>Projection confidence:</strong> {{ rec.player }} {{ rec.projection_confidence.state }}{% if alt %}; {{ alt.player }} {{ alt.projection_confidence.state }}{% endif %}. {{ rec.projection_confidence.reason }}</p>{% endif %}
+        {% if slot.advantages or slot.disadvantages %}<div class="evidence-columns"><div><strong>Evidence advantages</strong><ul>{% for item in slot.advantages %}<li>{{ item }}</li>{% else %}<li>None supported</li>{% endfor %}</ul></div><div><strong>Evidence disadvantages</strong><ul>{% for item in slot.disadvantages %}<li>{{ item }}</li>{% else %}<li>None supported</li>{% endfor %}</ul></div></div>{% endif %}
+        {% if slot.alternatives and not alt %}<div class="table-wrap"><table class="comparison-table"><thead><tr><th scope="col">Eligible alternative (not ranked)</th><th scope="col">Health</th><th scope="col">Provider projection (informational only)</th></tr></thead><tbody>{% for option in slot.alternatives %}<tr><td>{{ option.player }}</td><td>{{ option.health }}</td><td>{{ ('%.2f'|format(option.provider_ppg) ~ ' per game') if option.provider_ppg is not none else 'Unavailable' }}</td></tr>{% endfor %}</tbody></table></div>{% if rec %}<p>{{ rec.player }}: provider projection {{ provider_text(rec) }} (informational only).</p>{% endif %}{% endif %}
+        {% if slot.missing_evidence %}<p><strong>Missing evidence:</strong></p><ul class="trigger-list">{% for item in slot.missing_evidence %}<li>{{ item.label }}: {{ item.players|join(', ') }}{% if item.detail %} ({{ item.detail }}){% endif %}</li>{% endfor %}</ul>{% endif %}
+        <p><strong>What could change:</strong>{% if not slot.what_could_change %} No decision-relevant trigger identified.{% endif %}</p>
+        {% if slot.what_could_change %}<ul class="trigger-list">{% for trigger in slot.what_could_change %}<li>{{ trigger.label }} &mdash; {{ trigger.decision_impact }}</li>{% endfor %}</ul>{% endif %}
+        <details class="decision-context"><summary>Evidence sources</summary>
+          <ul class="trigger-list">{% for used in slot.evidence_used %}<li>{{ used.domain }} &middot; {{ used.source|default('Unavailable', true) }} &middot; {{ used.used_for }}{% if used.evidence_level %} &middot; {{ used.evidence_level }}{% endif %}{% if used.freshness_state %} &middot; {{ used.freshness_state }}{% endif %}</li>{% endfor %}</ul>
+          {% if slot.blockers %}<p>Blocker codes: {{ slot.blockers|join(', ') }}</p>{% endif %}
+          {% for view in [rec, alt] if view and view.provider_projection.evidence %}{% set projection = view.provider_projection %}<p>{{ view.player }}: {{ projection.metric_name|default('Provider projection', true) }} &middot; {{ projection.scoring_format|default('Unavailable', true)|upper }} &middot; {{ projection.season }} Week {{ projection.week }} &middot; generated {{ projection.source_record_time|default('Unavailable', true) }} &middot; freshness {{ projection.freshness_state }} &middot; {{ projection.evidence_level }} / {{ projection.recommendation_impact }}{% if projection.attribution %} &middot; {{ projection.attribution }}{% endif %}</p>{% endfor %}
+          {% if show_rank %}{% for view in [rec, alt] if view and view.consensus_rank %}{% set rank = view.consensus_rank %}<p>{{ view.player }}: weekly consensus {{ rank_text(view) }} &middot; {{ rank.source|default('Unavailable', true) }}{% if rank.source_date %} &middot; published {{ rank.source_date }}{% endif %}{% if rank.retrieved_at %} &middot; retrieved {{ rank.retrieved_at }}{% endif %}{% if rank.identity_method %} &middot; identity {{ rank.identity_method }}{% endif %} &middot; {{ rank.evidence_level }} / {{ rank.recommendation_impact }}</p>{% endfor %}{% endif %}
+        </details>
+      </details>
+    {% else %}
+      {% if ld_slots %}<p>No start/sit comparison exists: no starter has an eligible available alternative.</p>{% else %}<p>No supported lineup decisions to explain.</p>{% endif %}
+    {% endfor %}
   </section>
   <section class="primary-section" id="what-could-change" aria-labelledby="what-could-change-title">
     <h2 id="what-could-change-title">🌦️ WHAT COULD CHANGE?</h2>
-    {% set watch_labels = {'HEALTH_EVIDENCE_STALE':'Health information needs a pre-kickoff check.','HEALTH_REFRESH_FAILED':'Health information needs a pre-kickoff check.','HEALTH_UNAVAILABLE':'Player availability information is unavailable.','HEALTH_BLOCKED':'Player availability information is blocked.','INJURY_STATUS_UNRESOLVED':'Player availability is unconfirmed.','MATCHUP_EVIDENCE_UNAVAILABLE':'Matchup evidence is unavailable.','MATCHUP_RANK_UNAVAILABLE':'Matchup evidence is unavailable.','MATCHUP_PLAYER_IDENTITY_UNAVAILABLE':'Matchup evidence could not be matched to this player.','MATCHUP_OPPONENT_IDENTITY_UNAVAILABLE':'Opponent matchup evidence is unavailable.','OPPONENT_DATA_MISSING':'Opponent evidence is unavailable.','WEEKLY_EVIDENCE_INCOMPLETE':'Some lineup evidence is incomplete.','TEAM_HEALTH_UNAVAILABLE':'Player availability information is unavailable.','TEAM_HEALTH_STALE':'Health information needs a pre-kickoff check.'} %}
-    {% set supported_watches = lineup_reconciliation.changes|default([], true)|selectattr('watch_item')|list %}
-    {% if supported_watches %}<h3>Players to monitor</h3>{% for change in supported_watches %}<p><strong>{{ change.recommended }}</strong> — {{ watch_labels.get(change.watch_item, 'Additional lineup evidence needs review.') }}</p>{% endfor %}{% endif %}
-    {% if not supported_watches %}<p>No supported alert currently available.</p>{% endif %}
+    {% set watched = ld_attention|selectattr('what_could_change')|list %}
+    {% if watched %}<h3>Decisions to re-check before kickoff</h3>{% for slot in watched %}<p><strong>{{ slot.slot }} &middot; {{ slot.recommended.player if slot.recommended else 'Unfilled slot' }}</strong></p><ul class="trigger-list">{% for trigger in slot.what_could_change %}<li><strong>{{ trigger.label }}</strong> &mdash; {{ trigger.decision_impact }} <em>Evidence: {{ trigger.evidence }}.</em>{% if trigger.reevaluation_required %} Re-evaluation required.{% endif %}</li>{% endfor %}</ul>{% endfor %}{% endif %}
+    {% if lineup_decision.what_could_change %}<h3>Lineup-wide</h3><ul class="trigger-list">{% for trigger in lineup_decision.what_could_change %}<li><strong>{{ trigger.label }}</strong> &mdash; {{ trigger.decision_impact }} <em>Affects {{ trigger.slot }}.</em></li>{% endfor %}</ul>{% endif %}
+    {% if not watched and not lineup_decision.what_could_change %}<p>No decision-relevant trigger is currently identified.</p>{% endif %}
   </section>
   <section class="primary-section" id="team-needs" aria-labelledby="team-needs-title">
     <h2 id="team-needs-title">Team Needs</h2>
@@ -277,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <section class="primary-section" id="supporting-roster-details" aria-labelledby="supporting-roster-title">
     <h2 id="supporting-roster-title">SUPPORTING ROSTER DETAILS</h2>
     <section class="support-section" aria-labelledby="current-sleeper-lineup-title"><h3 id="current-sleeper-lineup-title">Current Sleeper Lineup</h3>{% if lineup_reconciliation.state == 'AVAILABLE' %}<div class="decision-grid">{% for player in lineup_reconciliation.current %}<article class="decision-card"><span class="slot-label">{{ player.slot }}</span><h4>{{ player.player }}</h4><p>{{ player.position }} · {{ player.injury_status }}</p></article>{% endfor %}</div>{% else %}<p>{{ lineup_comparison_unavailable }}</p>{% endif %}</section>
-    <section class="support-section" aria-labelledby="bench-title"><h3 id="bench-title">Bench Priority</h3><div class="bench-strip">{% for player in lineup_intelligence.bench|default([], true) %}<article class="bench-card"><span class="bench-rank">#{{ player.bench_order|default(loop.index) }}</span><h4>{{ player.player }}</h4><p>{{ player.position }} · {{ player.opponent|default('Opponent unavailable', true) }}</p></article>{% endfor %}</div></section>
+    <section class="support-section" aria-labelledby="bench-title"><h3 id="bench-title">Bench Priority</h3>{% set decision_bench = lineup_decision.bench|default([], true) %}{% if decision_bench %}<p>Ordered only by supported weekly value; players without one are not ranked and are listed alphabetically.</p><div class="bench-strip">{% for player in decision_bench %}<article class="bench-card"><span class="bench-rank">{{ ('#' ~ player.order) if player.order else 'Not ranked' }}</span><h4>{{ player.player }}</h4><p>{{ player.position }} · {{ player.opponent|default('Opponent unavailable', true) }} · {{ player.reason|capitalize if player.reason else player.health }}{% if show_rank and player.consensus_label %} · consensus {{ player.consensus_label }}{% if not rank_has_authority %} (context only){% endif %}{% endif %}{% if player.projection is not none %} · {{ '%.2f'|format(player.projection) }} league pts{% elif player.projection_range %} · {{ '%.2f'|format(player.projection_range.low) }}–{{ '%.2f'|format(player.projection_range.high) }} league pts{% endif %}</p>{% set bench_lock = player.lock_status or {} %}{% if bench_lock.state %}<p class="slot-lock"><span class="lock-chip lock-{{ bench_lock.state|lower|replace('_', '-') }}">{{ bench_lock.label }}</span> {{ bench_lock.kickoff_text }}</p><p class="slot-lock-impact">{{ bench_lock.impact }}</p>{% elif player.kickoff %}<p>{{ player.kickoff }}</p>{% endif %}</article>{% endfor %}</div>{% else %}<div class="bench-strip">{% for player in lineup_intelligence.bench|default([], true) %}<article class="bench-card"><span class="bench-rank">#{{ player.bench_order|default(loop.index) }}</span><h4>{{ player.player }}</h4><p>{{ player.position }} · {{ player.opponent|default('Opponent unavailable', true) }}</p></article>{% endfor %}</div>{% endif %}</section>
     <section class="support-section" aria-labelledby="weekly-risks-title"><h3 id="weekly-risks-title">Biggest Risks This Week</h3>{% include "_team_risks.html" %}</section>
   </section>
   <details class="card diagnostic-details" id="data-model-diagnostics">
@@ -285,7 +436,22 @@ document.addEventListener('DOMContentLoaded', () => {
     {% if additional_evidence.unavailable %}<p>{{ additional_evidence.unavailable|join(', ') }}</p>{% endif %}
     {% include "_team_snapshot.html" %}
     <details id="player-evidence-diagnostics"><summary>Player-specific evidence</summary>{% for player in starters|default([], true) if player.evidence_gaps %}<p>{{ player.player }} &middot; {{ player.evidence_gaps|join(', ') }}</p>{% endfor %}</details>
-    <section aria-labelledby="matchup-signal-title"><h3 id="matchup-signal-title">Matchup Evidence Context</h3>{% set signal_players = lineup_intelligence.starters|default([])|selectattr('matchup_signal')|list %}{% if signal_players %}{% for player in signal_players %}<p>{{ player.player }} · {{ player.matchup_signal }} · {{ player.evidence_level|default('UNAVAILABLE') }} · Sample {{ player.sample_games|default('Unavailable') }} games · {{ player.freshness|default('UNAVAILABLE') }}</p>{% endfor %}{% else %}<p>Matchup evidence context unavailable.</p>{% endif %}</section>
+    <section aria-labelledby="matchup-signal-title"><h3 id="matchup-signal-title">Matchup Evidence Context</h3>{% set signal_players = lineup_decision.players|default([], true)|selectattr('matchup.signal')|list %}{% if signal_players %}{% for player in signal_players %}<p>{{ player.player }} · {{ player.matchup.signal }} · {{ player.matchup.state }} · Sample {{ player.matchup.sample_games|default('Unavailable', true) }} games · {{ player.matchup.freshness_state }} · Context only</p>{% endfor %}{% else %}<p>Matchup evidence context unavailable.</p>{% endif %}</section>
+    {% if lineup_decision.schema_version %}<details id="lineup-decision-method"><summary>Lineup decision method and limits</summary>
+      <p>{{ lineup_decision.methodology }}</p>
+      <p>Slots: {{ lineup_decision.slot_contract.source|default('Unavailable', true) }} &middot; {{ lineup_decision.slot_contract.state }}{% if lineup_decision.slot_contract.slots %} &middot; {{ lineup_decision.slot_contract.slots|map(attribute='slot')|join(', ') }}{% endif %}{% for item in lineup_decision.slot_contract.limitations|default([], true) %} &middot; {{ item }}{% endfor %}</p>
+      <p>Value basis: {{ lineup_decision.value_basis.label }} ({{ lineup_decision.value_basis.definition }}) &middot; {{ lineup_decision.value_basis.state }} &middot; {{ lineup_decision.value_basis.available_players }} of {{ lineup_decision.value_basis.eligible_players }} eligible players &middot; {{ lineup_decision.value_basis.evidence_level }}</p>
+      {% if show_rank %}<p>{{ 'Comparative basis' if rank_has_authority else 'Consensus context (display only)' }}: {{ ld_consensus.label }} ({{ ld_consensus.definition }}) &middot; {{ ld_consensus.source }} &middot; {{ ld_consensus.state }} &middot; {{ ld_consensus.ranked_players }} of {{ ld_consensus.eligible_players }} players ranked{% if ld_consensus.source_dates %} &middot; published {{ ld_consensus.source_dates|join(', ') }}{% endif %}{% if ld_consensus.retrieved_at %} &middot; retrieved {{ ld_consensus.retrieved_at }}{% endif %}{% if ld_consensus.refresh_error %} &middot; last refresh failed: {{ ld_consensus.refresh_error }}{% endif %}{% if ld_consensus.reason %} &middot; not ranked: {{ ld_consensus.reason }}{% endif %} &middot; {{ ld_consensus.authority }}</p>
+      <ul class="trigger-list">{% for item in ld_consensus.limitations|default([], true) %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+      {% set lock_basis = lineup_decision.game_lock_basis|default({}, true) %}{% if lock_basis %}<p>Kickoff locks: {{ lock_basis.source }} &middot; {{ lock_basis.state }} ({{ lock_basis.authority }}){% for state, count in lock_basis.counts|default({}, true)|items %} &middot; {{ count }} {{ state }}{% endfor %}{% if lock_basis.reason %} &middot; {{ lock_basis.reason }}{% endif %}{% if lock_basis.schedule_retrieved_at %} &middot; schedule retrieved {{ lock_basis.schedule_retrieved_at|join(', ') }}{% endif %}{% if ld_locks.schedule_authority %} &middot; freshness threshold {{ ld_locks.schedule_authority.threshold_state }} ({{ ld_locks.schedule_authority.setting }}){% endif %}{% if ld_locks.display_context and ld_locks.display_context.age_label %} &middot; display-only kickoff context from a schedule {{ ld_locks.display_context.age_label }} old{% endif %}{% if ld_locks.week_state %} &middot; week state {{ ld_locks.week_state }}{% endif %} &middot; {{ lock_basis.lock_rule }}</p>{% endif %}
+      {% set projection_basis = lineup_decision.projection_basis|default({}, true) %}{% if projection_basis %}<p>League-scored projections: {{ projection_basis.source }} &middot; {{ projection_basis.state }} &middot; {{ projection_basis.projected_players }} of {{ projection_basis.identified_players }} players &middot; exact league scoring {{ projection_basis.complete_scoring_players }}, partial {{ projection_basis.partial_scoring_players }}{% if projection_basis.missing_scoring_rules %} (not reproducible exactly: {{ projection_basis.missing_scoring_rules|join(', ') }}){% endif %}{% if projection_basis.generated_at %} &middot; board generated {{ projection_basis.generated_at|join(', ') }}{% endif %}{% if projection_basis.data_through_week %} &middot; stats through Week {{ projection_basis.data_through_week|join(', ') }}{% endif %} &middot; action threshold {{ projection_basis.action_threshold.state|default('APPROVED', true) }} &middot; {{ projection_basis.authority }}</p>
+      <ul class="trigger-list">{% for item in projection_basis.limitations|default([], true) %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+      {% set validation = lineup_decision.forward_validation|default({}, true) %}{% if validation %}<p>Forward validation: {{ validation.state|replace('_', ' ') }} &middot; {{ validation.snapshots|default([], true)|length }} pre-kickoff snapshot(s) &middot; {{ validation.persistence.state|replace('_', ' ') }}: {{ validation.persistence.reason }} {{ validation.purpose }}</p>{% endif %}
+      <p>Scoring: {{ lineup_decision.scoring_context.label }}{% for item in lineup_decision.scoring_context.limitations|default([], true) %} &middot; {{ item }}{% endfor %}</p>
+      <p>Provider projections: {{ lineup_decision.provider_projections.label }}</p>
+      <p>Floor / median / ceiling / volatility: {{ lineup_decision.floor_ceiling.state }}. {{ lineup_decision.floor_ceiling.reason }}</p>
+      <ul class="trigger-list">{% for item in lineup_decision.floor_ceiling.required_boundary %}<li>{{ item }}</li>{% endfor %}</ul>
+    </details>{% endif %}
     <details class="card diagnostic-details" id="additional-evidence-diagnostics"><summary>Opportunity, market, trade, and preliminary matchup evidence</summary>{% include "_opportunity_evidence.html" %}{% include "_preliminary_matchup_context.html" %}</details>
     {% if team_trust %}{% include "_team_trust.html" %}{% else %}<p>Lineup trust: UNAVAILABLE.</p>{% endif %}
     <section aria-labelledby="changes-title"><h3 id="changes-title">What Changed This Week</h3><p>{{ changes.message|default('UNAVAILABLE: No prior-week comparison supplied; historical changes are not inferred.', true) }}</p></section>

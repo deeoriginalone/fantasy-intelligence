@@ -135,11 +135,15 @@ def make_app(monkeypatch, health, weekly_score=None, league_available=True, unkn
             output.append(row)
         return output, [], sum((weekly_score or 0) for _ in output), []
 
-    monkeypatch.setattr(owner_operations, "enrich_players", trade_enrichment or (lambda cur, roster, week, **kwargs: roster))
+    monkeypatch.setattr(owner_operations, "enrich_players", trade_enrichment or (lambda cur, roster, week, **kwargs: current_roster_rows(roster)[0]))
     monkeypatch.setattr(owner_operations, "current_week", lambda cur: 1)
     monkeypatch.setattr(owner_operations, "optimize_lineup", current_roster_rows)
     monkeypatch.setattr(weekly_lineup_intelligence, "optimize_lineup", current_roster_rows)
     monkeypatch.setattr(owner_operations, "team_health_contract", lambda *args, **kwargs: health)
+    # Controlled schedule-owned kickoff evidence: every rostered player's game is still open.
+    monkeypatch.setattr(owner_operations, "build_roster_game_locks", lambda roster, **kwargs: {"state": "AVAILABLE", "players": {
+        str(row.get("source_player_id")): {"state": "OPEN", "label": "Open", "kickoff_utc": "2999-01-01T00:00:00+00:00", "kickoff_display": "Controlled kickoff",
+                                           "no_game": False, "blocker": None, "reason": "Controlled kickoff fixture."} for row in roster}})
     if no_needs:
         monkeypatch.setattr(owner_operations, "team_needs_contract", lambda *args, **kwargs: {position: {"state": "AVAILABLE", "strategic_need": "NO_ACTION", "starter_coverage": "COVERED", "depth_status": "AT_TARGET", "depth_target": 1, "required_starters": 1, "rostered_or_eligible": 1, "drivers": ["Supported target satisfied."]} for position in ("QB", "RB", "WR", "TE", "FLEX", "K", "DEF")})
 
@@ -333,7 +337,7 @@ AUTHORITATIVE_MATCHUP_FIELDS = {
         ("stale", {**AUTHORITATIVE_MATCHUP_FIELDS, "matchup_retrieved_at": "2020-01-01T00:00:00+00:00"}, False, "MATCHUP_DATA_STALE"),
         ("csv_non_automated", {**AUTHORITATIVE_MATCHUP_FIELDS, "matchup_source": "csv:defense-fp-against-2025.csv", "matchup_source_authority": None}, False, "MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE"),
         ("missing_source_authority_on_display_formatted_source", {**AUTHORITATIVE_MATCHUP_FIELDS, "matchup_source": "nfl_schedule + automated:nflverse", "matchup_source_authority": None}, False, "MATCHUP_AUTOMATED_SOURCE_UNAVAILABLE"),
-        ("missing_identity", {**AUTHORITATIVE_MATCHUP_FIELDS, "source_player_id": None, "local_player_id": None}, False, "MATCHUP_PLAYER_IDENTITY_UNAVAILABLE"),
+        ("missing_identity", {**AUTHORITATIVE_MATCHUP_FIELDS, "source_player_id": None, "local_player_id": None}, False, "PLAYER_IDENTITY_UNRESOLVED"),
         ("missing_opponent", {**AUTHORITATIVE_MATCHUP_FIELDS, "opponent": None}, False, "MATCHUP_OPPONENT_IDENTITY_UNAVAILABLE"),
     ],
 )

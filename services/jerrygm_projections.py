@@ -1,21 +1,26 @@
-"""Read-only JerryGM projection retrieval for exact Sleeper player IDs."""
+"""Read-only JerryGM projection retrieval for exact Sleeper player IDs (team defenses by their documented GSIS ID)."""
 from __future__ import annotations
 
 import json
 import math
 import os
+from collections import Counter
 from datetime import datetime, timezone
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from services.integrity.integrity_service import calculate_freshness
+from services.team_codes import jerrygm_defense_id
 
 
 API_ROOT = "https://api.jerrygm.com/api/ext/v1"
 MAX_FREE_IDS_PER_REQUEST = 25
+SUPPORTED_ID_TYPES = {"sleeper": "EXACT_SLEEPER_ID", "gsis": "EXACT_GSIS_ID"}
+BREAKDOWN_FIELDS = ("paTierExpectedPPG", "pointsAllowedSd")
 SUPPORTED_SCORING = {"ppr", "half", "standard"}
 SCORING_LABELS = {"ppr": "Full-PPR", "half": "Half-PPR", "standard": "Standard"}
+PRESET_BY_RECEPTION_POINTS = {1.0: "ppr", 0.5: "half", 0.0: "standard"}
 LIMITATIONS = [
     "Provider preset scoring; custom league weights are not applied.",
     "Informational-only projection; it does not change lineup selection or confidence.",
@@ -117,6 +122,80 @@ def build_projection_edge(recommended, current):
     }
 
 
+def provider_scoring_preset(reception_points):
+    """Return the provider preset whose reception value matches the league, or None when none matches."""
+    if reception_points is None or isinstance(reception_points, bool):
+        return None
+    try:
+        return PRESET_BY_RECEPTION_POINTS.get(float(reception_points))
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_team_defense(player):
+    return str((player or {}).get("position") or "").strip().upper() in {"DEF", "DST"}
+
+
+def _team_defense_projections(defenses, *, client, season, week, scoring):
+    """Team defenses are requested by JerryGM's documented ``DST-<team>`` GSIS ID and returned under their Sleeper ID."""
+    projections = {}
+    provider_ids = {}
+    for sleeper_id, provider_id in defenses.items():
+        if provider_id is None:
+            projections[sleeper_id] = _unavailable(sleeper_id, "JERRYGM_DEFENSE_IDENTITY_UNAVAILABLE")
+        else:
+            provider_ids.setdefault(provider_id, []).append(sleeper_id)
+    for provider_id, sleeper_ids in list(provider_ids.items()):
+        if len(sleeper_ids) > 1:
+            projections.update({sleeper_id: _unavailable(sleeper_id, "JERRYGM_ROSTER_IDENTITY_AMBIGUOUS") for sleeper_id in sleeper_ids})
+            del provider_ids[provider_id]
+    if not provider_ids:
+        return projections
+    if len(provider_ids) > MAX_FREE_IDS_PER_REQUEST:
+        fetched = {provider_id: _unavailable(provider_id, "JERRYGM_FREE_ID_LIMIT_EXCEEDED") for provider_id in provider_ids}
+    else:
+        fetched = client.fetch(list(provider_ids), season=season, week=week, scoring=scoring, id_type="gsis")
+    for provider_id, (sleeper_id,) in provider_ids.items():
+        evidence = dict(fetched.get(provider_id) or _unavailable(provider_id, "JERRYGM_PLAYER_NOT_RETURNED"))
+        evidence.update(sleeper_id=sleeper_id, provider_id=provider_id, identity_method="TEAM_DEFENSE_GSIS_ID")
+        projections[sleeper_id] = evidence
+    return projections
+
+
+def build_roster_projections(players, *, season, week, scoring, client=None):
+    """Fetch informational provider values for uniquely identified Sleeper IDs (one request per identity type)."""
+    rows = list(players or [])
+    ids = [str((player or {}).get("source_player_id") or "").strip() for player in rows]
+    counts = Counter(player_id for player_id in ids if player_id)
+    unique = {player_id: player for player_id, player in zip(ids, rows) if player_id and counts[player_id] == 1}
+    defenses = {player_id: jerrygm_defense_id((player or {}).get("nfl_team") or player_id) for player_id, player in unique.items() if _is_team_defense(player)}
+    requested = [player_id for player_id in unique if player_id not in defenses]
+    base = {"source": "JerryGM", "scoring": scoring, "season": season, "week": week, "recommendation_impact": "INFORMATIONAL_ONLY"}
+    if scoring not in SUPPORTED_SCORING:
+        return {**base, "state": "UNAVAILABLE", "players": {}, "blockers": ["JERRYGM_PRESET_SCORING_REQUIRED"]}
+    if season is None or week is None:
+        return {**base, "state": "UNAVAILABLE", "players": {}, "blockers": ["JERRYGM_SEASON_WEEK_UNAVAILABLE"]}
+    if not requested and not defenses:
+        return {**base, "state": "UNAVAILABLE", "players": {}, "blockers": ["JERRYGM_ROSTER_IDENTITY_UNAVAILABLE"]}
+    client = client or JerryGMProjectionClient()
+    if len(requested) > MAX_FREE_IDS_PER_REQUEST:
+        projections = {player_id: _unavailable(player_id, "JERRYGM_FREE_ID_LIMIT_EXCEEDED") for player_id in requested}
+    else:
+        projections = dict(client.fetch(requested, season=season, week=week, scoring=scoring)) if requested else {}
+    if defenses:
+        projections.update(_team_defense_projections(defenses, client=client, season=season, week=week, scoring=scoring))
+    for player_id, count in counts.items():
+        if count > 1:
+            projections[player_id] = _unavailable(player_id, "JERRYGM_ROSTER_IDENTITY_AMBIGUOUS")
+    available = any(row.get("projected_ppg") is not None for row in projections.values())
+    return {
+        **base,
+        "state": "AVAILABLE" if available else "UNAVAILABLE",
+        "players": projections,
+        "blockers": sorted({blocker for row in projections.values() for blocker in row.get("blockers") or []}),
+    }
+
+
 def build_changed_slot_projections(roster, changes, *, season, week, client=None):
     """Fetch provider values only for uniquely identified Sleeper players in changed slots."""
     roster_ids = {}
@@ -177,6 +256,7 @@ def build_projection_evidence(
     freshness_max_age_seconds=None,
     freshness_threshold_id=None,
     now=None,
+    id_type="sleeper",
 ):
     """Validate one named-player response without name-based joins or scoring inference."""
     requested = [str(player_id).strip() for player_id in requested_sleeper_ids or []]
@@ -188,6 +268,8 @@ def build_projection_evidence(
         raise ValueError("JERRYGM_DUPLICATE_REQUEST_ID")
     if scoring not in SUPPORTED_SCORING:
         raise ValueError("JERRYGM_PRESET_SCORING_REQUIRED")
+    if id_type not in SUPPORTED_ID_TYPES:
+        raise ValueError("JERRYGM_ID_TYPE_UNSUPPORTED")
 
     if not isinstance(response, dict):
         return {player_id: _unavailable(player_id, "JERRYGM_RESPONSE_INVALID", retrieved_at=retrieved_at) for player_id in requested}
@@ -222,9 +304,11 @@ def build_projection_evidence(
     rows_by_id = {player_id: [] for player_id in requested}
     for row in response.get("players") or []:
         ids = row.get("ids") if isinstance(row, dict) else None
-        sleeper_id = str((ids or {}).get("sleeper") or "").strip()
-        if sleeper_id in rows_by_id:
-            rows_by_id[sleeper_id].append(row)
+        provider_ids = {str((ids or {}).get(id_type) or "").strip()}
+        if id_type == "gsis":
+            provider_ids.add(str(row.get("gsisId") or "").strip())
+        for provider_id in provider_ids & set(rows_by_id):
+            rows_by_id[provider_id].append(row)
 
     source_stamp = generated.isoformat()
     freshness_limit = _number(freshness_max_age_seconds)
@@ -281,8 +365,34 @@ def build_projection_evidence(
             "blockers": ["JERRYGM_FRESHNESS_THRESHOLD_UNVERIFIED"] if freshness_state == "UNAVAILABLE" else ["JERRYGM_STALE_HISTORICAL_ONLY"] if state == "STALE" else [],
             "attribution": attribution,
             "limitations": list(LIMITATIONS),
+            **_provider_detail(row, response, player_id, id_type),
         }
     return result
+
+
+def _provider_detail(row, response, provider_id, id_type):
+    """Stat line, identity cross-check fields, and display-only provider availability for league rescoring."""
+    ids = row.get("ids") if isinstance(row.get("ids"), dict) else {}
+    breakdown = row.get("breakdown") if isinstance(row.get("breakdown"), dict) else {}
+    coverage = response.get("statLineCoverage")
+    return {
+        "provider_id": provider_id,
+        "identity_method": SUPPORTED_ID_TYPES[id_type],
+        "gsis_id": row.get("gsisId") or ids.get("gsis"),
+        "provider_position": row.get("position"),
+        "provider_team": row.get("team"),
+        "roster_status": row.get("rosterStatus"),
+        "stat_line": dict(row["statLine"]) if isinstance(row.get("statLine"), dict) else None,
+        "stat_line_coverage": dict(coverage) if isinstance(coverage, dict) else None,
+        "breakdown": {key: breakdown[key] for key in BREAKDOWN_FIELDS if key in breakdown},
+        "provider_availability": {
+            "injury_status": row.get("injuryStatus"),
+            "practice_status": row.get("practiceStatus"),
+            "injury_note": row.get("injuryNote"),
+            "p_play": _number(row.get("pPlay")),
+            "expected_ppg": _number(row.get("expectedPPG")),
+        },
+    }
 
 
 class JerryGMProjectionClient:
@@ -291,7 +401,7 @@ class JerryGMProjectionClient:
         self.opener = opener
         self.clock = clock or (lambda: datetime.now(timezone.utc))
 
-    def fetch(self, sleeper_ids, *, season, week, scoring, freshness_max_age_seconds=None, freshness_threshold_id=None):
+    def fetch(self, sleeper_ids, *, season, week, scoring, freshness_max_age_seconds=None, freshness_threshold_id=None, id_type="sleeper"):
         requested = [str(player_id).strip() for player_id in sleeper_ids or []]
         if not self.api_key:
             return {player_id: _unavailable(player_id, "JERRYGM_CONFIGURATION_BLOCKED") for player_id in requested}
@@ -303,13 +413,15 @@ class JerryGMProjectionClient:
             raise ValueError("JERRYGM_DUPLICATE_REQUEST_ID")
         if scoring not in SUPPORTED_SCORING:
             raise ValueError("JERRYGM_PRESET_SCORING_REQUIRED")
+        if id_type not in SUPPORTED_ID_TYPES:
+            raise ValueError("JERRYGM_ID_TYPE_UNSUPPORTED")
 
         query = urlencode({
             "season": season,
             "week": week,
             "scoring": scoring,
             "ids": ",".join(requested),
-            "idType": "sleeper",
+            "idType": id_type,
         })
         request = Request(
             f"{API_ROOT}/projections?{query}",
@@ -333,4 +445,5 @@ class JerryGMProjectionClient:
             freshness_max_age_seconds=freshness_max_age_seconds,
             freshness_threshold_id=freshness_threshold_id,
             now=self.clock(),
+            id_type=id_type,
         )

@@ -357,7 +357,7 @@ class TeamRouteConnection:
         pass
 
 
-def render_team_route(monkeypatch, reconciliation=None, drop_reconciliation=False):
+def render_team_route(monkeypatch, drop_reconciliation=False, positions=("QB", "WR", "WR", "BN"), starters=("1", "2")):
     from pathlib import Path
     from flask import Flask
     import owner_operations
@@ -372,25 +372,33 @@ def render_team_route(monkeypatch, reconciliation=None, drop_reconciliation=Fals
     def capture(name, **kwargs):
         if drop_reconciliation:
             kwargs.pop("lineup_reconciliation", None)
+            kwargs.pop("lineup_decision", None)
         captured.update(kwargs)
         return real_render(name, **kwargs)
 
     monkeypatch.setattr(owner_operations, "render_template", capture)
-    if reconciliation is not None:
-        monkeypatch.setattr(owner_operations, "build_lineup_reconciliation", lambda *args, **kwargs: reconciliation)
     monkeypatch.setattr(owner_operations, "enrich_players", lambda cur, roster, week, **kwargs: [{**row, "weekly_baseline": 10.0, "weekly_score": 10.0, "matchup_modifier": 0.0, "injury_multiplier": 1.0} for row in roster])
     monkeypatch.setattr(owner_operations, "current_week", lambda cur: 3)
-    league = {"name": "Controlled", "roster_positions": ["QB", "WR", "WR", "BN"], "scoring_settings": {"rec": 1.0}}
+    # Controlled automated schedule evidence (fixture-only freshness approval) so kickoff locks verify as OPEN.
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc)
+    monkeypatch.setattr(owner_operations, "read_week_schedule_rows", lambda cur, season, week: [{
+        "home_team": "KC", "away_team": "BUF", "game_time_utc": now + timedelta(days=2), "source": "automated:nflverse-schedules:games.csv.gz:sha256:fixture",
+        "source_recorded_at": now - timedelta(hours=1), "retrieved_at": now - timedelta(hours=1)}])
+    monkeypatch.setenv("SCHEDULE_EVIDENCE_MAX_AGE_SECONDS", "604800")
+    league = {"name": "Controlled", "roster_positions": list(positions), "scoring_settings": {"rec": 1.0}}
     blueprint = owner_operations.create_owner_operations_blueprint(
         lambda: TeamRouteConnection(),
         lambda league_id: league,
         lambda league_id: [{"user_id": "owner", "is_owner": True}],
-        lambda league_id: [{"owner_id": "owner", "roster_id": 1, "players": ["1", "2", "3"], "starters": ["1", "2"]}],
+        lambda league_id: [{"owner_id": "owner", "roster_id": 1, "players": ["1", "2", "3"], "starters": list(starters)}],
         lambda: catalog,
         lambda value: str(value).lower().replace(" ", ""),
     )
     app = Flask(__name__, root_path=str(Path(__file__).resolve().parents[1]), template_folder="templates")
     app.config.update(TESTING=True, SLEEPER_LEAGUE_ID="controlled")
+    from services.authoritative_week import build_sleeper_week_contract
+    app.config["WEEK_AUTHORITY_ACQUIRER"] = lambda season: build_sleeper_week_contract({"season": str(season), "week": 3}, season=season)
     app.register_blueprint(blueprint)
     app.jinja_env.globals["url_for"] = lambda *args, **kwargs: "/"
     app.jinja_env.globals["ux_roster_lineage"] = lambda roster: []
@@ -419,18 +427,16 @@ COMPARISON_UNAVAILABLE = "Lineup comparison unavailable. The current Sleeper lin
 
 
 def test_team_template_available_with_changes_shows_supported_change(monkeypatch):
-    change = {"slot": "WR2", "current": "Bravo WR", "current_id": "2", "recommended": "Charlie WR", "recommended_id": "3", "authority": "START", "recommended_player": {"player": "Charlie WR", "reason": "Supported weekly value."}, "reason": "Supported weekly value.", "watch_item": None, "confidence": None}
-    reconciliation = {"state": "AVAILABLE", "blocker": None, "current": [{"slot": "QB", "player": "Alpha QB", "position": "QB", "injury_status": "Healthy"}], "recommended": [], "changes": [change], "changed_recommended": [change["recommended_player"]]}
-    response, _ = render_team_route(monkeypatch, reconciliation)
+    response, captured = render_team_route(monkeypatch)
     html = response.get_data(as_text=True)
     assert response.status_code == 200
-    assert "1 lineup changes recommended" in html and "Charlie WR" in html
+    assert "START Charlie WR at WR2" in html and "<strong>START Charlie WR</strong> &middot; WR2" in html
+    assert captured["lineup_reconciliation"]["changes"][0]["recommended"] == "Charlie WR"
     assert f"<p>{NO_CHANGES}</p>" not in html and COMPARISON_UNAVAILABLE not in html
 
 
 def test_team_template_available_without_changes_claims_no_changes(monkeypatch):
-    reconciliation = {"state": "AVAILABLE", "blocker": None, "current": [{"slot": "QB", "player": "Alpha QB", "position": "QB", "injury_status": "Healthy"}], "recommended": [], "changes": [], "changed_recommended": []}
-    response, _ = render_team_route(monkeypatch, reconciliation)
+    response, _ = render_team_route(monkeypatch, positions=("QB", "WR", "BN"))
     html = response.get_data(as_text=True)
     assert response.status_code == 200
     assert f"<p>{NO_CHANGES}</p>" in html
@@ -438,14 +444,13 @@ def test_team_template_available_without_changes_claims_no_changes(monkeypatch):
 
 
 def test_team_template_unavailable_comparison_never_claims_no_changes(monkeypatch):
-    reconciliation = {"state": "UNAVAILABLE", "blocker": "CURRENT_LINEUP_INCOMPLETE", "current": [], "recommended": [], "changes": [], "changed_recommended": []}
-    response, captured = render_team_route(monkeypatch, reconciliation)
+    response, captured = render_team_route(monkeypatch, starters=())
     html = response.get_data(as_text=True)
     assert response.status_code == 200
     assert f"<p>{NO_CHANGES}</p>" not in html
     assert COMPARISON_UNAVAILABLE in html
-    assert "missing a starter for at least one recommended slot" in html
-    assert "CURRENT_LINEUP_INCOMPLETE" not in html
+    assert "Current Sleeper starters were not available." in html
+    assert "CURRENT_LINEUP_UNAVAILABLE" not in html
     assert "team_needs" in captured and "opportunity_changes" in captured
 
 
@@ -453,9 +458,9 @@ def test_team_template_missing_reconciliation_payload_fails_closed(monkeypatch):
     response, captured = render_team_route(monkeypatch, drop_reconciliation=True)
     html = response.get_data(as_text=True)
     assert response.status_code == 200
-    assert "lineup_reconciliation" not in captured
+    assert "lineup_reconciliation" not in captured and "lineup_decision" not in captured
     assert f"<p>{NO_CHANGES}</p>" not in html
-    assert COMPARISON_UNAVAILABLE in html
+    assert COMPARISON_UNAVAILABLE in html and "Lineup decision unavailable." in html
 
 
 IDENTITY_CATALOG = {
@@ -668,7 +673,7 @@ def test_injury_fix_preserves_lineup_fields_payloads_and_determinism(monkeypatch
     lineup = {row["source_player_id"]: (row["sleeper_current_starter"], row["sleeper_lineup_slot"], row["sleeper_lineup_index"]) for row in captured["roster"]}
     assert lineup == {"10": (True, "QB", 0), "20": (True, "WR", 1), "40": (False, None, None)}
     assert captured["team_needs"] and "lineup_reconciliation" in captured and "opportunity_changes" in captured
-    assert {"verdict", "starters", "start_sit_decisions"} <= set(captured["lineup_intelligence"])
+    assert {"summary", "slots", "changes", "recommended_lineup"} <= set(captured["lineup_decision"])
     assert {"action"} <= set(captured["team_priority_action"])
     monkeypatch.undo()
     second = render_injury_route(monkeypatch, ["10", "20", "40"], starters=["10", "20"])[3]
@@ -761,6 +766,7 @@ def render_matchup_route(monkeypatch, *, with_signal):
     from pathlib import Path
     from flask import Flask
     import owner_operations
+    from services.authoritative_week import build_sleeper_week_contract
     catalog = {pid: dict(IDENTITY_CATALOG[pid]) for pid in ("10", "20")}
     captured = {}
     real_render = owner_operations.render_template
@@ -795,6 +801,7 @@ def render_matchup_route(monkeypatch, *, with_signal):
     )
     app = Flask(__name__, root_path=str(Path(__file__).resolve().parents[1]), template_folder="templates")
     app.config.update(TESTING=True, SLEEPER_LEAGUE_ID="controlled")
+    app.config["WEEK_AUTHORITY_ACQUIRER"] = lambda season: build_sleeper_week_contract({"season": str(season), "week": 3}, season=season)
     app.register_blueprint(blueprint)
     app.jinja_env.globals["url_for"] = lambda *args, **kwargs: "/"
     app.jinja_env.globals["ux_roster_lineage"] = lambda roster: []
@@ -805,12 +812,11 @@ def render_matchup_route(monkeypatch, *, with_signal):
 
 
 def lineup_outcome(captured):
-    intelligence = captured["lineup_intelligence"]
+    decision = captured["lineup_decision"]
     return {
-        "starters": [(row.get("slot"), row.get("player"), row.get("decision"), str(row.get("confidence"))) for row in intelligence.get("starters") or []],
-        "decisions": [(item.get("slot"), item.get("decision"), item.get("reason")) for item in intelligence.get("start_sit_decisions") or []],
-        "bench": [(row.get("player"), row.get("bench_order"), row.get("decision")) for row in intelligence.get("bench") or []],
-        "verdict": intelligence.get("verdict"),
+        "lineup": decision["recommended_lineup"],
+        "decisions": [(item["slot"], item["decision"], item["status"], item["why"], item["decision_confidence"]) for item in decision["slots"]],
+        "changes": [(change["slot"], (change["start"] or {}).get("player"), (change["sit"] or {}).get("player")) for change in decision["changes"]],
         "reconciliation": (captured["lineup_reconciliation"]["state"], captured["lineup_reconciliation"]["changes"]),
         "priority": captured["team_priority_action"],
         "health": captured["team_health"],
@@ -823,8 +829,8 @@ def test_team_route_shows_preliminary_signal_without_rank_or_recommendation_chan
     html = response.get_data(as_text=True)
     assert response.status_code == 200
     assert "21st easiest defense \u00b7 PRELIMINARY \u00b7 Sample 2 games \u00b7 FRESH \u00b7 Context only" in html
-    assert "<b>Matchup Rank:</b> Unavailable" in html
-    assert "<b>Matchup Rank:</b> 12" not in html
+    assert "rank 12 of" not in html
+    assert all(view["matchup"]["rank"] is None for view in with_signal["lineup_decision"]["players"])
     assert with_signal["team_needs"] and with_signal["team_health"]
     monkeypatch.undo()
     _, without_signal = render_matchup_route(monkeypatch, with_signal=False)
