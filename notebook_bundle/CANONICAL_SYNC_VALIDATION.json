@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-09-20T12:17:55.534074+00:00",
+  "generated_at_utc": "2026-11-16T12:05:32.468716+00:00",
   "passed": true,
   "repository": {
     "branch": "test-weekly-evidence-trust",
-    "head": "bc1acb6a56524e5e6c281937c7bc2a422d45e2f4",
-    "short_head": "bc1acb6"
+    "head": "5abe2fd51d24a3b949b6b2d57aab5d2cb88f5f83",
+    "short_head": "5abe2fd"
   },
   "checks": {
     "canonical_files_present": true,
@@ -18,35 +18,35 @@
   "files": {
     "PROJECT_STATUS.md": {
       "exists": true,
-      "bytes": 39851,
+      "bytes": 48195,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**"
+      "next_milestone": "**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**"
     },
     "PROJECT_STATE.md": {
       "exists": true,
-      "bytes": 39190,
+      "bytes": 48619,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**"
+      "next_milestone": "**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**"
     },
     "DEVELOPMENT_ROADMAP.md": {
       "exists": true,
-      "bytes": 46056,
+      "bytes": 52370,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**"
+      "next_milestone": "**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**"
     },
     "NEXT_SESSION_HANDOFF.md": {
       "exists": true,
-      "bytes": 40691,
+      "bytes": 49337,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**"
+      "next_milestone": "**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**"
     }
   },
   "missing_files": [],
@@ -55,7 +55,7 @@
   "head_mismatches": [],
   "missing_milestones": [],
   "unique_milestones": [
-    "**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**"
+    "**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**"
   ],
   "sensitive_findings": []
 }

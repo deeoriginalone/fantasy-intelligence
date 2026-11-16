@@ -7,6 +7,7 @@ services/snap_share_foundation.py
 services/preliminary_matchup_context.py
 services/draft_recommendation_publication.py
 services/__init__.py
+services/espn_player_news.py
 services/integrity/__init__.py
 services/integrity/integrity_service.py
 services/decision_ranking.py
@@ -14,10 +15,13 @@ services/ux2_team_accuracy.py
 services/readiness_report_io.py
 services/matchup_intelligence.py
 services/import_rankings.py
+services/league_scoring.py
 services/draft_recommendation_service.py
 services/player_opportunity_calculation.py
+services/lineup_decision_intelligence.py
 services/nflverse_identity_resolution.py
 services/injury_health_sync.py
+services/game_lock.py
 services/publication_gate.py
 services/weekly_lineup_intelligence.py
 services/unified_decision_context.py
@@ -25,6 +29,9 @@ services/snap_share_publication.py
 services/waiver_action_publication.py
 services/yahoo_oauth.py
 services/fantasypros_projection.py
+services/lineup_projection.py
+services/dynastyprocess_rankings.py
+services/dynastyprocess_identity_source.py
 services/defense_matchup_calculation.py
 services/snap_share_reader.py
 services/defense_matchup_publication.py
@@ -33,6 +40,7 @@ services/nflverse_ingestion_validator.py
 services/opportunity_context.py
 services/lineup_evidence.py
 services/matchup_enrichment_validator.py
+services/team_codes.py
 services/pre_decision_snapshots.py
 services/schedule_bye_evidence.py
 services/team_priority.py
@@ -49,6 +57,7 @@ services/roster_reconciliation.py
 services/gsis_identity_crosswalk.py
 services/opportunity_evidence.py
 services/team_needs.py
+services/jerrygm_projections.py
 services/playoff_intelligence.py
 services/player_role_evidence.py
 

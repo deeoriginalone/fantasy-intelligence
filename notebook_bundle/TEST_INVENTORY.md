@@ -34,6 +34,7 @@ tests/test_opportunity_consumer_contract.py
 tests/test_ux1_dashboard_sleeper_source.py
 tests/test_ux2_team_accuracy_route.py
 tests/test_phase_f_draft_sandbox.py
+tests/test_lineup_decision_intelligence.py
 tests/test_batch_e_ratings.py
 tests/test_player_role_evidence.py
 tests/test_f3_b3_live_reconciliation.py
@@ -76,21 +77,25 @@ tests/test_weekly_evidence_trust_contract.py
 tests/test_f4_e_playoff_intelligence.py
 tests/test_integrity_freshness.py
 tests/test_draft_operations_hardening.py
+tests/test_dynastyprocess_identity_source.py
 tests/test_nflverse_defense_matchups.py
 tests/test_active_week_degraded_routes.py
 tests/test_ux_evidence.py
 tests/test_survivor_persistence_contract.py
 tests/test_ux2_lineage_template.py
+tests/test_dynastyprocess_rankings.py
 tests/test_player_opportunity_ingestion.py
 tests/test_waiver_availability.py
 tests/test_unified_decision_context.py
 tests/test_snap_share_publication.py
 tests/test_draft_recommendation_service.py
 tests/test_f3_b31_migration_contract.py
+tests/test_espn_player_news.py
 tests/test_draftboard_polling.py
 tests/test_f4_ab_command_center_contract.py
 tests/test_ux2_health_targeting.py
 tests/test_draft_state_hardening.py
+tests/test_jerrygm_projections.py
 tests/test_batch_a_validation_hardening.py
 tests/test_ux2_recommendation_contract.py
 tests/test_f4_c_decision_ranking.py
@@ -115,7 +120,9 @@ tests/test_batch_c_post_draft_transition.py
 tests/test_snap_share_foundation.py
 tests/test_ux1_dashboard_truth_completion.py
 tests/test_player_opportunity_calculation.py
+tests/test_lineup_week_lock_state.py
 tests/test_ux2_batch_a_health_targeting.py
+tests/test_lineup_projection_foundation.py
 tests/test_draft_day_readiness.py
 tests/test_pre_decision_snapshots.py
 tests/test_opportunity_context.py
@@ -134,7 +141,7 @@ platform linux -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
 rootdir: /home/deeoriginalone/fantasy-intelligence
 configfile: pytest.ini
 testpaths: tests
-collected 116 items / 100 errors
+collected 114 items / 109 errors
 
 <Dir fantasy-intelligence>
   <Dir tests>
@@ -160,9 +167,6 @@ collected 116 items / 100 errors
     <Module test_f3_d5_waiver_action_template.py>
       <Function test_blocked_state_renders_reason>
       <Function test_plan_renders_f3_d4_fields_without_unknown_bid>
-    <Module test_f4_ab_command_center_contract.py>
-      <Function test_gm_template_contract>
-      <Function test_owner_integration_contract>
     <Module test_f4_d_trade_target_center_contract.py>
       <Function test_template_contract>
       <Function test_route_contract>
@@ -222,10 +226,6 @@ collected 116 items / 100 errors
       <Function test_populated_future_opportunities_render_informational_only>
       <Function test_unavailable_future_evidence_renders_no_fabricated_game>
       <Function test_manual_pick_control_hidden_for_locked_week>
-    <Module test_trade_intelligence_template.py>
-      <Function test_trade_template_renders_and_has_no_submission_endpoint>
-      <Function test_trade_template_keeps_partner_control_and_action_evidence_visible>
-      <Function test_trade_template_separates_package_types_and_collapses_metric_definitions>
     <Module test_trade_projection_coverage.py>
       <Function test_projection_importer_uses_normalized_source_team_for_identity_match>
       <Function test_trade_route_preserves_missing_local_players_as_unavailable>
@@ -264,6 +264,9 @@ collected 116 items / 100 errors
       <Function test_team_template_wires_accuracy_partial>
       <Function test_accuracy_partial_explains_required_domains>
       <Function test_accuracy_partial_renders_matchup_context_from_shared_evidence>
+      <Function test_team_diagnostics_are_closed_and_preliminary_context_is_not_primary>
+      <Function test_priority_card_keeps_matchup_summary_concise>
+      <Function test_recommended_k_and_def_cards_render_not_applicable_matchup_rank>
       <Function test_team_template_removes_unsupported_aggregate_metrics>
       <Function test_team_template_distinguishes_unavailable_weekly_score_from_zero>
       <Function test_team_template_renders_explanation_fields>
@@ -408,6 +411,36 @@ Traceback:
 tests/test_draftboard_polling.py:3: in <module>
     import app as app_module
 E   ModuleNotFoundError: No module named 'app'
+________ ERROR collecting tests/test_dynastyprocess_identity_source.py _________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_dynastyprocess_identity_source.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_dynastyprocess_identity_source.py:4: in <module>
+    from services.dynastyprocess_identity_source import (
+E   ModuleNotFoundError: No module named 'services'
+____________ ERROR collecting tests/test_dynastyprocess_rankings.py ____________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_dynastyprocess_rankings.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_dynastyprocess_rankings.py:5: in <module>
+    from services.dynastyprocess_rankings import evaluate, read_cached_rankings, refresh, refresh_rankings
+E   ModuleNotFoundError: No module named 'services'
+_______________ ERROR collecting tests/test_espn_player_news.py ________________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_espn_player_news.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_espn_player_news.py:1: in <module>
+    from services.espn_player_news import news_for_espn_player, read_espn_nfl_news, reset_espn_news_cache
+E   ModuleNotFoundError: No module named 'services'
 _____________ ERROR collecting tests/test_f2r_a_local_identity.py ______________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_f2r_a_local_identity.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -568,6 +601,16 @@ Traceback:
 tests/test_f3a2_runtime.py:3: in <module>
     from draft_events.runtime import process_runtime_picks
 E   ModuleNotFoundError: No module named 'draft_events'
+_________ ERROR collecting tests/test_f4_ab_command_center_contract.py _________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_f4_ab_command_center_contract.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_f4_ab_command_center_contract.py:3: in <module>
+    from owner_operations import build_gm_waiver_watch_actions
+E   ModuleNotFoundError: No module named 'owner_operations'
 ___________ ERROR collecting tests/test_f4_b_matchup_intelligence.py ___________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_f4_b_matchup_intelligence.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -595,7 +638,7 @@ Traceback:
 /usr/lib/python3.14/importlib/__init__.py:88: in import_module
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_f4_d_trade_target_center.py:1: in <module>
+tests/test_f4_d_trade_target_center.py:2: in <module>
     from services.trade_target_center import build_trade_target_center, opportunity_score
 E   ModuleNotFoundError: No module named 'services'
 ___________ ERROR collecting tests/test_f4_e_playoff_intelligence.py ___________
@@ -678,6 +721,26 @@ Traceback:
 tests/test_integrity_service.py:1: in <module>
     from services.integrity import (
 E   ModuleNotFoundError: No module named 'services'
+______________ ERROR collecting tests/test_jerrygm_projections.py ______________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_jerrygm_projections.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_jerrygm_projections.py:8: in <module>
+    from services.jerrygm_projections import (
+E   ModuleNotFoundError: No module named 'services'
+_________ ERROR collecting tests/test_lineup_decision_intelligence.py __________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_lineup_decision_intelligence.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_lineup_decision_intelligence.py:6: in <module>
+    from services.authoritative_week import build_sleeper_week_contract
+E   ModuleNotFoundError: No module named 'services'
 ________________ ERROR collecting tests/test_lineup_evidence.py ________________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_lineup_evidence.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -687,6 +750,26 @@ Traceback:
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 tests/test_lineup_evidence.py:1: in <module>
     from services.lineup_evidence import build_lineup_evidence, build_matchup_evidence, build_projection_evidence
+E   ModuleNotFoundError: No module named 'services'
+_________ ERROR collecting tests/test_lineup_projection_foundation.py __________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_lineup_projection_foundation.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_lineup_projection_foundation.py:7: in <module>
+    from services.game_lock import build_game_lock, build_roster_game_locks
+E   ModuleNotFoundError: No module named 'services'
+____________ ERROR collecting tests/test_lineup_week_lock_state.py _____________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_lineup_week_lock_state.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_lineup_week_lock_state.py:7: in <module>
+    from services.game_lock import build_roster_game_locks
 E   ModuleNotFoundError: No module named 'services'
 _________ ERROR collecting tests/test_matchup_enrichment_validator.py __________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_matchup_enrichment_validator.py'.
@@ -755,8 +838,8 @@ Traceback:
 /usr/lib/python3.14/importlib/__init__.py:88: in import_module
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_nflverse_defense_matchups.py:5: in <module>
-    from services.defense_matchup_calculation import calculate_defense_matchups, full_ppr_points
+tests/test_nflverse_defense_matchups.py:6: in <module>
+    import services.integrity.integrity_service as integrity_service
 E   ModuleNotFoundError: No module named 'services'
 ___________ ERROR collecting tests/test_nflverse_player_metadata.py ____________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_nflverse_player_metadata.py'.
@@ -806,7 +889,7 @@ Traceback:
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 tests/test_opportunity_evidence.py:1: in <module>
-    from services.opportunity_evidence import DECISION_CENTER_PANELS, METRICS, build_decision_center, build_market_value_evidence, build_nflverse_usage_evidence, build_nflverse_usage_what_changed, build_opportunity_evidence, build_what_changed, classify_market_signal, classify_opportunity_trend, classify_trade_opportunity
+    from services.opportunity_evidence import DECISION_CENTER_PANELS, METRICS, OPPORTUNITY_TOUCH_SOURCE_FEASIBILITY, build_decision_center, build_market_value_evidence, build_opportunity_evidence, build_opportunity_evidence_contract, build_opportunity_foundation, build_opportunity_trend, build_opportunity_classification, build_opportunity_duration, build_preliminary_opportunity_comparison, build_role_classification, build_what_changed, build_what_changed_contract, classify_market_signal, classify_opportunity_trend, classify_trade_opportunity
 E   ModuleNotFoundError: No module named 'services'
 _____________ ERROR collecting tests/test_phase_f2_integration.py ______________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_phase_f2_integration.py'.
@@ -925,7 +1008,7 @@ Traceback:
 /usr/lib/python3.14/importlib/__init__.py:88: in import_module
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_schedule_bye_source_contract.py:2: in <module>
+tests/test_schedule_bye_source_contract.py:5: in <module>
     from services.schedule_bye_evidence import evidence_contract
 E   ModuleNotFoundError: No module named 'services'
 ________ ERROR collecting tests/test_schedule_bye_threshold_registry.py ________
@@ -956,7 +1039,7 @@ Traceback:
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 tests/test_snap_share_foundation.py:7: in <module>
-    from imports.import_nflverse_snap_counts import build_pfr_to_gsis_crosswalk, build_snap_share_evidence
+    import imports.import_nflverse_snap_counts as snap_import
 E   ModuleNotFoundError: No module named 'imports'
 ____________ ERROR collecting tests/test_snap_share_publication.py _____________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_snap_share_publication.py'.
@@ -965,7 +1048,7 @@ Traceback:
 /usr/lib/python3.14/importlib/__init__.py:88: in import_module
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_snap_share_publication.py:3: in <module>
+tests/test_snap_share_publication.py:6: in <module>
     from services.snap_share_publication import publish_snap_share
 E   ModuleNotFoundError: No module named 'services'
 _____________ ERROR collecting tests/test_survival_calibration.py ______________
@@ -1056,7 +1139,17 @@ Traceback:
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 tests/test_trade_intelligence.py:1: in <module>
-    from services.trade_intelligence import build_trade_intelligence,generate_one_for_one,generate_two_for_one,trade_evidence_coverage,trade_freshness_metadata,trade_identity_lineage,trade_value
+    from services.trade_intelligence import build_trade_intelligence,confidence,generate_one_for_one,generate_two_for_one,trade_evidence_coverage,trade_freshness_metadata,trade_identity_lineage,trade_value
+E   ModuleNotFoundError: No module named 'services'
+__________ ERROR collecting tests/test_trade_intelligence_template.py __________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_trade_intelligence_template.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_trade_intelligence_template.py:3: in <module>
+    from services.trade_target_center import build_trade_target_center
 E   ModuleNotFoundError: No module named 'services'
 ________________ ERROR collecting tests/test_trade_scenarios.py ________________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_trade_scenarios.py'.
@@ -1146,7 +1239,7 @@ Traceback:
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 tests/test_ux2_team_hardening.py:1: in <module>
-    from services.team_hardening import build_bench_decisions, build_roster_outlook, build_team_trust_summary, build_weekly_risks
+    from services.team_hardening import build_bench_decisions, build_lineup_snapshot, build_roster_outlook, build_team_trust_summary, build_weekly_risks
 E   ModuleNotFoundError: No module named 'services'
 ________________ ERROR collecting tests/test_ux2_team_needs.py _________________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_ux2_team_needs.py'.
@@ -1185,7 +1278,7 @@ Traceback:
 /usr/lib/python3.14/importlib/__init__.py:88: in import_module
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_ux5_lineup_route_contract.py:3: in <module>
+tests/test_ux5_lineup_route_contract.py:6: in <module>
     from services.weekly_lineup_intelligence import build_lineup_intelligence
 E   ModuleNotFoundError: No module named 'services'
 _______________ ERROR collecting tests/test_ux_1_7_completion.py _______________
@@ -1225,7 +1318,7 @@ Traceback:
 /usr/lib/python3.14/importlib/__init__.py:88: in import_module
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_waiver_availability.py:4: in <module>
+tests/test_waiver_availability.py:6: in <module>
     from services.ux_evidence import derived_waiver_availability, evaluate_waiver_availability, resolve_waiver_candidate_identity, waiver_evidence_contract, waiver_ownership_freshness, waiver_roster_coverage
 E   ModuleNotFoundError: No module named 'services'
 _________ ERROR collecting tests/test_week_authority_consolidation.py __________
@@ -1256,7 +1349,7 @@ Traceback:
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 tests/test_weekly_lineup_intelligence.py:1: in <module>
-    from services.weekly_lineup_intelligence import build_lineup_intelligence,optimize_lineup
+    from services.weekly_lineup_intelligence import build_lineup_intelligence,build_lineup_verdict,optimize_lineup
 E   ModuleNotFoundError: No module named 'services'
 __________________ ERROR collecting tests/test_yahoo_oauth.py __________________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_yahoo_oauth.py'.
@@ -1292,6 +1385,9 @@ ERROR tests/test_draft_operations_hardening.py
 ERROR tests/test_draft_recommendation_service.py
 ERROR tests/test_draft_state_hardening.py
 ERROR tests/test_draftboard_polling.py
+ERROR tests/test_dynastyprocess_identity_source.py
+ERROR tests/test_dynastyprocess_rankings.py
+ERROR tests/test_espn_player_news.py
 ERROR tests/test_f2r_a_local_identity.py
 ERROR tests/test_f2r_c_identity_bridge.py
 ERROR tests/test_f3_b1_replay_validation.py
@@ -1308,6 +1404,7 @@ ERROR tests/test_f3_d5_waiver_action_publication.py
 ERROR tests/test_f3_d5_waiver_action_route.py
 ERROR tests/test_f3a1_repository_integration.py
 ERROR tests/test_f3a2_runtime.py
+ERROR tests/test_f4_ab_command_center_contract.py
 ERROR tests/test_f4_b_matchup_intelligence.py
 ERROR tests/test_f4_c_decision_ranking.py
 ERROR tests/test_f4_d_trade_target_center.py
@@ -1319,7 +1416,11 @@ ERROR tests/test_injury_health_sync.py
 ERROR tests/test_integrity_freshness.py
 ERROR tests/test_integrity_integration.py
 ERROR tests/test_integrity_service.py
+ERROR tests/test_jerrygm_projections.py
+ERROR tests/test_lineup_decision_intelligence.py
 ERROR tests/test_lineup_evidence.py
+ERROR tests/test_lineup_projection_foundation.py
+ERROR tests/test_lineup_week_lock_state.py
 ERROR tests/test_matchup_enrichment_validator.py
 ERROR tests/test_mock_draft_state_consistency.py
 ERROR tests/test_mock_draft_synchronization.py
@@ -1357,6 +1458,7 @@ ERROR tests/test_team_health_template.py
 ERROR tests/test_team_opportunity_integration.py
 ERROR tests/test_trade_evidence_timestamp_writers.py
 ERROR tests/test_trade_intelligence.py
+ERROR tests/test_trade_intelligence_template.py
 ERROR tests/test_trade_scenarios.py
 ERROR tests/test_unified_decision_context.py
 ERROR tests/test_ux1_dashboard_sleeper_source.py
@@ -1379,5 +1481,5 @@ ERROR tests/test_weekly_evidence_trust_contract.py
 ERROR tests/test_weekly_lineup_intelligence.py
 ERROR tests/test_yahoo_oauth.py
 ERROR tests/test_yahoo_pickem.py
-!!!!!!!!!!!!!!!!!! Interrupted: 100 errors during collection !!!!!!!!!!!!!!!!!!!
-=================== 116 tests collected, 100 errors in 8.44s ===================
+!!!!!!!!!!!!!!!!!! Interrupted: 109 errors during collection !!!!!!!!!!!!!!!!!!!
+=================== 114 tests collected, 109 errors in 1.83s ===================

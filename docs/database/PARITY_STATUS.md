@@ -4,6 +4,8 @@
 ./scripts/__pycache__/verify_f3_b31_postgres_parity.cpython-314.pyc
 ./scripts/verify_f3_b31_postgres_parity.py
 ./scripts/inspect_f3_postgres_store.py
+./.venv/lib/python3.14/site-packages/pygments/lexers/_postgres_builtins.py
+./.venv/lib/python3.14/site-packages/pygments/lexers/__pycache__/_postgres_builtins.cpython-314.pyc
 ./.venv/lib/python3.14/site-packages/psycopg/__pycache__/postgres.cpython-314.pyc
 ./.venv/lib/python3.14/site-packages/psycopg/postgres.py
 ./tests/test_verify_f3_b31_postgres_parity.py
@@ -12,6 +14,7 @@
 ./tests/__pycache__/test_verify_f3_b31_postgres_parity.cpython-314-pytest-9.1.1.pyc
 ./tests/__pycache__/test_f3_b31_postgres_parity.cpython-314-pytest-9.1.1.pyc
 ./tests/test_f3_b31_postgres_parity.py
+./audit/f3_b31/postgres_parity
 ./docs/F3_B31_POSTGRES_PARITY_SPEC.md
 ./backups/pickem-postgres-20260830-092442
 ./backups/pickem-postgres-20260830-092442/migrations/004_yahoo_pickem_postgres.sql
@@ -45,6 +48,7 @@
 ./tests/__pycache__/test_verify_f3_b31_postgres_parity.cpython-314-pytest-9.1.1.pyc
 ./tests/__pycache__/test_f3_b31_postgres_parity.cpython-314-pytest-9.1.1.pyc
 ./tests/test_f3_b31_postgres_parity.py
+./audit/f3_b31/postgres_parity
 ./docs/F3_B31_POSTGRES_PARITY_SPEC.md
 ./docs/database/PARITY_STATUS.md
 ./evidence-first-architecture-update-20260921/docs/database/PARITY_STATUS.md

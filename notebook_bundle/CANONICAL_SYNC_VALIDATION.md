@@ -1,9 +1,9 @@
 # Canonical Memory Sync Validation
 
-- Generated UTC: `2026-09-20T12:17:55.534074+00:00`
+- Generated UTC: `2026-11-16T12:05:32.468716+00:00`
 - Result: `PASS`
 - Current branch: `test-weekly-evidence-trust`
-- Current HEAD: `bc1acb6a56524e5e6c281937c7bc2a422d45e2f4`
+- Current HEAD: `5abe2fd51d24a3b949b6b2d57aab5d2cb88f5f83`
 
 ## Checks
 
@@ -23,7 +23,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**`
+- Next milestone: `**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**`
 
 ### PROJECT_STATE.md
 
@@ -31,7 +31,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**`
+- Next milestone: `**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**`
 
 ### DEVELOPMENT_ROADMAP.md
 
@@ -39,7 +39,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**`
+- Next milestone: `**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**`
 
 ### NEXT_SESSION_HANDOFF.md
 
@@ -47,8 +47,8 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**`
+- Next milestone: `**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**`
 
 ## Extracted Milestones
 
-- `**verify nflverse play-by-play red-zone opportunity and weekly depth-chart source responses under controlled live source checks; do not implement a new provider until required fields, gsis identity, timestamps, season/week scope, and permitted use are verified.**`
+- `**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**`

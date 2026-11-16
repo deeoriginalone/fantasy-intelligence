@@ -49,7 +49,7 @@ UX.2.1C presentation and disclosure repairs are recorded; owner acceptance remai
 ####### Current repository checkpoint
 - Date: 2026-11-16
 - Branch: test-weekly-evidence-trust
-- HEAD: a306f3a210835ae9c9c5fb62a4295271ec69eb6a
+- HEAD: 5abe2fd51d24a3b949b6b2d57aab5d2cb88f5f83
 
 ## Current committed delivery boundary
 

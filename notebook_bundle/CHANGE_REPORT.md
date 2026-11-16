@@ -1,11 +1,11 @@
 # Notebook Bundle Change Report
 
-- Generated UTC: `2026-09-20T12:17:55.393403+00:00`
+- Generated UTC: `2026-11-16T12:05:32.387825+00:00`
 - First recorded bundle: `NO`
 - Added files: `0`
 - Removed files: `0`
-- Modified files: `8`
-- Unchanged files: `2`
+- Modified files: `6`
+- Unchanged files: `4`
 
 ## Added Files
 
@@ -18,8 +18,6 @@
 ## Modified Files
 
 - `DEVELOPMENT_ROADMAP.md`
-- `IMPLEMENTATION_INVENTORY.md`
-- `MIGRATIONS.md`
 - `NEXT_SESSION_HANDOFF.md`
 - `PROJECT_STATE.md`
 - `PROJECT_STATUS.md`
@@ -28,5 +26,7 @@
 
 ## Unchanged Files
 
+- `IMPLEMENTATION_INVENTORY.md`
+- `MIGRATIONS.md`
 - `PARITY_STATUS.md`
 - `SCHEMA.md`
