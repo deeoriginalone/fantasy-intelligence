@@ -38,6 +38,7 @@ Navigation simplification and legacy-page disposition are planned work only. The
 - Acceptance: Every decision-critical field is current, explicitly aging, stale, unavailable, or blocked.
 - Additional My Team finding: The page must show health source, age or last-verified time, freshness, and the recommendation impact of stale or unavailable evidence.
 - Current Trade Center boundary: UX.4.1 through UX.4.12 validate shared freshness, source, timestamp, completeness, lineage, impact, and fail-closed publication through focused writer, enrichment, template, controlled-browser, and live all-partner dropdown evidence. The timestamp schema is applied and authoritative imports populated supported retrieval times. READY, READY-empty, DEGRADED, BLOCKED, unsupported partner fit, and identity ambiguity are distinct. Trade recommendations remain read-only; feasibility, acceptance, negotiation, and rest-of-season impact remain explicitly unavailable when unsupported.
+- Schedule evidence (2026-11-16; committed in `695ff74` and `a306f3a`): NFL schedule and kickoff evidence now has an approved threshold (`schedule.evidence.v1` = 86400 seconds) and an automated nflverse source refreshed by a six-hour user systemd timer. The latest run published 272 games and 32 byes with distinct `source_recorded_at` and `retrieved_at`, FRESH and COMPLETE. Stale, missing, or contradictory schedule evidence makes affected players LOCK_UNVERIFIED on `/team`. This strengthens the evidence; it does not by itself satisfy CLOSED for this multi-page defect, so the status is unchanged.
 
 #### UXQA-003: Ownership, eligibility, health, matchup, and lineage contain unknown or stale states
 - Status: VALIDATED
@@ -47,6 +48,7 @@ Navigation simplification and legacy-page disposition are planned work only. The
 - Required repair: Reduce confidence, use MONITOR, make the affected component unavailable, or block the exact recommendation according to the evidence contract. Unknown health may not be displayed as healthy.
 - Required proof: Health and matchup service tests, route-payload tests, defensive template tests, and rendered `/team` verification.
 - Acceptance: Unknown evidence reduces confidence or blocks the affected recommendation, with a manager-facing explanation.
+- Lock evidence (2026-11-16; committed in `a306f3a`): unverifiable kickoff state is LOCK_UNVERIFIED with a manager-facing reason and INSUFFICIENT_EVIDENCE decision confidence, and no START/SIT change involving that player is recommended. Locked starters stay pinned and locked bench players cannot enter. Focused lock tests and a live `/team` render (Week 10 complete, 14 LOCKED from the automated schedule) passed on the working tree. The status is unchanged; this lock repair alone does not satisfy CLOSED for the broader defect.
 
 ### P1: Recommendation correctness and completeness
 
@@ -61,10 +63,12 @@ Navigation simplification and legacy-page disposition are planned work only. The
 - Acceptance: One shared Team Needs result is used across all relevant pages, explains need drivers, and cannot produce contradictory summary and detail states.
 
 #### UXQA-005: Lineup decisions use ambiguous language
-- Status: REPORTED
-- Page: Weekly Lineup Intelligence
+- Status: IN PROGRESS
+- Page: Weekly Lineup Intelligence (now `/team#lineup`; `/lineup` redirects there)
 - Problem: HOLD does not clearly mean start, sit, flex, or monitor.
 - Acceptance: Decisions use START, SIT, FLEX, or MONITOR with explicit criteria and confidence.
+- Current evidence (2026-11-16; committed in `a306f3a`): `services/lineup_decision_intelligence.py` emits only START, FLEX, SIT, and MONITOR, each with a reason and categorical decision confidence. Controlled `/team` route tests assert START/SIT wording, rendered decision confidence, and no HOLD (`tests/test_ux5_lineup_route_contract.py`). Live `/team` on the current code rendered START/FLEX and no HOLD, but only in the week-complete state.
+- Remaining for VALIDATED: a live pre-kickoff `/team` render showing START, SIT, FLEX, or MONITOR with criteria and confidence on the committed code.
 
 #### UXQA-006: Scores and ranks are not interpretable
 - Status: VALIDATED

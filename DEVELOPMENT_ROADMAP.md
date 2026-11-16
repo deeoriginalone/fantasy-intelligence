@@ -22,7 +22,7 @@ Apply this model across Command Center, My Team, Waivers, Trades, Survivor, and 
 
 ## Current My Team delivery boundary
 
-The committed `/team` template orders My Team header, Your Lineup, Health & Availability, Biggest Decisions, Why These Decisions, What Could Change, Supporting Roster Details, and collapsed Data/Model Diagnostics. Current Sleeper Lineup, Bench Priority, and Team Needs remain supporting details. This supersedes the earlier hero-first presentation description; current behavioral and rendered-page validation remains unverified.
+The committed `/team` template orders My Team header, Your Lineup, Health & Availability, Biggest Decisions, Why These Decisions, What Could Change, Supporting Roster Details, and collapsed Data/Model Diagnostics. Current Sleeper Lineup, Bench Priority, and Team Needs remain supporting details. This supersedes the earlier hero-first presentation description. Behavioral and rendered-page evidence for the current working tree is recorded under the current committed Starting Lineup Decision Intelligence and schedule-lock boundary below (`695ff74`, `a306f3a`).
 
 Recovery Ready is a planned mandatory standard, not a completed checkpoint. Recovery Ready planned work remains pending. It will require a runnable checkpoint, documented startup verification, database backup, canonical-memory snapshot, Notebook/reference export, and six-core-page verification.
 
@@ -83,11 +83,41 @@ Draft Board and Mock Draft remain preserved and accessible for recurring seasona
 This is target navigation documentation only. Navigation simplification, merges, and Admin placement remain planned work.
 
 ####### Current repository checkpoint
-- Date: 2026-10-05
+- Date: 2026-11-16
 - Branch: test-weekly-evidence-trust
-- HEAD: b75ed8739ea55c04aaa366e4272a84e86083f284
+- HEAD: a306f3a210835ae9c9c5fb62a4295271ec69eb6a
 
 ## Current committed delivery boundary
+
+- Branch: `test-weekly-evidence-trust`, in sync with `origin/test-weekly-evidence-trust`.
+- Implementation HEAD: `a306f3a210835ae9c9c5fb62a4295271ec69eb6a` - `feat(team): add evidence-aware lineup decision intelligence`.
+- Commits after the historical My Team boundary `b75ed87`: `87a43ca` restores the action-first My Team hero and verified NFL week; `bff775f` adds evidence-gated waiver decisions and FAAB guidance; `3ddd37c` uses the configured timezone and authoritative week; `34c3498` adds schedule-backed waiver ranking, the automated nflverse schedule importer (`imports/import_nflverse_schedule.py`), and `services/schedule_bye_evidence.py`; `41dfe47` ranks visible Command Center lineup decisions; `c25e4f2` shares defensive health test assertions; `d37229b` adds an nflverse artifact watchdog; `beb5482` and `d478060` refresh reference and database documents; `ddd329d` ignores local generated artifacts; `695ff74` commits schedule automation (importer republish guards, systemd units, schedule tests); and `a306f3a` commits My Team lineup decision intelligence (services, route, template, and tests).
+- Commits through `ddd329d` are recorded from Git history. `695ff74` and `a306f3a` were each revalidated in a clean worktree (see validation below). This reconciliation did not revalidate the earlier commits and claims no defect closure, production readiness, PostgreSQL parity, or recovery readiness.
+
+## Current committed Starting Lineup Decision Intelligence and schedule-lock boundary (2026-11-16)
+
+State: IMPLEMENTED and VALIDATED at the focused, controlled-route, and live `/team` boundary. Schedule automation is OPERATIONALLY VERIFIED. COMMITTED in `695ff74` (schedule) and `a306f3a` (lineup).
+
+- Owners: `services/lineup_decision_intelligence.py` (`lineup-decision.v1`), `services/game_lock.py` (`lineup.game_lock.v1`), `services/lineup_projection.py`, `services/league_scoring.py` (`league-scored-projection.v1`), `services/team_codes.py`, `scheduler/nflverse-schedule-refresh.service`, and `scheduler/nflverse-schedule-refresh.timer`. Tests: `tests/test_lineup_decision_intelligence.py`, `tests/test_lineup_projection_foundation.py`, and `tests/test_lineup_week_lock_state.py`. Updated owners: `owner_operations.py` (`/team` wiring), `templates/team.html`, `services/jerrygm_projections.py`, `services/team_needs.py`, `imports/import_nflverse_schedule.py`, and four tests.
+- Lineup decisions: whole-lineup assignment uses the league's Sleeper slots and FLEX eligibility, so one slot change cannot silently weaken another. The page reconciles the current and recommended lineups, shows the best eligible alternatives, uses only START, SIT, FLEX, and MONITOR (no HOLD), and includes manager-facing reasons, What Could Change triggers, and missing-evidence lists. Health and availability gate eligibility; unknown health is never treated as healthy.
+- Selection authority: the repository Weekly Score (season projection / 17, adjusted for matchup and health) at PRELIMINARY evidence level. Projection confidence and decision confidence are separate categorical states. No projection-accuracy model exists, so projection reliability is not rated. Floor, ceiling, and volatility remain UNSUPPORTED.
+- League-scored projections: JerryGM `jgm_baseline` stat lines are rescored with the league's Sleeper scoring settings in fantasy points, so FLEX-eligible positions can be compared. Unreproducible K/DEF components keep scoring PARTIAL and are shown as ranges; a missing projection is never zero. These comparisons are PRELIMINARY and `INFORMATIONAL_ONLY`. The action threshold is UNAPPROVED, so a projected edge never selects players, raises confidence, or authorizes a change.
+- Weekly consensus (ECR): live `/team` passes `consensus_authority=False`. ECR is DISPLAY_ONLY context: it is never converted to points, never compared across positions, and never selects or locks a player.
+- Workload and opportunity evidence (nflverse usage and snap share) is `INFORMATIONAL_ONLY` supporting evidence. Stale rows are labelled; rows that fail validation are withheld.
+- Kickoff locks are owned only by the automated nflverse schedule. Player states are OPEN, LOCKED, LOCK_UNVERIFIED, and BYE (NOT_APPLICABLE in Season Sandbox). Week states are PRE_KICKOFF, IN_PROGRESS, MOSTLY_LOCKED, COMPLETE, and LOCK_COVERAGE_INCOMPLETE. Locked starters stay pinned, locked bench players cannot enter, and LOCK_UNVERIFIED players are never moved in or out. Lock state does not depend on ECR, projections, or opportunity rows.
+- Forward-validation snapshots are built per decision but are NOT_PERSISTED. Migration `014_pre_decision_snapshots.sql` is not applied (the `pre_decision_snapshots` table is absent), and no pre-kickoff capture step exists.
+- Read-only boundary: no lineup is submitted. No waiver, trade, Survivor, or draft transaction behavior changed.
+
+## Current schedule and kickoff-evidence boundary (operationally verified 2026-11-16)
+
+- Source: the automated nflverse `schedules` release (`games.csv.gz`), published by `imports/import_nflverse_schedule.py --publish`; byes are derived from the same artifact. A read-only query of persisted 2026 state found 272 `nfl_schedule` rows and 32 `bye_weeks` rows, each owned by a single automated source. `source_recorded_at=2026-11-16 05:16:26+00` and `retrieved_at=2026-11-16 05:20:50+00` remain distinct.
+- Threshold: `schedule.evidence.v1` = 86400 seconds, set by `SCHEDULE_EVIDENCE_MAX_AGE_SECONDS` in the local, git-ignored environment config (no code default). Byes use the season-static contract `bye.season_static.v1`.
+- Republish guards (committed in `695ff74`): ownership from an earlier automated derived-bye artifact no longer blocks the next artifact; unknown or foreign bye owners still fail. `NFLVERSE_SCHEDULE_GAME_WEEK_MOVED` rejects a home/away pair that moves to another week instead of duplicating it. LA/LAR and JAC/JAX normalization is tested.
+- Refresh: the user systemd timer `nflverse-schedule-refresh.timer` (00/06/12/18:00 America/Los_Angeles, Persistent) is enabled and active, the installed unit files match `scheduler/`, and `Linger=yes`. The latest service run (manual start, 2026-11-16 05:20:51 UTC) succeeded with `authoritative=true`, `blockers=[]`, COMPLETE, 272 games, 32 byes, and schedule FRESH. The next timer run is 2026-11-16 08:00 UTC; no timer-triggered run has been observed yet.
+- Failure behavior: stale, missing, contradictory, or unsupported evidence makes affected players LOCK_UNVERIFIED. A failed refresh writes nothing and never renews freshness.
+- Consumer and impact: My Team START/SIT/FLEX lock safety only. Schedule freshness is not player-performance authority. External transactions: none.
+
+## Historical committed My Team delivery boundary (b75ed87; 2026-10-05)
 
 - Branch: `test-weekly-evidence-trust`.
 - HEAD: `b75ed8739ea55c04aaa366e4272a84e86083f284` - `feat(team): improve My Team lineup decision experience`.
@@ -112,9 +142,10 @@ This is target navigation documentation only. Navigation simplification, merges,
 
 ## Current validation and continuity status
 
-- My Team syntax and staged-scope evidence is recorded above; current behavioral and rendered-page validation remains unverified. Historical Trade validation does not validate the new My Team boundary.
-- Historical canonical synchronization and notebook bundle validation passed at `c4011b18be4d3a043150f832ffebdaa0a3c772c0` on 2026-10-04; those reports do not certify current HEAD.
-- Canonical sources are updated for current HEAD. Bundle/checkpoint regeneration is deferred to session close; no current bundle synchronization PASS is claimed.
+- Focused validation on the current working tree (2026-11-16): 384 passed and 2 failed across 16 lineup, lock, schedule, JerryGM, and My Team route test files. The 2 failures (`tests/test_lineup_evidence.py::test_identity_fix_preserves_current_lineup_fields` and `::test_team_opportunity_changes_receives_player_specific_identity`) reproduce identically at clean HEAD `ddd329d`; that identity-route fixture does not supply `WEEK_AUTHORITY_ACQUIRER`. `tests/test_ux2_team_needs.py` fails collection at HEAD because `apply_waiver_ranking` does not exist. Both are pre-existing test defects outside this boundary. The same 16-file set reproduced 384 passed and the same 2 failures on committed `a306f3a` in a clean worktree, and `tests/test_schedule_bye_source_contract.py` passed (39) on `695ff74` alone.
+- All 16 changed Python files compiled. `git diff --check` and `git diff --cached --check` passed.
+- Live `/team` (HTTPS, served by code reloaded at 04:47 UTC) returned HTTP 200: Week 10, Week complete, 14 LOCKED from the automated schedule, START/FLEX decisions, no HOLD, league-scored projections labelled PRELIMINARY, and consensus labelled context only. The only remaining Week 10 game (LAC at BAL) has no rostered player. No live pre-kickoff open-window render has been observed on the current code.
+- Canonical sources are reconciled to implementation HEAD `a306f3a` as of 2026-11-16. Bundle and canonical-sync results come from the continuity run, not from this text.
 
 ####### Historical waiver recovery boundary (through ee451ca; verified 2026-10-03)
 - Recovery commits: `98dee6a` corrects candidate health from live Sleeper status; `34e55d3` publishes source-backed snap share; `ee451ca` restores exact waiver GSIS identity from DynastyProcess player IDs.
@@ -371,7 +402,7 @@ The following systems remain planned and deferred, not abandoned:
 - Primary in-season destinations are proposed as Decision Center, My Team, Waivers, Trades, NFL Intelligence, and Survivor. My Team remains the authoritative lineup destination; `/lineup` remains only as a redirect to `/team#lineup` for existing bookmarks.
 - `/gm` duplicates lineup, waiver, and matchup summary behavior and exposes unsupported grades, scores, and modifiers. Its safe retirement path is to move cross-page prioritization to the rebuilt Dashboard, retain detail in the owning pages, then redirect `/gm` after route and bookmark validation.
 - Draft, import, readiness, Sleeper administration, Pick'em, and technical diagnostics are not primary in-season destinations. Preserve useful routes until separately validated for redirection, secondary research, Draft Mode, or Admin placement.
-- Current weekly-data boundary: Sleeper supplies live league, roster, ownership, and supplemental player-status facts; The Odds API supplies partial matched market context; nflverse and Open-Meteo supply automated NFL Intelligence enrichment. Default weekly enrichment can still read local schedule, bye, and CSV-derived matchup inputs. The no-CSV test covers an explicitly disabled path, not the default route.
+- Current weekly-data boundary: Sleeper supplies live league, roster, ownership, and supplemental player-status facts; The Odds API supplies partial matched market context; nflverse and Open-Meteo supply automated NFL Intelligence enrichment. Schedule and bye inputs are now owned by the automated nflverse schedule import (see the current schedule and kickoff-evidence boundary); default weekly enrichment can still read CSV-derived matchup inputs. The no-CSV test covers an explicitly disabled path, not the default route.
 - Phase 0: reconcile in-season navigation and retire duplicate manager destinations without losing `/lineup` bookmark behavior. Phase 1: establish automated, timestamped schedule, bye, injury, matchup, and projection inputs or fail closed. Phase 2: rebuild Dashboard as a Decision Center that links to, rather than duplicates, owning pages.
 - Phase 3: add trusted player opportunity data and a multi-week What Changed engine. Phase 4: add market-aware buy/low, sell/high, breakout, and regression intelligence only after market-value and opportunity contracts exist. Phase 5: persist immutable pre-decision snapshots for post-week Process versus Results and narrative manager learning. Phase 6: add rest-of-season, playoff, and championship scenario planning only after trusted inputs exist.
 - Opportunity trends, buy/sell labels, post-week grades, Manager Report Card grades, and playoff strategy are blocked by missing automated source, freshness, identifier, historical-baseline, metric-authority, or decision-time snapshot evidence. Do not infer them from box scores or stale CSV inputs.
@@ -391,6 +422,7 @@ The following systems remain planned and deferred, not abandoned:
 - Schedule and bye freshness thresholds are currently unset. Therefore schedule/bye provenance is installed and schedule source time is recorded, but neither domain is yet authoritative for live recommendations; the correct contract state remains `UNAVAILABLE`, not fabricated `FRESH`.
 - Live route evidence: `/team` rendered `FRESH`, `MONITOR`, and `UNAVAILABLE`; `/waivers` rendered `FRESH`; `/trades` rendered `FRESH`, `AGING`, and `BLOCKED`. These route markers do not override the unset schedule/bye freshness configuration.
 - Remaining blockers: approved schedule/bye freshness thresholds, timestamped bye provenance through a controlled source-specific workflow, current matchup evidence, and authoritative projection/ranking evidence. No defect is closed by this installation alone.
+- Superseded (2026-11-16): the CSV-owned schedule, legacy-attributed byes, unset schedule threshold, and schedule non-authority described above are historical. The current schedule and kickoff-evidence boundary records automated nflverse ownership, `schedule.evidence.v1` = 86400 seconds, and schedule-owned lineup locks. Current matchup evidence and authoritative projection/ranking evidence remain open blockers.
 
 ####### Current in-season priorities
 
@@ -408,7 +440,13 @@ The following systems remain planned and deferred, not abandoned:
 
 ## Next milestone
 
-**Build the Fantasy Intelligence 2.0 Command Center and simplify the experience around six core destinations.**
+**Validate My Team weekly START/SIT/FLEX decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding Command Center or other infrastructure.**
 
-Navigation reconciliation supports this milestone but does not outrank decision quality. The next implementation batch is **Build Command Center decision-center aggregation boundary**: summarize existing owning-page evidence without inventing priority or changing decision payloads. Opportunity detection is the next competitive advantage after weekly trust; Decision Center, Process versus Results, manager development, and season strategy follow in that order. UX.8 retains its recorded in-progress boundary. Existing defects retain their evidence-supported statuses; production readiness, PostgreSQL parity, recovery, and defect closure remain unclaimed.
-Before any publication or generated continuity update, review these reconciled canonical sources and resolve required companion-change/release approvals separately; no push, defect closure, or continuity completion is authorized by this reconciliation.
+The decision-first priority override ranks trustworthy weekly START/SIT/FLEX decisions above dashboards and navigation. Whole-lineup decisions and schedule-owned locks now exist, but the Weekly Score and league-scored projections remain PRELIMINARY, and the projection action threshold is UNAPPROVED. Neither can be strengthened without forward evidence, and none is being captured because `pre_decision_snapshots` does not exist; every played week without capture is lost evidence.
+
+The next implementation batch is **Persist pre-kickoff My Team lineup decision snapshots**:
+1. Apply `014_pre_decision_snapshots.sql` after a database backup.
+2. Add an explicit, read-only pre-kickoff capture step.
+3. Add a post-week comparison against actual Sleeper points.
+
+This batch must not change selection, invent thresholds, or submit transactions. Command Center aggregation, opportunity detection, Process versus Results, manager development, and season strategy follow in that order. UX.8 retains its recorded in-progress boundary. Existing defects retain their evidence-supported statuses; production readiness, PostgreSQL parity, recovery, and defect closure remain unclaimed. This reconciliation authorizes no defect closure.

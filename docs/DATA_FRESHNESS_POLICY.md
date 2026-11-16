@@ -108,11 +108,20 @@ The owner reports approved Yahoo API access and a Yahoo Survivor league. Yahoo i
 ### Private Waiver Consensus
 
 - Implementation owner: `services/dynastyprocess_rankings.py`. FantasyPros PPR consensus is obtained from commit-pinned DynastyProcess artifacts for the owner's private app, without redistribution.
-- Opening Waivers refreshes a missing cache, a cache older than six hours, or a changed NFL season/type/week. No always-running app, manager upload, or system timer is required. Failed attempts retry after 15 minutes of subsequent use.
+- Opening My Team refreshes the shared cache when it is missing, older than six hours, or scoped to a different NFL season/type/week. Waivers reads the same cache, refreshes it only when it is missing, and offers a manual refresh. No always-running app, manager upload, or system timer is required. Failed attempts retry after 15 minutes of subsequent use.
 - Every visit evaluates source dates, independently of retrieval time: weekly ranks have a 48-hour maximum age; ROS ranks have a seven-day maximum age. These are explicit operational limits for the upstream publication cadence, not promises of forecast accuracy.
 - A successful download never changes `scrape_date`. A failed refresh retains the last successful snapshot and exposes the failure, but source-age/week gates still withhold outdated ranks and affected advice.
 - Weekly scope is corroborated with current Sleeper NFL state and source kickoff dates; started games are excluded. ROS requires explicit ROS positional-page labels. Draft, dynasty, non-PPR skill-position pages, and historical points are not silent substitutes.
 - Each supported row is reconciled to a published rank or a diagnostic record. Exact player crosswalks normalize `PK` to `K`; team defenses use exact supported Sleeper team IDs. Pending mapping/game verification is distinct from confirmed stale/started-game/invalid-rank evidence.
 - The atomic cache lives in the Flask instance directory as `dynastyprocess-rankings.json`. Last attempt, last successful retrieval, source dates, source URLs, commit version, checksums, and failure status remain available separately.
+
+### NFL Schedule and Kickoff Evidence
+
+- Threshold ID: `schedule.evidence.v1`, read from `SCHEDULE_EVIDENCE_MAX_AGE_SECONDS` by `services/integrity/integrity_service.py`. Approved maximum age: 86400 seconds (24 hours), set in the local environment only, never as a code default.
+- Source: the automated nflverse `schedules` release (`games.csv.gz`), written only by `imports/import_nflverse_schedule.py --publish`. Age is measured from the upstream `timestamp.txt` value stored as `source_recorded_at`, not from `retrieved_at` or `imported_at`.
+- Required refresh cadence: every six hours during the NFL season (`scheduler/nflverse-schedule-refresh.timer`).
+- Decision impact: FRESH evidence may authorize OPEN, LOCKED, and BYE lock states. AGING evidence remains usable and visible under the existing contract. STALE, missing, contradictory, or unsupported evidence makes the player LOCK_UNVERIFIED, and an unverified player is never moved into or out of the lineup.
+- A failed refresh writes nothing: it never advances `source_recorded_at` and never makes old evidence fresh. A republish rejects bye rows owned by any source other than CSV bootstrap, an earlier automated nflverse derived-bye artifact, or the explicitly overridden legacy source, and rejects a stored game whose home/away pair moved to a different week (`NFLVERSE_SCHEDULE_GAME_WEEK_MOVED`) instead of duplicating it.
+- Operational basis (November 16, 2026): 3,656 successful upstream schedule releases from September 1 to November 16 with a 20-minute median gap and an 18.6-hour maximum gap (no gap above 24 hours); a six-hour import cadence simulated against that history and every kickoff kept evidence under 24 hours old; controlled Week 11 lock-state validation passed from pre-kickoff through Monday Night Football; two consecutive live publications succeeded.
 
 Exact thresholds should be maintained in one implementation-owned registry and validated by tests. This document should link to that registry after it exists.
