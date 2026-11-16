@@ -1,0 +1,6 @@
+[Unit]
+Description=Fantasy Intelligence nflverse Schedule and Bye Refresh
+[Service]
+Type=oneshot
+WorkingDirectory=/home/deeoriginalone/fantasy-intelligence
+ExecStart=/home/deeoriginalone/fantasy-intelligence/venv/bin/python -m imports.import_nflverse_schedule --publish

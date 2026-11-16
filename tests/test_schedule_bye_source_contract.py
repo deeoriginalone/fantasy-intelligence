@@ -240,3 +240,179 @@ def test_importer_and_reader_share_one_bye_authority_rule(monkeypatch):
     reader = one(rows, team=built["byes"][0]["team"], week=built["byes"][0]["bye_week"])
     assert built["bye_contract"]["authoritative"] and reader["authoritative"] and reader["is_current_week_bye"] is True
     assert built["bye_contract"]["contract_id"] == reader["contract_id"]
+
+
+class FakeScheduleDatabase:
+    """Transactional in-memory nfl_schedule/bye_weeks applying the writer's ON CONFLICT ownership rules."""
+
+    def __init__(self):
+        self.schedule, self.byes, self.pending, self.commits, self.rollbacks, self.clock = {}, {}, None, 0, 0, 0
+
+    def tables(self):
+        return deepcopy((self.schedule, self.byes))
+
+    def cursor(self):
+        if self.pending is None:
+            self.pending = self.tables()
+        return FakeScheduleCursor(self)
+
+    def commit(self):
+        self.schedule, self.byes = self.pending
+        self.pending, self.commits = None, self.commits + 1
+
+    def rollback(self):
+        self.pending, self.rollbacks = None, self.rollbacks + 1
+
+
+class FakeScheduleCursor:
+    OWNED = ("csv:", "automated:nflverse-schedules:")
+
+    def __init__(self, db): self.db, self.rows, self.rowcount = db, [], 0
+
+    def execute(self, query, params=()):
+        schedule, byes = self.db.pending
+        self.db.clock += 1
+        if query.startswith("SELECT match_number"):
+            self.rows = [(row["match_number"], row["week"], row["home_team"], row["away_team"], row["source"]) for (season, _), row in schedule.items() if season == params[0]]
+        elif query.startswith("SELECT DISTINCT source FROM bye_weeks"):
+            self.rows = sorted({(row["source"],) for (season, _), row in byes.items() if season == params[0]})
+        elif "INSERT INTO nfl_schedule" in query:
+            fields = ("season", "week", "match_number", "game_time_utc", "game_time_pacific", "location", "home_team", "away_team", "result", "source", "source_recorded_at", "retrieved_at")
+            row = {**dict(zip(fields, params)), "imported_at": self.db.clock}
+            current = schedule.get((row["season"], row["match_number"]))
+            self.rowcount = 0 if current and not current["source"].startswith(self.OWNED) else 1
+            if self.rowcount:
+                schedule[(row["season"], row["match_number"])] = row
+        elif "INSERT INTO bye_weeks" in query:
+            season, team, week, source, recorded, retrieved, replace_legacy, legacy = params
+            current = byes.get((season, team))
+            allowed = current is None or current["source"].startswith(self.OWNED) or (replace_legacy and current["source"] == legacy)
+            self.rowcount = 1 if allowed else 0
+            if allowed:
+                byes[(season, team)] = {"team": team, "bye_week": week, "source": source, "source_recorded_at": recorded, "retrieved_at": retrieved, "imported_at": self.db.clock}
+
+    def fetchall(self): return self.rows
+    def close(self): pass
+
+
+def built_evidence(rows=None, *, artifact=b"schedule artifact", recorded="2026-10-04 04:36:32 EDT", retrieved=datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc)):
+    return build_schedule_evidence(rows or complete_schedule_rows(), season=2026, source_recorded_at=_source_time(recorded), retrieved_at=retrieved,
+                                   checksum=hashlib.sha256(artifact).hexdigest())
+
+
+def published_database(evidence=None):
+    db = FakeScheduleDatabase()
+    publish_schedule_evidence(db, evidence or built_evidence())
+    return db
+
+
+def schedule_game(db, predicate):
+    return next(key for key, row in sorted(db.schedule.items()) if predicate(row))
+
+
+def test_automated_publication_republishes_over_its_own_earlier_bye_source(monkeypatch):
+    monkeypatch.setenv("SCHEDULE_EVIDENCE_MAX_AGE_SECONDS", "")
+    first = built_evidence()
+    db = published_database(first)
+    assert (len(db.schedule), len(db.byes), db.commits) == (272, 32, 1)
+    assert {row["source"] for row in db.byes.values()} == {first["bye_source"]}
+    publish_schedule_evidence(db, first)
+    assert (len(db.schedule), len(db.byes), db.commits) == (272, 32, 2)
+    later = datetime(2026, 11, 16, 4, 25, tzinfo=timezone.utc)
+    second = built_evidence(artifact=b"newer schedule artifact", recorded="2026-11-15 23:16:17 EST", retrieved=later)
+    assert second["bye_source"] != first["bye_source"] and second["bye_source"].startswith("automated:nflverse-schedules:derived-bye:")
+    byes_before = {team: row["bye_week"] for (_, team), row in db.byes.items()}
+    publish_schedule_evidence(db, second)
+    assert (len(db.schedule), len(db.byes), db.commits, db.rollbacks) == (272, 32, 3, 0)
+    for table, source in ((db.schedule, second["source"]), (db.byes, second["bye_source"])):
+        assert {(row["source"], row["source_recorded_at"], row["retrieved_at"]) for row in table.values()} == {
+            (source, datetime(2026, 11, 16, 4, 16, 17, tzinfo=timezone.utc), later)}
+    assert {team: row["bye_week"] for (_, team), row in db.byes.items()} == byes_before
+
+
+@pytest.mark.parametrize("foreign", ["manual:owner-entry", "automated:other-provider:derived-bye:x", "nflverse-schedules:derived-bye:x",
+                                     "automated:nflverse-schedules:games.csv.gz:sha256:x"])
+def test_bye_rows_owned_by_another_source_still_block_publication(monkeypatch, foreign):
+    monkeypatch.setenv("SCHEDULE_EVIDENCE_MAX_AGE_SECONDS", "")
+    db = published_database()
+    team = sorted(NFL_TEAMS)[0]
+    db.byes[(2026, team)]["source"] = foreign
+    before = db.tables()
+    with pytest.raises(ScheduleEvidenceError, match="NFLVERSE_BYE_SOURCE_CONFLICT"):
+        publish_schedule_evidence(db, built_evidence(artifact=b"newer schedule artifact"))
+    assert db.tables() == before and db.rollbacks == 1
+
+
+def test_legacy_bye_source_still_requires_the_explicit_override(monkeypatch):
+    monkeypatch.setenv("SCHEDULE_EVIDENCE_MAX_AGE_SECONDS", "")
+    db = published_database()
+    for row in db.byes.values():
+        row["source"] = LEGACY_BYE_SOURCE
+    with pytest.raises(ScheduleEvidenceError, match="REQUIRES_EXPLICIT_FLAG"):
+        publish_schedule_evidence(db, built_evidence(artifact=b"newer schedule artifact"))
+    publish_schedule_evidence(db, built_evidence(artifact=b"newer schedule artifact"), replace_known_legacy_byes=True)
+    assert all(row["source"].startswith("automated:nflverse-schedules:derived-bye:") for row in db.byes.values())
+
+
+def test_csv_bootstrap_schedule_and_byes_are_replaced_by_automated_evidence(monkeypatch):
+    monkeypatch.setenv("SCHEDULE_EVIDENCE_MAX_AGE_SECONDS", "")
+    db = published_database()
+    for table in (db.schedule, db.byes):
+        for row in table.values():
+            row["source"] = "csv:bootstrap.csv"
+    evidence = built_evidence(artifact=b"newer schedule artifact")
+    publish_schedule_evidence(db, evidence)
+    assert {row["source"] for row in db.schedule.values()} == {evidence["source"]} and {row["source"] for row in db.byes.values()} == {evidence["bye_source"]}
+
+
+def test_rejected_publication_rolls_back_schedule_rows_already_written(monkeypatch):
+    monkeypatch.setenv("SCHEDULE_EVIDENCE_MAX_AGE_SECONDS", "")
+    db = published_database()
+    last = max(db.schedule)
+    db.schedule[last]["source"] = "manual:owner-entry"
+    before = db.tables()
+    with pytest.raises(ScheduleEvidenceError, match=f"NFLVERSE_SCHEDULE_SOURCE_CONFLICT:{last[1]}"):
+        publish_schedule_evidence(db, built_evidence(artifact=b"newer schedule artifact"))
+    assert db.tables() == before and (db.commits, db.rollbacks) == (1, 1)
+
+
+def test_same_week_kickoff_change_updates_the_existing_game(monkeypatch):
+    monkeypatch.setenv("SCHEDULE_EVIDENCE_MAX_AGE_SECONDS", "")
+    db = published_database()
+    rows = complete_schedule_rows()
+    rows[40]["gametime"] = "16:25"
+    evidence = built_evidence(rows, artifact=b"flexed kickoff")
+    moved = next(row for row in evidence["rows"] if row["game_id"] == rows[40]["game_id"])
+    publish_schedule_evidence(db, evidence)
+    stored = [row for row in db.schedule.values() if (row["week"], row["home_team"], row["away_team"]) == (moved["week"], moved["home_team"], moved["away_team"])]
+    assert len(db.schedule) == 272 and [row["game_time_utc"] for row in stored] == [moved["game_time_utc"]]
+
+
+@pytest.mark.parametrize("team,stored_as", [(None, None), ("LAR", "LA"), ("JAX", "JAC")])
+def test_game_stored_in_a_different_week_is_rejected_before_any_write(monkeypatch, team, stored_as):
+    monkeypatch.setenv("SCHEDULE_EVIDENCE_MAX_AGE_SECONDS", "")
+    db = published_database()
+    key = schedule_game(db, lambda row: row["week"] == 3 and (team is None or team in (row["home_team"], row["away_team"])))
+    row = db.schedule[key]
+    away, home = row["away_team"], row["home_team"]
+    taken = {stored["week"] for stored in db.schedule.values() if (stored["home_team"], stored["away_team"]) == (home, away)}
+    target = min(set(range(1, 19)) - taken)
+    row["week"] = target
+    if stored_as:
+        side = "home_team" if home == team else "away_team"
+        row[side] = stored_as
+    before = db.tables()
+    with pytest.raises(ScheduleEvidenceError, match=f"NFLVERSE_SCHEDULE_GAME_WEEK_MOVED:season=2026:away={away}:home={home}:existing_week={target}:incoming_week=3$"):
+        publish_schedule_evidence(db, built_evidence(artifact=b"newer schedule artifact"))
+    assert db.tables() == before and db.rollbacks == 1 and len(db.schedule) == 272
+
+
+def test_moved_game_guard_ignores_reversed_pairs_and_repeated_matchups():
+    from imports.import_nflverse_schedule import _reject_moved_games
+
+    existing = [(5, "KC", "DEN"), (17, "BUF", "MIA"), (18, "BUF", "MIA")]
+    incoming = [{"week": 5, "home_team": "KC", "away_team": "DEN"}, {"week": 12, "home_team": "DEN", "away_team": "KC"},
+                {"week": 17, "home_team": "BUF", "away_team": "MIA"}, {"week": 18, "home_team": "BUF", "away_team": "MIA"}]
+    _reject_moved_games(2026, existing, incoming)
+    with pytest.raises(ScheduleEvidenceError, match="away=DEN:home=KC:existing_week=5:incoming_week=9"):
+        _reject_moved_games(2026, existing, [{**incoming[0], "week": 9}])

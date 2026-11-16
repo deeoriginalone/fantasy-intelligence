@@ -24,6 +24,8 @@ SOURCE_TIMESTAMP_URL = f"{RELEASE_BASE}/timestamp.txt"
 LICENSE_URL = "https://github.com/nflverse/nflverse-data/blob/main/LICENSE.md"
 ATTRIBUTION = "nflverse-data; schedules maintained by Lee Sharpe's nfldata; CC BY 4.0"
 AUTOMATED_SOURCE_PREFIX = "automated:nflverse-schedules"
+# Byes derived by an earlier run of this importer; only the artifact checksum suffix differs between runs.
+DERIVED_BYE_SOURCE_PREFIX = f"{AUTOMATED_SOURCE_PREFIX}:derived-bye:"
 LEGACY_BYE_SOURCE = "Gridiron Games bye-week PDF; cross-checked against nfl-2026-UTC.csv"
 EASTERN = ZoneInfo("America/New_York")
 PACIFIC = ZoneInfo("America/Los_Angeles")
@@ -191,6 +193,23 @@ def fetch_schedule_evidence(*, season: int = 2026, now: datetime | None = None) 
     )
 
 
+def _reject_moved_games(season: int, existing_keys: Sequence[tuple[int, str, str]], incoming_rows: Sequence[Mapping[str, Any]]) -> None:
+    """Fail before any write when a stored home/away pair now appears in a different week, instead of adding a second game row."""
+    existing_weeks: dict[tuple[str, str], set[int]] = defaultdict(set)
+    for week, home, away in existing_keys:
+        existing_weeks[(home, away)].add(week)
+    incoming_weeks: dict[tuple[str, str], set[int]] = defaultdict(set)
+    for row in incoming_rows:
+        incoming_weeks[(row["home_team"], row["away_team"])].add(int(row["week"]))
+    for home, away in sorted(set(existing_weeks) & set(incoming_weeks)):
+        moved_from = sorted(existing_weeks[(home, away)] - incoming_weeks[(home, away)])
+        moved_to = sorted(incoming_weeks[(home, away)] - existing_weeks[(home, away)])
+        if moved_from and moved_to:
+            raise ScheduleEvidenceError(
+                f"NFLVERSE_SCHEDULE_GAME_WEEK_MOVED:season={season}:away={away}:home={home}:existing_week={moved_from[0]}:incoming_week={moved_to[0]}"
+            )
+
+
 def _assign_match_numbers(cursor, evidence: Mapping[str, Any]) -> list[dict[str, Any]]:
     cursor.execute(
         "SELECT match_number,week,home_team,away_team,source FROM nfl_schedule WHERE season=%s",
@@ -205,6 +224,7 @@ def _assign_match_numbers(cursor, evidence: Mapping[str, Any]) -> list[dict[str,
             raise ScheduleEvidenceError("NFLVERSE_SCHEDULE_EXISTING_GAME_IDENTITY_DUPLICATE")
         existing_ids[key] = int(match_number)
         used_numbers.add(int(match_number))
+    _reject_moved_games(evidence["season"], list(existing_ids), evidence["rows"])
     if existing and len(existing_ids) != len(evidence["rows"]):
         raise ScheduleEvidenceError("NFLVERSE_SCHEDULE_EXISTING_POPULATION_MISMATCH")
     next_number = max(used_numbers, default=0) + 1
@@ -235,7 +255,8 @@ def publish_schedule_evidence(connection: Any, evidence: Mapping[str, Any], *, r
             allowed_bye_sources.add(LEGACY_BYE_SOURCE)
         if LEGACY_BYE_SOURCE in bye_sources and not replace_known_legacy_byes:
             raise ScheduleEvidenceError("NFLVERSE_BYE_LEGACY_SOURCE_REPLACEMENT_REQUIRES_EXPLICIT_FLAG")
-        disallowed = {source for source in bye_sources if source and not source.startswith("csv:") and source not in allowed_bye_sources}
+        disallowed = {source for source in bye_sources if source and not source.startswith("csv:")
+                      and not source.startswith(DERIVED_BYE_SOURCE_PREFIX) and source not in allowed_bye_sources}
         if disallowed:
             raise ScheduleEvidenceError(f"NFLVERSE_BYE_SOURCE_CONFLICT:{','.join(sorted(disallowed))}")
 
