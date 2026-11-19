@@ -51,7 +51,7 @@ My Team forward validation (2026-11-19): migration 014 is applied, and committed
 ####### Current repository checkpoint
 - Date: 2026-11-19
 - Branch: test-weekly-evidence-trust
-- HEAD: b8b8f6d06ef9e3f3d226c721e21fd7152ca660b3
+- HEAD: 8774fa8362fcc03cd27daf1b2bc3624e20536602
 - Working tree: the snapshot implementation (`95acb9c`), capture automation (`298c83b`), and shadow Weekly Score v2 (`b8b8f6d`) are committed locally and not pushed. This reconciliation commits the canonical sources and `docs/CURRENT_DEFECTS.md`, and a following continuity commit refreshes the generated continuity artifacts. Unrelated untracked local files are preserved and never staged.
 - Repository: /home/deeoriginalone/fantasy-intelligence
 - League ID: 1398094330668797952

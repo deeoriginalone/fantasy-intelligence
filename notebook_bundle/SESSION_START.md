@@ -1,9 +1,9 @@
 # Fantasy Intelligence Session Start
 
-- Generated UTC: `2026-11-16T12:05:32.524048+00:00`
+- Generated UTC: `2026-11-19T18:15:48.180606+00:00`
 - Repository: `/home/deeoriginalone/fantasy-intelligence`
 - Branch: `test-weekly-evidence-trust`
-- HEAD: `5abe2fd51d24a3b949b6b2d57aab5d2cb88f5f83`
+- HEAD: `8774fa8362fcc03cd27daf1b2bc3624e20536602`
 
 ## Continuity Status
 
@@ -19,7 +19,7 @@
 
 ## Working Tree Summary
 
-- Modified: `26`
+- Modified: `24`
 - Deleted: `0`
 - Added: `0`
 - Renamed: `0`
@@ -34,7 +34,6 @@
 - ` M PROJECT_STATUS.md`
 - ` M docs/NEXT_SESSION_HANDOFF.md`
 - ` M docs/REPOSITORY_CHECKPOINT.md`
-- ` M docs/database/PARITY_STATUS.md`
 - ` M notebook_bundle.tar.gz`
 - ` M notebook_bundle/BUNDLE_MANIFEST.json`
 - ` M notebook_bundle/BUNDLE_VALIDATION.json`
@@ -46,7 +45,6 @@
 - ` M notebook_bundle/DEVELOPMENT_ROADMAP.md`
 - ` M notebook_bundle/IMPLEMENTATION_INVENTORY.md`
 - ` M notebook_bundle/NEXT_SESSION_HANDOFF.md`
-- ` M notebook_bundle/PARITY_STATUS.md`
 - ` M notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json`
 - ` M notebook_bundle/PROJECT_STATE.md`
 - ` M notebook_bundle/PROJECT_STATUS.md`
@@ -69,48 +67,46 @@
 ## Recent Commits
 
 ```text
-5abe2fd (HEAD -> test-weekly-evidence-trust) docs: reconcile lineup and schedule delivery boundary
+8774fa8 (HEAD -> test-weekly-evidence-trust) docs: reconcile Weekly Score v2 shadow boundary
+b8b8f6d feat(team): add shadow Weekly Score v2
+298c83b feat(scheduler): automate pre-kickoff lineup snapshot capture
+95acb9c feat(team): capture pre-kickoff lineup decision snapshots
+1f641d1 (origin/test-weekly-evidence-trust) chore(continuity): refresh repository handoff artifacts
+5abe2fd docs: reconcile lineup and schedule delivery boundary
 a306f3a feat(team): add evidence-aware lineup decision intelligence
 695ff74 feat(schedule): automate NFL schedule refresh and lock evidence
-ddd329d (origin/test-weekly-evidence-trust) chore: ignore local generated artifacts
+ddd329d chore: ignore local generated artifacts
 d478060 docs(database): refresh migration and parity references
-beb5482 docs: refresh evidence and product references
-d37229b chore(data): add nflverse artifact change watchdog
-c25e4f2 test: share defensive health assertions
-41dfe47 fix(command-center): rank visible lineup decisions
-34c3498 feat(waivers): add schedule-backed evidence ranking
 ```
 
 ## Diff Summary
 
 ```text
-.continuity/last_bundle_manifest.json          |  34 +--
+.continuity/last_bundle_manifest.json          |  30 ++++-----
  DEVELOPMENT_ROADMAP.md                         |   2 +-
  PROJECT_STATE.md                               |   2 +-
  PROJECT_STATUS.md                              |   2 +-
  docs/NEXT_SESSION_HANDOFF.md                   |   2 +-
- docs/REPOSITORY_CHECKPOINT.md                  | 195 ++++++----------
- docs/database/PARITY_STATUS.md                 |   4 +
- notebook_bundle.tar.gz                         | Bin 103011 -> 110458 bytes
- notebook_bundle/BUNDLE_MANIFEST.json           |  34 +--
+ docs/REPOSITORY_CHECKPOINT.md                  |  68 ++++++++++----------
+ notebook_bundle.tar.gz                         | Bin 114657 -> 140390 bytes
+ notebook_bundle/BUNDLE_MANIFEST.json           |  30 ++++-----
  notebook_bundle/BUNDLE_VALIDATION.json         |   2 +-
  notebook_bundle/BUNDLE_VALIDATION.md           |   2 +-
- notebook_bundle/CANONICAL_SYNC_VALIDATION.json |  24 +-
- notebook_bundle/CANONICAL_SYNC_VALIDATION.md   |  14 +-
- notebook_bundle/CHANGE_REPORT.json             |  78 +++----
- notebook_bundle/CHANGE_REPORT.md               |  10 +-
- notebook_bundle/DEVELOPMENT_ROADMAP.md         | 295 ++++++++++++++++---------
- notebook_bundle/IMPLEMENTATION_INVENTORY.md    |   9 +
- notebook_bundle/NEXT_SESSION_HANDOFF.md        | 233 +++++++++++--------
- notebook_bundle/PARITY_STATUS.md               |   5 +
- notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json  |  38 ++--
- notebook_bundle/PROJECT_STATE.md               | 223 ++++++++++++-------
- notebook_bundle/PROJECT_STATUS.md              | 229 +++++++++++--------
- notebook_bundle/REPOSITORY_CHECKPOINT.md       | 180 ++++++---------
- notebook_bundle/SESSION_START.json             | 114 ++++------
- notebook_bundle/SESSION_START.md               | 171 ++++++--------
- notebook_bundle/TEST_INVENTORY.md              | 146 ++++++++++--
- 26 files changed, 1104 insertions(+), 944 deletions(-)
+ notebook_bundle/CANONICAL_SYNC_VALIDATION.json |  24 ++++----
+ notebook_bundle/CANONICAL_SYNC_VALIDATION.md   |  14 ++---
+ notebook_bundle/CHANGE_REPORT.json             |  54 ++++++++--------
+ notebook_bundle/CHANGE_REPORT.md               |   2 +-
+ notebook_bundle/DEVELOPMENT_ROADMAP.md         |  80 ++++++++++++++++++------
+ notebook_bundle/IMPLEMENTATION_INVENTORY.md    |   1 +
+ notebook_bundle/NEXT_SESSION_HANDOFF.md        |  82 +++++++++++++++++++------
+ notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json  |  30 ++++-----
+ notebook_bundle/PROJECT_STATE.md               |  82 +++++++++++++++++++------
+ notebook_bundle/PROJECT_STATUS.md              |  82 +++++++++++++++++++------
+ notebook_bundle/REPOSITORY_CHECKPOINT.md       |  81 ++++++++++++++----------
+ notebook_bundle/SESSION_START.json             |  27 ++++----
+ notebook_bundle/SESSION_START.md               |  68 ++++++++++----------
+ notebook_bundle/TEST_INVENTORY.md              |  32 ++++++++--
+ 24 files changed, 500 insertions(+), 299 deletions(-)
 ```
 
 ## First Command

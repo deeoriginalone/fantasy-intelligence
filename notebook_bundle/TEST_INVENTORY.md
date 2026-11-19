@@ -71,6 +71,7 @@ tests/test_survival_calibration.py
 tests/test_security_and_validation.py
 tests/test_f3a1_repository_integration.py
 tests/test_week_authority_consolidation.py
+tests/test_lineup_snapshot_capture_units.py
 tests/test_monte_carlo_survival.py
 tests/test_mock_draft_state_consistency.py
 tests/test_weekly_evidence_trust_contract.py
@@ -100,6 +101,7 @@ tests/test_batch_a_validation_hardening.py
 tests/test_ux2_recommendation_contract.py
 tests/test_f4_c_decision_ranking.py
 tests/test_ux2_team_accuracy.py
+tests/test_lineup_forward_validation.py
 tests/test_f3_b31_postgres_parity.py
 tests/test_ux2_team_priority.py
 tests/test_trade_intelligence_template.py
@@ -141,7 +143,7 @@ platform linux -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
 rootdir: /home/deeoriginalone/fantasy-intelligence
 configfile: pytest.ini
 testpaths: tests
-collected 114 items / 109 errors
+collected 114 items / 111 errors
 
 <Dir fantasy-intelligence>
   <Dir tests>
@@ -738,7 +740,7 @@ Traceback:
 /usr/lib/python3.14/importlib/__init__.py:88: in import_module
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_lineup_decision_intelligence.py:6: in <module>
+tests/test_lineup_decision_intelligence.py:7: in <module>
     from services.authoritative_week import build_sleeper_week_contract
 E   ModuleNotFoundError: No module named 'services'
 ________________ ERROR collecting tests/test_lineup_evidence.py ________________
@@ -751,6 +753,16 @@ Traceback:
 tests/test_lineup_evidence.py:1: in <module>
     from services.lineup_evidence import build_lineup_evidence, build_matchup_evidence, build_projection_evidence
 E   ModuleNotFoundError: No module named 'services'
+___________ ERROR collecting tests/test_lineup_forward_validation.py ___________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_lineup_forward_validation.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_lineup_forward_validation.py:8: in <module>
+    from services.authoritative_week import build_sleeper_week_contract
+E   ModuleNotFoundError: No module named 'services'
 _________ ERROR collecting tests/test_lineup_projection_foundation.py __________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_lineup_projection_foundation.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -761,6 +773,16 @@ Traceback:
 tests/test_lineup_projection_foundation.py:7: in <module>
     from services.game_lock import build_game_lock, build_roster_game_locks
 E   ModuleNotFoundError: No module named 'services'
+_________ ERROR collecting tests/test_lineup_snapshot_capture_units.py _________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_lineup_snapshot_capture_units.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_lineup_snapshot_capture_units.py:5: in <module>
+    import owner_operations
+E   ModuleNotFoundError: No module named 'owner_operations'
 ____________ ERROR collecting tests/test_lineup_week_lock_state.py _____________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_lineup_week_lock_state.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -1419,7 +1441,9 @@ ERROR tests/test_integrity_service.py
 ERROR tests/test_jerrygm_projections.py
 ERROR tests/test_lineup_decision_intelligence.py
 ERROR tests/test_lineup_evidence.py
+ERROR tests/test_lineup_forward_validation.py
 ERROR tests/test_lineup_projection_foundation.py
+ERROR tests/test_lineup_snapshot_capture_units.py
 ERROR tests/test_lineup_week_lock_state.py
 ERROR tests/test_matchup_enrichment_validator.py
 ERROR tests/test_mock_draft_state_consistency.py
@@ -1481,5 +1505,5 @@ ERROR tests/test_weekly_evidence_trust_contract.py
 ERROR tests/test_weekly_lineup_intelligence.py
 ERROR tests/test_yahoo_oauth.py
 ERROR tests/test_yahoo_pickem.py
-!!!!!!!!!!!!!!!!!! Interrupted: 109 errors during collection !!!!!!!!!!!!!!!!!!!
-=================== 114 tests collected, 109 errors in 1.83s ===================
+!!!!!!!!!!!!!!!!!! Interrupted: 111 errors during collection !!!!!!!!!!!!!!!!!!!
+=================== 114 tests collected, 111 errors in 4.11s ===================

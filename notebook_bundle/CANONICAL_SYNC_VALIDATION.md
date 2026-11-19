@@ -1,9 +1,9 @@
 # Canonical Memory Sync Validation
 
-- Generated UTC: `2026-11-16T12:05:32.468716+00:00`
+- Generated UTC: `2026-11-19T18:15:48.117535+00:00`
 - Result: `PASS`
 - Current branch: `test-weekly-evidence-trust`
-- Current HEAD: `5abe2fd51d24a3b949b6b2d57aab5d2cb88f5f83`
+- Current HEAD: `8774fa8362fcc03cd27daf1b2bc3624e20536602`
 
 ## Checks
 
@@ -23,7 +23,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**`
+- Next milestone: `**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**`
 
 ### PROJECT_STATE.md
 
@@ -31,7 +31,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**`
+- Next milestone: `**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**`
 
 ### DEVELOPMENT_ROADMAP.md
 
@@ -39,7 +39,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**`
+- Next milestone: `**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**`
 
 ### NEXT_SESSION_HANDOFF.md
 
@@ -47,8 +47,8 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**`
+- Next milestone: `**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**`
 
 ## Extracted Milestones
 
-- `**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**`
+- `**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**`

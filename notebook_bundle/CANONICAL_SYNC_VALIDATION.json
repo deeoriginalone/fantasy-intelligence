@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-11-16T12:05:32.468716+00:00",
+  "generated_at_utc": "2026-11-19T18:15:48.117535+00:00",
   "passed": true,
   "repository": {
     "branch": "test-weekly-evidence-trust",
-    "head": "5abe2fd51d24a3b949b6b2d57aab5d2cb88f5f83",
-    "short_head": "5abe2fd"
+    "head": "8774fa8362fcc03cd27daf1b2bc3624e20536602",
+    "short_head": "8774fa8"
   },
   "checks": {
     "canonical_files_present": true,
@@ -18,35 +18,35 @@
   "files": {
     "PROJECT_STATUS.md": {
       "exists": true,
-      "bytes": 48195,
+      "bytes": 73397,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**"
+      "next_milestone": "**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**"
     },
     "PROJECT_STATE.md": {
       "exists": true,
-      "bytes": 48619,
+      "bytes": 73821,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**"
+      "next_milestone": "**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**"
     },
     "DEVELOPMENT_ROADMAP.md": {
       "exists": true,
-      "bytes": 52370,
+      "bytes": 76771,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**"
+      "next_milestone": "**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**"
     },
     "NEXT_SESSION_HANDOFF.md": {
       "exists": true,
-      "bytes": 49337,
+      "bytes": 74539,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**"
+      "next_milestone": "**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**"
     }
   },
   "missing_files": [],
@@ -55,7 +55,7 @@
   "head_mismatches": [],
   "missing_milestones": [],
   "unique_milestones": [
-    "**validate my team weekly start/sit/flex decision quality with persisted pre-kickoff decision snapshots and post-week outcome review before expanding command center or other infrastructure.**"
+    "**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**"
   ],
   "sensitive_findings": []
 }

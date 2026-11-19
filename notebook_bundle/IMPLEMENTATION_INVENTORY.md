@@ -13,6 +13,7 @@ services/integrity/integrity_service.py
 services/decision_ranking.py
 services/ux2_team_accuracy.py
 services/readiness_report_io.py
+services/lineup_forward_validation.py
 services/matchup_intelligence.py
 services/import_rankings.py
 services/league_scoring.py
