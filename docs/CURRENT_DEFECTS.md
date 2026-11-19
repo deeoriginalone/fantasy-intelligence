@@ -63,12 +63,15 @@ Navigation simplification and legacy-page disposition are planned work only. The
 - Acceptance: One shared Team Needs result is used across all relevant pages, explains need drivers, and cannot produce contradictory summary and detail states.
 
 #### UXQA-005: Lineup decisions use ambiguous language
-- Status: IN PROGRESS
+- Status: VALIDATED
 - Page: Weekly Lineup Intelligence (now `/team#lineup`; `/lineup` redirects there)
 - Problem: HOLD does not clearly mean start, sit, flex, or monitor.
 - Acceptance: Decisions use START, SIT, FLEX, or MONITOR with explicit criteria and confidence.
 - Current evidence (2026-11-16; committed in `a306f3a`): `services/lineup_decision_intelligence.py` emits only START, FLEX, SIT, and MONITOR, each with a reason and categorical decision confidence. Controlled `/team` route tests assert START/SIT wording, rendered decision confidence, and no HOLD (`tests/test_ux5_lineup_route_contract.py`). Live `/team` on the current code rendered START/FLEX and no HOLD, but only in the week-complete state.
-- Remaining for VALIDATED: a live pre-kickoff `/team` render showing START, SIT, FLEX, or MONITOR with criteria and confidence on the committed code.
+- Live pre-kickoff evidence (2026-11-19; committed code, HEAD `95acb9c` at render time): the live HTTPS `/team` was served by a process started at 08:07:02 UTC, after the last code change, with no tracked code differing from HEAD. At 13:38 UTC it returned HTTP 200 for Week 11 before kickoff (Pre-kickoff · 13 open · 1 bye). All 9 lineup slots showed START or FLEX with a status criterion and decision confidence (NOT APPLICABLE or INSUFFICIENT EVIDENCE), the 5 contested slots showed "Why this player" reasons with confidence reasons, and HOLD did not appear. `tests/test_ux5_lineup_route_contract.py` passed (23) on the same code.
+- Independent re-verification (2026-11-19 18:08:01 UTC; HEAD `b8b8f6d`, committed 17:57:55 UTC): the serving process started at 17:03:45 UTC and no tracked code differs from HEAD. Live HTTPS `/team` returned HTTP 200 for Week 11 before kickoff (Pre-kickoff · 13 open · 1 bye; first kickoff 2026-11-20 01:15 UTC). All 9 lineup slots rendered START (8) or FLEX (1) decision chips, each with a status criterion ("No eligible alternative" or "No supported change") and decision confidence (NOT APPLICABLE or INSUFFICIENT EVIDENCE); the 5 contested slots showed "Why this player" reasons; HOLD appeared nowhere on the visible page. Bench SIT and MONITOR decisions exist in the decision contract (3 SIT and 1 MONITOR in each stored snapshot run) but are not rendered as chips, and no change pair (which renders SIT) was recommended this week.
+- VALIDATED gate (satisfied 2026-11-19): a live pre-kickoff `/team` render showing START, SIT, FLEX, or MONITOR with criteria and confidence on the committed code.
+- Closure requirement: VALIDATED is not CLOSED. Closure still requires a reviewed commit boundary and canonical/continuity validation.
 
 #### UXQA-006: Scores and ranks are not interpretable
 - Status: VALIDATED
