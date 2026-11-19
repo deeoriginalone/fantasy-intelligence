@@ -7,18 +7,21 @@ Sleeper availability.
 """
 from __future__ import annotations
 
+import json
 import math
+from decimal import Decimal
 from typing import Any, Mapping, Sequence
 
 from services.game_lock import utc_datetime
-from services.league_scoring import SCORING_BASIS, league_score_stat_line
+from services.league_scoring import SCHEMA_VERSION as LEAGUE_SCORING_CONTRACT_ID, SCORING_BASIS, league_score_stat_line
 from services.pre_decision_snapshots import SnapshotValidationError, build_pre_decision_snapshot
 from services.team_codes import canonical_team
 
 PROJECTION_SOURCE = "JerryGM jgm_baseline stat line, rescored with Sleeper league scoring"
 PROJECTION_UNIT = "fantasy_points"
 COMPARISON_BASIS = "LEAGUE_SCORED_PROJECTION"
-SNAPSHOT_DECISION_TYPE = "MY_TEAM_LINEUP_PROJECTION"
+SNAPSHOT_DECISION_TYPE = "MY_TEAM_LINEUP_DECISION"
+SNAPSHOT_OUTPUT_VERSION = "lineup.forward_validation.snapshot.v1"
 PROVIDER_ZEROED_STATUSES = frozenset({"OUT", "DOUBTFUL"})
 BLOCKING_PROVIDER_BLOCKERS = frozenset({
     "JERRYGM_CONFIGURATION_BLOCKED", "JERRYGM_SEASON_WEEK_MISMATCH", "JERRYGM_SCORING_MISMATCH", "JERRYGM_SOURCE_UNSUPPORTED",
@@ -77,6 +80,19 @@ def _name(view: Mapping[str, Any] | None) -> str:
 
 def _iso(value: Any) -> Any:
     return value.isoformat() if hasattr(value, "isoformat") else value
+
+
+def _json_default(value: Any) -> Any:
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    return str(value)
+
+
+def _json_native(value: Any) -> Any:
+    """JSON-only copy (timestamps as ISO text) so a stored snapshot reloads exactly as captured; non-finite numbers are rejected."""
+    return json.loads(json.dumps(value, default=_json_default, allow_nan=False))
 
 
 def data_through_state(data_through_week: Any, week: Any) -> tuple[str, str | None]:
@@ -470,12 +486,31 @@ def workload_summary(workload: Mapping[str, Any] | None) -> dict[str, Any]:
             "decision_effect": "INFORMATIONAL_ONLY"}
 
 
-def build_forward_validation_snapshots(views: Sequence[Mapping[str, Any]], decisions: Sequence[Mapping[str, Any]], *, season: Any, week: Any, captured_at: Any) -> dict[str, Any]:
-    """Decision-time evidence for players whose games have not started; built read-only and never persisted here."""
+SNAPSHOT_WEEKLY_VALUE_FIELDS = ("basis", "unit", "state", "value", "evidence_level", "blocker", "baseline", "matchup_modifier", "injury_multiplier", "source",
+                                "freshness_state")
+SNAPSHOT_HEALTH_FIELDS = ("status", "state", "label", "availability", "verified", "source", "freshness_state", "last_verified")
+SNAPSHOT_LOCK_FIELDS = ("contract_id", "state", "team", "opponent", "venue", "kickoff_utc", "kickoff_display", "decision_authority", "freshness_state",
+                        "freshness_threshold_id", "schedule_source", "source_recorded_at", "retrieved_at")
+SNAPSHOT_PROJECTION_FIELDS = ("source", "unit", "scoring_basis", "generated_at", "retrieved_at", "data_through_week", "decision_eligible", "blockers",
+                              "missing_scoring_components", "confidence", "recommendation_impact")
+
+
+def _utc_iso(value: Any) -> str | None:
+    parsed = utc_datetime(value)
+    return parsed.isoformat() if parsed is not None else None
+
+
+def build_forward_validation_snapshots(views: Sequence[Mapping[str, Any]], decisions: Sequence[Mapping[str, Any]], *, season: Any, week: Any, captured_at: Any,
+                                       player_decisions: Mapping[Any, Mapping[str, Any]] | None = None, lineup: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Decision-time evidence for players whose games have not started; built read-only and never persisted here.
+
+    ``player_decisions`` maps each Sleeper ID to the START/SIT/FLEX/MONITOR decision shown for him, and ``lineup`` carries the lineup-level
+    contract context. Both are copied, never derived, so a stored snapshot can be read without the live page or later evidence.
+    """
     result = {
         "state": "UNAVAILABLE", "decision_type": SNAPSHOT_DECISION_TYPE, "captured_at": _iso(captured_at), "snapshots": [], "skipped": [],
-        "persistence": {"state": "NOT_PERSISTED", "store": "pre_decision_snapshots", "blocker": "PRE_DECISION_SNAPSHOT_PERSISTENCE_NOT_ENABLED",
-                        "reason": "Persisting requires applying migrations/014_pre_decision_snapshots.sql and an explicit pre-kickoff capture step; neither is done here."},
+        "persistence": {"state": "NOT_PERSISTED", "store": "pre_decision_snapshots", "blocker": "PRE_KICKOFF_CAPTURE_NOT_RUN_BY_PAGE",
+                        "reason": "Viewing My Team never saves snapshots; the explicit pre-kickoff capture step appends them to the append-only snapshot store."},
         "purpose": "Compare decision-time projections with actual Sleeper points after games finish; never used to train or calibrate a projection model.",
         "decision_effect": "NONE",
     }
@@ -502,27 +537,44 @@ def build_forward_validation_snapshots(views: Sequence[Mapping[str, Any]], decis
         if reason:
             result["skipped"].append({"player": _name(view), "player_id": player_id, "reason": reason})
             continue
+        health, value = view.get("health") or {}, view.get("value") or {}
+        decision = (player_decisions or {}).get(player_id) or {}
         output = {
             "player": _name(view), "position": view.get("position"), "recommended_slot": slots.get(player_id), "current_slot": starters.get(player_id) or "BENCH",
-            "health": (view.get("health") or {}).get("status"), "availability": view.get("availability"), "kickoff_utc": lock.get("kickoff_utc"),
+            "health": health.get("status"), "availability": view.get("availability"), "kickoff_utc": lock.get("kickoff_utc"),
             "lock_state": lock.get("state"), "league_scored_projection": projection.get("value"), "league_scored_range": projection.get("value_range"),
             "scoring_completeness": projection.get("scoring_completeness"), "provider_points": projection.get("provider_points"),
             "provider_scoring_preset": projection.get("provider_scoring_preset"), "projection_evidence_state": projection.get("evidence_state"),
             "recent_workload": ((view.get("opportunity") or {}).get("workload") or {}).get("text"), "comparison": comparisons.get(player_id),
+            "decision": decision.get("decision"), "slot_status": decision.get("status"), "slot_basis": decision.get("basis"), "changed": decision.get("changed"),
+            "decision_confidence": decision.get("decision_confidence"), "why": decision.get("why"), "drivers": list(decision.get("drivers") or []),
+            "related_slots": list(decision.get("related_slots") or []), "missing_evidence": decision.get("missing_evidence"),
+            "nfl_team": view.get("nfl_team"), "opponent": lock.get("opponent") or view.get("opponent"), "venue": lock.get("venue") or view.get("home_away"),
+            "availability_reason": view.get("availability_reason"),
+            "weekly_value": {key: value.get(key) for key in SNAPSHOT_WEEKLY_VALUE_FIELDS} if value else None,
+            "health_evidence": {key: health.get(key) for key in SNAPSHOT_HEALTH_FIELDS},
+            "lock": {key: lock.get(key) for key in SNAPSHOT_LOCK_FIELDS},
+            "projection_evidence": {key: projection.get(key) for key in SNAPSHOT_PROJECTION_FIELDS},
+            "lineup": dict(lineup) if lineup else None,
+            "contract_versions": {"snapshot_output": SNAPSHOT_OUTPUT_VERSION, "lineup_decision": (lineup or {}).get("schema_version"),
+                                  "game_lock": lock.get("contract_id"), "league_scored_projection": LEAGUE_SCORING_CONTRACT_ID},
         }
         evidence_state = {"PRELIMINARY": "AVAILABLE", "DEGRADED": "INSUFFICIENT_EVIDENCE", "BLOCKED": "BLOCKED", "STALE": "STALE"}.get(projection.get("evidence_state"), "UNAVAILABLE")
+        blockers = [*(projection.get("blockers") or []), *([value["blocker"]] if value.get("blocker") else [])]
         try:
             snapshot = build_pre_decision_snapshot(
-                season=season, week=week, decision_type=SNAPSHOT_DECISION_TYPE, decision_subject=f"sleeper:{player_id}", decision_output=output,
-                evidence_state=evidence_state, evidence_source={"projection": projection.get("source"), "schedule": lock.get("schedule_source")},
-                evidence_lineage={"attribution": projection.get("attribution"), "data_through_week": projection.get("data_through_week"),
-                                  "generated_at": projection.get("generated_at")},
-                source_recorded_at=projection.get("generated_at"), retrieved_at=projection.get("retrieved_at"), freshness_state="UNAVAILABLE",
+                season=season, week=week, decision_type=SNAPSHOT_DECISION_TYPE, decision_subject=f"sleeper:{player_id}", decision_output=_json_native(output),
+                evidence_state=evidence_state,
+                evidence_source=_json_native({"projection": projection.get("source"), "schedule": lock.get("schedule_source"), "health": health.get("source"),
+                                              "weekly_value": value.get("source")}),
+                evidence_lineage=_json_native({"attribution": projection.get("attribution"), "data_through_week": projection.get("data_through_week"),
+                                               "generated_at": projection.get("generated_at")}),
+                source_recorded_at=_utc_iso(projection.get("generated_at")), retrieved_at=_utc_iso(projection.get("retrieved_at")), freshness_state="UNAVAILABLE",
                 completeness_state="COMPLETE" if projection.get("scoring_completeness") == "COMPLETE" else "INCOMPLETE" if projection.get("value_range") else "UNAVAILABLE",
-                confidence=projection.get("confidence"), blockers=projection.get("blockers"), captured_at=_iso(captured_at),
-                entity_identity={"sleeper_id": player_id, **(projection.get("identity") or {})},
+                confidence=_json_native(projection.get("confidence")), blockers=list(dict.fromkeys(blockers)), captured_at=_iso(captured_at),
+                entity_identity=_json_native({"sleeper_id": player_id, **(projection.get("identity") or {})}),
             )
-        except SnapshotValidationError as error:
+        except (SnapshotValidationError, ValueError, TypeError) as error:
             result["skipped"].append({"player": _name(view), "player_id": player_id, "reason": f"SNAPSHOT_INVALID: {error}"})
             continue
         result["snapshots"].append(snapshot)

@@ -2017,6 +2017,54 @@ def _projection_comparisons(decisions):
     } for decision in items]
 
 
+def bench_decision(view: Mapping[str, Any] | None) -> str:
+    """Decision for a player outside the recommended lineup: SIT when he can play, otherwise MONITOR."""
+    return "SIT" if (view or {}).get("availability") == "AVAILABLE" else "MONITOR"
+
+
+def _snapshot_decisions(views, decisions, *, consensus_authority, recommendation_made=True):
+    """The decision already shown for each identified player, copied into forward-validation snapshots; never feeds selection."""
+    result = {}
+    for decision in decisions:
+        rec = decision.get("recommended")
+        if rec is not None and rec.get("player_id") is not None:
+            result.setdefault(rec["player_id"], {
+                "decision": decision["decision"], "status": decision["status"], "basis": decision["basis"], "changed": decision["changed"],
+                "decision_confidence": decision["decision_confidence"], "why": decision["why"], "drivers": decision["drivers"], "related_slots": [],
+            })
+    for view in views:
+        player_id = view.get("player_id")
+        if player_id is None or player_id in result:
+            continue
+        related = []
+        for decision in decisions:
+            role = ("OUTGOING" if (decision.get("outgoing") or {}).get("player_id") == player_id
+                    else "COUNTERPART" if (decision.get("counterpart") or {}).get("player_id") == player_id else None)
+            if role:
+                related.append({"slot": decision["slot"], "role": role, "status": decision["status"], "decision": decision["decision"],
+                                "decision_confidence": decision["decision_confidence"]})
+        result[player_id] = {
+            "decision": bench_decision(view) if recommendation_made else None, "status": None, "basis": None,
+            "changed": bool(view.get("is_current_starter")) if recommendation_made else None, "decision_confidence": None,
+            "why": None if recommendation_made else "No lineup recommendation was made.", "drivers": [], "related_slots": related,
+        }
+    for view in views:
+        if view.get("player_id") in result:
+            result[view["player_id"]]["missing_evidence"] = _missing_evidence([view], consensus_authority=consensus_authority)
+    return result
+
+
+def _snapshot_lineup(contract):
+    """Lineup-level context a stored snapshot needs to be read without the live page."""
+    value, projection = contract.get("value_basis") or {}, contract.get("projection_basis") or {}
+    return {
+        "schema_version": contract.get("schema_version"), "mode": contract.get("mode"), "state": contract.get("state"), "blocker": contract.get("blocker"),
+        "week_state": (contract.get("lock_summary") or {}).get("week_state"), "decision_confidence": (contract.get("summary") or {}).get("decision_confidence"),
+        "value_basis": {key: value.get(key) for key in ("metric", "unit", "state", "evidence_level", "scoring_alignment", "used_for")},
+        "projection_basis": {key: projection.get(key) for key in ("metric", "state", "used_for", "recommendation_impact", "action_threshold")},
+    }
+
+
 def build_lineup_decision(
     roster: Sequence[Mapping[str, Any]] | None,
     *,
@@ -2083,10 +2131,13 @@ def build_lineup_decision(
         summary = {"status": "BLOCKED", "action": "Lineup recommendation blocked", "why": f"{reason}, so no league-legal recommendation is made.",
                    "biggest_risk": f"{reason}.", "change_count": 0, "attention_count": 0, "stable_count": 0, "unresolved_count": 0, "no_alternative_count": 0,
                    "decision_confidence": {"state": "BLOCKED", "reason": f"{reason}."}, "value_total": {"state": "UNAVAILABLE", "value": None, "available": 0, "required": 0}}
-        return {**contract, "state": "BLOCKED", "blocker": blocker, "recommended_lineup": [], "slots": [], "attention": [], "decision_list": [],
-                "changes": [], "moves": [], "bench": _bench(views, set()), "summary": summary, "what_could_change": [], "projection_comparisons": [],
-                "lock_summary": _lock_summary(views, [], mode=mode, evaluated_at=now),
-                "forward_validation": build_forward_validation_snapshots(views, [], season=season, week=week, captured_at=now)}
+        result = {**contract, "state": "BLOCKED", "blocker": blocker, "recommended_lineup": [], "slots": [], "attention": [], "decision_list": [],
+                  "changes": [], "moves": [], "bench": _bench(views, set()), "summary": summary, "what_could_change": [], "projection_comparisons": [],
+                  "lock_summary": _lock_summary(views, [], mode=mode, evaluated_at=now)}
+        result["forward_validation"] = build_forward_validation_snapshots(
+            views, [], season=season, week=week, captured_at=now, lineup=_snapshot_lineup(result),
+            player_decisions=_snapshot_decisions(views, [], consensus_authority=consensus_authority, recommendation_made=False))
+        return result
     has_current = current["state"] in {"AVAILABLE", "INCOMPLETE"}
     # Sleeper locks a starter at kickoff; a starter whose kickoff cannot be verified is pinned too (fail closed in both directions).
     pinned = {index: view for index, view in current["by_index"].items() if view["lock"]["state"] in PINNED_LOCK_STATES} if has_current else {}
@@ -2125,7 +2176,7 @@ def build_lineup_decision(
     lock_summary = _lock_summary(views, decisions, mode=mode, evaluated_at=now)
     summary, attention, decision_list = _summary(decisions, pairs, notices, has_current, lock_summary)
     states = {decision["decision_confidence"]["state"] for decision in decisions}
-    return {
+    result = {
         **contract,
         "state": "BLOCKED" if "BLOCKED" in states else "INSUFFICIENT_EVIDENCE" if "INSUFFICIENT_EVIDENCE" in states else "PRELIMINARY" if states & {"PRELIMINARY", "DEGRADED"} else "ESTABLISHED",
         "blocker": None,
@@ -2138,8 +2189,12 @@ def build_lineup_decision(
         "changes": changes, "moves": moves, "bench": _bench(views, lineup_ids), "summary": summary,
         "what_could_change": _lineup_triggers(decisions, value_basis, notices),
         "projection_comparisons": _projection_comparisons(decisions), "lock_summary": lock_summary,
-        "forward_validation": build_forward_validation_snapshots(views, decisions, season=season, week=week, captured_at=now),
     }
+    # Snapshots copy the finished decision; they are built after selection and cannot influence it.
+    result["forward_validation"] = build_forward_validation_snapshots(
+        views, decisions, season=season, week=week, captured_at=now, lineup=_snapshot_lineup(result),
+        player_decisions=_snapshot_decisions(views, decisions, consensus_authority=consensus_authority))
+    return result
 
 
 def provider_projection_players(contract: Mapping[str, Any], roster: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -2178,7 +2233,7 @@ def legacy_lineup_rows(contract: Mapping[str, Any], roster: Sequence[Mapping[str
             continue
         row = dict(original)
         view = views.get(index) or {}
-        row.update(vacant=False, decision="SIT" if view.get("availability") == "AVAILABLE" else "MONITOR", evidence_ready=row.get("weekly_score") is not None)
+        row.update(vacant=False, decision=bench_decision(view), evidence_ready=row.get("weekly_score") is not None)
         row.setdefault("confidence", evidence_completeness(row))
         bench.append(row)
     bench.sort(key=lambda row: (_finite(row.get("weekly_score")) is None, -(_finite(row.get("weekly_score")) or 0), str(row.get("player") or "")))

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from math import ceil, isfinite
 
+import click
 from flask import Blueprint, current_app, redirect, render_template, request, session, url_for
 from weekly_intelligence import enrich_players, current_week, upcoming_byes, normalize_team
 from services.weekly_lineup_intelligence import build_lineup_intelligence, decision, optimize_lineup, sort_key
@@ -10,6 +12,7 @@ from services.authoritative_week import build_authoritative_week_contract
 from services.jerrygm_projections import build_roster_projections, provider_scoring_preset
 from services.game_lock import build_roster_game_locks
 from services.lineup_decision_intelligence import build_lineup_decision, legacy_lineup_rows, lineup_reconciliation_view, provider_projection_players
+from services.lineup_forward_validation import capture_lineup_snapshots, read_lineup_snapshots, read_week_game_results, review_lineup_snapshots, sleeper_actual_points
 from services.lineup_projection import recent_workload
 from services.trade_intelligence import build_trade_intelligence
 from services.opportunity_evidence import build_opportunity_view, build_waiver_player_comparison
@@ -32,7 +35,7 @@ from services.gsis_identity_crosswalk import attach_opportunity_player_ids
 from services.gsis_identity_crosswalk import resolve_gsis_crosswalk
 from services.dynastyprocess_identity_source import acquire_dynastyprocess_identity_source
 from services.nflverse_player_metadata import acquire_nflverse_player_metadata
-from services.sleeper_service import get_trending_adds, get_trending_drops, get_nfl_state
+from services.sleeper_service import get_matchups, get_trending_adds, get_trending_drops, get_nfl_state
 from services.espn_player_news import news_for_espn_player, read_espn_nfl_news
 from services.dynastyprocess_rankings import read_rankings
 from services.dynastyprocess_rankings import read_cached_rankings, refresh_rankings
@@ -2448,6 +2451,52 @@ def create_owner_operations_blueprint(
     @bp.route("/team")
     def team_page():
         now = datetime.now(timezone.utc)
+        state = team_lineup_state(now)
+        context, roster, meta, lineup_decision = state["context"], state["roster"], state["meta"], state["lineup_decision"]
+        league_settings, team_needs, needs, team_health = state["league_settings"], state["team_needs"], state["needs"], state["team_health"]
+        preliminary_matchup_context, opportunity_view, opportunity_changes = state["preliminary_matchup_context"], state["opportunity_view"], state["opportunity_changes"]
+        starters, bench, total, vacancies = legacy_lineup_rows(lineup_decision, roster)
+        counts, grades, _, overall, score = roster_analysis(roster, vacancies)
+        team_accuracy = build_team_accuracy_contract(roster, starters, league_settings, team_needs, team_health)
+        weekly_defaults = {
+            "weekly_baseline": 0.0, "matchup_modifier": 0.0,
+            "injury_multiplier": 1.0, "weekly_score": None,
+            "is_bye": False, "bye_week": None, "opponent": None,
+            "home_away": None, "game_time_pacific": None,
+            "matchup_rank": None, "injury_status": "Unknown", "vacant": False,
+        }
+        for player in [*starters, *bench]:
+            for key, value in weekly_defaults.items(): player.setdefault(key, value)
+        health_source = team_health.get("source") or ("Sleeper" if context["mode"] == "LIVE" else "Season Sandbox")
+        health_freshness = team_health.get("freshness_state") or "UNAVAILABLE"
+        apply_player_health_to_recommendations(
+            starters,
+            source=health_source,
+            freshness_state=health_freshness,
+            blocker=(team_health.get("blocker") if team_health.get("state") == "BLOCKED" else None),
+        )
+        for player in [*starters, *bench]:
+            player["weekly_value_state"] = "AVAILABLE" if player.get("weekly_score") is not None else "UNAVAILABLE"
+            gaps = player.get("evidence_gaps") or []
+            player["health_shared_only"] = team_health.get("state") != "AVAILABLE" and not any(
+                gap not in {"HEALTH_UNAVAILABLE", "HEALTH_BLOCKED", "HEALTH_EVIDENCE_STALE", "HEALTH_REFRESH_FAILED", "TEAM_HEALTH_UNAVAILABLE", "TEAM_HEALTH_STALE"}
+                for gap in gaps
+            )
+        current_sleeper_starters = [player for player in roster if player.get("sleeper_current_starter")]
+        team_priority_action = build_team_priority_action(starters, team_needs, team_health, team_accuracy, current_starters=current_sleeper_starters)
+        team_accuracy["recommendation_impact"] = team_priority_action["action"]
+        team_trust = build_team_trust_summary(team_accuracy, team_health, starters, bench)
+        bench_decisions = build_bench_decisions(starters, bench)
+        bench_plan = build_bench_plan(bench_decisions)
+        weekly_risks = build_weekly_risks(starters, team_needs, team_health, team_accuracy, current_starters=current_sleeper_starters)
+        roster_outlook = build_roster_outlook(team_needs, team_health)
+        lineup_reconciliation = lineup_reconciliation_view(lineup_decision)
+        decisions_by_slot = {decision["slot"]: decision for decision in lineup_decision.get("slots") or []}
+        lineup_snapshot = build_lineup_snapshot(starters, bench_decisions, current_starters=current_sleeper_starters, lineup_changes=lineup_reconciliation.get("changes"))
+        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_decision=lineup_decision, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context, opportunity_view=opportunity_view, opportunity_changes=opportunity_changes, lineup_reconciliation=lineup_reconciliation)
+
+    def team_lineup_state(now):
+        """The inputs and lineup decision My Team shows; shared by the page and the pre-kickoff snapshot capture so both use one decision."""
         conn = get_db_connection(); cur = conn.cursor()
         try:
             context, roster, meta = current_roster(cur, verify_live_week=True)
@@ -2501,45 +2550,11 @@ def create_owner_operations_blueprint(
         if provider_projections is not None:
             # Provider projections are informational context; the second pass cannot change selection.
             lineup_decision = build_lineup_decision(roster, provider_projections=provider_projections, **lineup_inputs)
-        starters, bench, total, vacancies = legacy_lineup_rows(lineup_decision, roster)
-        counts, grades, _, overall, score = roster_analysis(roster, vacancies)
-        team_accuracy = build_team_accuracy_contract(roster, starters, league_settings, team_needs, team_health)
-        weekly_defaults = {
-            "weekly_baseline": 0.0, "matchup_modifier": 0.0,
-            "injury_multiplier": 1.0, "weekly_score": None,
-            "is_bye": False, "bye_week": None, "opponent": None,
-            "home_away": None, "game_time_pacific": None,
-            "matchup_rank": None, "injury_status": "Unknown", "vacant": False,
+        return {
+            "context": context, "roster": roster, "meta": meta, "league_settings": league_settings, "team_needs": team_needs, "needs": needs,
+            "team_health": team_health, "preliminary_matchup_context": preliminary_matchup_context, "opportunity_view": opportunity_view,
+            "opportunity_changes": opportunity_changes, "lineup_decision": lineup_decision,
         }
-        for player in [*starters, *bench]:
-            for key, value in weekly_defaults.items(): player.setdefault(key, value)
-        health_source = team_health.get("source") or ("Sleeper" if context["mode"] == "LIVE" else "Season Sandbox")
-        health_freshness = team_health.get("freshness_state") or "UNAVAILABLE"
-        apply_player_health_to_recommendations(
-            starters,
-            source=health_source,
-            freshness_state=health_freshness,
-            blocker=(team_health.get("blocker") if team_health.get("state") == "BLOCKED" else None),
-        )
-        for player in [*starters, *bench]:
-            player["weekly_value_state"] = "AVAILABLE" if player.get("weekly_score") is not None else "UNAVAILABLE"
-            gaps = player.get("evidence_gaps") or []
-            player["health_shared_only"] = team_health.get("state") != "AVAILABLE" and not any(
-                gap not in {"HEALTH_UNAVAILABLE", "HEALTH_BLOCKED", "HEALTH_EVIDENCE_STALE", "HEALTH_REFRESH_FAILED", "TEAM_HEALTH_UNAVAILABLE", "TEAM_HEALTH_STALE"}
-                for gap in gaps
-            )
-        current_sleeper_starters = [player for player in roster if player.get("sleeper_current_starter")]
-        team_priority_action = build_team_priority_action(starters, team_needs, team_health, team_accuracy, current_starters=current_sleeper_starters)
-        team_accuracy["recommendation_impact"] = team_priority_action["action"]
-        team_trust = build_team_trust_summary(team_accuracy, team_health, starters, bench)
-        bench_decisions = build_bench_decisions(starters, bench)
-        bench_plan = build_bench_plan(bench_decisions)
-        weekly_risks = build_weekly_risks(starters, team_needs, team_health, team_accuracy, current_starters=current_sleeper_starters)
-        roster_outlook = build_roster_outlook(team_needs, team_health)
-        lineup_reconciliation = lineup_reconciliation_view(lineup_decision)
-        decisions_by_slot = {decision["slot"]: decision for decision in lineup_decision.get("slots") or []}
-        lineup_snapshot = build_lineup_snapshot(starters, bench_decisions, current_starters=current_sleeper_starters, lineup_changes=lineup_reconciliation.get("changes"))
-        return render_template("team.html", title="My Team", context=context, roster=roster, meta=meta, starters=starters, bench=bench, total=total, vacancies=vacancies, counts=counts, grades=grades, needs=needs, overall=overall, roster_score=score, league_settings=league_settings, team_needs=team_needs, team_health=team_health, team_accuracy=team_accuracy, team_priority_action=team_priority_action, team_trust=team_trust, bench_decisions=bench_decisions, bench_plan=bench_plan, lineup_snapshot=lineup_snapshot, weekly_risks=weekly_risks, roster_outlook=roster_outlook, lineup_decision=lineup_decision, decisions_by_slot=decisions_by_slot, preliminary_matchup_context=preliminary_matchup_context, opportunity_view=opportunity_view, opportunity_changes=opportunity_changes, lineup_reconciliation=lineup_reconciliation)
 
     def team_schedule_rows(cur, context, meta):
         """This week's automated schedule rows for kickoff locks; a failed read leaves every lock unverified."""
@@ -2582,6 +2597,35 @@ def create_owner_operations_blueprint(
         if meta.get("week") is None:
             return {"state": "UNAVAILABLE", "players": {}, "blockers": ["PROVIDER_WEEK_UNVERIFIED"]}
         return fetcher(players, season=meta.get("season"), week=meta.get("week"), scoring=preset)
+
+    @bp.cli.command("capture-lineup-snapshots")
+    def capture_lineup_snapshots_command():
+        """Append this week's pre-kickoff My Team lineup decision snapshots (evidence only; never changes or submits a lineup)."""
+        lineup_decision = team_lineup_state(datetime.now(timezone.utc))["lineup_decision"]
+        result = capture_lineup_snapshots(get_db_connection, lineup_decision)
+        click.echo(json.dumps(result, indent=2, sort_keys=True, default=str))
+        if result["state"] in {"FAILED", "PARTIAL"}:
+            raise SystemExit(1)
+
+    @bp.cli.command("review-lineup-snapshots")
+    @click.option("--season", type=int, required=True)
+    @click.option("--week", type=int, required=True)
+    def review_lineup_snapshots_command(season, week):
+        """Read-only post-week review: stored pre-kickoff decisions beside actual Sleeper points for games with a published result."""
+        conn = get_db_connection(); cur = conn.cursor()
+        try:
+            snapshots = read_lineup_snapshots(cur, season=season, week=week)
+            schedule_rows = read_week_game_results(cur, season=season, week=week)
+        finally:
+            cur.close(); conn.close()
+        retrieved_at = datetime.now(timezone.utc)
+        try:
+            matchups = get_matchups(current_app.config.get("SLEEPER_LEAGUE_ID", ""), week)
+        except Exception:
+            matchups = None
+        review = review_lineup_snapshots(snapshots, actual_points=sleeper_actual_points(matchups, retrieved_at=retrieved_at), schedule_rows=schedule_rows,
+                                         season=season, week=week)
+        click.echo(json.dumps(review, indent=2, sort_keys=True, default=str))
 
     @bp.route("/lineup")
     def lineup_page():
