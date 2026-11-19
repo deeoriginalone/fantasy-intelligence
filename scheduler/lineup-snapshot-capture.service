@@ -1,0 +1,9 @@
+[Unit]
+Description=Fantasy Intelligence pre-kickoff My Team lineup decision snapshot capture
+# Evidence collection only: appends immutable pre-kickoff snapshots, never changes the lineup, and submits no transaction.
+# A failed or partial capture exits 1, so systemd records the run as failed and the journal keeps the JSON result.
+[Service]
+Type=oneshot
+WorkingDirectory=/home/deeoriginalone/fantasy-intelligence
+ExecStart=/home/deeoriginalone/fantasy-intelligence/venv/bin/flask --app app owner_ops capture-lineup-snapshots
+TimeoutStartSec=15min

@@ -1,0 +1,18 @@
+[Unit]
+Description=Capture My Team lineup decision snapshots before NFL kickoff windows
+[Timer]
+# Pacific times chosen from the 2026 automated nflverse schedule: before Thursday Night Football (17:15),
+# the Sunday 10:00 early slate (the same run covers the later Sunday games), and Monday Night Football (17:15).
+OnCalendar=Thu *-*-* 13:00:00 America/Los_Angeles
+OnCalendar=Sun *-*-* 09:00:00 America/Los_Angeles
+OnCalendar=Mon *-*-* 13:00:00 America/Los_Angeles
+# 2026 Week 12 games that start before its Thursday run: GB at LAR (Wed Nov 25 17:00) and CHI at DET (Thu Nov 26 10:00).
+# The Wednesday run covers them only if Sleeper already reports Week 12; the Thanksgiving-morning run covers CHI at DET.
+OnCalendar=2026-11-25 15:00:00 America/Los_Angeles
+OnCalendar=2026-11-26 08:00:00 America/Los_Angeles
+# Persistent: a run missed while the machine was off fires at the next start. Capture rechecks every kickoff at
+# write time, so a late run stores only players whose games have not started.
+Persistent=true
+RandomizedDelaySec=0
+[Install]
+WantedBy=timers.target

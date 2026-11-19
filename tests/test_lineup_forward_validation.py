@@ -311,6 +311,28 @@ def test_capture_command_stores_the_page_decision_without_changing_it_or_submitt
     assert all(statement.startswith("INSERT INTO pre_decision_snapshots") and "ON CONFLICT (snapshot_id) DO NOTHING" in statement for statement in writes(store))
 
 
+def test_capture_command_exits_nonzero_when_writes_fail_and_keeps_stored_rows(monkeypatch):
+    store = SnapshotStore()
+    app, _ = team_app(monkeypatch, store)
+    runner = app.test_cli_runner()
+    assert runner.invoke(args=["owner_ops", "capture-lineup-snapshots"]).exit_code == 0
+    original = dict(store.rows)
+    store.fail_inserts = set(range(store.inserts + 1, store.inserts + 20))
+    failed = runner.invoke(args=["owner_ops", "capture-lineup-snapshots"])
+    assert failed.exit_code == 1 and json.loads(failed.output)["state"] == "FAILED" and store.rows == original
+
+
+def test_capture_command_exits_nonzero_when_the_database_is_unreachable(monkeypatch):
+    class UnreachableStore(SnapshotStore):
+        def connect(self):
+            raise ConnectionError("database down")
+
+    store = UnreachableStore()
+    app, _ = team_app(monkeypatch, store)
+    result = app.test_cli_runner().invoke(args=["owner_ops", "capture-lineup-snapshots"])
+    assert result.exit_code == 1 and isinstance(result.exception, ConnectionError) and store.rows == {}
+
+
 def test_post_week_review_compares_only_final_sleeper_points():
     store = SnapshotStore()
     capture(lineup(roster(**{"4": 11.0}), now=NOW - timedelta(hours=1)), store, at=NOW - timedelta(hours=1))
