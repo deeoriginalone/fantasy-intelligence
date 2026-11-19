@@ -12,6 +12,7 @@ from services.lineup_projection import (
     best_projection_alternative,
     build_forward_validation_snapshots,
     build_player_projection,
+    build_weekly_score_v2,
     compare_projections,
     evidence_agreement,
     recent_workload,
@@ -314,6 +315,83 @@ def test_sleeper_owns_availability_when_the_provider_disagrees():
     lagged = project(evidence(provider_availability={"injury_status": "Questionable", "p_play": 0.0}))
     assert lagged["value"] == 15.5 and lagged["decision_eligible"] and "used unchanged" in lagged["availability_disagreement"]
     assert lagged["provider_availability"]["authority"] == "DISPLAY_ONLY"
+
+
+# Weekly Score v2 (shadow)
+
+KICKER_LINE = {"fgMade0to19": 0.1, "fgMade20to29": 0.5, "fgMade30to39": 0.5, "fgMade40to49": 0.4, "fgMade50plus": 0.3, "patMade": 2.5}
+
+
+def shadow_lineup(**legacy):
+    """One open RB starter with legacy Weekly Score inputs and a league-scored provider projection."""
+    row = {**roster_row("1", "RB", slot="RB", index=0), **legacy}
+    locks = build_roster_game_locks([row], schedule_rows=[game("KC", "BUF")], season=2026, week=10, now=NOW, max_age_seconds=86400)
+    return build_lineup_decision([row], league_settings=league_settings_contract({"roster_positions": ["RB", "BN"], "scoring_settings": LEAGUE_SCORING}),
+                                 team_health=FRESH_HEALTH, season=2026, week=10, game_locks=locks, scoring_settings=LEAGUE_SCORING, now=NOW,
+                                 provider_projections={"state": "AVAILABLE", "blockers": [], "players": {"1": evidence(sleeper_id="1")}})
+
+
+def test_weekly_score_v2_is_the_exact_current_week_league_scored_projection():
+    projection = project()
+    score = build_weekly_score_v2(projection)
+    assert (score["state"], score["value"], score["value_range"], score["unit"]) == ("PRELIMINARY", 15.5, {"low": 15.5, "high": 15.5}, "fantasy_points")
+    assert score["value"] == projection["value"] == league_score_stat_line(RB_LINE, LEAGUE_SCORING, position="RB")["value"]
+    assert (score["season"], score["week"], score["source_generated_at"], score["retrieved_at"]) == (2026, 10, GENERATED, "2026-11-15T13:00:00+00:00")
+    assert (score["contract_id"], score["scoring_contract"], score["scoring_context"], score["scoring_completeness"]) == (
+        "weekly-score.v2", "league-scored-projection.v1", "SLEEPER_LEAGUE_SCORING_SETTINGS", "COMPLETE")
+    assert score["display"] == {"value": "15.50 pts", "note": "Preliminary · informational only"}
+
+
+@pytest.mark.parametrize("legacy", [
+    {"projection": 340.0, "weekly_baseline": 20.0, "weekly_score": 20.0},
+    {"weekly_baseline": 20.0, "matchup_modifier": 0.15, "weekly_score": 23.0},
+    {"weekly_baseline": 20.0, "matchup_modifier": -0.15, "weekly_score": 17.0},
+    {"injury_status": "Questionable", "weekly_baseline": 20.0, "injury_multiplier": 0.85, "weekly_score": 17.0},
+], ids=["season-projection-divided-by-17", "favorable-matchup", "unfavorable-matchup", "health-multiplier"])
+def test_weekly_score_v2_never_applies_the_legacy_season_matchup_or_health_formula(legacy):
+    view = shadow_lineup(**legacy)["players"][0]
+    assert view["value"]["value"] == legacy["weekly_score"]
+    assert (view["weekly_score_v2"]["state"], view["weekly_score_v2"]["value"]) == ("PRELIMINARY", 15.5)
+
+
+@pytest.mark.parametrize("position,line,breakdown,expected,rule", [
+    ("K", KICKER_LINE, None, {"low": 7.4, "high": 8.9}, "fgm_50_59/fgm_60p/fgm_50p"),
+    ("DEF", DEF_LINE, {"paTierExpectedPPG": 2.0}, {"low": 6.94, "high": 7.94}, "fum_rec/def_st_fum_rec"),
+])
+def test_weekly_score_v2_keeps_partial_kicker_and_defense_scoring_as_a_range(position, line, breakdown, expected, rule):
+    score = build_weekly_score_v2(project(evidence(provider_position=position, stat_line=line, breakdown=breakdown), position=position))
+    assert (score["state"], score["value"], score["value_range"], score["scoring_completeness"]) == ("DEGRADED", None, expected, "PARTIAL")
+    assert score["blocker"] == "LEAGUE_SCORING_PARTIAL" and score["missing_scoring_rules"] == [rule] and score["evidence_level"] == "PRELIMINARY"
+    assert score["display"] == {"value": f"{expected['low']:.2f}–{expected['high']:.2f} pts", "note": "Partial scoring · informational only"}
+
+
+@pytest.mark.parametrize("supplied,state,note", [
+    ({}, "UNAVAILABLE", "No provider projection"),
+    (evidence(state="UNAVAILABLE", projected_ppg=None, blockers=["JERRYGM_PLAYER_NOT_RETURNED"]), "UNAVAILABLE", "The provider returned no projection"),
+    (evidence(week=9), "BLOCKED", "The projection is for another week"),
+    (evidence(state="STALE", blockers=["JERRYGM_STALE_HISTORICAL_ONLY"]), "STALE", "The projection is stale"),
+])
+def test_missing_or_blocked_weekly_score_v2_stays_null_and_never_zero(supplied, state, note):
+    score = build_weekly_score_v2(project(supplied))
+    assert (score["state"], score["value"], score["value_range"], score["evidence_level"]) == (state, None, None, "INSUFFICIENT")
+    assert score["display"] == {"value": "Unavailable", "note": note} and score["recommendation_impact"] == "INFORMATIONAL_ONLY"
+    assert build_weekly_score_v2(None)["value"] is None
+
+
+def test_weekly_score_v2_preserves_a_verified_provider_zero():
+    zero = build_weekly_score_v2(project(evidence(projected_ppg=0.0, stat_line={key: 0.0 for key in RB_LINE})))
+    assert (zero["state"], zero["value"], zero["value_range"], zero["display"]["value"]) == ("PRELIMINARY", 0.0, {"low": 0.0, "high": 0.0}, "0.00 pts")
+
+
+def test_weekly_score_v2_freshness_and_authority_stay_unapproved_without_a_threshold():
+    for provider_evidence in ({"freshness_state": "FRESH"}, {"freshness_state": "UNAVAILABLE", "freshness_threshold_id": "UNVERIFIED"}, None):
+        score = build_weekly_score_v2(project(), provider_evidence=provider_evidence)
+        assert (score["freshness_state"], score["freshness_threshold"], score["blocker"]) == (
+            "UNAVAILABLE", {"state": "UNAPPROVED", "id": None}, "JERRYGM_FRESHNESS_THRESHOLD_UNVERIFIED")
+        assert (score["authority"], score["used_for"], score["recommendation_impact"], score["decision_effect"], score["evidence_level"]) == (
+            "SHADOW", "SHADOW_EVIDENCE", "INFORMATIONAL_ONLY", "NONE", "PRELIMINARY")
+    supplied = build_weekly_score_v2(project(evidence(blockers=[])), provider_evidence={"freshness_state": "FRESH", "freshness_threshold_id": "jerrygm.fixture.v1"})
+    assert (supplied["freshness_state"], supplied["blockers"], supplied["authority"], supplied["recommendation_impact"]) == ("FRESH", [], "SHADOW", "INFORMATIONAL_ONLY")
 
 
 # Projection comparisons

@@ -140,8 +140,9 @@ def test_pre_kickoff_decisions_are_persisted_with_their_decision_time_evidence()
                                    "freshness_state": "FRESH", "schedule_source": SOURCE}.items()
     assert output["health_evidence"].items() >= {"state": "HEALTHY", "verified": True, "source": "Sleeper API", "freshness_state": "FRESH"}.items()
     assert output["weekly_value"].items() >= {"basis": "REPOSITORY_WEEKLY_SCORE", "value": 12.0, "state": "AVAILABLE"}.items()
-    assert output["contract_versions"] == {"snapshot_output": "lineup.forward_validation.snapshot.v1", "lineup_decision": "lineup-decision.v1",
-                                           "game_lock": "lineup.game_lock.v1", "league_scored_projection": "league-scored-projection.v1"}
+    assert output["contract_versions"] == {"snapshot_output": "lineup.forward_validation.snapshot.v2", "lineup_decision": "lineup-decision.v1",
+                                           "game_lock": "lineup.game_lock.v1", "league_scored_projection": "league-scored-projection.v1",
+                                           "weekly_score": "weekly-score.v2"}
     assert stored["sleeper:3"]["decision_output"]["related_slots"][0].items() >= {"slot": "FLEX", "role": "OUTGOING", "status": "CHANGE"}.items()
 
 
@@ -208,6 +209,9 @@ def test_verified_zero_and_missing_evidence_stay_distinct_without_defaults():
     output = zero["decision_output"]
     assert (output["league_scored_projection"], output["league_scored_range"], output["projection_evidence_state"]) == (None, None, "UNAVAILABLE")
     assert (zero["completeness_state"], zero["freshness_state"], zero["blockers"][0]) == ("UNAVAILABLE", "UNAVAILABLE", "PROVIDER_PROJECTION_NOT_REQUESTED")
+    # A verified legacy zero never becomes a Weekly Score v2 value; without a projection v2 stays null.
+    assert [(stored[subject]["decision_output"]["weekly_score_v2"]["state"], stored[subject]["decision_output"]["weekly_score_v2"]["value"])
+            for subject in ("sleeper:5", "sleeper:6")] == [("UNAVAILABLE", None)] * 2
 
 
 def test_preliminary_and_informational_evidence_keeps_its_labels():
@@ -227,6 +231,16 @@ def test_preliminary_and_informational_evidence_keeps_its_labels():
     assert output["lineup"]["projection_basis"].items() >= {"recommendation_impact": "INFORMATIONAL_ONLY", "used_for": "INFORMATIONAL_COMPARISON"}.items()
     assert output["lineup"]["projection_basis"]["action_threshold"]["state"] == "UNAPPROVED" and output["lineup"]["value_basis"]["evidence_level"] == "PRELIMINARY"
     assert payload["decision_effect"] == "NONE" and payload["freshness_state"] == "UNAVAILABLE"
+    weekly = output["weekly_score_v2"]
+    assert weekly == {"contract_id": "weekly-score.v2", "state": "PRELIMINARY", "value": 6.5, "value_range": {"low": 6.5, "high": 6.5}, "unit": "fantasy_points",
+                      "evidence_level": "PRELIMINARY", "authority": "SHADOW", "used_for": "SHADOW_EVIDENCE", "recommendation_impact": "INFORMATIONAL_ONLY",
+                      "source": "JerryGM jgm_baseline stat line, rescored with Sleeper league scoring", "source_generated_at": "2026-11-15T12:00:00+00:00",
+                      "retrieved_at": "2026-11-15T13:00:00+00:00", "season": 2026, "week": 10, "scoring_context": "SLEEPER_LEAGUE_SCORING_SETTINGS",
+                      "scoring_contract": "league-scored-projection.v1", "scoring_completeness": "COMPLETE", "missing_scoring_rules": [],
+                      "freshness_state": "UNAVAILABLE", "freshness_threshold": {"state": "UNAPPROVED", "id": None}, "data_through_week": 9,
+                      "blockers": ["JERRYGM_FRESHNESS_THRESHOLD_UNVERIFIED"]}
+    assert output["lineup"]["weekly_score_v2_basis"].items() >= {"contract_id": "weekly-score.v2", "authority": "SHADOW", "used_for": "SHADOW_EVIDENCE",
+                                                                 "recommendation_impact": "INFORMATIONAL_ONLY", "freshness_threshold_state": "UNAPPROVED"}.items()
 
 
 def test_database_failure_fails_safely_without_touching_stored_snapshots():
@@ -357,3 +371,26 @@ def test_post_week_review_compares_only_final_sleeper_points():
     assert rows["1"]["projection_difference"] == {"state": "NOT_COMPARED", "reason": "PROJECTION_UNAVAILABLE", "actual_minus_projection": None}
     unavailable = review_lineup_snapshots(payloads, actual_points=sleeper_actual_points(None), schedule_rows=schedule, season=2026, week=10)
     assert unavailable["state"] == "UNAVAILABLE" and {row["actual"]["points"] for row in unavailable["players"]} == {None}
+
+
+def test_snapshots_from_before_weekly_score_v2_stay_readable_and_ranges_are_never_differenced():
+    store = SnapshotStore()
+    capture(lineup(projections={"state": "AVAILABLE", "blockers": [], "players": {"4": provider("4")}}), store)
+    current = store.payloads()["sleeper:4"]
+    legacy = copy.deepcopy(current)
+    output = legacy["decision_output"]
+    del output["weekly_score_v2"], output["lineup"]["weekly_score_v2_basis"], output["contract_versions"]["weekly_score"]
+    output["contract_versions"]["snapshot_output"] = "lineup.forward_validation.snapshot.v1"
+    ranged = copy.deepcopy(current)
+    ranged["decision_output"].update(league_scored_projection=None, league_scored_range={"low": 6.0, "high": 7.0})
+    ranged["decision_output"]["weekly_score_v2"].update(state="DEGRADED", value=None, value_range={"low": 6.0, "high": 7.0}, scoring_completeness="PARTIAL")
+    for snapshot in (legacy, ranged):
+        snapshot["snapshot_id"] = snapshot_identity(snapshot)
+    actuals = sleeper_actual_points([{"roster_id": 1, "players_points": {"4": 9.2}}], retrieved_at=KICKOFF + timedelta(days=2))
+    old, new, partial = (review_lineup_snapshots([snapshot], actual_points=actuals, schedule_rows=[game("KC", "BUF", result="7")], season=2026, week=10)["players"][0]
+                         for snapshot in (legacy, current, ranged))
+    assert old["weekly_score_v2"] == {"contract_id": None, "state": "NOT_CAPTURED", "value": None, "value_range": None}
+    assert (new["weekly_score_v2"]["contract_id"], new["weekly_score_v2"]["value"], new["weekly_score_v2"]["authority"]) == ("weekly-score.v2", 6.5, "SHADOW")
+    assert old["projection_difference"] == new["projection_difference"] and new["projection_difference"]["actual_minus_projection"] == 2.7
+    assert partial["projection_difference"] == {"state": "NOT_COMPARED", "reason": "PROJECTION_RANGE_ONLY", "actual_minus_projection": None}
+    assert (partial["weekly_score_v2"]["value"], partial["weekly_score_v2"]["value_range"]) == (None, {"low": 6.0, "high": 7.0})

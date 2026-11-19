@@ -1,4 +1,4 @@
-"""Preliminary league-scored projections, projection comparisons, evidence agreement, recent
+"""Preliminary league-scored projections, the shadow Weekly Score v2, projection comparisons, evidence agreement, recent
 workload facts, and forward-validation snapshots for My Team lineup decisions.
 
 Everything here is informational. No function authorizes a lineup change, converts consensus
@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import math
+from collections import Counter
 from decimal import Decimal
 from typing import Any, Mapping, Sequence
 
@@ -21,7 +22,13 @@ PROJECTION_SOURCE = "JerryGM jgm_baseline stat line, rescored with Sleeper leagu
 PROJECTION_UNIT = "fantasy_points"
 COMPARISON_BASIS = "LEAGUE_SCORED_PROJECTION"
 SNAPSHOT_DECISION_TYPE = "MY_TEAM_LINEUP_DECISION"
-SNAPSHOT_OUTPUT_VERSION = "lineup.forward_validation.snapshot.v1"
+SNAPSHOT_OUTPUT_VERSION = "lineup.forward_validation.snapshot.v2"
+WEEKLY_SCORE_CONTRACT_ID = "weekly-score.v2"
+WEEKLY_SCORE_LABEL = "Weekly projection"
+WEEKLY_SCORE_DEFINITION = ("Weekly Score v2: this week's projected fantasy points under the league's Sleeper scoring, taken as-is from the league-scored "
+                           "provider projection; no season projection ÷ 17, matchup modifier, or health multiplier is applied.")
+WEEKLY_SCORE_AUTHORITY = ("SHADOW: informational only. It never selects players, orders slots or the bench, or changes decision confidence; selection "
+                          "authority needs an approved freshness threshold, completed forward validation, and an explicit authority decision.")
 PROVIDER_ZEROED_STATUSES = frozenset({"OUT", "DOUBTFUL"})
 BLOCKING_PROVIDER_BLOCKERS = frozenset({
     "JERRYGM_CONFIGURATION_BLOCKED", "JERRYGM_SEASON_WEEK_MISMATCH", "JERRYGM_SCORING_MISMATCH", "JERRYGM_SOURCE_UNSUPPORTED",
@@ -251,6 +258,79 @@ def projection_text(projection: Mapping[str, Any] | None) -> str:
     if bounds is not None:
         return f"{bounds[0]:.2f}–{bounds[1]:.2f} (partial scoring)"
     return "Unavailable"
+
+
+def build_weekly_score_v2(projection: Mapping[str, Any] | None, *, provider_evidence: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Weekly Score v2: the current-week league-scored projection, exposed only as SHADOW evidence.
+
+    The value is the ``build_player_projection`` result as-is: exact only when league scoring is COMPLETE, otherwise the existing
+    range with a null value. A missing projection stays null, never zero. Freshness counts only under an explicitly supplied
+    provider threshold. Nothing here feeds lineup selection, ordering, or decision confidence.
+    """
+    projection = projection if isinstance(projection, Mapping) else {}
+    evidence = provider_evidence if isinstance(provider_evidence, Mapping) else {}
+    source_state = str(projection.get("evidence_state") or "UNAVAILABLE").upper()
+    completeness = projection.get("scoring_completeness") or "UNAVAILABLE"
+    exact = _number(projection.get("value")) if completeness == "COMPLETE" else None
+    bounds = projection_range(projection)
+    usable = source_state in {"PRELIMINARY", "DEGRADED"} and (exact is not None or bounds is not None)
+    if usable:
+        state = "PRELIMINARY" if source_state == "PRELIMINARY" and exact is not None else "DEGRADED"
+    else:
+        state, exact, bounds = (source_state if source_state in {"BLOCKED", "STALE"} else "UNAVAILABLE"), None, None
+    threshold_id = str(evidence.get("freshness_threshold_id") or "").strip()
+    provider_freshness = str(evidence.get("freshness_state") or "").upper()
+    if threshold_id and threshold_id != "UNVERIFIED" and provider_freshness in {"FRESH", "AGING", "STALE"}:
+        freshness_state, threshold = provider_freshness, {"state": "VERIFIED", "id": threshold_id}
+    else:
+        freshness_state, threshold = "UNAVAILABLE", {"state": "UNAPPROVED", "id": None}
+    blockers = [str(item) for item in projection.get("blockers") or [] if item]
+    if usable and freshness_state == "UNAVAILABLE":
+        blockers.append("JERRYGM_FRESHNESS_THRESHOLD_UNVERIFIED")
+    if not usable and not blockers:
+        blockers.append("PROVIDER_PROJECTION_UNAVAILABLE")
+    blockers = list(dict.fromkeys(blockers))
+    if state == "PRELIMINARY":
+        note = "Preliminary · informational only"
+    elif state == "DEGRADED":
+        reason = ("Partial scoring" if completeness != "COMPLETE" else "Provider stats lag a week" if projection.get("data_through_state") == "ROLLOVER_LAG"
+                  else "Degraded")
+        note = f"{reason} · informational only"
+    else:
+        reason = "the projection is stale" if state == "STALE" else projection_blocker_text(blockers[0])
+        note = reason[:1].upper() + reason[1:]
+    shown = f"{exact:.2f} pts" if exact is not None else f"{bounds[0]:.2f}–{bounds[1]:.2f} pts" if bounds is not None else "Unavailable"
+    return {
+        "contract_id": WEEKLY_SCORE_CONTRACT_ID, "label": WEEKLY_SCORE_LABEL, "definition": WEEKLY_SCORE_DEFINITION, "basis": COMPARISON_BASIS,
+        "unit": PROJECTION_UNIT, "direction": "HIGHER_IS_BETTER", "state": state, "value": exact,
+        "value_range": {"low": bounds[0], "high": bounds[1]} if bounds is not None else None,
+        "evidence_level": "PRELIMINARY" if usable else "INSUFFICIENT", "authority": "SHADOW", "used_for": "SHADOW_EVIDENCE",
+        "recommendation_impact": "INFORMATIONAL_ONLY", "decision_effect": "NONE",
+        "source": projection.get("source") or PROJECTION_SOURCE, "attribution": projection.get("attribution"),
+        "source_generated_at": projection.get("generated_at"), "retrieved_at": projection.get("retrieved_at"),
+        "season": projection.get("season"), "week": projection.get("week"), "identity": dict(projection.get("identity") or {}),
+        "scoring_context": projection.get("scoring_basis") or SCORING_BASIS, "scoring_contract": LEAGUE_SCORING_CONTRACT_ID,
+        "scoring_completeness": completeness,
+        "missing_scoring_rules": sorted({str(item.get("rule")) for item in projection.get("missing_scoring_components") or [] if isinstance(item, Mapping)}),
+        "data_through_week": projection.get("data_through_week"), "freshness_state": freshness_state, "freshness_threshold": threshold,
+        "blocker": blockers[0] if blockers else None, "blockers": blockers, "display": {"value": shown, "note": note},
+    }
+
+
+def weekly_score_v2_basis(scores: Sequence[Mapping[str, Any]] | None) -> dict[str, Any]:
+    """Lineup-level disclosure of the shadow Weekly Score v2; informational only."""
+    scores = [score for score in scores or [] if isinstance(score, Mapping)]
+    exact = [score for score in scores if score.get("value") is not None]
+    ranged = [score for score in scores if score.get("value") is None and score.get("value_range")]
+    usable = exact + ranged
+    verified = bool(usable) and all((score.get("freshness_threshold") or {}).get("state") == "VERIFIED" for score in usable)
+    return {
+        "contract_id": WEEKLY_SCORE_CONTRACT_ID, "label": WEEKLY_SCORE_LABEL, "definition": WEEKLY_SCORE_DEFINITION, "unit": PROJECTION_UNIT,
+        "state": "PRELIMINARY" if exact else "DEGRADED" if ranged else "UNAVAILABLE", "exact_players": len(exact), "range_players": len(ranged),
+        "identified_players": len(scores), "counts": dict(sorted(Counter(str(score.get("state")) for score in scores).items())),
+        "freshness_threshold_state": "VERIFIED" if verified else "UNAPPROVED", "evidence_level": "PRELIMINARY" if usable else "INSUFFICIENT",
+        "authority": "SHADOW", "used_for": "SHADOW_EVIDENCE", "recommendation_impact": "INFORMATIONAL_ONLY", "authority_reason": WEEKLY_SCORE_AUTHORITY,
+    }
 
 
 def _floor_value(view: Mapping[str, Any]) -> float | None:
@@ -493,6 +573,9 @@ SNAPSHOT_LOCK_FIELDS = ("contract_id", "state", "team", "opponent", "venue", "ki
                         "freshness_threshold_id", "schedule_source", "source_recorded_at", "retrieved_at")
 SNAPSHOT_PROJECTION_FIELDS = ("source", "unit", "scoring_basis", "generated_at", "retrieved_at", "data_through_week", "decision_eligible", "blockers",
                               "missing_scoring_components", "confidence", "recommendation_impact")
+SNAPSHOT_WEEKLY_SCORE_FIELDS = ("contract_id", "state", "value", "value_range", "unit", "evidence_level", "authority", "used_for", "recommendation_impact",
+                                "source", "source_generated_at", "retrieved_at", "season", "week", "scoring_context", "scoring_contract", "scoring_completeness",
+                                "missing_scoring_rules", "freshness_state", "freshness_threshold", "data_through_week", "blockers")
 
 
 def _utc_iso(value: Any) -> str | None:
@@ -538,6 +621,7 @@ def build_forward_validation_snapshots(views: Sequence[Mapping[str, Any]], decis
             result["skipped"].append({"player": _name(view), "player_id": player_id, "reason": reason})
             continue
         health, value = view.get("health") or {}, view.get("value") or {}
+        weekly = view.get("weekly_score_v2") or {}
         decision = (player_decisions or {}).get(player_id) or {}
         output = {
             "player": _name(view), "position": view.get("position"), "recommended_slot": slots.get(player_id), "current_slot": starters.get(player_id) or "BENCH",
@@ -552,12 +636,14 @@ def build_forward_validation_snapshots(views: Sequence[Mapping[str, Any]], decis
             "nfl_team": view.get("nfl_team"), "opponent": lock.get("opponent") or view.get("opponent"), "venue": lock.get("venue") or view.get("home_away"),
             "availability_reason": view.get("availability_reason"),
             "weekly_value": {key: value.get(key) for key in SNAPSHOT_WEEKLY_VALUE_FIELDS} if value else None,
+            "weekly_score_v2": {key: weekly.get(key) for key in SNAPSHOT_WEEKLY_SCORE_FIELDS} if weekly else None,
             "health_evidence": {key: health.get(key) for key in SNAPSHOT_HEALTH_FIELDS},
             "lock": {key: lock.get(key) for key in SNAPSHOT_LOCK_FIELDS},
             "projection_evidence": {key: projection.get(key) for key in SNAPSHOT_PROJECTION_FIELDS},
             "lineup": dict(lineup) if lineup else None,
             "contract_versions": {"snapshot_output": SNAPSHOT_OUTPUT_VERSION, "lineup_decision": (lineup or {}).get("schema_version"),
-                                  "game_lock": lock.get("contract_id"), "league_scored_projection": LEAGUE_SCORING_CONTRACT_ID},
+                                  "game_lock": lock.get("contract_id"), "league_scored_projection": LEAGUE_SCORING_CONTRACT_ID,
+                                  "weekly_score": weekly.get("contract_id")},
         }
         evidence_state = {"PRELIMINARY": "AVAILABLE", "DEGRADED": "INSUFFICIENT_EVIDENCE", "BLOCKED": "BLOCKED", "STALE": "STALE"}.get(projection.get("evidence_state"), "UNAVAILABLE")
         blockers = [*(projection.get("blockers") or []), *([value["blocker"]] if value.get("blocker") else [])]

@@ -10,7 +10,8 @@ displayed as context and orders same-position players only when a caller explici
 and never locks a player. League-scored provider projections (the JerryGM stat line rescored
 with the league's Sleeper scoring settings) are PRELIMINARY comparisons that never select
 players, raise decision confidence, or authorize a change without an approved action
-threshold. No lineup is submitted.
+threshold. Weekly Score v2 (that league-scored projection as a current-week metric) is SHADOW
+evidence in its own field and never selects, orders, or changes confidence. No lineup is submitted.
 """
 from __future__ import annotations
 
@@ -30,9 +31,11 @@ from services.lineup_projection import (
     best_projection_alternative,
     build_forward_validation_snapshots,
     build_player_projection,
+    build_weekly_score_v2,
     compare_projections,
     comparison_brief,
     evidence_agreement as projection_evidence_agreement,
+    weekly_score_v2_basis,
     workload_summary,
 )
 from services.team_health import normalize_health
@@ -125,7 +128,7 @@ LOCK_REASON_TEXT = {
 }
 OPEN_WINDOW_STATUSES = {"CHANGE", "REPLACEMENT_REQUIRED", "SELECTION_UNRESOLVED", "AVAILABILITY_WATCH", "STABLE", "UNRESOLVED"}
 VALUE_BLOCKER_TEXT = {
-    "PROJECTION_AUTOMATED_SOURCE_UNAVAILABLE": "no automated weekly projection feed is connected",
+    "PROJECTION_AUTOMATED_SOURCE_UNAVAILABLE": "no automated weekly input is approved for lineup selection (the weekly projection shown is informational only)",
     "WEEKLY_VALUE_UNAVAILABLE": "no weekly value was supplied",
     "LEAGUE_SCORING_NOT_FULL_PPR": "league reception scoring differs from the Full-PPR value basis",
     "LEAGUE_SCORING_UNVERIFIED": "league scoring settings are unverified",
@@ -595,6 +598,8 @@ def _player_views(roster, *, mode, team_health, value_alignment, provider_projec
         projection = build_player_projection(provider.get("evidence"), position=_position(row), scoring_settings=scoring_settings, season=season, week=week,
                                              lock=lock, sleeper_team=row.get("nfl_team"), sleeper_health=health, known_gsis_id=row.get("sleeper_gsis_id"),
                                              unavailable_blocker=provider.get("blocker"))
+        # Shadow evidence in its own field: selection, ordering, and confidence read only "value", never "weekly_score_v2".
+        weekly_score_v2 = build_weekly_score_v2(projection, provider_evidence=provider.get("evidence"))
         views.append({
             "row_index": row_index,
             "lock_key": raw_id or f"row:{row_index}",
@@ -614,6 +619,7 @@ def _player_views(roster, *, mode, team_health, value_alignment, provider_projec
             "value": value,
             "provider_projection": provider,
             "projection": projection,
+            "weekly_score_v2": weekly_score_v2,
             "lock": lock,
             "consensus_rank": consensus_rank,
             "matchup": _matchup(row, season=season, week=week),
@@ -2057,11 +2063,14 @@ def _snapshot_decisions(views, decisions, *, consensus_authority, recommendation
 def _snapshot_lineup(contract):
     """Lineup-level context a stored snapshot needs to be read without the live page."""
     value, projection = contract.get("value_basis") or {}, contract.get("projection_basis") or {}
+    weekly = contract.get("weekly_score_v2_basis") or {}
     return {
         "schema_version": contract.get("schema_version"), "mode": contract.get("mode"), "state": contract.get("state"), "blocker": contract.get("blocker"),
         "week_state": (contract.get("lock_summary") or {}).get("week_state"), "decision_confidence": (contract.get("summary") or {}).get("decision_confidence"),
         "value_basis": {key: value.get(key) for key in ("metric", "unit", "state", "evidence_level", "scoring_alignment", "used_for")},
         "projection_basis": {key: projection.get(key) for key in ("metric", "state", "used_for", "recommendation_impact", "action_threshold")},
+        "weekly_score_v2_basis": {key: weekly.get(key) for key in ("contract_id", "unit", "state", "evidence_level", "freshness_threshold_state", "authority",
+                                                                   "used_for", "recommendation_impact")},
     }
 
 
@@ -2106,6 +2115,7 @@ def build_lineup_decision(
     value_basis = _value_basis(views, scoring)
     consensus_basis = _consensus_basis(views, consensus_ranks, scoring, authority=consensus_authority)
     projection_basis = _projection_basis(views, provider_projections, scoring_settings, projection_action_threshold)
+    weekly_score_basis = weekly_score_v2_basis([view["weekly_score_v2"] for view in views if view["player_id"] is not None])
     notices = _notices(views, team_health, week, value_basis, consensus_basis, projection_basis=projection_basis)
     consensus_method = ("When a starter has no weekly value, this week's positional consensus rank (expert ordering, never converted to points) may replace that "
                         "starter with a better-ranked player at the same position, or fill an open slot whose options all play one position; cross-position (FLEX) "
@@ -2114,7 +2124,7 @@ def build_lineup_decision(
     contract = {
         "schema_version": SCHEMA_VERSION, "decision_effect": "READ_ONLY", "mode": mode, "season": season, "week": week,
         "slot_contract": slot_contract, "scoring_context": scoring, "value_basis": value_basis, "consensus_basis": consensus_basis,
-        "game_lock_basis": _game_lock_basis(views, game_locks, mode), "projection_basis": projection_basis,
+        "game_lock_basis": _game_lock_basis(views, game_locks, mode), "projection_basis": projection_basis, "weekly_score_v2_basis": weekly_score_basis,
         "provider_projections": _provider_state(provider_projections), "floor_ceiling": dict(FLOOR_CEILING),
         "current_lineup": {key: current[key] for key in ("state", "blocker", "slots", "empty_slots")},
         "players": views, "notices": notices,

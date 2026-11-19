@@ -30,7 +30,9 @@ REVIEW_LIMITATIONS = (
     "Informational only: no decision is graded, and no recommendation, confidence, threshold, projection, or transaction changes.",
     "Actual points count only after the automated nflverse schedule records the game's result; earlier Sleeper zeros are placeholders.",
     "Sleeper stat corrections after the game are not tracked, so actual points can still change; their finality is unverified.",
-    "The Weekly Score is in weekly value points, not league fantasy points, so it is shown beside actual points but never differenced.",
+    "The legacy Weekly Score (v1: season projection ÷ 17, in weekly value points) is shown beside actual points but never differenced.",
+    "Weekly Score v2 (shadow) is the exact league-scored projection, so its difference is the projection difference; a partial-scoring range is never "
+    "differenced, and snapshots captured before v2 show it as not captured.",
 )
 
 
@@ -226,6 +228,7 @@ def review_lineup_snapshots(snapshots: Sequence[Mapping[str, Any]] | None, *, ac
         snapshot = items[-1][1]
         output = snapshot.get("decision_output") or {}
         lock, value = output.get("lock") or {}, output.get("weekly_value") or {}
+        weekly = output.get("weekly_score_v2")
         game = game_finality(schedule_rows, output.get("nfl_team") or lock.get("team"))
         actual = _actual(actual_points, player_id, game)
         projection = output.get("league_scored_projection")
@@ -244,6 +247,8 @@ def review_lineup_snapshots(snapshots: Sequence[Mapping[str, Any]] | None, *, ac
             "snapshot_id": snapshot.get("snapshot_id"), "captured_at": snapshot.get("captured_at"), "first_captured_at": items[0][1].get("captured_at"),
             "snapshot_count": len(items), "kickoff_utc": lock.get("kickoff_utc"),
             "weekly_value": {key: value.get(key) for key in ("value", "state", "evidence_level", "unit")},
+            "weekly_score_v2": ({key: weekly.get(key) for key in ("contract_id", "state", "value", "value_range", "unit", "evidence_level", "authority")}
+                                if isinstance(weekly, Mapping) else {"contract_id": None, "state": "NOT_CAPTURED", "value": None, "value_range": None}),
             "league_scored_projection": {"value": projection, "range": output.get("league_scored_range"), "evidence_state": output.get("projection_evidence_state"),
                                          "recommendation_impact": (output.get("projection_evidence") or {}).get("recommendation_impact")},
             "game": game, "actual": {**actual, "source": ACTUALS_SOURCE}, "projection_difference": difference,

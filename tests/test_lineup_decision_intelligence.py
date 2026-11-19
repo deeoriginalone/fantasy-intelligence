@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import json
 from pathlib import Path
 
 import pytest
@@ -529,6 +530,59 @@ def test_provider_projection_never_selects_or_changes_confidence_and_disagreemen
     assert no_rank["changes"] == []
 
 
+SHADOW_SCORING = {"rec": 1.0, "rec_yd": 0.1, "rush_yd": 0.1}
+
+
+def shadow_payload(roster):
+    """League-scorable provider lines that project every bench player (25.0) far above every starter (1.5)."""
+    lines = {row["source_player_id"]: {"receptions": 1.0, "recYds": 5.0, "rushYds": 0.0} if row.get("sleeper_lineup_slot")
+             else {"receptions": 10.0, "recYds": 150.0, "rushYds": 0.0} for row in roster}
+    return {"state": "AVAILABLE", "blockers": [], "players": {player_id: provider(player_id, 20.0, "UNAVAILABLE", stat_line=line, data_through_week=2)
+                                                              for player_id, line in lines.items()}}
+
+
+def without_shadow(value):
+    if isinstance(value, dict):
+        return {key: without_shadow(item) for key, item in value.items() if key not in {"weekly_score_v2", "weekly_score_v2_basis", "forward_validation"}}
+    if isinstance(value, list):
+        return [without_shadow(item) for item in value]
+    return value
+
+
+@pytest.mark.parametrize("scenario", ["weekly-values", "live-without-values", "consensus-authority", "locked-and-unverified"])
+def test_weekly_score_v2_shadow_evidence_never_changes_selection_or_confidence(monkeypatch, scenario):
+    import services.lineup_decision_intelligence as intelligence
+
+    real = intelligence.build_weekly_score_v2
+
+    def inverted(projection, **kwargs):
+        score = real(projection, **kwargs)
+        return {**score, "state": "PRELIMINARY", "value": 100.0 - (score["value"] or 0.0), "value_range": None}
+
+    def run(builder):
+        monkeypatch.setattr(intelligence, "build_weekly_score_v2", builder)
+        if scenario == "consensus-authority":
+            return rank_decide(rank_roster(), provider_projections=shadow_payload(rank_roster()), scoring_settings=SHADOW_SCORING)
+        roster = without_values(base_roster()) if scenario == "live-without-values" else base_roster()
+        extra = {"game_locks": locks(roster, locked=("QB1",), unverified=("RB2",))} if scenario == "locked-and-unverified" else {}
+        return decide(roster, provider_projections=shadow_payload(roster), scoring_settings=SHADOW_SCORING, now=NOW_TIME, **extra)
+
+    results = {name: run(builder) for name, builder in (("real", real), ("inverted", inverted), ("absent", lambda projection, **kwargs: real(None)))}
+    shadow = {(view["is_current_starter"], view["weekly_score_v2"]["value"]) for view in results["real"]["players"] if view["position"] in {"RB", "WR"}}
+    assert shadow == {(True, 1.5), (False, 25.0)}
+    if scenario == "live-without-values":
+        assert results["real"]["changes"] == []
+    compared = {name: json.dumps(without_shadow(result), sort_keys=True, default=str) for name, result in results.items()}
+    assert compared["real"] == compared["inverted"] == compared["absent"]
+    for result in results.values():
+        assert [slot["decision_confidence"] for slot in result["slots"]] == [slot["decision_confidence"] for slot in results["real"]["slots"]]
+        assert result["summary"]["decision_confidence"] == results["real"]["summary"]["decision_confidence"]
+        assert [(snapshot["decision_subject"], snapshot["decision_output"]["decision"], snapshot["decision_output"]["decision_confidence"])
+                for snapshot in result["forward_validation"]["snapshots"]] == [
+            (snapshot["decision_subject"], snapshot["decision_output"]["decision"], snapshot["decision_output"]["decision_confidence"])
+            for snapshot in results["real"]["forward_validation"]["snapshots"]]
+
+
 def test_same_consensus_evidence_produces_the_same_lineup_in_any_roster_order():
     def snapshot(contract):
         return lineup(contract), changes_of(contract), [(d["slot"], d["status"], d["decision_confidence"]["state"]) for d in contract["slots"]]
@@ -800,11 +854,18 @@ def test_team_route_keeps_consensus_rank_as_context_and_compares_league_scored_p
     # Consensus ranks Delta RB ahead of Bravo RB, but it has no lineup authority and never overrides the projection comparison.
     assert changes_of(contract) == [] and "START Delta RB over Bravo RB" not in html
     assert contract["consensus_basis"]["used_for"] == "NONE" and "consensus RB 12" in html and "Context only: weekly consensus has no lineup decision authority" in html
+    assert contract["consensus_basis"]["recommendation_impact"] == "DISPLAY_ONLY"
+    assert {view["consensus_rank"]["recommendation_impact"] for view in contract["players"] if view["consensus_rank"]["state"] == "AVAILABLE"} == {"DISPLAY_ONLY"}
+    assert contract["weekly_score_v2_basis"].items() >= {"state": "PRELIMINARY", "exact_players": 2, "identified_players": 4, "authority": "SHADOW",
+                                                         "used_for": "SHADOW_EVIDENCE", "freshness_threshold_state": "UNAPPROVED"}.items()
+    assert "Weekly projection (Weekly Score v2, shadow)" in html and "freshness threshold UNAPPROVED" in html
+    assert "Weekly projection: <strong>Unavailable</strong> &middot; Not requested" in html
     comparison = slot(contract, "RB")["projection_comparison"]
     assert (comparison["state"], comparison["preferred"], comparison["projection_delta"]) == ("CLOSE_CALL", "CURRENT", -3.0)
     assert comparison["authorizes_lineup_change"] is False and contract["game_lock_basis"]["state"] == "AVAILABLE"
     assert "Projection comparisons (preliminary)" in html and "Bravo RB projects 3.00 more league points" in html
-    assert "League-scored projection: <strong>5.00 pts</strong>" in html and "Lock unverified" not in html
+    assert "Weekly projection: <strong>5.00 pts</strong> &middot; Preliminary · informational only" in html and "Lock unverified" not in html
+    assert "League-scored projection: <strong>" not in html
     assert "<details open" not in html
 
 
