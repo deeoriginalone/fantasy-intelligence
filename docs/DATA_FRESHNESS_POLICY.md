@@ -115,6 +115,13 @@ The owner reports approved Yahoo API access and a Yahoo Survivor league. Yahoo i
 - Each supported row is reconciled to a published rank or a diagnostic record. Exact player crosswalks normalize `PK` to `K`; team defenses use exact supported Sleeper team IDs. Pending mapping/game verification is distinct from confirmed stale/started-game/invalid-rank evidence.
 - The atomic cache lives in the Flask instance directory as `dynastyprocess-rankings.json`. Last attempt, last successful retrieval, source dates, source URLs, commit version, checksums, and failure status remain available separately.
 
+### League Transaction History (FAAB market evidence)
+
+- Owners: `services/sleeper_snapshots.py` stores and reads, and `services/waiver_market_evidence.py` (`waiver.faab_market.v1`) evaluates, Sleeper `GET /v1/league/{league_id}/transactions/{week}` responses kept in `sleeper_api_snapshots` (one row per league, season, and week; `fetched_at` is that week's request time). Every refresh is recorded in `sleeper_sync_runs` with scope `transaction_history` and status `success`, `partial`, or `failed`.
+- Refresh: only the explicit command `python refresh_sleeper_transactions.py` fetches and stores weeks; viewing Waivers never fetches or stores transactions. Run it after each weekly waiver run.
+- Completeness, not age: a completed week does not expire. A stored week counts only when later-week Sleeper transactions already existed when it was retrieved (CLOSED: one week later; FINAL: two or more). The current open week never counts, and a week stored while still open counts only after it is refetched. Coverage is COMPLETE when every week from the league start week to the week before the current one is verified and the latest refresh succeeded; PARTIAL when some weeks are unverified or the latest refresh did not succeed; UNAVAILABLE when no week is verified; and CONTRADICTORY when stored weeks are invalid or conflict.
+- No numeric staleness threshold exists for transaction history, and none is implied.
+
 ### NFL Schedule and Kickoff Evidence
 
 - Threshold ID: `schedule.evidence.v1`, read from `SCHEDULE_EVIDENCE_MAX_AGE_SECONDS` by `services/integrity/integrity_service.py`. Approved maximum age: 86400 seconds (24 hours), set in the local environment only, never as a code default.

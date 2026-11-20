@@ -103,6 +103,11 @@ The primary measure of progress is improved fantasy-football decision quality fo
 - Use the recommendation vocabulary below. Display order alone does not communicate player quality.
 - Distinguish slot-fill recommendations and their provisional guardrails from best-player rankings. A slot-fill result does not prove which player is best.
 - State that any shown FAAB guardrails are provisional, not winning bids. Winning-bid estimation and player-value-to-FAAB conversion are unavailable.
+- Discover candidates from the live Sleeper player catalog by exact Sleeper player ID, excluding every player on any league roster, including reserve and taxi. Unavailable, incomplete, stale, or duplicate ownership blocks the list, and the candidate funnel reconciles excluded and published players.
+- Compare candidates only with same-position players on the manager's own roster and lineup. State each supported move as ADD + DROP, ADD — OPEN ROSTER SPOT, or MONITOR with its exact reason, under a verdict of ACT, OPTIONAL, NO WAIVER MOVE RECOMMENDED, INSUFFICIENT EVIDENCE, or BLOCKED. Show "Save FAAB." only when rest-of-season depth and its materiality were also evaluated.
+- Recommend a drop only at the same position, when fresh rest-of-season consensus ranks the candidate ahead with non-overlapping expert ranges (CLEAR ROS EDGE), the dropped player is neither protected nor locked, and every starting slot, including FLEX, can still be filled after the move and after higher-priority moves. A close rest-of-season call stays MONITOR or HOLD.
+- Show positional replacement context (how many comparable healthy, addable players remain available) as information only.
+- Show league FAAB market history from stored Sleeper transaction weeks (completed and failed claims, contested and uncontested claims, exact-player and same-position samples with N, and current team budgets) as descriptive evidence. It never changes a move and is not a recommended bid.
 
 ### Recommendation vocabulary
 
@@ -115,9 +120,9 @@ The primary measure of progress is improved fantasy-football decision quality fo
 Stale ECR blocks ranking. Missing ECR produces **UNRANKED**; it does not mean the candidate is worse than another unranked player. Historical production and historical usage are informational only and do not create or replace a rank. Provisional guardrails are not winning bids. Winning-bid estimation and player-value-to-FAAB conversion are unavailable.
 
 ### Future requirements—not current behavior
-- Role-duration or opportunity-driven ranking.
+- Current role, opportunity trend, and expected duration of value as informational evidence, and any role-duration or opportunity-driven ranking.
 - Player-value scoring or other ranking based on team need, schedule, or replacement value.
-- Suggested drop recommendations unless separately verified as supported.
+- Cross-position drop recommendations; supported drops are same-position only.
 - Winning-bid estimation and player-value-to-FAAB conversion.
 
 ### Blocking rule

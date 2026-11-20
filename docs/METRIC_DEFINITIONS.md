@@ -141,6 +141,24 @@ Multi-source corroboration does not authorize a metric by itself. For every metr
 - Required inputs: Shared Full-PPR team need, active roster slots, starter quality, depth, injury, bye week, replacement value, and positional scarcity when available.
 - Missing-data behavior: Must not claim strong fit if current roster or league settings are unverified.
 
+## Waiver Rest-of-Season Value, Materiality, and Replacement Context
+
+- Contracts: `waiver.ros_value.v1`, `waiver.ros_materiality.v1`, and `waiver.replacement_context.v1`, owned by `services/waiver_roster_decision.py`.
+- Basis: fresh FantasyPros PPR rest-of-season positional consensus (ECR) with its published best and worst expert ranks, delivered by DynastyProcess under the seven-day source-age limit in `DATA_FRESHNESS_POLICY.md`. Ranks are ordinal and position-specific (lower is better); they are never converted to points or compared across positions.
+- Player states: RANKED, UNRANKED, STALE, IDENTITY_UNRESOLVED, POSITION_CONFLICT, SCORING_UNSUPPORTED, SOURCE_UNAVAILABLE, or BLOCKED. Only RANKED players are compared, and an unranked player is not thereby worse.
+- Materiality: CLEAR ROS EDGE only when the candidate's worst published expert rank is better than the roster player's best. Overlapping ranges are CLOSE ROS CALL; other outcomes are COMPARABLE ROS VALUE, ROSTER PLAYER AHEAD, MATERIALITY UNVERIFIED, NOT COMPARABLE, or NOT APPLICABLE. Only CLEAR ROS EDGE can support a release.
+- Replacement context: per position, the number of healthy, addable available players whose fresh expert range reaches a player's range (best published rank at or ahead of that player's worst). STRONG: two or more; LIMITED: one; SCARCE (shown as NO COMPARABLE REPLACEMENT): none; UNVERIFIED when the evidence is missing.
+- Decision use: a release also requires the same position, an unprotected player whose game lock is open or a bye, and the post-move lineup check (every starting slot, including FLEX, still fillable this week and for the rest of the season). Replacement context is informational only. None of these measures produce points, percentages, a value score, or a FAAB amount.
+
+## League FAAB Market Evidence
+
+- Contract: `waiver.faab_market.v1`, owned by `services/waiver_market_evidence.py`; recommendation impact `INFORMATIONAL_ONLY`.
+- Source: stored Sleeper transaction weeks (`GET /v1/league/{league_id}/transactions/{week}`), written only by `python refresh_sleeper_transactions.py`. The Waivers page reads stored history and never fetches transactions.
+- Measures: completed and failed waiver claims with failure reasons such as a lost competing claim or a roster limit; contested and uncontested claims, grouped only by the same Sleeper player, week, and waiver run (identical Sleeper processing time), where a competing claim is another team's failed claim that Sleeper marks as claimed by another owner; observed bid distributions (lowest, highest, and median with N; a single observation is labelled) for completed, failed, contested, and uncontested claims; exact-player and same-position history, with league-wide history only when a position has no completed sample; and current team budgets (league budget minus each roster's `waiver_budget_used`).
+- Bids: a bid counts only as a whole, non-negative amount within a known league budget; a missing bid is never zero. Completed bids are what Sleeper charged; failed bids were not charged. Sleeper does not publish its tie-break rule.
+- Coverage: only weeks proven closed or final by later-week Sleeper transactions count; see League Transaction History in `DATA_FRESHNESS_POLICY.md`.
+- Decision use: descriptive only. It never changes an ADD, DROP, MONITOR, HOLD, or PASS decision and never produces a bid amount, bid range, winning estimate, probability, or demand score.
+
 ## Confidence
 
 - Purpose: Express evidence certainty, not player quality.
