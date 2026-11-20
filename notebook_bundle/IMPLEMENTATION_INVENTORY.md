@@ -4,6 +4,7 @@ services/ux_evidence.py
 services/team_health.py
 services/player_opportunity_reader.py
 services/snap_share_foundation.py
+services/waiver_candidate_universe.py
 services/preliminary_matchup_context.py
 services/draft_recommendation_publication.py
 services/__init__.py
@@ -30,6 +31,7 @@ services/snap_share_publication.py
 services/waiver_action_publication.py
 services/yahoo_oauth.py
 services/fantasypros_projection.py
+services/waiver_market_evidence.py
 services/lineup_projection.py
 services/dynastyprocess_rankings.py
 services/dynastyprocess_identity_source.py
@@ -52,8 +54,10 @@ services/sleeper_service.py
 services/model_only_future_probability.py
 services/roster_slots.py
 services/nflverse_player_metadata.py
+services/waiver_roster_decision.py
 services/trade_scenarios.py
 services/trade_target_center.py
+services/sleeper_snapshots.py
 services/roster_reconciliation.py
 services/gsis_identity_crosswalk.py
 services/opportunity_evidence.py

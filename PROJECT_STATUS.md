@@ -53,7 +53,7 @@ Waivers W1-W5 (2026-11-20): committed in `79be2ff`. `/waivers` compares verified
 ####### Current repository checkpoint
 - Date: 2026-11-20
 - Branch: test-weekly-evidence-trust
-- HEAD: 79be2ffd3dc3562fab68e3954946a8cc3c7e4fcb
+- HEAD: 4798bb01a6f9e40562897e173036ba37ada6b610
 - Working tree: the W1-W5 Waivers implementation is committed in `79be2ff` (17 files) and the repository agent definitions in `9556268`, after the earlier local My Team commits (`95acb9c`, `298c83b`, `b8b8f6d`) and their reconciliation (`8774fa8`, `b5b6cc6`). This reconciliation commits the canonical sources, the stale product-reference documents, and `docs/CURRENT_DEFECTS.md` (UXQA-001 closure), and a following continuity commit refreshes the generated continuity artifacts. The branch is pushed to `origin/test-weekly-evidence-trust` only after continuity validation passes, without force; the push result is recorded in the batch report, not in this text. Unrelated untracked local files (raw captures, generated artifact and audit outputs, patches, an old prompt, a temporary evidence script, and an unvalidated rollback script) are preserved and never staged.
 - Repository: /home/deeoriginalone/fantasy-intelligence
 - League ID: 1398094330668797952

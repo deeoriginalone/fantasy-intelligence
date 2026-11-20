@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-11-19T18:15:48.117535+00:00",
+  "generated_at_utc": "2026-11-20T17:54:40.303014+00:00",
   "passed": true,
   "repository": {
     "branch": "test-weekly-evidence-trust",
-    "head": "8774fa8362fcc03cd27daf1b2bc3624e20536602",
-    "short_head": "8774fa8"
+    "head": "4798bb01a6f9e40562897e173036ba37ada6b610",
+    "short_head": "4798bb0"
   },
   "checks": {
     "canonical_files_present": true,
@@ -18,35 +18,35 @@
   "files": {
     "PROJECT_STATUS.md": {
       "exists": true,
-      "bytes": 73397,
+      "bytes": 85251,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**"
+      "next_milestone": "**implement w6 \u2014 current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**"
     },
     "PROJECT_STATE.md": {
       "exists": true,
-      "bytes": 73821,
+      "bytes": 85646,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**"
+      "next_milestone": "**implement w6 \u2014 current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**"
     },
     "DEVELOPMENT_ROADMAP.md": {
       "exists": true,
-      "bytes": 76771,
+      "bytes": 88336,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**"
+      "next_milestone": "**implement w6 \u2014 current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**"
     },
     "NEXT_SESSION_HANDOFF.md": {
       "exists": true,
-      "bytes": 74539,
+      "bytes": 86589,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**"
+      "next_milestone": "**implement w6 \u2014 current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**"
     }
   },
   "missing_files": [],
@@ -55,7 +55,7 @@
   "head_mismatches": [],
   "missing_milestones": [],
   "unique_milestones": [
-    "**validate my team weekly start/sit/flex decision quality with forward evidence: capture pre-kickoff decision snapshots before every weekly kickoff window and complete read-only post-week outcome reviews against final sleeper points, starting with week 11, before expanding command center or other infrastructure.**"
+    "**implement w6 \u2014 current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**"
   ],
   "sensitive_findings": []
 }

@@ -27,6 +27,7 @@ tests/test_injury_health_sync.py
 tests/test_mock_draft_synchronization.py
 tests/test_yahoo_oauth.py
 tests/test_integrity_integration.py
+tests/test_waiver_roster_decision.py
 tests/test_roster_reconciliation.py
 tests/test_trade_scenarios.py
 tests/test_recommendation_explainer.py
@@ -65,6 +66,7 @@ tests/test_opportunity_evidence.py
 tests/test_ux2_team_accuracy_template.py
 tests/test_f3_d5_waiver_action_publication.py
 tests/test_preliminary_matchup_context.py
+tests/test_waiver_market_evidence.py
 tests/test_nfl_intelligence_template.py
 tests/test_f3a2_runtime.py
 tests/test_survival_calibration.py
@@ -90,6 +92,7 @@ tests/test_waiver_availability.py
 tests/test_unified_decision_context.py
 tests/test_snap_share_publication.py
 tests/test_draft_recommendation_service.py
+tests/test_waiver_candidate_universe.py
 tests/test_f3_b31_migration_contract.py
 tests/test_espn_player_news.py
 tests/test_draftboard_polling.py
@@ -143,7 +146,7 @@ platform linux -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
 rootdir: /home/deeoriginalone/fantasy-intelligence
 configfile: pytest.ini
 testpaths: tests
-collected 114 items / 111 errors
+collected 114 items / 114 errors
 
 <Dir fantasy-intelligence>
   <Dir tests>
@@ -430,7 +433,7 @@ Traceback:
 /usr/lib/python3.14/importlib/__init__.py:88: in import_module
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_dynastyprocess_rankings.py:5: in <module>
+tests/test_dynastyprocess_rankings.py:7: in <module>
     from services.dynastyprocess_rankings import evaluate, read_cached_rankings, refresh, refresh_rankings
 E   ModuleNotFoundError: No module named 'services'
 _______________ ERROR collecting tests/test_espn_player_news.py ________________
@@ -1343,6 +1346,36 @@ Traceback:
 tests/test_waiver_availability.py:6: in <module>
     from services.ux_evidence import derived_waiver_availability, evaluate_waiver_availability, resolve_waiver_candidate_identity, waiver_evidence_contract, waiver_ownership_freshness, waiver_roster_coverage
 E   ModuleNotFoundError: No module named 'services'
+___________ ERROR collecting tests/test_waiver_candidate_universe.py ___________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_waiver_candidate_universe.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_waiver_candidate_universe.py:6: in <module>
+    from services.waiver_candidate_universe import (
+E   ModuleNotFoundError: No module named 'services'
+____________ ERROR collecting tests/test_waiver_market_evidence.py _____________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_waiver_market_evidence.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_waiver_market_evidence.py:9: in <module>
+    from services.sleeper_snapshots import read_transaction_history, refresh_transaction_history
+E   ModuleNotFoundError: No module named 'services'
+____________ ERROR collecting tests/test_waiver_roster_decision.py _____________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_waiver_roster_decision.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_waiver_roster_decision.py:8: in <module>
+    from services.team_codes import CANONICAL_TEAMS
+E   ModuleNotFoundError: No module named 'services'
 _________ ERROR collecting tests/test_week_authority_consolidation.py __________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_week_authority_consolidation.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -1500,10 +1533,13 @@ ERROR tests/test_ux_1_7_completion.py
 ERROR tests/test_ux_evidence.py
 ERROR tests/test_verify_f3_b31_postgres_parity.py
 ERROR tests/test_waiver_availability.py
+ERROR tests/test_waiver_candidate_universe.py
+ERROR tests/test_waiver_market_evidence.py
+ERROR tests/test_waiver_roster_decision.py
 ERROR tests/test_week_authority_consolidation.py
 ERROR tests/test_weekly_evidence_trust_contract.py
 ERROR tests/test_weekly_lineup_intelligence.py
 ERROR tests/test_yahoo_oauth.py
 ERROR tests/test_yahoo_pickem.py
-!!!!!!!!!!!!!!!!!! Interrupted: 111 errors during collection !!!!!!!!!!!!!!!!!!!
-=================== 114 tests collected, 111 errors in 4.11s ===================
+!!!!!!!!!!!!!!!!!! Interrupted: 114 errors during collection !!!!!!!!!!!!!!!!!!!
+=================== 114 tests collected, 114 errors in 4.25s ===================

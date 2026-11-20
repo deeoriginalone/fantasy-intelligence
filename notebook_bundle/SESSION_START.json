@@ -1,16 +1,16 @@
 {
-  "generated_at_utc": "2026-11-19T18:15:48.180606+00:00",
+  "generated_at_utc": "2026-11-20T17:54:40.358110+00:00",
   "repository": {
     "root": "/home/deeoriginalone/fantasy-intelligence",
     "branch": "test-weekly-evidence-trust",
-    "head": "8774fa8362fcc03cd27daf1b2bc3624e20536602",
-    "short_head": "8774fa8"
+    "head": "4798bb01a6f9e40562897e173036ba37ada6b610",
+    "short_head": "4798bb0"
   },
   "working_tree": {
-    "status": "## test-weekly-evidence-trust...origin/test-weekly-evidence-trust [ahead 4]\n M .continuity/last_bundle_manifest.json\n M DEVELOPMENT_ROADMAP.md\n M PROJECT_STATE.md\n M PROJECT_STATUS.md\n M docs/NEXT_SESSION_HANDOFF.md\n M docs/REPOSITORY_CHECKPOINT.md\n M notebook_bundle.tar.gz\n M notebook_bundle/BUNDLE_MANIFEST.json\n M notebook_bundle/BUNDLE_VALIDATION.json\n M notebook_bundle/BUNDLE_VALIDATION.md\n M notebook_bundle/CANONICAL_SYNC_VALIDATION.json\n M notebook_bundle/CANONICAL_SYNC_VALIDATION.md\n M notebook_bundle/CHANGE_REPORT.json\n M notebook_bundle/CHANGE_REPORT.md\n M notebook_bundle/DEVELOPMENT_ROADMAP.md\n M notebook_bundle/IMPLEMENTATION_INVENTORY.md\n M notebook_bundle/NEXT_SESSION_HANDOFF.md\n M notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json\n M notebook_bundle/PROJECT_STATE.md\n M notebook_bundle/PROJECT_STATUS.md\n M notebook_bundle/REPOSITORY_CHECKPOINT.md\n M notebook_bundle/SESSION_START.json\n M notebook_bundle/SESSION_START.md\n M notebook_bundle/TEST_INVENTORY.md\n?? artifacts/\n?? audit/f3_b31/\n?? collect_batch_b_evidence.sh\n?? data/sleeper_waiver_wire_2026_wk1_wk2_stats_wk3_projections.json\n?? docs/PULL_SLEEPER_WAIVER_WIRE_WEEKS_1_3_PROMPT.md\n?? restore-needs.patch\n?? scripts/rollback_013_nflverse_defense_matchups.sql\n?? ux2_team_needs_summary.patch",
-    "diff_stat": ".continuity/last_bundle_manifest.json          |  30 ++++-----\n DEVELOPMENT_ROADMAP.md                         |   2 +-\n PROJECT_STATE.md                               |   2 +-\n PROJECT_STATUS.md                              |   2 +-\n docs/NEXT_SESSION_HANDOFF.md                   |   2 +-\n docs/REPOSITORY_CHECKPOINT.md                  |  68 ++++++++++----------\n notebook_bundle.tar.gz                         | Bin 114657 -> 140390 bytes\n notebook_bundle/BUNDLE_MANIFEST.json           |  30 ++++-----\n notebook_bundle/BUNDLE_VALIDATION.json         |   2 +-\n notebook_bundle/BUNDLE_VALIDATION.md           |   2 +-\n notebook_bundle/CANONICAL_SYNC_VALIDATION.json |  24 ++++----\n notebook_bundle/CANONICAL_SYNC_VALIDATION.md   |  14 ++---\n notebook_bundle/CHANGE_REPORT.json             |  54 ++++++++--------\n notebook_bundle/CHANGE_REPORT.md               |   2 +-\n notebook_bundle/DEVELOPMENT_ROADMAP.md         |  80 ++++++++++++++++++------\n notebook_bundle/IMPLEMENTATION_INVENTORY.md    |   1 +\n notebook_bundle/NEXT_SESSION_HANDOFF.md        |  82 +++++++++++++++++++------\n notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json  |  30 ++++-----\n notebook_bundle/PROJECT_STATE.md               |  82 +++++++++++++++++++------\n notebook_bundle/PROJECT_STATUS.md              |  82 +++++++++++++++++++------\n notebook_bundle/REPOSITORY_CHECKPOINT.md       |  81 ++++++++++++++----------\n notebook_bundle/SESSION_START.json             |  27 ++++----\n notebook_bundle/SESSION_START.md               |  68 ++++++++++----------\n notebook_bundle/TEST_INVENTORY.md              |  32 ++++++++--\n 24 files changed, 500 insertions(+), 299 deletions(-)",
+    "status": "## test-weekly-evidence-trust...origin/test-weekly-evidence-trust [ahead 8]\n M .continuity/last_bundle_manifest.json\n M DEVELOPMENT_ROADMAP.md\n M PROJECT_STATE.md\n M PROJECT_STATUS.md\n M docs/NEXT_SESSION_HANDOFF.md\n M notebook_bundle.tar.gz\n M notebook_bundle/BUNDLE_MANIFEST.json\n M notebook_bundle/BUNDLE_VALIDATION.json\n M notebook_bundle/BUNDLE_VALIDATION.md\n M notebook_bundle/CANONICAL_SYNC_VALIDATION.json\n M notebook_bundle/CANONICAL_SYNC_VALIDATION.md\n M notebook_bundle/CHANGE_REPORT.json\n M notebook_bundle/CHANGE_REPORT.md\n M notebook_bundle/DEVELOPMENT_ROADMAP.md\n M notebook_bundle/IMPLEMENTATION_INVENTORY.md\n M notebook_bundle/NEXT_SESSION_HANDOFF.md\n M notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json\n M notebook_bundle/PROJECT_STATE.md\n M notebook_bundle/PROJECT_STATUS.md\n M notebook_bundle/REPOSITORY_CHECKPOINT.md\n M notebook_bundle/TEST_INVENTORY.md\n?? artifacts/\n?? audit/f3_b31/\n?? collect_batch_b_evidence.sh\n?? data/sleeper_waiver_wire_2026_wk1_wk2_stats_wk3_projections.json\n?? docs/PULL_SLEEPER_WAIVER_WIRE_WEEKS_1_3_PROMPT.md\n?? restore-needs.patch\n?? scripts/rollback_013_nflverse_defense_matchups.sql\n?? ux2_team_needs_summary.patch",
+    "diff_stat": ".continuity/last_bundle_manifest.json          |  30 ++++-----\n DEVELOPMENT_ROADMAP.md                         |   2 +-\n PROJECT_STATE.md                               |   2 +-\n PROJECT_STATUS.md                              |   2 +-\n docs/NEXT_SESSION_HANDOFF.md                   |   2 +-\n notebook_bundle.tar.gz                         | Bin 144326 -> 156803 bytes\n notebook_bundle/BUNDLE_MANIFEST.json           |  30 ++++-----\n notebook_bundle/BUNDLE_VALIDATION.json         |   2 +-\n notebook_bundle/BUNDLE_VALIDATION.md           |   2 +-\n notebook_bundle/CANONICAL_SYNC_VALIDATION.json |  24 +++----\n notebook_bundle/CANONICAL_SYNC_VALIDATION.md   |  14 ++--\n notebook_bundle/CHANGE_REPORT.json             |  66 ++++++++++---------\n notebook_bundle/CHANGE_REPORT.md               |   8 +--\n notebook_bundle/DEVELOPMENT_ROADMAP.md         |  57 ++++++++++------\n notebook_bundle/IMPLEMENTATION_INVENTORY.md    |   4 ++\n notebook_bundle/NEXT_SESSION_HANDOFF.md        |  59 +++++++++++------\n notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json  |  24 +++----\n notebook_bundle/PROJECT_STATE.md               |  58 +++++++++++------\n notebook_bundle/PROJECT_STATUS.md              |  60 +++++++++++------\n notebook_bundle/REPOSITORY_CHECKPOINT.md       |  87 +++++++++++++------------\n notebook_bundle/TEST_INVENTORY.md              |  44 +++++++++++--\n 21 files changed, 355 insertions(+), 222 deletions(-)",
     "counts": {
-      "modified": 24,
+      "modified": 21,
       "deleted": 0,
       "added": 0,
       "renamed": 0,
@@ -24,7 +24,6 @@
         " M PROJECT_STATE.md",
         " M PROJECT_STATUS.md",
         " M docs/NEXT_SESSION_HANDOFF.md",
-        " M docs/REPOSITORY_CHECKPOINT.md",
         " M notebook_bundle.tar.gz",
         " M notebook_bundle/BUNDLE_MANIFEST.json",
         " M notebook_bundle/BUNDLE_VALIDATION.json",
@@ -40,8 +39,6 @@
         " M notebook_bundle/PROJECT_STATE.md",
         " M notebook_bundle/PROJECT_STATUS.md",
         " M notebook_bundle/REPOSITORY_CHECKPOINT.md",
-        " M notebook_bundle/SESSION_START.json",
-        " M notebook_bundle/SESSION_START.md",
         " M notebook_bundle/TEST_INVENTORY.md"
       ],
       "deleted": [],
@@ -66,21 +63,21 @@
     "bundle_change_summary": {
       "added": 0,
       "removed": 0,
-      "modified": 6,
-      "unchanged": 4
+      "modified": 7,
+      "unchanged": 3
     }
   },
   "recent_commits": [
-    "8774fa8 (HEAD -> test-weekly-evidence-trust) docs: reconcile Weekly Score v2 shadow boundary",
+    "4798bb0 (HEAD -> test-weekly-evidence-trust) docs(project): reconcile W1-W5 waiver delivery boundary",
+    "79be2ff feat(waivers): add roster-safe decisions and league FAAB evidence",
+    "9556268 chore(ai): add Fantasy Intelligence repository agents",
+    "b5b6cc6 chore(continuity): refresh repository handoff artifacts",
+    "8774fa8 docs: reconcile Weekly Score v2 shadow boundary",
     "b8b8f6d feat(team): add shadow Weekly Score v2",
     "298c83b feat(scheduler): automate pre-kickoff lineup snapshot capture",
     "95acb9c feat(team): capture pre-kickoff lineup decision snapshots",
     "1f641d1 (origin/test-weekly-evidence-trust) chore(continuity): refresh repository handoff artifacts",
-    "5abe2fd docs: reconcile lineup and schedule delivery boundary",
-    "a306f3a feat(team): add evidence-aware lineup decision intelligence",
-    "695ff74 feat(schedule): automate NFL schedule refresh and lock evidence",
-    "ddd329d chore: ignore local generated artifacts",
-    "d478060 docs(database): refresh migration and parity references"
+    "5abe2fd docs: reconcile lineup and schedule delivery boundary"
   ],
   "first_command": "cd /home/deeoriginalone/fantasy-intelligence && source venv/bin/activate && git status --short --branch"
 }

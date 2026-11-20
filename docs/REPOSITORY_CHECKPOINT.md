@@ -1,15 +1,19 @@
 # Repository Checkpoint
 
-Generated: Thu Nov 19 06:15:48 PM UTC 2026
+Generated: Fri Nov 20 05:54:40 PM UTC 2026
 
 ## Branch
 test-weekly-evidence-trust
 
 ## HEAD
-8774fa8362fcc03cd27daf1b2bc3624e20536602
+4798bb01a6f9e40562897e173036ba37ada6b610
 
 ## Recent Commits
-8774fa8 (HEAD -> test-weekly-evidence-trust) docs: reconcile Weekly Score v2 shadow boundary
+4798bb0 (HEAD -> test-weekly-evidence-trust) docs(project): reconcile W1-W5 waiver delivery boundary
+79be2ff feat(waivers): add roster-safe decisions and league FAAB evidence
+9556268 chore(ai): add Fantasy Intelligence repository agents
+b5b6cc6 chore(continuity): refresh repository handoff artifacts
+8774fa8 docs: reconcile Weekly Score v2 shadow boundary
 b8b8f6d feat(team): add shadow Weekly Score v2
 298c83b feat(scheduler): automate pre-kickoff lineup snapshot capture
 95acb9c feat(team): capture pre-kickoff lineup decision snapshots
@@ -20,13 +24,9 @@ a306f3a feat(team): add evidence-aware lineup decision intelligence
 ddd329d chore: ignore local generated artifacts
 d478060 docs(database): refresh migration and parity references
 beb5482 docs: refresh evidence and product references
-d37229b chore(data): add nflverse artifact change watchdog
-c25e4f2 test: share defensive health assertions
-41dfe47 fix(command-center): rank visible lineup decisions
-34c3498 feat(waivers): add schedule-backed evidence ranking
 
 ## Repository Status
-## test-weekly-evidence-trust...origin/test-weekly-evidence-trust [ahead 4]
+## test-weekly-evidence-trust...origin/test-weekly-evidence-trust [ahead 8]
  M .continuity/last_bundle_manifest.json
  M DEVELOPMENT_ROADMAP.md
  M PROJECT_STATE.md
@@ -66,23 +66,23 @@ c25e4f2 test: share defensive health assertions
  PROJECT_STATE.md                               |   2 +-
  PROJECT_STATUS.md                              |   2 +-
  docs/NEXT_SESSION_HANDOFF.md                   |   2 +-
- docs/REPOSITORY_CHECKPOINT.md                  |  49 +++------------
- notebook_bundle.tar.gz                         | Bin 114657 -> 140390 bytes
+ docs/REPOSITORY_CHECKPOINT.md                  |  41 +++---------
+ notebook_bundle.tar.gz                         | Bin 144326 -> 156803 bytes
  notebook_bundle/BUNDLE_MANIFEST.json           |  30 ++++-----
  notebook_bundle/BUNDLE_VALIDATION.json         |   2 +-
  notebook_bundle/BUNDLE_VALIDATION.md           |   2 +-
- notebook_bundle/CANONICAL_SYNC_VALIDATION.json |  24 ++++----
- notebook_bundle/CANONICAL_SYNC_VALIDATION.md   |  14 ++---
- notebook_bundle/CHANGE_REPORT.json             |  54 ++++++++--------
- notebook_bundle/CHANGE_REPORT.md               |   2 +-
- notebook_bundle/DEVELOPMENT_ROADMAP.md         |  80 ++++++++++++++++++------
- notebook_bundle/IMPLEMENTATION_INVENTORY.md    |   1 +
- notebook_bundle/NEXT_SESSION_HANDOFF.md        |  82 +++++++++++++++++++------
- notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json  |  30 ++++-----
- notebook_bundle/PROJECT_STATE.md               |  82 +++++++++++++++++++------
- notebook_bundle/PROJECT_STATUS.md              |  82 +++++++++++++++++++------
- notebook_bundle/REPOSITORY_CHECKPOINT.md       |  81 ++++++++++++++----------
- notebook_bundle/SESSION_START.json             |  30 +++++----
- notebook_bundle/SESSION_START.md               |  62 +++++++++----------
- notebook_bundle/TEST_INVENTORY.md              |  32 ++++++++--
- 24 files changed, 474 insertions(+), 303 deletions(-)
+ notebook_bundle/CANONICAL_SYNC_VALIDATION.json |  24 +++----
+ notebook_bundle/CANONICAL_SYNC_VALIDATION.md   |  14 ++--
+ notebook_bundle/CHANGE_REPORT.json             |  66 ++++++++++---------
+ notebook_bundle/CHANGE_REPORT.md               |   8 +--
+ notebook_bundle/DEVELOPMENT_ROADMAP.md         |  57 ++++++++++------
+ notebook_bundle/IMPLEMENTATION_INVENTORY.md    |   4 ++
+ notebook_bundle/NEXT_SESSION_HANDOFF.md        |  59 +++++++++++------
+ notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json  |  24 +++----
+ notebook_bundle/PROJECT_STATE.md               |  58 +++++++++++------
+ notebook_bundle/PROJECT_STATUS.md              |  60 +++++++++++------
+ notebook_bundle/REPOSITORY_CHECKPOINT.md       |  87 +++++++++++++------------
+ notebook_bundle/SESSION_START.json             |  31 ++++-----
+ notebook_bundle/SESSION_START.md               |  54 +++++++--------
+ notebook_bundle/TEST_INVENTORY.md              |  44 +++++++++++--
+ 24 files changed, 401 insertions(+), 302 deletions(-)
