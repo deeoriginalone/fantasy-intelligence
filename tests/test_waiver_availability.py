@@ -636,7 +636,7 @@ def test_decision_assistant_dropdown_lists_rostered_players():
     assert 'id="wda-player-select"' in rendered
     assert '<option value="roster-current" data-player-id="roster-current" selected>Current Player (WR)</option>' in rendered
     assert "Choose a preliminary candidate" not in rendered
-    assert 'id="wda-candidates-data"' in rendered
+    assert 'id="wda-candidates-data"' not in rendered
 
 
 def test_ranking_review_separates_pending_checks_from_started_game_records():
@@ -669,16 +669,20 @@ def test_decision_assistant_unavailable_when_no_preliminary_candidate_exists():
 def test_decision_assistant_states_use_potential_upgrade_wording():
     candidate = preliminary_candidate()
     rendered = render_waivers(preliminary_suggestions=[candidate], wda_candidates=[candidate])
-    assert "SAME-POSITION AND FLEX-ELIGIBLE CANDIDATES TO REVIEW" in rendered
-    assert "PROVISIONAL GUIDANCE" in rendered
+    assert "These are players to review, not automatic add or drop calls." in rendered
     assert "POTENTIAL UPGRADE" not in rendered
 
 
-def test_decision_assistant_no_upgrade_disclosure_present():
+def test_waiver_page_discloses_consensus_role_and_faab_boundary():
     candidate = preliminary_candidate()
     rendered = render_waivers(preliminary_suggestions=[candidate], wda_candidates=[candidate])
-    assert "consensus ranks are informational only" in rendered
-    assert "not guaranteed winning bids" in rendered
+    role = rendered[rendered.index('id="waiver-consensus-role"'):]
+    assert "orders same-position options and drives the current-week roster comparison" in role
+    assert "never converted to points, never compared across positions, and never a FAAB value" in role
+    assert "consensus ranks are informational only" not in rendered
+    assert "Consensus remains informational only" not in rendered
+    assert rendered.count('id="waiver-faab-disclosure"') == 1
+    assert "Advanced FAAB valuation is not yet supported." in rendered
 
 
 def test_waiver_page_renders_action_before_diagnostics_and_separates_horizons():
@@ -696,22 +700,20 @@ def test_waiver_page_renders_action_before_diagnostics_and_separates_horizons():
     rendered = render_waivers(preliminary_suggestions=[candidate], wda_candidates=[candidate])
 
     positions = [rendered.index(marker) for marker in (
-        'id="waiver-title"', 'class="waiver-verdict"',
-        'id="your-waiver-decisions"',
-        'id="best-waiver-moves-title"', 'id="waiver-board-title"',
-        'id="waiver-decision-assistant"', 'id="selected-waiver-primary"',
-        'id="waiver-what-changed-title"',
+        'id="waiver-title"', 'id="waiver-verdict"', 'id="waiver-priority-moves"', 'id="waiver-hold-positions"',
+        'id="waiver-alternatives"', 'id="your-waiver-decisions"', 'id="waiver-player-lookup"',
+        '<details class="manager-waiver" id="waiver-data-details">',
+        'id="best-waiver-moves-title"', 'id="waiver-decision-assistant"', 'id="selected-waiver-primary"',
+        'id="waiver-what-changed-title"', '<details class="waiver-card" id="waiver-diagnostics">',
         'id="waiver-evidence-methodology"',
     )]
     assert positions == sorted(positions)
+    assert rendered.count('class="waiver-verdict"') == 1
     assert "YOUR WAIVER PLAN" in rendered
     assert "Best Waiver Moves for Your Team" not in rendered
     assert "Player-to-Roster Checks" in rendered
-    assert "Rest of Season" in rendered and "Upside / Stash" in rendered
-    assert "expected role and acquisition duration are not supported" in rendered
     assert 'data-acquisition-action="CONSIDER"' in rendered
-    assert "samePosition || flexCandidate" in rendered
-    assert "production comparisons remain same-position only" in rendered
+    assert 'name="wda-focus" value="this_week"' in rendered and 'name="wda-focus" value="rest_of_season"' in rendered
     assert "url.searchParams.set('player_id', selectionControl.value)" in rendered
     assert "url.searchParams.set('focus'" in rendered
     assert '<details class="waiver-card" id="waiver-evidence-methodology">' in rendered
@@ -749,7 +751,7 @@ def test_pagewide_best_moves_hides_team_need_only_candidate():
         },
     )
     rendered = render_waivers(preliminary_suggestions=[candidate], wda_candidates=[])
-    best_moves = rendered[rendered.index('id="best-waiver-moves"'):rendered.index('id="waiver-board"')]
+    best_moves = rendered[rendered.index('id="best-waiver-moves"'):rendered.index('id="waiver-decision-assistant"')]
 
     assert "NO ACTIONABLE WAIVER PRIORITY" in best_moves
     assert "Team need, health, eligibility, rank, projection, and snap share alone are screening signals." in best_moves
@@ -769,7 +771,7 @@ def test_pagewide_best_move_shows_free_news_and_depth_as_informational():
         player_news={"state": "AVAILABLE", "freshness_state": "UNVERIFIED", "decision_effect": "INFORMATIONAL_ONLY", "articles": [{"headline": "Current player report", "description": "Dated report text.", "published_at": COMPARISON_NOW, "url": "https://espn.example/news"}], "blockers": []},
     )
     rendered = render_waivers(preliminary_suggestions=[candidate], selected_comparisons=[])
-    best_moves = rendered[rendered.index('id="best-waiver-moves"'):rendered.index('id="waiver-board"')]
+    best_moves = rendered[rendered.index('id="best-waiver-moves"'):rendered.index('id="waiver-decision-assistant"')]
 
     assert "Current player report" in best_moves
     assert "Dated report text." in best_moves
@@ -778,50 +780,28 @@ def test_pagewide_best_move_shows_free_news_and_depth_as_informational():
     assert "screening context only" in best_moves
 
 
-def test_decision_assistant_missing_projection_handled_client_side():
-    candidate = preliminary_candidate(projection=None)
-    rendered = render_waivers(preliminary_suggestions=[candidate], wda_candidates=[candidate])
-    assert "candidateData.find" in rendered
-    assert "candidate.recommendation_state === 'PRELIMINARY_SUGGESTION'" in rendered
-
-
 def test_decision_assistant_informational_disclosure_present():
     candidate = preliminary_candidate()
     rendered = render_waivers(preliminary_suggestions=[candidate], wda_candidates=[candidate])
     assert "same position" in rendered
     assert 'id="preliminary-candidates-title"' not in rendered
-    assert "balanceData.state === 'AVAILABLE'" in rendered
-    assert "bid.high <= balanceData.remaining" in rendered
 
 
-def test_decision_assistant_filters_candidates_by_position_and_flex_eligibility():
-    candidate = preliminary_candidate()
-    roster_player = {"player_id": "roster-current", "player": "Current Player", "position": "WR", "projection": 100.0}
-    kicker = {"player_id": "roster-kicker", "player": "Current Kicker", "position": "K", "projection": 100.0}
-    rendered = render_waivers(roster=[roster_player, kicker], wda_roster=[kicker, roster_player], preliminary_suggestions=[candidate], wda_candidates=[candidate])
-    assert "candidate.recommendation_state === 'PRELIMINARY_SUGGESTION'" in rendered
-    assert "var samePosition = candidatePosition === selectedPosition;" in rendered
-    assert "var flexCandidate = selectedFlexEligible && flexPositions.indexOf(candidatePosition) !== -1;" in rendered
-    assert '<option value="roster-current" data-player-id="roster-current" selected>Current Player (WR)</option>' in rendered
-    assert "No verified-healthy preliminary candidates are available at " in rendered
-
-
-def test_decision_assistant_uses_paginated_cards_without_truncating_pool():
+def test_waiver_page_removes_unreachable_client_renderer_and_json_islands():
     candidates = [preliminary_candidate(player_id=f"candidate-{index}", player=f"Candidate {index}") for index in range(14)]
-    rendered = render_waivers(preliminary_suggestions=candidates, wda_candidates=candidates)
-    payload = json.loads(re.search(r'<script type="application/json" id="wda-candidates-data">(.*?)</script>', rendered, re.S).group(1))
-    assert len(payload) == 14
-    assert 'class="wda-suggestion"' in rendered
-    assert 'class="wda-grid"' in rendered
-    assert "var pageSize = 6;" in rendered
-    assert "preliminaryCandidates.slice(pageStart, pageStart + pageSize)" in rendered
-    assert "pageIndex = 0; renderCandidates();" in rendered
-    assert 'aria-label="Previous candidates"' in rendered
-    assert 'aria-label="Next candidates"' in rendered
-    assert "<details><summary>Player evidence</summary>" in rendered
-    assert "Owner-approved unique name, position and team match; not a source-published crosswalk." in rendered
-    assert rendered.count('class="waiver-verdict"') == 1
-    assert rendered.index('class="waiver-verdict"') < rendered.index('id="waiver-decision-assistant"')
+    roster_player = {"player_id": "roster-current", "player": "Current Player", "position": "WR", "projection": 100.0}
+    rendered = render_waivers(wda_roster=[roster_player], preliminary_suggestions=candidates, wda_candidates=candidates, selected_player={**roster_player, "valid": True})
+    for island in ("wda-roster-data", "wda-candidates-data", "wda-balance-data", "wda-grades-data"):
+        assert f'id="{island}"' not in rendered
+    assert 'type="application/json"' not in rendered
+    for dead in ("candidateData", "balanceData", "rosterData", "renderCandidates", "var pageSize", 'aria-label="Previous candidates"', "samePosition || flexCandidate", 'id="waiver-board"'):
+        assert dead not in rendered
+    scripts = re.findall(r"<script>(.*?)</script>", rendered, re.S)
+    assert len(scripts) == 2
+    assert [script.count("return;") for script in scripts] == [1, 0]
+    assert "if (!input || !empty) return;" in scripts[0]
+    assert "window.location.assign(url.toString());" in scripts[1]
+    assert '<option value="roster-current" data-player-id="roster-current" selected>Current Player (WR)</option>' in rendered
 
 
 def test_decision_assistant_never_uses_authoritative_drop_or_keep_wording():
@@ -1157,14 +1137,7 @@ def test_waiver_candidate_health_fails_closed(catalog_record, identity_resolved)
     assert context["health_source"] == "UNAVAILABLE"
 
 
-def test_waiver_template_includes_projection_retrieval_visibility():
-    from pathlib import Path
-    template = (Path(__file__).parents[1] / "templates" / "waivers.html").read_text(encoding="utf-8")
-    assert "Projection evidence" in template
-    assert "projection_retrieved_at" in template or "projectionRetrieved" in template
-
-
-def test_waiver_template_surfaces_usage_and_collapses_repeated_limitations():
+def test_waiver_template_collapses_repeated_limitations():
     rendered = render_waivers(
         preliminary_suggestions=[{
             "player_id": "sleeper-healthy",
@@ -1183,18 +1156,8 @@ def test_waiver_template_surfaces_usage_and_collapses_repeated_limitations():
         waiver_opportunity_status={"state": "PRELIMINARY", "impact": "research only", "candidate_count": 1},
         wda_candidates=[{"player_id": "sleeper-healthy", "player": "Healthy Candidate", "position": "WR", "recommendation_state": "PRELIMINARY_SUGGESTION", "recommendation_blockers": []}],
     )
-    assert "Usage Evidence" in rendered
-    assert "Snap share:" in rendered
-    assert "Informational" in rendered
-    assert "STALE" in rendered
-    assert "Team Need" in rendered
     assert "What Changed" in rendered
-    assert "Evidence Coverage" in rendered
-    assert "What Changed This Week" in rendered
     assert "Evidence limitations" in rendered
-    evidence_script_start = rendered.index("summary.innerHTML =")
-    evidence_summary = rendered[evidence_script_start:rendered.index("if (identity) identity.insertAdjacentElement", evidence_script_start)]
-    assert evidence_summary.index("<strong>Health:</strong>") < evidence_summary.index("<strong>Team Need:</strong>") < evidence_summary.index("<strong>Roster Fit:</strong>") < evidence_summary.index("<strong>Projection:</strong>") < evidence_summary.index("<strong>Recent Production:</strong>") < evidence_summary.index("<strong>Usage Evidence:</strong>") < evidence_summary.index("<strong>What Changed:</strong>") < evidence_summary.index("<strong>Suggested Drop:</strong>") < evidence_summary.index("<strong>FAAB:</strong>")
     assert "Role:</strong>" not in rendered
     assert "Duration:</strong>" not in rendered
     assert "Latest News:</strong>" not in rendered
@@ -1202,7 +1165,8 @@ def test_waiver_template_surfaces_usage_and_collapses_repeated_limitations():
     assert rendered.count("Role classification unavailable") == 1
     assert rendered.count("Opportunity duration unavailable") == 1
     assert rendered.count("Latest news unavailable") == 1
-    assert rendered.count("Ranking authority unavailable") >= 1
+    assert rendered.count("Ranking authority unavailable") == 1
+    assert rendered.count("Advanced FAAB valuation is not yet supported") == 2
 
 
 def test_fresh_opportunity_panel_is_informational_without_refresh_blocker():
@@ -1339,23 +1303,6 @@ def test_waiver_identity_blocks_duplicate_and_contradictory_external_mappings():
     assert all("opportunity_player_id" not in item for item in result)
 
 
-def test_browse_candidates_render_recent_production_newest_first_and_preserve_zero():
-    candidate = preliminary_candidate(player="Recent Player", recent_production={"state": "AVAILABLE", "rows": [{"week": 3, "fantasy_points_ppr": 0.0}, {"week": 2, "fantasy_points_ppr": 14.8}]})
-    rendered = render_waivers(preliminary_suggestions=[candidate], wda_candidates=[candidate])
-    data = json.loads(re.search(r'<script type="application/json" id="wda-candidates-data">(.*?)</script>', rendered, re.S).group(1))
-    assert [row["week"] for row in data[0]["recent_production"]["rows"]] == [3, 2]
-    assert data[0]["recent_production"]["rows"][0]["fantasy_points_ppr"] == 0.0
-    assert "Number(row.fantasy_points_ppr).toFixed(1)" in rendered
-
-
-def test_browse_candidates_render_k_and_def_fail_closed_messages():
-    candidates = [preliminary_candidate(player_id=position, position=position, recent_production={"state": "UNSUPPORTED", "rows": []}) for position in ("K", "DEF")]
-    rendered = render_waivers(preliminary_suggestions=candidates, wda_candidates=candidates)
-    data = json.loads(re.search(r'<script type="application/json" id="wda-candidates-data">(.*?)</script>', rendered, re.S).group(1))
-    assert all(item["recent_production"]["state"] == "UNSUPPORTED" and item["recent_production"]["rows"] == [] for item in data)
-    assert "production.state === 'AVAILABLE' ? production.rows || [] : []" in rendered
-
-
 def test_waiver_trust_panel_renders_evidence_and_unavailable_fields():
     templates = Environment(loader=FileSystemLoader(Path(__file__).parents[1] / "templates"))
     rendered = templates.get_template("_waiver_trust_panel.html").render(
@@ -1459,24 +1406,23 @@ def test_player_comparison_fallback_is_deterministic():
     assert waiver_player_comparison(resolved_candidate(position="K"))["status"] == "NOT_APPLICABLE"
 
 
-def test_waiver_template_renders_comparison_informationally():
+def test_waiver_template_does_not_publish_preliminary_comparison_or_faab_fields():
     from owner_operations import waiver_player_comparison
     base = {"position": "WR", "priority_score": None, "tier": None, "projection": 100.0, "faab": None, "bid_low": None, "bid_high": None, "need": 1, "ownership_state": "VERIFIED", "eligibility_state": "VERIFIED", "recommendation_state": "PRELIMINARY_SUGGESTION", "recent_production": {"state": "UNAVAILABLE", "rows": []}, "evidence_context": {"health_state": "HEALTHY", "health_freshness_state": "FRESH", "health_source": "Sleeper API", "opportunity": {"reason": "Supported informational opportunity."}, "evidence_coverage": {"label": "Two-week comparison available"}}}
     available = {**base, "player": "Shown WR", "player_comparison": waiver_player_comparison(resolved_candidate())}
     unavailable = {**base, "player": "Missing WR", "faab": 7, "player_comparison": waiver_player_comparison({"player": "Missing WR", "position": "WR"})}
     rendered = render_waivers(preliminary_suggestions=[available, unavailable], wda_candidates=[available, unavailable])
-    assert "Informational comparison:" in rendered
-    assert "var comparison = candidate.player_comparison || {};" in rendered
-    assert "var summary = (comparison.summary || []).join('; ') || 'UNAVAILABLE';" in rendered
-    assert 'id="wda-candidates-data"' in rendered
+    assert "Informational comparison:" not in rendered
+    assert 'id="wda-candidates-data"' not in rendered
     assert 'id="preliminary-candidates-title"' not in rendered
     assert "$7" not in rendered
 
 
 class WaiverRouteCursor:
-    def __init__(self, pool_rows, executed_queries):
+    def __init__(self, pool_rows, executed_queries, evidence_rows=None):
         self.pool_rows = pool_rows
         self.executed_queries = executed_queries
+        self.evidence_rows = evidence_rows or {}
 
     def execute(self, query, params=None):
         self.query = query
@@ -1487,7 +1433,11 @@ class WaiverRouteCursor:
         return None
 
     def fetchall(self):
-        if "ORDER BY ranking" not in getattr(self, "query", ""):
+        query = getattr(self, "query", "")
+        for marker, rows in self.evidence_rows.items():
+            if marker in query:
+                return list(rows)
+        if "ORDER BY ranking" not in query:
             return []
         rows = list(self.pool_rows)
         return rows[:self.params[-1]] if "LIMIT %s" in self.query and self.params else rows
@@ -1497,18 +1447,36 @@ class WaiverRouteCursor:
 
 
 class WaiverRouteConnection:
-    def __init__(self, pool_rows):
+    def __init__(self, pool_rows, evidence_rows=None):
         self.pool_rows = pool_rows
+        self.evidence_rows = evidence_rows
         self.executed_queries = []
 
     def cursor(self):
-        return WaiverRouteCursor(self.pool_rows, self.executed_queries)
+        return WaiverRouteCursor(self.pool_rows, self.executed_queries, self.evidence_rows)
 
     def close(self):
         pass
 
 
-def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparison=False, candidate_health=None, include_missing_candidate=False, ranking_source_verified=False, extra_candidate_count=0, production_rows=None, faab_settings=None, consensus=None, request_method="GET", testing=True, selected_player_id=None, extra_rostered_player=None, selected_focus="all", extra_pool_candidates=(), explain_player=None):
+SCHEDULE_QUERY_COLUMNS = ("home_team", "away_team", "game_time_pacific", "source", "source_recorded_at", "retrieved_at", "game_time_utc")
+BYE_QUERY_COLUMNS = ("team", "bye_week", "source", "source_recorded_at", "retrieved_at", "imported_at")
+
+
+def waiver_route_week_evidence():
+    """Fresh week-3 schedule (every game still to kick off) and 32-team bye rows in the route's database column order."""
+    from services.team_codes import CANONICAL_TEAMS
+    now = datetime.now(timezone.utc)
+    recorded = now - timedelta(hours=1)
+    teams = sorted(CANONICAL_TEAMS)
+    schedule = [{"home_team": home, "away_team": away, "game_time_pacific": "2026-09-27 10:00:00", "source": "automated:nflverse-schedules:games.csv.gz:sha256:test",
+                 "source_recorded_at": recorded, "retrieved_at": recorded, "game_time_utc": now + timedelta(days=2)} for home, away in zip(teams[0::2], teams[1::2])]
+    byes = [{"team": team, "bye_week": 9, "source": "automated:nflverse-schedules:derived-bye:test", "source_recorded_at": recorded, "retrieved_at": recorded,
+             "imported_at": recorded} for team in teams]
+    return schedule, byes
+
+
+def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparison=False, candidate_health=None, include_missing_candidate=False, ranking_source_verified=False, extra_candidate_count=0, production_rows=None, faab_settings=None, consensus=None, request_method="GET", testing=True, selected_player_id=None, extra_rostered_player=None, selected_focus="all", extra_pool_candidates=(), explain_player=None, roster_positions=None, schedule_rows=(), bye_rows=(), catalog_records=None, other_roster_players=(), catalog_available=True, local_rows=(), league_overrides=None, roster_overrides=None, market_rows=None):
     from flask import Flask
     import owner_operations
     catalog = {
@@ -1552,6 +1520,11 @@ def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparis
         status = ("Healthy", "Out", "IR", "Questionable")[index % 4]
         catalog[f"s-deep-{index}"] = {"full_name": name, "position": "WR", "team": "SEA", "injury_status": status}
         pool_rows.append((name, "WR", "SEA", index + 5, 80.0, 4, 50.0, 9, None))
+    for record in catalog.values():
+        # Sleeper publishes an `active` flag on every player record.
+        record.setdefault("active", True)
+    catalog.update(catalog_records or {})
+    pool_rows.extend((name, position, team, 900 + index, None, None, None, None, None) for index, (name, position, team) in enumerate(local_rows))
     readers = {"gsis-wr": {"state": "AVAILABLE", "rows": comparison_rows((1, 4, 0.2, 3, 40), (2, 7, 0.27, 5, 71)), "blockers": [], "supported_weeks": [1, 2]}}
     captured = {}
     real_render = owner_operations.render_template
@@ -1581,17 +1554,26 @@ def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparis
         monkeypatch.setattr(owner_operations, "weekly_evidence_contract", verified_ranking_contract)
     if disable_comparison:
         monkeypatch.setattr(owner_operations, "waiver_player_comparison", lambda candidate: {})
-    league = {"name": "Controlled", "total_rosters": 2, "roster_positions": ["QB", "RB", "WR", "WR", "TE", "K", "DEF", "BN"]}
+    league = {"name": "Controlled", "total_rosters": 2, "roster_positions": list(roster_positions or ["QB", "RB", "WR", "WR", "TE", "K", "DEF", "BN"])}
     rosters = [
         {"roster_id": 1, "owner_id": "owner", "players": ["s-owned"], "starters": ["s-owned"]},
         {"roster_id": 2, "owner_id": "other", "players": [], "starters": []},
     ]
     if extra_rostered_player:
         rosters[0]["players"].append(extra_rostered_player["player_id"])
+    rosters[1]["players"].extend(other_roster_players)
+    league.update(league_overrides or {})
+    for roster_index, fields in (roster_overrides or {}).items():
+        rosters[roster_index].update(fields)
     if faab_settings is not None:
         league["settings"] = {"waiver_type": 2, "waiver_budget": faab_settings[0]}
         rosters[0]["settings"] = {"waiver_budget_used": faab_settings[1]}
-    connection = WaiverRouteConnection(pool_rows)
+    connection = WaiverRouteConnection(pool_rows, {
+        "SELECT " + ", ".join(SCHEDULE_QUERY_COLUMNS) + " FROM nfl_schedule": [tuple(row.get(column) for column in SCHEDULE_QUERY_COLUMNS) for row in schedule_rows],
+        "SELECT " + ", ".join(BYE_QUERY_COLUMNS) + " FROM bye_weeks": [tuple(row.get(column) for column in BYE_QUERY_COLUMNS) for row in bye_rows],
+        "SELECT player_name, UPPER(position), nfl_team FROM players": [row[:3] for row in pool_rows],
+        **({"FROM sleeper_api_snapshots": market_rows} if market_rows is not None else {}),
+    })
     source_reads = {"league": 0, "users": 0, "rosters": 0, "catalog": 0}
 
     def read_league(league_id):
@@ -1608,7 +1590,7 @@ def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparis
 
     def read_catalog():
         source_reads["catalog"] += 1
-        return catalog
+        return catalog if catalog_available else None
 
     blueprint = owner_operations.create_owner_operations_blueprint(
         lambda: connection,
@@ -1723,13 +1705,12 @@ def test_waiver_route_attaches_comparison_only_to_published_candidates(monkeypat
     selector_ids = {value for value, player_id in re.findall(r'<option value="([^"]+)" data-player-id="([^"]+)"', html) if value == player_id}
     assert selector_ids == roster_ids
     assert selected and selected.group(1) == selected.group(2) and selected.group(1) in roster_ids
-    candidate_data = json.loads(re.search(r'<script type="application/json" id="wda-candidates-data">(.*?)</script>', html, re.S).group(1))
-    assert [item["player"] for item in candidate_data] == ["Avail WR"]
+    assert 'id="wda-candidates-data"' not in html
     assert "rostered player to see healthy waiver candidates at the same position" in html
-    assert "No verified-healthy preliminary candidates are available at " in html
     assert 'id="preliminary-candidates-title"' not in html
     assert '<td>Visible Preliminary Candidate Count</td><td>1</td>' in html
-    assert "Consensus remains informational only" in html
+    assert "Consensus remains informational only" not in html
+    assert 'id="waiver-consensus-role"' in html
 
 
 def test_selected_player_id_reaches_reader_and_recomputes_comparison(monkeypatch):
@@ -1756,8 +1737,8 @@ def test_selected_player_id_reaches_reader_and_recomputes_comparison(monkeypatch
     second_html = second_response.get_data(as_text=True)
     assert "Second Owned WR" in second_html
     assert "MONITOR" in second_html and "Avail WR" in second_html
-    serialized_candidates = json.loads(re.search(r'<script type="application/json" id="wda-candidates-data">(.*?)</script>', second_html, re.S).group(1))
-    assert len(serialized_candidates) <= 5
+    assert 'id="wda-candidates-data"' not in second_html
+    assert len(second["wda_candidates"]) <= 5
 
 
 def test_selected_route_joins_sleeper_depth_and_espn_news_by_stable_ids(monkeypatch):
@@ -1817,11 +1798,11 @@ def test_invalid_selected_player_id_does_not_fall_back_to_default_roster_player(
 def test_selected_workflow_does_not_render_full_candidate_evidence_dump(monkeypatch):
     response, captured = render_waiver_route(monkeypatch, extra_candidate_count=200, selected_player_id="s-owned")
     html = response.get_data(as_text=True)
-    serialized_candidates = json.loads(re.search(r'<script type="application/json" id="wda-candidates-data">(.*?)</script>', html, re.S).group(1))
 
     assert response.status_code == 200
     assert len(captured["selected_comparisons"]) <= 5
-    assert len(serialized_candidates) <= 5
+    assert len(captured["wda_candidates"]) <= 5
+    assert 'id="wda-candidates-data"' not in html
     assert "Deep Candidate 196" not in html
     assert "Health verification needed" in html
     assert "Excluded health diagnostics" in html
@@ -1848,10 +1829,13 @@ def test_waiver_route_discovers_deep_available_healthy_players_without_caps(monk
     assert all(candidate["faab"] is None and candidate["priority_score"] is None for candidate in suggestions)
     assert len(captured["wda_candidates"]) <= 5
     assert all(candidate.get("selected_comparison", {}).get("selected_player_id") == captured["selected_player"]["player_id"] for candidate in captured["wda_candidates"])
-    page_candidates = json.loads(re.search(r'<script type="application/json" id="wda-candidates-data">(.*?)</script>', response.get_data(as_text=True), re.S).group(1))
-    assert len(page_candidates) <= 5
-    pool_query = next(query for query in captured["executed_queries"] if "ORDER BY ranking" in query)
-    assert "LIMIT" not in pool_query.upper()
+    assert 'id="wda-candidates-data"' not in response.get_data(as_text=True)
+    assert not any("ORDER BY ranking" in query for query in captured["executed_queries"])
+    lineage_query = next(query for query in captured["executed_queries"] if "SELECT player_name, UPPER(position), nfl_team FROM players" in query)
+    assert "LIMIT" not in lineage_query.upper()
+    universe = captured["waiver_universe"]
+    assert universe["uses_local_players_table_for_discovery"] is False
+    assert universe["counts"]["candidate"] == 202 and universe["reconciles"] is True
 
 
 def test_waiver_route_reuses_resolved_roster_identity_for_selected_comparison(monkeypatch):
@@ -1873,7 +1857,6 @@ def test_waiver_route_reuses_resolved_roster_identity_for_selected_comparison(mo
     assert comparison["candidate_average"] == 12.0
     assert comparison["difference"] == 7.0
     assert comparison["decision_effect"] == "INFORMATIONAL_ONLY"
-    assert "Compared with " in response.get_data(as_text=True)
 
 
 def test_waiver_route_publishes_live_balance_and_provisional_bid_only_for_add_review(monkeypatch):
@@ -1908,8 +1891,8 @@ def test_waiver_route_publishes_candidate_health_without_changing_decisions(monk
 
     assert baseline_response.status_code == response.status_code == 200
     assert [item["player"] for item in recommendations] == ["Avail RB"]
-    candidate_data = json.loads(re.search(r'<script type="application/json" id="wda-candidates-data">(.*?)</script>', html, re.S).group(1))
-    assert candidate_data == []
+    assert captured["wda_candidates"] == []
+    assert 'id="wda-candidates-data"' not in html
     assert captured["selected_result"]["decision"] == "NO_ACTIONABLE_UPGRADE"
     assert "NO ACTIONABLE UPGRADE" in html
     assert 'id="preliminary-candidates-title"' not in html
@@ -1970,7 +1953,6 @@ def test_waiver_route_ir_candidate_stays_informational_when_ranking_is_verified(
     assert captured["health_excluded_diagnostics"]["excluded_count"] >= 1
     assert "Avail WR" not in str(captured["health_excluded_diagnostics"])
     template = (Path(__file__).parents[1] / "templates" / "waivers.html").read_text(encoding="utf-8")
-    assert "candidate.recommendation_state === 'PRELIMINARY_SUGGESTION'" in template
     assert "POTENTIAL UPGRADE" not in template
 
 
@@ -1981,8 +1963,6 @@ def test_verified_zero_faab_remains_distinct_from_unavailable_faab():
     )
     assert "$0" in rendered
     assert "Suggested FAAB" in rendered
-    assert "balanceData.state === 'AVAILABLE'" in rendered
-    assert "bid.high <= balanceData.remaining" in rendered
 
 
 def test_unverified_ranking_template_hides_all_authoritative_actions():
@@ -2004,10 +1984,9 @@ def test_unverified_ranking_template_hides_all_authoritative_actions():
     )
     for unsupported in ("RECOMMENDATIONS READY", "Top priority", "POTENTIAL UPGRADE", "NO PROJECTED UPGRADE FOUND", "Make the claim decision", "Priority score", "Suggested FAAB", "Recommended Add"):
         assert unsupported not in rendered
-    assert "NO SUPPORTED CLAIM" in rendered
+    assert 'data-verdict="INSUFFICIENT_EVIDENCE"' in rendered
     assert 'id="preliminary-candidates-title"' not in rendered
     assert "Waiver Move Checker" in rendered
-    assert "Selected-player guidance is unavailable." in rendered
     assert "Roster-need context only" in rendered
     assert "Prioritize adds" not in rendered
     assert "Research Candidate" in rendered
@@ -2295,6 +2274,300 @@ def test_waiver_route_orders_same_position_options_by_lower_fresh_ecr_not_name(m
     assert wr_section["options"][1]["candidate"]["player"] == "Avail WR"
     assert wr_section["options"][1]["value"]["rank"] == 40
     assert wr_section["label"] == "BEST SUPPORTED OPTION"
+
+
+def wr_consensus(ranks):
+    def rank(ecr, best=None, worst=None):
+        return {"position": "WR", "ecr": ecr, "expert_best_rank": best, "expert_worst_rank": worst, "source_date": "2026-10-13",
+                "source_age_seconds": 3600, "horizon": "this_week", "scoring": "PPR", "season": 2026, "week": 3}
+    return {"source": "FantasyPros consensus via DynastyProcess", "horizons": {
+        "this_week": {"state": "AVAILABLE", "max_age_seconds": 172800, "ranks": {player_id: rank(*values) for player_id, values in ranks.items()}},
+        "rest_of_season": {"state": "UNAVAILABLE", "max_age_seconds": 604800, "ranks": {}},
+    }}
+
+
+def test_waiver_route_best_supported_option_is_judged_among_ranked_candidates_only(monkeypatch):
+    response, captured = render_waiver_route(
+        monkeypatch,
+        extra_pool_candidates=[
+            {"player_id": "s-zulu", "name": "Zulu WR", "position": "WR", "team": "ARI", "projection": 90.0, "tier": 4},
+            {"player_id": "s-able", "name": "Able WR", "position": "WR", "team": "ATL", "projection": 95.0, "tier": 4},
+        ],
+        consensus=wr_consensus({"s-wr": (40,), "s-zulu": (5,)}),
+    )
+    html = response.get_data(as_text=True)
+    wr_section = next(section for section in captured["waiver_position_sections"] if section["position"] == "WR")
+    assert response.status_code == 200
+    assert [option["candidate"]["player"] for option in wr_section["options"]] == ["Zulu WR", "Avail WR", "Able WR"]
+    assert wr_section["label"] == "BEST SUPPORTED OPTION"
+    assert (wr_section["ranked_count"], wr_section["unranked_count"]) == (2, 1)
+    assert wr_section["rank_disclosure"] == "2 ranked candidate(s) compared; 1 additional player(s) were unranked and were not used to prove superiority."
+    assert wr_section["rank_disclosure"] in html
+    able = html[html.index("Able WR ·"):]
+    assert able.index("Unranked — not compared") < able.index("</li>")
+
+
+def test_waiver_route_puts_the_roster_decision_verdict_and_priority_move_first(monkeypatch):
+    monkeypatch.setenv("SCHEDULE_EVIDENCE_MAX_AGE_SECONDS", "86400")
+    schedule, byes = waiver_route_week_evidence()
+    response, captured = render_waiver_route(
+        monkeypatch, roster_positions=["WR", "BN", "BN"], schedule_rows=schedule, bye_rows=byes,
+        consensus=wr_consensus({"s-owned": (30, 25, 40), "s-wr": (10, 5, 20)}),
+    )
+    html = response.get_data(as_text=True)
+    decision = captured["waiver_decision"]
+    move = decision["moves"][0]
+
+    assert response.status_code == 200
+    assert decision["verdict"]["state"] == "ACT" and decision["submits_transactions"] is False
+    assert (move["decision"], move["kind"], move["urgency"], move["add"]["player_id"], move["over"]["player_id"]) == ("ADD", "CURRENT_WEEK_UPGRADE", "MATERIAL", "s-wr", "s-owned")
+    assert move["faab"] == {"state": "UNSUPPORTED", "label": "Advanced FAAB valuation is not yet supported."}
+    assert 'data-verdict="ACT"' in html and html.count('<article class="waiver-move"') == 1
+    start = html.index('<article class="waiver-move" id="waiver-move-1" data-decision="ADD" data-urgency="MATERIAL">')
+    article = html[start:html.index("</article>", start)]
+    for line in ("ADD:</strong> Avail WR (DEN WR) · at DAL", "DROP:</strong> Not needed — an active roster spot is open.", "OVER:</strong> Owned WR (WR)",
+                 "Expert ranges do not overlap: every published expert rank for Avail WR (5–20) is better than every published expert rank for Owned WR (25–40).",
+                 "FAAB:</strong> Value-based bid unavailable.", "REST-OF-SEASON VALUE: UNAVAILABLE"):
+        assert line in article
+    assert html.index('id="waiver-verdict"') < start < html.index('id="waiver-hold-positions"') < html.index('id="your-waiver-decisions"') < html.index('id="waiver-data-details"')
+    assert "VALUE-BASED BID" not in html and "ESTIMATED WINNING BID" not in html
+    assert decision["move_checker_focus"]["player_id"] == "s-owned" and captured["selected_player"]["player_id"] == "s-owned"
+
+
+def test_monitor_move_names_a_candidate_instead_of_an_add_instruction():
+    move = {"priority": 1, "decision": "MONITOR", "decision_label": "MONITOR", "kind": "CURRENT_WEEK_UPGRADE", "kind_label": "Current-week upgrade",
+            "urgency": "MATERIAL", "position": "K", "add": {"player": "Tyler Bass", "team": "BUF", "position": "K"}, "over": {"player": "Jake Bates", "position": "K"},
+            "why": "Current-week K consensus rank 3.9 vs 9.8 (lower is better).", "impact": "Current-week upgrade",
+            "reason": "CANDIDATE IMPROVES THE ROSTER, BUT NO SAFE DROP IS VERIFIED.", "monitor_detail": "Jake Bates would become surplus.",
+            "faab": {"state": "UNSUPPORTED"}, "fallbacks": [], "disclosures": []}
+    html = render_waivers(waiver_decision={"verdict": {"state": "OPTIONAL", "headline": "OPTIONAL"}, "moves": [move]})
+    start = html.index('<article class="waiver-move"')
+    article = html[start:html.index("</article>", start)]
+    assert "1. MONITOR · K · Current-week upgrade · CLEAR EDGE" in article
+    assert "CANDIDATE:</strong> Tyler Bass (BUF K)" in article and "ADD:</strong>" not in article and "DROP:</strong>" not in article
+    assert "CANDIDATE IMPROVES THE ROSTER, BUT NO SAFE DROP IS VERIFIED." in article and "Save FAAB." not in html
+
+
+def test_waiver_route_verdict_is_blocked_when_ownership_cannot_be_verified(monkeypatch):
+    response, captured = render_waiver_route(monkeypatch, rosters_available=False)
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert captured["waiver_decision"]["verdict"]["state"] == "BLOCKED" and captured["waiver_decision"]["moves"] == []
+    assert 'data-verdict="BLOCKED"' in html and '<article class="waiver-move"' not in html and "Save FAAB." not in html
+    assert html.index('id="waiver-verdict"') < html.index("Recommendations blocked.") < html.index('id="waiver-priority-moves"')
+
+
+def test_waiver_route_has_no_transaction_path(monkeypatch):
+    import requests
+    original_request = requests.sessions.Session.request
+
+    def read_only_request(self, method, url, *args, **kwargs):
+        if str(method).upper() != "GET":
+            pytest.fail(f"waiver route attempted {method} {url}")
+        return original_request(self, method, url, *args, **kwargs)
+
+    monkeypatch.setattr(requests.sessions.Session, "request", read_only_request)
+    monkeypatch.setenv("SCHEDULE_EVIDENCE_MAX_AGE_SECONDS", "86400")
+    schedule, byes = waiver_route_week_evidence()
+    response, captured = render_waiver_route(monkeypatch, roster_positions=["WR", "BN", "BN"], schedule_rows=schedule, bye_rows=byes,
+                                             consensus=wr_consensus({"s-owned": (30, 25, 40), "s-wr": (10, 5, 20)}))
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200 and captured["waiver_decision"]["moves"]
+    assert (captured["waiver_decision"]["submits_transactions"], captured["waiver_decision"]["decision_effect"]) == (False, "RECOMMENDATION_ONLY")
+    assert all(query.lstrip().upper().startswith("SELECT") for query in captured["executed_queries"])
+    assert re.findall(r"<form[^>]*>", html) == ['<form method="get" action="/waivers">', '<form method="post" action="/waivers">']
+    assert "sleeper.app" not in html.lower() and "api.sleeper" not in html.lower()
+
+
+@pytest.mark.parametrize("status,injury_status,expected", [
+    ("Active", "Questionable", "QUESTIONABLE"), ("Active", "Doubtful", "DOUBTFUL"), ("Active", "Out", "OUT"),
+    ("Injured Reserve", "IR", "IR"), ("Active", None, "HEALTHY"),
+])
+def test_active_roster_status_reports_the_game_designation_instead_of_a_contradiction(status, injury_status, expected):
+    from owner_operations import _waiver_candidate_health, _waiver_health_state
+    health = _waiver_candidate_health({"status": status, "injury_status": injury_status}, datetime.now(timezone.utc).isoformat(), True)
+    assert health["health_status_available"] is True and health["health_blocker"] is None
+    assert _waiver_health_state(health["injury_status"]) == expected
+
+
+def test_active_roster_status_with_ir_designation_stays_contradictory():
+    from owner_operations import _waiver_candidate_health
+    health = _waiver_candidate_health({"status": "Active", "injury_status": "IR"}, datetime.now(timezone.utc).isoformat(), True)
+    assert health["health_status_available"] is False and health["health_blocker"] == "WAIVER_HEALTH_STATUS_CONTRADICTORY"
+
+
+def sleeper_record(player_id, name, position, team, *, active=True, status="Active", injury=None, gsis=None):
+    """A current Sleeper catalog record with no row in the local `players` table."""
+    first, _, last = name.partition(" ")
+    return {"player_id": player_id, "full_name": name, "first_name": first, "last_name": last, "position": position, "team": team,
+            "active": active, "status": status, "injury_status": injury, "gsis_id": gsis}
+
+
+def position_consensus(position, ranks, **row_overrides):
+    def rank(ecr, best=None, worst=None):
+        return {"position": position, "ecr": ecr, "expert_best_rank": best, "expert_worst_rank": worst, "source_date": "2026-10-13",
+                "source_age_seconds": 3600, "horizon": "this_week", "scoring": "PPR", "season": 2026, "week": 3, **row_overrides}
+    return {"source": "FantasyPros consensus via DynastyProcess", "horizons": {
+        "this_week": {"state": "AVAILABLE", "max_age_seconds": 172800, "ranks": {player_id: rank(*values) for player_id, values in ranks.items()}},
+        "rest_of_season": {"state": "UNAVAILABLE", "max_age_seconds": 604800, "ranks": {}},
+    }}
+
+
+def render_live_universe_route(monkeypatch, **kwargs):
+    monkeypatch.setenv("SCHEDULE_EVIDENCE_MAX_AGE_SECONDS", "86400")
+    schedule, byes = waiver_route_week_evidence()
+    kwargs.setdefault("roster_positions", ["WR", "BN", "BN"])
+    return render_waiver_route(monkeypatch, schedule_rows=schedule, bye_rows=byes, **kwargs)
+
+
+def test_w2_sleeper_only_candidates_reach_the_roster_decision_and_lookup(monkeypatch):
+    response, captured = render_live_universe_route(
+        monkeypatch,
+        catalog_records={"s-new": sleeper_record("s-new", "Rookie Star", "WR", "PHI"), "s-trade": sleeper_record("s-trade", "Traded Vet", "WR", "PHI")},
+        local_rows=[("Traded Vet", "WR", "DAL")],
+        consensus=position_consensus("WR", {"s-owned": (30, 25, 40), "s-new": (8, 4, 12), "s-trade": (15, 10, 20), "s-wr": (20, 15, 26)}),
+        explain_player="Rookie Star",
+    )
+    html = response.get_data(as_text=True)
+    universe, decision = captured["waiver_universe"], captured["waiver_decision"]
+    by_id = {candidate["player_id"]: candidate for candidate in captured["preliminary_suggestions"]}
+    move = decision["moves"][0]
+
+    assert response.status_code == 200
+    assert universe["universe_state"] == "AVAILABLE" and universe["uses_local_players_table_for_discovery"] is False
+    assert (universe["counts"]["candidate"], universe["counts"]["sleeper_only_candidates"], universe["counts"]["prior_pool_candidates"]) == (3, 2, 1)
+    assert {"s-new", "s-trade", "s-wr"} <= set(by_id)
+    assert by_id["s-new"]["opportunity_identity_state"] != "RESOLVED" and by_id["s-new"]["opportunity_metrics"]["state"] == "UNAVAILABLE"
+    assert by_id["s-trade"]["nfl_team"] == "PHI" and by_id["s-trade"]["candidate_discovery"]["local_lineage"]["local_team"] == "DAL"
+    assert (decision["verdict"]["state"], move["decision"], move["add"]["player_id"], move["over"]["player_id"]) == ("ACT", "ADD", "s-new", "s-owned")
+    assert [backup["player_id"] for backup in move["fallbacks"]] == ["s-trade", "s-wr"] and move["fallbacks"][0]["team"] == "PHI"
+    outcome = next(outcome for outcome in captured["waiver_candidate_outcomes"] if outcome["player_id"] == "s-new")
+    assert outcome["state"] == "AVAILABLE · RANKED" and outcome["details"]["discovery_state"] == "CURRENT CANDIDATE"
+    assert outcome["details"]["local_lineage_note"].startswith("No local preseason row resolves to this player")
+    assert 'data-universe-state="AVAILABLE"' in html and "3 available players</strong> from Sleeper" in html and "Discovery: CURRENT CANDIDATE" in html
+    assert captured["waiver_universe_funnel"]["reconciles"] is True and captured["source_reads"]["catalog"] == 1
+    assert all(query.lstrip().upper().startswith("SELECT") for query in captured["executed_queries"])
+    assert not any("ORDER BY ranking" in query for query in captured["executed_queries"])
+
+
+def test_w2_player_rostered_anywhere_in_the_league_is_never_published(monkeypatch):
+    response, captured = render_live_universe_route(
+        monkeypatch,
+        catalog_records={"s-elite": sleeper_record("s-elite", "Elite Rostered", "WR", "BUF")}, other_roster_players=["s-elite"],
+        consensus=position_consensus("WR", {"s-owned": (30, 25, 40), "s-elite": (1, 1, 2)}), explain_player="Elite Rostered",
+    )
+    decision = captured["waiver_decision"]
+    assert response.status_code == 200
+    assert all(candidate["player_id"] != "s-elite" for candidate in [*captured["preliminary_suggestions"], *captured["monitor_candidates"]])
+    assert all((move.get("add") or {}).get("player_id") != "s-elite" for move in decision["moves"]) and decision["verdict"]["state"] != "ACT"
+    assert captured["waiver_universe"]["stage_by_player"]["s-elite"] == "ROSTERED"
+    [outcome] = captured["waiver_candidate_outcomes"]
+    assert (outcome["state"], outcome["message"], outcome["details"]["ownership"]) == ("ROSTERED", "Rostered by another team in this league; not available.", "ROSTERED")
+    mine = render_live_universe_route(monkeypatch, explain_player="Owned WR")[1]["waiver_candidate_outcomes"]
+    assert [(outcome["state"], outcome["message"]) for outcome in mine] == [("ROSTERED", "Already rostered; not an available waiver candidate.")]
+
+
+def test_w2_catalog_failure_blocks_without_restoring_the_stale_local_pool(monkeypatch):
+    response, captured = render_live_universe_route(monkeypatch, catalog_available=False, consensus=position_consensus("WR", {"s-wr": (5, 4, 6)}))
+    html = response.get_data(as_text=True)
+    universe = captured["waiver_universe"]
+    assert response.status_code == 200
+    assert universe["universe_state"] == "BLOCKED" and universe["blockers"] == ["WAIVER_PLAYER_CATALOG_RETRIEVAL_FAILED"]
+    assert captured["preliminary_suggestions"] == [] and captured["waiver_decision"]["verdict"]["state"] == "BLOCKED"
+    assert 'data-verdict="BLOCKED"' in html and "CANDIDATE UNIVERSE BLOCKED." in html and "Avail WR" not in html
+    assert not any("ORDER BY ranking" in query for query in captured["executed_queries"])
+
+
+@pytest.mark.parametrize("rank_override,ranked", [({}, True), ({"source_age_seconds": 999999}, False), ({"week": 2}, False), ({"scoring": "STD"}, False), (None, False)])
+def test_w2_live_candidate_ranks_only_with_fresh_current_week_ppr_consensus(monkeypatch, rank_override, ranked):
+    ranks = {"s-owned": (30, 25, 40)}
+    consensus = position_consensus("WR", ranks)
+    if rank_override is not None:
+        consensus["horizons"]["this_week"]["ranks"]["s-new"] = {**position_consensus("WR", {"s-new": (8, 4, 12)})["horizons"]["this_week"]["ranks"]["s-new"], **rank_override}
+    response, captured = render_live_universe_route(monkeypatch, catalog_records={"s-new": sleeper_record("s-new", "Rookie Star", "WR", "PHI")}, consensus=consensus)
+    candidate = next(candidate for candidate in captured["preliminary_suggestions"] if candidate["player_id"] == "s-new")
+    decision, funnel = captured["waiver_decision"], captured["waiver_universe_funnel"]
+    assert response.status_code == 200
+    assert candidate["waiver_value_result"]["state"] == ("RANKED" if ranked else "UNRANKED") and funnel["ranked"] == (1 if ranked else 0)
+    if ranked:
+        assert decision["verdict"]["state"] == "ACT" and decision["moves"][0]["add"]["player_id"] == "s-new"
+    else:
+        # Unranked is never treated as worse: no PASS and no "save FAAB" claim is made over an unranked candidate.
+        assert decision["positions"]["WR"]["status"] == "INSUFFICIENT_EVIDENCE" and decision["verdict"]["state"] == "INSUFFICIENT_EVIDENCE"
+        assert decision["verdict"]["save_faab"] is False
+
+
+@pytest.mark.parametrize("injury,group,move_decision", [(None, "healthy_eligible", "ADD"), ("Questionable", "questionable_monitor_only", "MONITOR"), ("Out", "health_non_actionable", None)])
+def test_w2_sleeper_health_designations_keep_w1_semantics(monkeypatch, injury, group, move_decision):
+    response, captured = render_live_universe_route(
+        monkeypatch, catalog_records={"s-new": sleeper_record("s-new", "Rookie Star", "WR", "PHI", injury=injury)},
+        consensus=position_consensus("WR", {"s-owned": (30, 25, 40), "s-new": (8, 4, 12)}),
+    )
+    funnel, decision = captured["waiver_universe_funnel"], captured["waiver_decision"]
+    # Avail WR is the other healthy live candidate in this league; Avail RB has no lineup slot here.
+    expected_health = {"healthy_eligible": 1, "questionable_monitor_only": 0, "health_non_actionable": 0, "health_unverified": 0}
+    expected_health[group] += 1
+    assert response.status_code == 200 and funnel["health"] == expected_health and funnel["reconciles"] is True
+    moves = [move for move in decision["moves"] if (move.get("add") or {}).get("player_id") == "s-new"]
+    assert [move["decision"] for move in moves] == ([move_decision] if move_decision else [])
+    if injury == "Questionable":
+        assert moves[0]["reason"] == "HEALTH DESIGNATION PREVENTS A SUPPORTED ADD."
+    assert (injury is None) == any(candidate["player_id"] == "s-new" for candidate in captured["preliminary_suggestions"])
+
+
+@pytest.mark.parametrize("verdict,ranks,options", [
+    ("ACT", {"s-owned": (30, 25, 40), "s-new": (8, 4, 12)}, {}),
+    ("OPTIONAL", {"s-owned": (30, 25, 40), "s-new": (20, 10, 35)}, {}),
+    ("PASS", {"s-owned": (8, 5, 10), "s-new": (40, 35, 45), "s-wr": (50, 45, 55)}, {}),
+    ("INSUFFICIENT_EVIDENCE", None, {}),
+    ("BLOCKED", {"s-owned": (30, 25, 40), "s-new": (8, 4, 12)}, {"rosters_available": False}),
+])
+def test_w2_every_w1_verdict_survives_live_candidate_input(monkeypatch, verdict, ranks, options):
+    consensus = position_consensus("WR", ranks) if ranks else {"source": "FantasyPros consensus via DynastyProcess", "horizons": {}}
+    response, captured = render_live_universe_route(monkeypatch, catalog_records={"s-new": sleeper_record("s-new", "Rookie Star", "WR", "PHI")}, consensus=consensus, **options)
+    decision = captured["waiver_decision"]
+    assert response.status_code == 200 and decision["verdict"]["state"] == verdict
+    assert f'data-verdict="{verdict}"' in response.get_data(as_text=True) and decision["submits_transactions"] is False
+    if verdict in {"ACT", "OPTIONAL"}:
+        assert decision["moves"][0]["add"]["player_id"] == "s-new"
+    if verdict == "PASS":
+        # This fixture publishes no rest-of-season ranks, so the pass is current-week only and "Save FAAB" is withheld (W3).
+        assert decision["verdict"]["save_faab"] is False and decision["moves"] == []
+    if verdict == "BLOCKED":
+        assert captured["preliminary_suggestions"] == [] and captured["waiver_universe"]["universe_state"] == "BLOCKED"
+
+
+def test_w2_defense_identity_and_ownership_flow_through_the_roster_decision(monkeypatch):
+    defenses = {team: {"player_id": team, "first_name": first, "last_name": last, "position": "DEF", "team": team, "active": True, "injury_status": None}
+                for team, first, last in (("SF", "San Francisco", "49ers"), ("SEA", "Seattle", "Seahawks"), ("NE", "New England", "Patriots"))}
+    response, captured = render_live_universe_route(
+        monkeypatch, roster_positions=["DEF", "BN", "BN"], catalog_records=defenses, other_roster_players=["NE"],
+        roster_overrides={0: {"players": ["s-owned", "SF"], "starters": ["SF"]}},
+        consensus=position_consensus("DEF", {"SF": (20, 15, 25), "SEA": (5, 3, 8), "NE": (1, 1, 2)}),
+    )
+    decision = captured["waiver_decision"]
+    defense_candidates = [candidate for candidate in captured["preliminary_suggestions"] if candidate["position"] == "DEF"]
+    assert response.status_code == 200
+    assert [(candidate["player_id"], candidate["player"], candidate["nfl_team"]) for candidate in defense_candidates] == [("SEA", "Seattle Seahawks", "SEA")]
+    assert captured["waiver_universe"]["stage_by_player"]["NE"] == captured["waiver_universe"]["stage_by_player"]["SF"] == "ROSTERED"
+    assert (decision["moves"][0]["add"]["player_id"], decision["moves"][0]["over"]["player_id"], decision["moves"][0]["position"]) == ("SEA", "SF", "DEF")
+
+
+def test_w2_large_live_universe_keeps_the_manager_page_compact(monkeypatch):
+    ranks = {"s-owned": (30, 25, 40), **{f"s-deep-{index}": (40 + index, 35 + index, 45 + index) for index in range(0, 200, 4)}}
+    response, captured = render_live_universe_route(monkeypatch, extra_candidate_count=200, consensus=position_consensus("WR", ranks))
+    html = response.get_data(as_text=True)
+    funnel = captured["waiver_universe_funnel"]
+    assert response.status_code == 200 and captured["source_reads"]["catalog"] == 1
+    # 200 deep WRs plus Avail WR; Avail RB has no lineup slot in this WR-only league.
+    assert captured["waiver_universe"]["counts"]["candidate"] == funnel["published"] == 201 and funnel["reconciles"] is True
+    assert captured["waiver_universe"]["counts"]["position_not_in_league"] == 1
+    assert html.count('<article class="waiver-move"') <= 3 and len(captured["waiver_more_available"]) <= 12
+    assert all(len(section["options"]) <= 3 for section in captured["waiver_position_sections"])
+    assert '<article class="manager-outcome"' not in html and "Deep Candidate 199" not in html
+    assert all(query.lstrip().upper().startswith("SELECT") for query in captured["executed_queries"])
 
 
 def test_waiver_value_ranking_ties_and_fails_closed_for_stale_or_unsupported_positions():
@@ -2841,10 +3114,11 @@ def test_manager_waiver_view_explains_slot_fill_and_keeps_bid_and_drop_qualified
     assert "ACTION:</strong> SLOT-FILL OPTION" in primary
     assert "Week 6" in primary and "Home vs SF" in primary and "Not on bye" in primary
     assert "Fills the verified required K starter slot" in primary
-    assert "VALUE-BASED BID:</strong> Unavailable" in primary
+    assert "VALUE-BASED BID" not in html
+    assert "ESTIMATED WINNING BID" not in html
     assert "PROVISIONAL SLOT-FILL GUARDRAIL:</strong> $2 ($1–$3)" in primary
     assert "This is not an estimated winning bid." in primary
-    assert "ESTIMATED WINNING BID:</strong> Unavailable" in primary
+    assert html.count("Advanced FAAB valuation is not yet supported.") == 1
     assert "Separate contingent claims; bids are not cumulative." in primary
     assert "$1 provisional slot-fill guardrail; not a winning-bid estimate" in primary
     assert "Conditional only (not automatic):" in primary and "not an automatic drop" in primary
@@ -2892,7 +3166,7 @@ def test_live_waiver_route_always_returns_explicit_outcome_for_kaimi_fairbairn(m
     outcomes = captured["waiver_candidate_outcomes"]
     assert len(outcomes) == 1
     assert outcomes[0]["player"] == "Kaimi Fairbairn"
-    assert outcomes[0]["message"].startswith("Not in the evaluated candidate pool")
+    assert outcomes[0]["message"] == "No player with this name is in Sleeper's current player catalog; ownership, health, and rank could not be checked."
     assert outcomes[0]["details"]["ownership"] == "NOT_EVALUATED"
     assert outcomes[0]["details"]["identity"]["resolution_state"] == "UNRESOLVED"
     assert outcomes[0]["details"]["ranking_horizon"] == "this_week"
@@ -3076,7 +3350,7 @@ def test_plan_missing_schedule_blocks_publication_and_renders_no_supported_claim
 
 def test_plan_pass_when_no_mandatory_slot_problem():
     plan = plan_inputs("K", wda_roster=[{"player_id": "te", "player": "TE One", "position": "TE", "team": "SEA"}])
-    assert plan["state"] == "PASS" and plan["problems"] == [] and "PASS." in render_waivers(waiver_plan=plan)
+    assert plan["state"] == "PASS" and plan["problems"] == [] and "NO K/DEF SLOT-FILL NEED." in render_waivers(waiver_plan=plan)
 
 
 def test_team_game_context_fails_closed_on_missing_conflict_and_identity():
@@ -3137,3 +3411,338 @@ def test_candidate_without_schedule_context_cannot_fill_slot_and_blockers_stay()
     assert slot_fill_fixture("K", bye=bye_contract(), balance={"state": "UNAVAILABLE"})["faab"]["state"] == "UNAVAILABLE"
     blocked = slot_fill_fixture("K", bye=bye_contract(), candidate_overrides={"evidence_context": {"ownership_state": "UNAVAILABLE", "eligibility_state": "VERIFIED", "health_state": "HEALTHY", "health_freshness_state": "FRESH", "health_source": "Sleeper API"}})
     assert blocked["decision"] == "BLOCKED"
+
+
+# W3: fresh rest-of-season value and safe drop decisions on the /waivers route.
+
+def ros_consensus(position, this_week, rest_of_season, *, source_date="2026-10-12", age=3600, freshness="FRESH"):
+    """Current-week consensus plus a rest-of-season horizon shaped like dynastyprocess_rankings.evaluate output.
+
+    Each rest-of-season value is an ECR, or (ECR, best expert rank, worst expert rank) when the expert range is published.
+    """
+    consensus = position_consensus(position, this_week)
+
+    def row(value):
+        ecr, best, worst = value if isinstance(value, tuple) else (value, None, None)
+        return {"position": position, "ecr": ecr, "expert_best_rank": best, "expert_worst_rank": worst, "source_date": source_date, "source_age_seconds": age,
+                "horizon": "rest_of_season", "scoring": "PPR", "season": 2026, "week": None, "identity_method": "PUBLISHED_PROVIDER_CROSSWALK"}
+
+    rows = {player_id: row(value) for player_id, value in rest_of_season.items()}
+    fresh = freshness == "FRESH"
+    consensus["horizons"]["rest_of_season"] = {"state": "AVAILABLE" if fresh else "UNAVAILABLE", "max_age_seconds": 604800, "ranks": rows if fresh else {},
+                                               "latest_source_date": source_date, "latest_source_age_seconds": age, "freshness_state": freshness}
+    return consensus
+
+
+def render_full_roster_ros_route(monkeypatch, **kwargs):
+    """My roster: Owned WR starting plus Bench WR, so the two-spot roster is full; Rookie Star is a Sleeper-only candidate."""
+    kwargs.setdefault("explain_player", "Bench WR")
+    return render_live_universe_route(
+        monkeypatch, roster_positions=["WR", "BN"], extra_rostered_player={"player_id": "s-bench", "player": "Bench WR", "position": "WR", "team": "NYJ"},
+        catalog_records={"s-new": sleeper_record("s-new", "Rookie Star", "WR", "PHI"), "s-elite": sleeper_record("s-elite", "Elite Rostered", "WR", "BUF")},
+        other_roster_players=["s-elite"], **kwargs)
+
+
+def move_article(html, priority=1):
+    start = html.index(f'<article class="waiver-move" id="waiver-move-{priority}"')
+    return start, html[start:html.index("</article>", start)]
+
+
+WEEK_RANKS = {"s-owned": (30, 25, 40), "s-new": (8, 4, 12), "s-bench": (45, 40, 50), "s-elite": (1, 1, 2)}
+
+
+def test_w3_route_renders_a_ros_supported_add_drop_before_any_diagnostics(monkeypatch):
+    response, captured = render_full_roster_ros_route(
+        monkeypatch, consensus=ros_consensus("WR", {**WEEK_RANKS, "s-wr": (20, 15, 25)},
+                                             {"s-owned": (12, 10, 14), "s-new": (20, 17, 23), "s-bench": (60, 55, 66), "s-elite": (1, 1, 2)}))
+    html = response.get_data(as_text=True)
+    decision, funnel = captured["waiver_decision"], captured["waiver_universe_funnel"]
+    move = decision["moves"][0]
+
+    assert response.status_code == 200
+    assert (decision["verdict"]["state"], move["decision"], move["add"]["player_id"], move["drop"]["player_id"]) == ("ACT", "ADD_DROP", "s-new", "s-bench")
+    assert decision["ros_value"]["candidates"]["s-new"]["evidence_state"] == "RANKED" and "s-elite" not in decision["ros_value"]["candidates"]
+    assert all((item.get("add") or {}).get("player_id") != "s-elite" for item in decision["moves"])
+    assert (funnel["reconciles"], funnel["ros"]["ranked"] + funnel["ros"]["unranked"], funnel["ros"]["ranked"]) == (True, funnel["published"], 1)
+    start, article = move_article(html)
+    lines = ["ADD:</strong> Rookie Star (PHI WR)", "DROP:</strong> Bench WR (WR)</p>",
+             "CURRENT WEEK:</strong> Rookie Star ECR 8.0 vs Owned WR ECR 30.0: Rookie Star is stronger this week.",
+             "REST OF SEASON:</strong> Rookie Star ranks ahead of Bench WR for the rest of the season (WR ROS ECR 20.0 vs 60.0; lower is better). · consensus published 2026-10-12 (fresh)",
+             "ROS MATERIALITY:</strong> CLEAR ROS EDGE — Expert ranges do not overlap (Rookie Star 17–23 vs Bench WR 55–66).",
+             "REPLACEMENT CONTEXT:</strong> REPLACEMENT DEPTH LIMITED — Only Rookie Star (WR ROS ECR 20.0, experts 17–23) reaches Bench WR&#39;s rest-of-season expert range (55–66)",
+             "DROP SAFETY:</strong> SUPPORTED — Bench WR is your weakest releasable WR for the rest of the season (WR ROS ECR 60.0 vs 20.0; expert ranges 55–66 vs 17–23 do not overlap); "
+             "every starting slot, including FLEX, can still be filled this week and for the rest of the season.",
+             "EVIDENCE:</strong>", "FAAB:</strong> Value-based bid unavailable."]
+    positions = [article.index(line) for line in lines]
+    assert positions == sorted(positions) and "1. ADD + DROP · WR · Current-week upgrade · RECOMMENDED" in article
+    assert "BACKUP:</strong> Avail WR (DEN WR, ECR 20.0; ROS vs Bench WR: MATERIALITY UNVERIFIED)" in article
+    assert "The DROP above is verified only with Rookie Star, not with a backup." in article
+    assert start < html.index('id="waiver-ros-status"') < html.index('id="your-waiver-decisions"') < html.index('id="waiver-data-details"') < html.index('id="waiver-diagnostics"')
+    assert ("REST OF SEASON: FRESH</strong> — FantasyPros consensus via DynastyProcess: Fresh rest-of-season consensus published 2026-10-12 "
+            "(1 hour old; limit 7 days).") in html and "REST-OF-SEASON VALUE: UNAVAILABLE" not in html
+    assert "newest upstream source date 2026-10-12 (fresh; limit 7 days)" in html
+    assert move["faab"] == {"state": "UNSUPPORTED", "label": "Advanced FAAB valuation is not yet supported."}
+    assert 'id="waiver-faab-disclosure">Advanced FAAB valuation is not yet supported.' in html and "ESTIMATED WINNING BID" not in html
+    [outcome] = captured["waiver_candidate_outcomes"]
+    assert "CURRENT WEEK:</strong> RANKED — WR ECR 45.0 · published 2026-10-13 · fresh" in html
+    assert "REST OF SEASON:</strong> RANKED — WR ROS ECR 60.0 · published 2026-10-12 · fresh" in html
+    assert outcome["details"]["drop_status"]["state"] == "SAFE" and "DROP STATUS:</strong> SAFE — Verified drop for ADD Rookie Star: Bench WR is your weakest" in html
+    assert decision["submits_transactions"] is False and decision["decision_effect"] == "RECOMMENDATION_ONLY"
+    assert all(query.lstrip().upper().startswith("SELECT") for query in captured["executed_queries"])
+    assert html.count('method="post"') == 1 and '<form method="post" action="/waivers"><button type="submit">Refresh Waiver Intelligence</button></form>' in html
+
+
+def test_w3_stale_ros_is_never_presented_as_current(monkeypatch):
+    stale = ros_consensus("WR", WEEK_RANKS, {"s-owned": 12, "s-new": 20, "s-bench": 60}, source_date="2026-10-04", age=777600, freshness="STALE")
+    response, captured = render_full_roster_ros_route(monkeypatch, consensus=stale, explain_player="Avail WR")
+    html = response.get_data(as_text=True)
+    move = captured["waiver_decision"]["moves"][0]
+    reason = "The newest rest-of-season consensus was published 2026-10-04, 9 days ago; the limit is 7 days."
+
+    assert response.status_code == 200
+    assert (move["decision"], move["drop"], move["drop_blocker"], captured["waiver_decision"]["verdict"]["state"]) == ("MONITOR", None, "ROS_VALUE_UNAVAILABLE", "OPTIONAL")
+    _, article = move_article(html)
+    assert "1. MONITOR — ROS VALUE UNAVAILABLE · WR · Current-week upgrade · CLEAR EDGE" in article and "CANDIDATE:</strong> Rookie Star (PHI WR)" in article
+    assert f"REST OF SEASON:</strong> STALE — {reason}" in article and "(fresh)" not in article and "ADD:</strong>" not in article
+    assert f"DROP SAFETY:</strong> NOT SUPPORTED — A safe release cannot be verified because rest-of-season value is unavailable: {reason}" in article
+    assert "REST-OF-SEASON VALUE: UNAVAILABLE" in article and "REST OF SEASON: FRESH" not in html
+    assert f"REST-OF-SEASON VALUE: UNAVAILABLE</strong> — FantasyPros consensus via DynastyProcess: {reason}" in html and "Use Refresh Waiver Intelligence" in html
+    assert "ROS ECR:</strong> STALE — not used." in html and "WR ROS ECR" not in html
+    assert "ROS MATERIALITY:</strong> UNAVAILABLE — rest-of-season evidence is not usable, so no rest-of-season edge is claimed." in article
+    assert "REPLACEMENT CONTEXT:</strong> UNVERIFIED" in article and "CLEAR ROS EDGE" not in html
+    assert "CURRENT WEEK:</strong> UNRANKED — no fresh current-week rank is available for this player" in html
+    assert f"REST OF SEASON:</strong> STALE — {reason}" in html.split('id="waiver-player-outcomes"')[1]
+
+
+def test_w3_fresh_ros_never_reorders_the_current_week_board(monkeypatch):
+    extra = [{"player_id": "s-zulu", "name": "Zulu WR", "position": "WR", "team": "ARI", "projection": 90.0, "tier": 4},
+             {"player_id": "s-able", "name": "Able WR", "position": "WR", "team": "ATL", "projection": 95.0, "tier": 4}]
+    response, captured = render_live_universe_route(
+        monkeypatch, extra_pool_candidates=extra,
+        consensus=ros_consensus("WR", {"s-owned": (30, 25, 40), "s-zulu": (5, 4, 6), "s-wr": (40, 35, 45)}, {"s-zulu": 50, "s-wr": 3, "s-able": 1}))
+    html = response.get_data(as_text=True)
+    wr_section = next(section for section in captured["waiver_position_sections"] if section["position"] == "WR")
+    move = captured["waiver_decision"]["moves"][0]
+
+    assert response.status_code == 200
+    assert [option["candidate"]["player"] for option in wr_section["options"]] == ["Zulu WR", "Avail WR", "Able WR"]
+    assert [option["ros_value"]["ros_ecr"] for option in wr_section["options"]] == [50.0, 3.0, 1.0]
+    assert (move["kind"], move["add"]["player_id"], move["decision"]) == ("CURRENT_WEEK_UPGRADE", "s-zulu", "ADD")
+    assert "THIS WEEK ECR:</strong> 5.0 (#1 at WR)" in html
+    assert "ROS ECR:</strong> 50.0 · published 2026-10-12 · fresh · used for bench depth and drop safety, not the current-week order." in html
+    avail = html[html.index("Avail WR ·", html.index("ALTERNATIVES:")):]
+    assert avail.index("Ranked alternative · this-week ECR 40.0 (rank #2)") < avail.index("ROS ECR 3.0") < avail.index("</li>")
+    able = html[html.index("Able WR ·", html.index("ALTERNATIVES:")):]
+    assert able.index("Unranked — not compared") < able.index("ROS ECR 1.0") < able.index("</li>")
+
+
+def test_w3_ros_driven_moves_never_derive_a_bid_while_the_k_def_slot_fill_guardrail_stays():
+    from owner_operations import attach_waiver_decision_faab
+
+    decision = {"moves": [
+        {"kind": "MUST_FILL", "position": "K", "add": {"player_id": "k-free"}, "trigger": "BYE", "fallbacks": [], "decision": "ADD_DROP", "drop": {"player_id": "k-bye"}},
+        {"kind": "DEPTH_UPGRADE", "position": "RB", "add": {"player_id": "rb-free"}, "decision": "ADD_DROP", "drop": {"player_id": "rb-old"}},
+        {"kind": "CURRENT_WEEK_UPGRADE", "position": "K", "add": {"player_id": "k-better"}, "decision": "ADD_DROP", "drop": {"player_id": "k-start"}},
+    ]}
+    attach_waiver_decision_faab(decision, FAAB_BALANCE)
+    assert (decision["moves"][0]["faab"]["state"], decision["moves"][0]["faab"]["posture"]) == ("PROVISIONAL", "CONSERVATIVE_ONE_WEEK_RENTAL")
+    assert decision["moves"][1]["faab"] == decision["moves"][2]["faab"] == {"state": "UNSUPPORTED", "label": "Advanced FAAB valuation is not yet supported."}
+
+
+def test_w3_pass_says_save_faab_only_after_rest_of_season_depth_was_checked(monkeypatch):
+    ranks = {"s-owned": (8, 5, 10), "s-new": (40, 35, 45), "s-wr": (50, 45, 55)}
+    for consensus, saved in ((position_consensus("WR", ranks), False), (ros_consensus("WR", ranks, {"s-owned": 5, "s-new": 40}), True)):
+        response, captured = render_live_universe_route(monkeypatch, catalog_records={"s-new": sleeper_record("s-new", "Rookie Star", "WR", "PHI")}, consensus=consensus)
+        html = response.get_data(as_text=True)
+        verdict = captured["waiver_decision"]["verdict"]
+        box = html[html.index('id="waiver-pass-decision"'):]
+        box = box[:box.index("</div>")]
+        assert response.status_code == 200 and (verdict["state"], verdict["save_faab"]) == ("PASS", saved)
+        assert ("Save FAAB." in html, "Save FAAB." in box, "refresh it before deciding to save FAAB." in box) == (saved, saved, not saved)
+
+
+# W4: material rest-of-season edge and replacement context on the /waivers route.
+
+def render_w4_route(monkeypatch, week, rest, **kwargs):
+    """My roster: Owned WR starting and Bench WR on the bench (full two-spot roster); Rookie Star and Steady Vet are Sleeper-only candidates."""
+    return render_live_universe_route(
+        monkeypatch, roster_positions=["WR", "BN"], extra_rostered_player={"player_id": "s-bench", "player": "Bench WR", "position": "WR", "team": "NYJ"},
+        catalog_records={"s-new": sleeper_record("s-new", "Rookie Star", "WR", "PHI"), "s-vet": sleeper_record("s-vet", "Steady Vet", "WR", "NYG")},
+        consensus=ros_consensus("WR", week, rest), **kwargs)
+
+
+def test_w4_route_recommends_the_option_with_a_clear_ros_edge_and_explains_the_close_call(monkeypatch):
+    week = {"s-owned": (30, 25, 40), "s-new": (8, 4, 12), "s-vet": (15, 12, 18), "s-bench": (45, 40, 50)}
+    rest = {"s-owned": (12, 10, 14), "s-new": (52, 40, 64), "s-vet": (30, 26, 34), "s-bench": (60, 50, 70)}
+    response, captured = render_w4_route(monkeypatch, week, rest, explain_player="Bench WR")
+    html = response.get_data(as_text=True)
+    decision = captured["waiver_decision"]
+    move = decision["moves"][0]
+    assert response.status_code == 200 and decision["verdict"]["state"] == "ACT"
+    assert (move["decision"], move["add"]["player_id"], move["drop"]["player_id"], move["passed_over"]["player_id"]) == ("ADD_DROP", "s-vet", "s-bench", "s-new")
+    wr_section = next(section for section in captured["waiver_position_sections"] if section["position"] == "WR")
+    assert [option["candidate"]["player"] for option in wr_section["options"]][:2] == ["Rookie Star", "Steady Vet"]
+    start, article = move_article(html)
+    lines = ["1. ADD + DROP · WR · Current-week upgrade · RECOMMENDED", "ADD:</strong> Steady Vet (NYG WR)", "DROP:</strong> Bench WR (WR)", "WHY:</strong>", "IMPACT:</strong>",
+             "ALSO CONSIDERED:</strong> Rookie Star ranks higher this week (WR ECR 8.0), but releasing Bench WR for Rookie Star is not supported: expert ranges overlap "
+             "(Rookie Star 40–64 vs Bench WR 50–70), so the rest-of-season edge is a close call, not a clear upgrade.",
+             "CURRENT WEEK:</strong> Steady Vet ECR 15.0 vs Owned WR ECR 30.0", "REST OF SEASON:</strong> Steady Vet ranks ahead of Bench WR for the rest of the season",
+             "ROS MATERIALITY:</strong> CLEAR ROS EDGE — Expert ranges do not overlap (Steady Vet 26–34 vs Bench WR 50–70).",
+             "REPLACEMENT CONTEXT:</strong> REPLACEMENT DEPTH STRONG — 2 healthy available WRs have fresh rest-of-season expert ranges reaching Bench WR&#39;s (50–70); "
+             "1 of them, Steady Vet, is clearly ahead.", "DROP SAFETY:</strong> SUPPORTED", "FAAB:</strong> Value-based bid unavailable.",
+             "BACKUP:</strong> Rookie Star (PHI WR, ECR 8.0; ROS vs Bench WR: CLOSE ROS CALL)", "The DROP above is verified only with Steady Vet, not with a backup."]
+    positions = [article.index(line) for line in lines]
+    assert positions == sorted(positions)
+    assert ("ROS REPLACEMENT:</strong> REPLACEMENT DEPTH LIMITED — Only Rookie Star (WR ROS ECR 52.0, experts 40–64) reaches Bench WR&#39;s rest-of-season expert range (50–70). "
+            "Excludes Steady Vet, already recommended to add.") in html
+    assert ("3 verified available · 2 with a fresh ROS rank · 2 with a valid expert range · 2 ROS-ranked, healthy and addable · 2 in the comparison population; "
+            "1 already recommended to add, leaving 1.") in html
+    lookup = html.split('id="waiver-player-outcomes"')[1]
+    assert "ROS MATERIALITY:</strong> CLEAR ROS EDGE — Clear rest-of-season edge: every published expert rank for Steady Vet (26–34) is better than every published expert rank for Bench WR (50–70)" in lookup
+    assert "REPLACEMENT CONTEXT:</strong> REPLACEMENT DEPTH LIMITED" in lookup and "Closest supported options: Rookie Star (WR ROS ECR 52.0, experts 40–64)." in lookup
+    assert "DROP STATUS:</strong> SAFE — Verified drop for ADD Steady Vet" in lookup
+    assert html.index('id="waiver-verdict"') < start < html.index('id="waiver-data-details"')
+    for forbidden in ("VALUE SCORE", "VALUE-BASED BID", "ESTIMATED WINNING BID", "points over replacement"):
+        assert forbidden not in html
+    assert decision["submits_transactions"] is False and all(query.lstrip().upper().startswith("SELECT") for query in captured["executed_queries"])
+
+
+def test_w4_route_keeps_a_close_ros_call_as_monitor_and_comparable_depth_under_hold(monkeypatch):
+    rest = {"s-owned": (12, 10, 14), "s-new": (52, 40, 64), "s-bench": (60, 50, 70)}
+    response, captured = render_w4_route(monkeypatch, {"s-owned": (30, 25, 40), "s-new": (8, 4, 12), "s-bench": (45, 40, 50)}, rest)
+    html = response.get_data(as_text=True)
+    move = captured["waiver_decision"]["moves"][0]
+    _, article = move_article(html)
+    assert (move["decision"], move["drop_blocker"], captured["waiver_decision"]["verdict"]["state"]) == ("MONITOR", "ROS_EDGE_NOT_MATERIAL", "OPTIONAL")
+    assert "1. MONITOR — CLOSE ROS CALL · WR · Current-week upgrade · CLEAR EDGE THIS WEEK" in article and "CANDIDATE:</strong> Rookie Star" in article
+    assert ("ROS MATERIALITY:</strong> CLOSE ROS CALL — Expert ranges overlap (Rookie Star 40–64 vs Bench WR 50–70), so the rest-of-season edge is a close call, "
+            "not a clear upgrade.") in article
+    assert "DROP SAFETY:</strong> NOT SUPPORTED — Rookie Star ranks ahead of Bench WR for the rest of the season (WR ROS ECR 52.0 vs 60.0; lower is better), but" in article
+    hold = render_w4_route(monkeypatch, {"s-owned": (8, 5, 10), "s-new": (40, 35, 45), "s-bench": (45, 40, 50)}, rest)
+    hold_html, hold_decision = hold[0].get_data(as_text=True), hold[1]["waiver_decision"]
+    assert (hold_decision["moves"], hold_decision["verdict"]["state"], hold_decision["verdict"]["save_faab"]) == ([], "PASS", True)
+    section = hold_html[hold_html.index('id="waiver-hold-positions"'):hold_html.index('id="waiver-alternatives"')]
+    assert ("WR DEPTH · CLOSE ROS CALL:</strong> Rookie Star ranks ahead of Bench WR for the rest of the season (WR ROS ECR 52.0 vs 60.0; lower is better), but their "
+            "expert ranges overlap (Rookie Star 40–64 vs Bench WR 50–70), so the edge is a close call. No release is recommended.") in section
+    assert "Save FAAB." in hold_html
+
+
+# W5: league FAAB market evidence on the /waivers route.
+
+MARKET_START = datetime(2026, 9, 9, tzinfo=timezone.utc)
+MARKET_RETRIEVED = datetime(2026, 9, 27, 12, tzinfo=timezone.utc)
+W5_LEAGUE = {"season": "2026", "league_id": "controlled", "settings": {"waiver_type": 2, "waiver_budget": 100, "waiver_bid_min": 0, "leg": 3, "start_week": 1}}
+W5_BUDGETS = {0: {"settings": {"waiver_budget_used": 12}}, 1: {"settings": {"waiver_budget_used": 6}}}
+W5_PROHIBITED = re.compile(r"expected winning bid|likely winning bid|should win at|you need to bid|(?<!not a )recommended bid|minimum bid|maximum bid|fair bid|"
+                           r"market price|probability|demand score|aggressive|value score", re.I)
+
+
+def market_txn(transaction_id, week, player, roster, *, bid=None, status="complete", kind="waiver", seq=0):
+    day = 2 if kind == "waiver" else 1
+    record = {"transaction_id": transaction_id, "type": kind, "status": status, "leg": week, "roster_ids": [roster], "creator": "owner" if roster == 1 else "other",
+              "created": int((MARKET_START + timedelta(days=7 * (week - 1) + day, hours=12)).timestamp() * 1000),
+              "status_updated": int((MARKET_START + timedelta(days=7 * (week - 1) + (6 if kind == "waiver" else day), hours=12)).timestamp() * 1000),
+              "consenter_ids": [roster], "adds": {player: roster}, "drops": {}, "draft_picks": [], "waiver_budget": [], "settings": {}, "metadata": {}}
+    if kind == "waiver":
+        note = "Your waiver claim was processed successfully!" if status == "complete" else "This player was claimed by another owner."
+        record.update(settings={"waiver_bid": bid, "seq": seq}, metadata={"notes": note})
+    return record
+
+
+def w5_market_rows():
+    """Weeks 1-2 closed and Week 3 open: Steady Vet was contested in Week 1; Owned WR, now on my roster, was an uncontested Week 2 claim."""
+    weeks = {1: [market_txn("fa-1", 1, "x1", 2, kind="free_agent"), market_txn("t-vet-win", 1, "s-vet", 2, bid=6),
+                 market_txn("t-vet-lose", 1, "s-vet", 1, bid=4, status="failed", seq=1)],
+             2: [market_txn("fa-2", 2, "x2", 2, kind="free_agent"), market_txn("t-owned", 2, "s-owned", 1, bid=12)],
+             3: [market_txn("fa-3", 3, "x3", 1, kind="free_agent")]}
+    return [(week, payload, MARKET_RETRIEVED, "controlled", 2026) for week, payload in weeks.items()]
+
+
+def render_w5_route(monkeypatch, market_rows="stored", **kwargs):
+    week = {"s-owned": (30, 25, 40), "s-new": (8, 4, 12), "s-vet": (15, 12, 18), "s-bench": (45, 40, 50)}
+    rest = {"s-owned": (12, 10, 14), "s-new": (52, 40, 64), "s-vet": (30, 26, 34), "s-bench": (60, 50, 70)}
+    return render_w4_route(monkeypatch, week, rest, league_overrides=W5_LEAGUE, roster_overrides=W5_BUDGETS,
+                           market_rows=w5_market_rows() if market_rows == "stored" else market_rows, **kwargs)
+
+
+def w5_decision_view(captured):
+    decision = captured["waiver_decision"]
+    moves = [{key: value for key, value in move.items() if key != "market"} for move in decision["moves"]]
+    sections = [[option["candidate"]["player_id"] for option in section["options"]] for section in captured["waiver_position_sections"]]
+    return (moves, decision["verdict"], decision["depth_notes"], decision["positions"], decision["ros_value"], decision["replacement"], sections,
+            [candidate["player_id"] for candidate in captured["preliminary_suggestions"]])
+
+
+def test_w5_route_adds_league_market_history_after_the_decision(monkeypatch):
+    response, captured = render_w5_route(monkeypatch, explain_player="Owned WR")
+    html = response.get_data(as_text=True)
+    market, move = captured["waiver_market"], captured["waiver_decision"]["moves"][0]
+    assert response.status_code == 200 and (move["decision"], move["add"]["player_id"], move["drop"]["player_id"]) == ("ADD_DROP", "s-vet", "s-bench")
+    assert (market["state"], market["through_week"], market["recommendation_impact"]) == ("AVAILABLE", 2, "INFORMATIONAL_ONLY")
+    _, article = move_article(html)
+    lines = ["ADD:</strong> Steady Vet", "DROP SAFETY:</strong> SUPPORTED", "FAAB:</strong> Value-based bid unavailable.",
+             "LEAGUE MARKET:</strong> Player history (Weeks 1–2): Week 1, 2 claims (contested claim): Roster 2 completed at $6; 1 competing claim from another "
+             "team failed at $4.", "WR (Weeks 1–2): 2 completed claims, $6–$12, median $9 (N=2); 1 contested, 1 uncontested; 1 failed claim.",
+             "Historical league evidence only; not a recommended bid.", "BACKUP:</strong>"]
+    positions = [article.index(line) for line in lines]
+    assert positions == sorted(positions)
+    assert html.index('id="waiver-priority-moves"') < html.index('id="waiver-faab-market"') < html.index('id="waiver-player-lookup"')
+    section = html[html.index('id="waiver-faab-market"'):html.index('id="waiver-player-lookup"')]
+    for text in ("MARKET HISTORY AVAILABLE</strong> — Completed market through Week 2: all 2 closed weeks (Weeks 1–2) were retrieved after Sleeper closed them.",
+                 "Current budget:</strong> $88 remaining of $100 · League remaining: median $91, highest $94, lowest $88 (2/2 teams verified)",
+                 "Observed (Weeks 1–2):</strong> 2 completed waiver claims · 1 failed · 1 contested and 1 uncontested completed claims · 3 of 3 claims with a "
+                 "verified bid · 2 free-agent adds (no bid; excluded)",
+                 "Completed bids:</strong> $6–$12, median $9 (N=2) · <strong>Failed bids:</strong> $4 (N=1, single observation) (1 lost to another team&#39;s claim)",
+                 "<tr><th>WR</th><td>2</td><td>$6–$12, median $9 (N=2)</td><td>1 / 1</td><td>1</td></tr>",
+                 "Historical league evidence only; not a recommended bid. Value-based bid unavailable. Advanced FAAB valuation is not yet supported.",
+                 "<td>Roster 1 (you)</td><td>$88</td><td>$12</td><td>1</td><td>$12</td>",
+                 "Completed waiver bids in Weeks 1–3 equal Sleeper&#39;s budget used for 2 of 2 verified teams."):
+        assert text in section
+    assert section.index("Completed bids:") < section.index('<details class="market-lineage" id="waiver-faab-lineage">')
+    assert not re.search(r"<details[^>]*\bopen\b", section)
+    lookup = html.split('id="waiver-player-outcomes"')[1]
+    assert ("FAAB MARKET HISTORY:</strong> MARKET HISTORY AVAILABLE — Owned WR is on a roster now; this history is informational and does not make this player "
+            "available. Player history (Weeks 1–2): Week 2, 1 claim (uncontested claim): Roster 1 completed at $12; no competing claim from another team in this "
+            "waiver run.") in lookup
+    assert "s-owned" not in {candidate["player_id"] for candidate in captured["preliminary_suggestions"]} and captured["waiver_universe_funnel"]["reconciles"] is True
+    assert 'id="waiver-faab-disclosure">Advanced FAAB valuation is not yet supported.' in html
+    w5_text = section + "".join(re.findall(r'<p class="(?:move|outcome)-market">.*?</p>', html, re.S))
+    assert not W5_PROHIBITED.search(w5_text)
+
+
+def test_w5_market_history_never_changes_moves_or_order_and_its_failure_never_blocks_them(monkeypatch):
+    import owner_operations
+
+    def render(market_rows="stored", unreadable=False):
+        # Each render gets its own patches; a shared monkeypatch would chain the template capture across renders.
+        with monkeypatch.context() as patch:
+            if unreadable:
+                def fail(*args, **kwargs):
+                    raise RuntimeError("snapshot table unavailable")
+                patch.setattr(owner_operations, "read_transaction_history", fail)
+            response, captured = render_w5_route(patch, market_rows=market_rows)
+            return response.get_data(as_text=True), captured["waiver_market"], w5_decision_view(captured)
+
+    html, market, with_market = render()
+    _, missing, without_market = render(market_rows=None)
+    failed_html, failed, with_failed_read = render(unreadable=True)
+    assert (market["state"], missing["state"], failed["state"], failed["blockers"]) == ("AVAILABLE", "UNAVAILABLE", "UNAVAILABLE", ["TRANSACTION_HISTORY_UNREAD"])
+    assert "LEAGUE MARKET:</strong> Player history (Weeks 1–2)" in html
+    assert with_market == without_market == with_failed_read
+    assert "LEAGUE MARKET:</strong> MARKET COVERAGE BLOCKED — Stored transaction history could not be read for this page view.</p>" in failed_html
+
+
+def test_w5_viewing_waivers_never_retrieves_or_stores_transaction_history(monkeypatch):
+    import services.sleeper_service as sleeper_service
+    import services.sleeper_snapshots as snapshots
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("viewing /waivers attempted to retrieve or store transaction history")
+    for module, name in ((sleeper_service, "get_transactions"), (snapshots, "refresh_transaction_history"), (snapshots, "store_snapshot")):
+        monkeypatch.setattr(module, name, forbidden)
+    response, captured = render_w5_route(monkeypatch)
+    assert response.status_code == 200 and captured["waiver_market"]["state"] == "AVAILABLE"
+    assert all(query.lstrip().upper().startswith("SELECT") for query in captured["executed_queries"])
+    assert [query for query in captured["executed_queries"] if "sleeper_api_snapshots" in query or "sleeper_sync_runs" in query] == [
+        snapshots.HISTORY_QUERY, snapshots.LATEST_REFRESH_QUERY]
+    assert captured["source_reads"] == {"league": 1, "users": 1, "rosters": 1, "catalog": 1}

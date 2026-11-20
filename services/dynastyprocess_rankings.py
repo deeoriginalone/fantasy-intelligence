@@ -41,6 +41,31 @@ def _position(value):
     return {"PK": "K", "DST": "DEF"}.get(value, value)
 
 
+def _expert_rank_value(value):
+    """Published expert best/worst rank or standard deviation; None when absent or not a usable number."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) and number >= 0 else None
+
+
+def _expert_range_state(row, ecr):
+    """VALID only for a complete, positive expert range that brackets the consensus rank (best <= ECR <= worst).
+
+    A missing or invalid range never rejects the consensus rank itself; it only withholds expert-separation evidence.
+    """
+    raw_best, raw_worst, raw_sd = (row.get(key) for key in ("best", "worst", "sd"))
+    if all(value in (None, "", "NA") for value in (raw_best, raw_worst)):
+        return "MISSING"
+    best, worst = _expert_rank_value(raw_best), _expert_rank_value(raw_worst)
+    if best is None or worst is None or best <= 0 or not best <= ecr <= worst:
+        return "INVALID"
+    if raw_sd not in (None, "", "NA") and _expert_rank_value(raw_sd) is None:
+        return "INVALID"
+    return "VALID"
+
+
 def _fetch(url):
     response = requests.get(url, timeout=30, headers={"User-Agent": "fantasy-intelligence-private-rankings/1.0"})
     response.raise_for_status()
@@ -106,12 +131,15 @@ def evaluate(snapshot, nfl_state, now=None, *, sleeper_catalog=None):
         artifact = artifacts.get(filename) or {}
         parsed, rejected, diagnostics = [], Counter(), []
         supported_rows = 0
+        source_dates = set()
         for row in artifact.get("rows") or []:
             path = str(row.get("fp_page") or "")
             page = row.get("page") if horizon == "this_week" else path.removeprefix("/nfl/rankings/ros-").removesuffix(".php") if path.startswith("/nfl/rankings/ros-") else None
             if page not in PAGES:
                 continue
             supported_rows += 1
+            if row.get("scrape_date") not in (None, "", "NA"):
+                source_dates.add(str(row["scrape_date"]))
             provider_id = row.get("fantasypros_id") if horizon == "this_week" else row.get("id")
             game_evidence = None
             try:
@@ -175,7 +203,7 @@ def evaluate(snapshot, nfl_state, now=None, *, sleeper_catalog=None):
                 rank = float(row["ecr"])
                 if not math.isfinite(rank) or rank <= 0:
                     raise ValueError("Consensus rank is invalid")
-                parsed.append({"player_id": identity["sleeper_id"], "provider_id": provider_id, "identity_method": identity_method, "identity_evidence": {"source_name": row.get("player_name") or row.get("player"), "source_position": PAGES[page], "source_team": row.get("team"), "sleeper_team": (sleeper_catalog or {}).get(identity["sleeper_id"], {}).get("team")}, "game_evidence": game_evidence, "position": PAGES[page], "ecr": rank, "source_date": row["scrape_date"], "source_age_seconds": int(age), "horizon": horizon, "scoring": "PPR", "season": season, "week": week if horizon == "this_week" else None})
+                parsed.append({"player_id": identity["sleeper_id"], "provider_id": provider_id, "identity_method": identity_method, "identity_evidence": {"source_name": row.get("player_name") or row.get("player"), "source_position": PAGES[page], "source_team": row.get("team"), "sleeper_team": (sleeper_catalog or {}).get(identity["sleeper_id"], {}).get("team")}, "game_evidence": game_evidence, "position": PAGES[page], "ecr": rank, "expert_best_rank": _expert_rank_value(row.get("best")), "expert_worst_rank": _expert_rank_value(row.get("worst")), "expert_rank_sd": _expert_rank_value(row.get("sd")), "expert_range_state": _expert_range_state(row, rank), "source_date": row["scrape_date"], "source_age_seconds": int(age), "horizon": horizon, "scoring": "PPR", "season": season, "week": week if horizon == "this_week" else None})
             except (KeyError, TypeError, ValueError, OverflowError, OSError) as error:
                 rejected[str(error)] += 1
                 matches = provider_rows.get(provider_id, [])
@@ -183,7 +211,7 @@ def evaluate(snapshot, nfl_state, now=None, *, sleeper_catalog=None):
                 sleeper_record = (sleeper_catalog or {}).get(sleeper_id) or {}
                 classification = "CONFIRMED_STARTED_GAME" if str(error) == "Game already started" else "CONFIRMED_STALE_OR_FUTURE_SOURCE" if str(error) == "Source is stale or future-dated" else "CONFIRMED_INVALID_RANK" if str(error) == "Consensus rank is invalid" else "PENDING_VERIFICATION"
                 diagnostics.append({"provider_id": provider_id, "player": row.get("player_name") or row.get("player"), "page": page, "team": row.get("team"), "reason": str(error), "classification": classification, "raw_ecr": row.get("ecr"), "raw_kickoff": row.get("player_game_kickoff_ts"), "source_date": row.get("scrape_date"), "crosswalk_matches": [{"sleeper_id": match.get("sleeper_id"), "position": match.get("position")} for match in matches], "sleeper_check": {key: sleeper_record.get(key) for key in ("team", "status", "injury_status")} if sleeper_record else None})
-                if str(error) in {"PROVIDER_ID_ABSENT_FROM_CROSSWALK", "SLEEPER_ID_MISSING"}:
+                if str(error) in {"PROVIDER_ID_ABSENT_FROM_CROSSWALK", "SLEEPER_ID_MISSING", "CONTEXTUAL_IDENTITY_AMBIGUOUS"}:
                     name = str(row.get("player_name") or row.get("player") or "")
                     normalized_name = "".join(character for character in name.casefold() if character.isalnum())
                     diagnostics[-1]["investigation_candidates"] = [{"player_id": candidate_id, "team": record.get("team"), "status": record.get("status"), "injury_status": record.get("injury_status"), "method": "NAME_POSITION_RESEARCH_ONLY"} for candidate_id, record in name_position_index.get((normalized_name, PAGES[page]), [])]
@@ -194,8 +222,24 @@ def evaluate(snapshot, nfl_state, now=None, *, sleeper_catalog=None):
                 rejected["DUPLICATE_RANK_PLAYER_ID"] += 1
                 diagnostics.append({"player_id": row["player_id"], "reason": "DUPLICATE_RANK_PLAYER_ID", "classification": "PENDING_VERIFICATION", "raw_ecr": row["ecr"], "source_date": row["source_date"]})
         reconciliation = {"input_rows": len(artifact.get("rows") or []), "supported_scope_rows": supported_rows, "published_rows": len(ranks), "review_records": len(diagnostics), "reconciled": supported_rows == len(ranks) + len(diagnostics)}
-        result["horizons"][horizon] = {"state": "AVAILABLE" if ranks else "UNAVAILABLE", "ranks": ranks, "rejections": dict(rejected), "diagnostics": diagnostics, "reconciliation": reconciliation, "max_age_seconds": MAX_AGE[horizon], "source_url": artifact.get("url"), "checksum": artifact.get("checksum")}
+        result["horizons"][horizon] = {"state": "AVAILABLE" if ranks else "UNAVAILABLE", "ranks": ranks, "rejections": dict(rejected), "diagnostics": diagnostics, "reconciliation": reconciliation, "max_age_seconds": MAX_AGE[horizon], "source_url": artifact.get("url"), "checksum": artifact.get("checksum"), **_source_freshness(source_dates, now, MAX_AGE[horizon])}
     return result
+
+
+def _source_freshness(source_dates, now, max_age):
+    """Freshness of the newest upstream scrape date; local retrieval and refresh attempts never renew it."""
+    dated = []
+    for value in source_dates:
+        try:
+            dated.append((_time(value), value))
+        except (TypeError, ValueError):
+            continue
+    if not dated:
+        return {"source_dates": [], "latest_source_date": None, "latest_source_age_seconds": None, "freshness_state": "UNAVAILABLE"}
+    published, latest = max(dated)
+    age = int((now - published).total_seconds())
+    state = "FUTURE_DATED" if age < 0 else "FRESH" if age <= max_age else "STALE"
+    return {"source_dates": sorted(value for _, value in dated), "latest_source_date": latest, "latest_source_age_seconds": age, "freshness_state": state}
 
 
 def refresh(path, *, fetch=_fetch, now=None, force=False, scope=None):

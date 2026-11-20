@@ -59,7 +59,8 @@
     <summary>Identity diagnostics</summary>
     {% set diagnostics = availability.identity_diagnostics or {} %}
     <p>Source candidates: {{ diagnostics.total_source_candidates if diagnostics.total_source_candidates is not none else 'Unavailable' }}</p>
-    <p>Resolved: {{ diagnostics.uniquely_canonical_resolved_count if diagnostics.uniquely_canonical_resolved_count is not none else 'Unavailable' }}</p>
+    {% set resolved_direct = diagnostics.directly_resolved_count|default(none) %}{% set resolved_by_name = diagnostics.uniquely_canonical_resolved_count|default(none) %}
+    <p>Resolved: {% if resolved_direct is none and resolved_by_name is none %}Unavailable{% else %}{{ (resolved_direct or 0) + (resolved_by_name or 0) }}{% if resolved_direct %} ({{ resolved_direct }} by exact Sleeper ID){% endif %}{% endif %}</p>
     <p>Unresolved: {{ diagnostics.unresolved_count if diagnostics.unresolved_count is not none else 'Unavailable' }}</p>
     <p>Ambiguous: {{ diagnostics.ambiguous_count if diagnostics.ambiguous_count is not none else 'Unavailable' }}</p>
     <p>Rostered exclusions: {{ diagnostics.rostered_exclusion_count if diagnostics.rostered_exclusion_count is not none else 'Unavailable' }}</p>

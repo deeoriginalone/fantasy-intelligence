@@ -12,6 +12,12 @@ def normalize_position(value):
     return "DEF" if value == "DST" else value
 
 
+def occupies_active_roster(player):
+    """Sleeper IR (reserve) and taxi players are rostered but do not occupy a normal active roster spot."""
+    player = player or {}
+    return player.get("sleeper_reserve") is not True and player.get("sleeper_taxi") is not True
+
+
 def _scoring_contract(league):
     """Describe league reception scoring only from supplied settings; never assume a format."""
     scoring = league.get("scoring_settings")
@@ -151,7 +157,7 @@ def team_needs_contract(roster, settings, source="shared team-needs contract"):
         blocker = settings.get("blocker") or "LEAGUE_SETTINGS_UNAVAILABLE"
         return {key: _blocked_position(key, source, blocker) for key in REQUIRED_NEED_KEYS}
 
-    counts = Counter(normalize_position((player or {}).get("position")) for player in (roster or []))
+    counts = Counter(normalize_position((player or {}).get("position")) for player in (roster or []) if occupies_active_roster(player))
     slots = dict(settings.get("starter_slots") or {})
     flex_positions = [normalize_position(item) for item in settings.get("flex_eligible_positions") or []]
     result = {}

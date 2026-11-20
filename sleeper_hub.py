@@ -1,12 +1,12 @@
 from flask import Blueprint,current_app,jsonify,render_template,request
 import json,os
+from services.sleeper_snapshots import store_snapshot
 from services.sleeper_service import get_league,get_users,get_rosters,get_drafts,get_draft,get_draft_picks,get_matchups,get_transactions,get_traded_picks,get_winners_bracket,get_losers_bracket,get_draft_traded_picks,get_nfl_state,get_trending_adds,get_trending_drops
 
 def create_sleeper_hub_blueprint(get_db_connection):
  bp=Blueprint("sleeper_hub",__name__,url_prefix="/sleeper")
  def lid(value=None): return str(value or current_app.config.get("SLEEPER_LEAGUE_ID") or os.getenv("SLEEPER_LEAGUE_ID") or "")
- def store(cur,kind,key,payload,season=0,week=0):
-  cur.execute("INSERT INTO sleeper_api_snapshots(resource_type,resource_key,season,week,payload,fetched_at) VALUES(%s,%s,%s,%s,%s::jsonb,NOW()) ON CONFLICT(resource_type,resource_key,season,week) DO UPDATE SET payload=EXCLUDED.payload,fetched_at=NOW()",(kind,str(key),season,week,json.dumps(payload)))
+ store=store_snapshot
  def run_sync(league_id,season,week,brackets=False):
   conn=get_db_connection();cur=conn.cursor();results={};run_id=None
   try:

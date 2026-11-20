@@ -148,7 +148,6 @@ def test_reader_missing_identity_is_unavailable_not_zero_or_blocked():
 
 def test_waiver_template_discloses_snap_sample_source_freshness_and_unavailable():
     template = (Path(__file__).parents[1] / "templates" / "waivers.html").read_text(encoding="utf-8")
-    assert "Snap share: UNAVAILABLE" in template
-    assert "snap.source || snapRow.source" in template
-    assert "snap.freshness_state" in template
-    assert "participation_domain" in template
+    assert "Snap-share display uses the owner-approved snap_share.evidence.v1 86400-second informational window" in template
+    assert "Snap-share remains unavailable when identity, publication, source metadata, or snap value is unavailable." in template
+    assert "snap share are informational only and do not change ranking, FAAB" in template
