@@ -1,9 +1,9 @@
 # Canonical Memory Sync Validation
 
-- Generated UTC: `2026-11-20T17:54:40.303014+00:00`
+- Generated UTC: `2026-11-21T01:08:43.570592+00:00`
 - Result: `PASS`
 - Current branch: `test-weekly-evidence-trust`
-- Current HEAD: `4798bb01a6f9e40562897e173036ba37ada6b610`
+- Current HEAD: `4212a92d4cffe3605724d35370c65437dbd7e4c6`
 
 ## Checks
 
@@ -23,7 +23,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**implement w6 — current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**`
+- Next milestone: `**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**`
 
 ### PROJECT_STATE.md
 
@@ -31,7 +31,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**implement w6 — current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**`
+- Next milestone: `**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**`
 
 ### DEVELOPMENT_ROADMAP.md
 
@@ -39,7 +39,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**implement w6 — current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**`
+- Next milestone: `**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**`
 
 ### NEXT_SESSION_HANDOFF.md
 
@@ -47,8 +47,8 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**implement w6 — current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**`
+- Next milestone: `**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**`
 
 ## Extracted Milestones
 
-- `**implement w6 — current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**`
+- `**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**`

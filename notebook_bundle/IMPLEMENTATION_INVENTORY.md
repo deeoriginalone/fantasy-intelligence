@@ -9,6 +9,7 @@ services/preliminary_matchup_context.py
 services/draft_recommendation_publication.py
 services/__init__.py
 services/espn_player_news.py
+services/waiver_role_evidence.py
 services/integrity/__init__.py
 services/integrity/integrity_service.py
 services/decision_ranking.py

@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-11-20T17:54:40.303014+00:00",
+  "generated_at_utc": "2026-11-21T01:08:43.570592+00:00",
   "passed": true,
   "repository": {
     "branch": "test-weekly-evidence-trust",
-    "head": "4798bb01a6f9e40562897e173036ba37ada6b610",
-    "short_head": "4798bb0"
+    "head": "4212a92d4cffe3605724d35370c65437dbd7e4c6",
+    "short_head": "4212a92"
   },
   "checks": {
     "canonical_files_present": true,
@@ -18,35 +18,35 @@
   "files": {
     "PROJECT_STATUS.md": {
       "exists": true,
-      "bytes": 85251,
+      "bytes": 95891,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**implement w6 \u2014 current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**"
+      "next_milestone": "**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**"
     },
     "PROJECT_STATE.md": {
       "exists": true,
-      "bytes": 85646,
+      "bytes": 96286,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**implement w6 \u2014 current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**"
+      "next_milestone": "**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**"
     },
     "DEVELOPMENT_ROADMAP.md": {
       "exists": true,
-      "bytes": 88336,
+      "bytes": 98365,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**implement w6 \u2014 current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**"
+      "next_milestone": "**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**"
     },
     "NEXT_SESSION_HANDOFF.md": {
       "exists": true,
-      "bytes": 86589,
+      "bytes": 97229,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**implement w6 \u2014 current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**"
+      "next_milestone": "**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**"
     }
   },
   "missing_files": [],
@@ -55,7 +55,7 @@
   "head_mismatches": [],
   "missing_milestones": [],
   "unique_milestones": [
-    "**implement w6 \u2014 current role, opportunity trend, and expected duration of value as informational waiver evidence without changing w1-w5 ranking, roster-safety, ros-materiality, faab-market, confidence, or transaction behavior.**"
+    "**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**"
   ],
   "sensitive_findings": []
 }

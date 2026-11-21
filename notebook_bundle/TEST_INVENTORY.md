@@ -68,6 +68,7 @@ tests/test_f3_d5_waiver_action_publication.py
 tests/test_preliminary_matchup_context.py
 tests/test_waiver_market_evidence.py
 tests/test_nfl_intelligence_template.py
+tests/test_waiver_role_evidence.py
 tests/test_f3a2_runtime.py
 tests/test_survival_calibration.py
 tests/test_security_and_validation.py
@@ -146,7 +147,7 @@ platform linux -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
 rootdir: /home/deeoriginalone/fantasy-intelligence
 configfile: pytest.ini
 testpaths: tests
-collected 114 items / 114 errors
+collected 114 items / 115 errors
 
 <Dir fantasy-intelligence>
   <Dir tests>
@@ -1366,6 +1367,16 @@ Traceback:
 tests/test_waiver_market_evidence.py:9: in <module>
     from services.sleeper_snapshots import read_transaction_history, refresh_transaction_history
 E   ModuleNotFoundError: No module named 'services'
+_____________ ERROR collecting tests/test_waiver_role_evidence.py ______________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_waiver_role_evidence.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_waiver_role_evidence.py:12: in <module>
+    import services.waiver_role_evidence as role_module
+E   ModuleNotFoundError: No module named 'services'
 ____________ ERROR collecting tests/test_waiver_roster_decision.py _____________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_waiver_roster_decision.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -1535,11 +1546,12 @@ ERROR tests/test_verify_f3_b31_postgres_parity.py
 ERROR tests/test_waiver_availability.py
 ERROR tests/test_waiver_candidate_universe.py
 ERROR tests/test_waiver_market_evidence.py
+ERROR tests/test_waiver_role_evidence.py
 ERROR tests/test_waiver_roster_decision.py
 ERROR tests/test_week_authority_consolidation.py
 ERROR tests/test_weekly_evidence_trust_contract.py
 ERROR tests/test_weekly_lineup_intelligence.py
 ERROR tests/test_yahoo_oauth.py
 ERROR tests/test_yahoo_pickem.py
-!!!!!!!!!!!!!!!!!! Interrupted: 114 errors during collection !!!!!!!!!!!!!!!!!!!
-=================== 114 tests collected, 114 errors in 4.25s ===================
+!!!!!!!!!!!!!!!!!! Interrupted: 115 errors during collection !!!!!!!!!!!!!!!!!!!
+=================== 114 tests collected, 115 errors in 6.63s ===================
