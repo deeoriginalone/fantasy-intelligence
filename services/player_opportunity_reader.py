@@ -234,6 +234,63 @@ def read_player_production(
     return production
 
 
+OBSERVATION_COVERAGE_QUERY = ("SELECT week, team, count(*), min(retrieved_at), max(source_recorded_at) FROM player_opportunity_evidence "
+                              "WHERE season = %s GROUP BY week, team ORDER BY week, team")
+
+
+def read_opportunity_observations(
+    db_connection: Any,
+    *,
+    player_ids: Any,
+    season: Any,
+    now: Any = None,
+    threshold_environment: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Batch read for many exact player IDs (one SELECT) plus season-wide (week, team) coverage (one SELECT); never writes."""
+    result = {"schema_version": READER_SCHEMA_VERSION, "state": "READ", "rows": [], "coverage": [], "threshold": {}, "blockers": [],
+              "lineage": {"table": TABLE_NAME, "query_mode": "PARAMETERIZED_SELECT_ONLY"}, "decision_effect": "INFORMATIONAL_ONLY"}
+    if not _positive_integer(season):
+        result.update(state="BLOCKED", blockers=["OPPORTUNITY_SEASON_INVALID"])
+        return result
+    threshold = opportunity_evidence_threshold(os.environ if threshold_environment is None else threshold_environment)
+    seconds = threshold.get("seconds")
+    result["threshold"] = {"id": threshold.get("id"), "seconds": seconds}
+    ids = sorted({str(player_id).strip() for player_id in player_ids or [] if str(player_id or "").strip()})
+    connection = None
+    cursor = None
+    try:
+        connection = db_connection() if callable(db_connection) else db_connection
+        cursor = connection.cursor()
+        rows = []
+        if ids:
+            cursor.execute("SELECT " + ", ".join(COLUMNS) + " FROM player_opportunity_evidence WHERE season = %s AND player_id = ANY(%s) "
+                           "ORDER BY player_id, week", (season, ids))
+            rows = [dict(row) if isinstance(row, Mapping) else dict(zip(COLUMNS, row)) for row in cursor.fetchall()]
+        cursor.execute(OBSERVATION_COVERAGE_QUERY, (season,))
+        coverage_rows = list(cursor.fetchall())
+    except Exception:
+        result.update(state="BLOCKED", blockers=["OPPORTUNITY_READER_QUERY_FAILED"])
+        return result
+    finally:
+        if cursor is not None and hasattr(cursor, "close"):
+            cursor.close()
+        if connection is not None and callable(db_connection) and hasattr(connection, "close"):
+            connection.close()
+    normalized = []
+    for row in rows:
+        item = _normalize_row(row)
+        _apply_current_freshness(item, now, seconds)
+        # Currency is judged by the consumer from completed-game coverage and this freshness; provenance must hold regardless.
+        item["provenance_blockers"] = [blocker for blocker in published_opportunity_row_blockers(item) if blocker != "OPPORTUNITY_EVIDENCE_NOT_CURRENT"]
+        normalized.append(item)
+    result["rows"] = normalized
+    result["coverage"] = [{"week": week, "team": team, "rows": count, "retrieved_at": retrieved, "source_recorded_at": recorded,
+                           "freshness_state": _opportunity_freshness(retrieved, now, seconds)[0]}
+                          for week, team, count, retrieved, recorded in coverage_rows]
+    result["lineage"]["row_count"] = len(normalized)
+    return result
+
+
 def _base_result(*, player_id: Any, season: Any, week: Any, week_start: Any, week_end: Any) -> dict[str, Any]:
     return {
         "schema_version": READER_SCHEMA_VERSION,

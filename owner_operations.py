@@ -27,8 +27,8 @@ from services.team_health import team_health_contract, apply_player_health_to_re
 from services.ux2_team_accuracy import build_team_accuracy_contract
 from services.team_priority import build_team_priority_action
 from services.team_hardening import build_bench_decisions, build_bench_plan, build_lineup_snapshot, build_roster_outlook, build_team_trust_summary, build_weekly_risks
-from services.player_opportunity_reader import read_player_opportunity, read_player_what_changed
-from services.snap_share_reader import read_snap_share
+from services.player_opportunity_reader import read_opportunity_observations, read_player_opportunity, read_player_what_changed
+from services.snap_share_reader import read_snap_share, read_snap_share_observations
 from services.opportunity_context import opportunity_strength, opportunity_trend, usage_stability
 from services.player_opportunity_reader import read_player_production
 from services.gsis_identity_crosswalk import attach_opportunity_player_ids
@@ -44,6 +44,7 @@ from services.waiver_roster_decision import (FAAB_DISCLOSURE, build_waiver_roste
 from services.waiver_candidate_universe import build_waiver_candidate_universe, candidate_health_group, candidate_universe_funnel, explain_catalog_player, find_catalog_players
 from services.sleeper_snapshots import read_transaction_history
 from services.waiver_market_evidence import build_faab_market_evidence, market_context
+from services.waiver_role_evidence import build_role_index, role_coverage_summary, role_evidence
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 STARTER_SLOTS = ("QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DEF")
@@ -1171,6 +1172,24 @@ def slot_fill_faab(position, balance, *, one_week_rental, equivalent_alternative
 def read_season_bye_rows(cur, season):
     cur.execute("SELECT team, bye_week, source, source_recorded_at, retrieved_at, imported_at FROM bye_weeks WHERE season=%s", (season,))
     return [dict(zip(("team", "bye_week", "source", "source_recorded_at", "retrieved_at", "imported_at"), row)) for row in cur.fetchall() or []]
+
+
+SEASON_GAME_RESULT_KEYS = ("week", "home_team", "away_team", "game_time_utc", "result", "source", "source_recorded_at", "retrieved_at")
+
+
+def read_season_game_results(cur, season):
+    """Every stored game of the season with its published result (read-only); W6 counts only games the automated schedule marks final."""
+    cur.execute("SELECT " + ", ".join(SEASON_GAME_RESULT_KEYS) + " FROM nfl_schedule WHERE season = %s ORDER BY week, game_time_utc", (season,))
+    return [dict(zip(SEASON_GAME_RESULT_KEYS, row)) for row in cur.fetchall() or []]
+
+
+def waiver_role_for(index, player, *, player_id=None):
+    """W6 observed-role evidence for one candidate or roster player through the route's existing exact GSIS identity; informational only."""
+    player = dict(player or {})
+    return role_evidence(index, player_id=player_id or player.get("player_id") or player.get("source_player_id"),
+                         opportunity_player_id=player.get("opportunity_player_id"), identity_state=player.get("opportunity_identity_state"),
+                         identity_method=player.get("opportunity_identity_method"), position=player.get("position"),
+                         team=player.get("nfl_team") or player.get("team"), player=player.get("player"))
 
 
 def waiver_mandatory_slot_trigger(selected_player, position, settings, need, bye_evidence=None):
@@ -2978,6 +2997,22 @@ def create_owner_operations_blueprint(
                     "impact": "No current candidate-linked published opportunity row is available for this cohort.",
                     "blocker": next((blocker for candidate in display_candidates for blocker in ((candidate.get("opportunity_metrics") or {}).get("blockers") or [])), "OPPORTUNITY_READER_NO_ROWS"),
                 }
+            waiver_role_reads = None
+            if context.get("mode") == "LIVE":
+                # W6: stored nflverse role observations for the published candidates and my roster, read by exact GSIS ID in one batch per
+                # source (SELECT only); nothing is fetched from nflverse here. A failed read is rolled back so it cannot affect the reads below.
+                role_ids = sorted({str(item.get("opportunity_player_id")) for item in [*source_candidates, *roster]
+                                   if item.get("opportunity_identity_state") == "RESOLVED" and item.get("opportunity_player_id")})
+                try:
+                    waiver_role_reads = {"opportunity": read_opportunity_observations(conn, player_ids=role_ids, season=meta.get("season")),
+                                         "snaps": read_snap_share_observations(conn, player_ids=role_ids, season=meta.get("season")),
+                                         "schedule": read_season_game_results(cur, meta.get("season"))}
+                except Exception as exc:
+                    waiver_role_reads = {"state": "READ_FAILED", "error": type(exc).__name__}
+                if waiver_role_reads.get("state") == "READ_FAILED" or any((waiver_role_reads.get(key) or {}).get("state") != "READ" for key in ("opportunity", "snaps")):
+                    rollback = getattr(conn, "rollback", None)
+                    if callable(rollback):
+                        rollback()
             waiver_market_history = None
             if context.get("mode") == "LIVE":
                 try:
@@ -3198,6 +3233,18 @@ def create_owner_operations_blueprint(
             if move.get("add"):
                 move["market"] = market_context(waiver_market, player_id=move["add"].get("player_id"), position=move.get("position"),
                                                 player=move["add"].get("player"), monitor=move.get("decision") == "MONITOR")
+        # W6 observed-role evidence is attached after every decision is final: it is informational context and never changes a move, its order,
+        # drop safety, materiality, FAAB evidence or confidence. Each player is evaluated once from the single batch read above.
+        role_index = build_role_index(season=meta.get("season"), week=meta.get("week"),
+                                      week_verified=(meta.get("week_authority") or {}).get("authoritative") is True, reads=waiver_role_reads,
+                                      bye_rows=bye_rows, mode=context.get("mode") or "LIVE")
+        waiver_role = {str(candidate.get("player_id") or ""): waiver_role_for(role_index, candidate) for candidate in source_candidates}
+        roster_role = {str(player.get("source_player_id") or player.get("player_id") or ""): waiver_role_for(
+            role_index, player, player_id=str(player.get("source_player_id") or player.get("player_id") or "")) for player in roster}
+        waiver_role_coverage = role_coverage_summary(role_index, list(waiver_role.values()))
+        for move in waiver_decision.get("moves") or []:
+            if move.get("add"):
+                move["role"] = waiver_role.get(str(move["add"].get("player_id") or ""))
         focus_player_id = (waiver_decision.get("move_checker_focus") or {}).get("player_id")
         selected_player = next((player for player in wda_roster if requested_selected_player_id and player.get("player_id") == str(requested_selected_player_id)), None)
         if not requested_selected_player_id:
@@ -3464,6 +3511,7 @@ def create_owner_operations_blueprint(
             for option in options:
                 # Shown beside the current-week rank with its own label; it never changes this current-week ordering.
                 option["ros_value"] = ros_player_value(horizon_summaries["rest_of_season"], rankings, (option.get("candidate") or {}).get("player_id"), position, season=meta.get("season"))
+                option["role"] = waiver_role.get(str((option.get("candidate") or {}).get("player_id") or ""))
             ranked_options = [option for option in options if option.get("value", {}).get("state") in {"RANKED", "TIED"}]
             unranked_option_count = len(options) - len(ranked_options)
             # A clear leader is judged among the ranked population; unranked players are disclosed, never treated as worse.
@@ -3651,6 +3699,10 @@ def create_owner_operations_blueprint(
                 details["market"] = market_context(waiver_market, player_id=rank_lookup_id, player=outcome.get("player"),
                                                    position=outcome.get("position") or (candidate or roster_match or {}).get("position"),
                                                    rostered=details.get("ownership") == "ROSTERED")
+            # W6 role evidence for available candidates and my roster; it never changes availability or a move.
+            details["role"] = (waiver_role.get(str(candidate.get("player_id") or "")) if candidate is not None
+                               else roster_role.get(rank_lookup_id) if roster_match is not None else
+                               {"state": "NOT_EVALUATED", "text": {"role": "NOT EVALUATED — role evidence is read for current waiver candidates and your roster only."}})
             if isinstance(details.get("identity"), str):
                 details["identity"] = {"resolution_state": details["identity"]}
             elif not isinstance(details.get("identity"), dict):
@@ -3675,7 +3727,7 @@ def create_owner_operations_blueprint(
                 (details.get("waiver_value") or {}).get("reason")
                 or ("Not ranked because this player is already rostered." if roster_match else outcome.get("message")),
             )
-        return render_template("waivers.html", title="Waiver and FAAB Center", context=context, meta=meta, waiver_decision=waiver_decision, waiver_market=waiver_market, waiver_universe=waiver_universe, waiver_universe_funnel=waiver_universe_funnel, recommendations=recommendations, preliminary_suggestions=preliminary_suggestions, monitor_candidates=monitor_candidates, health_excluded_diagnostics=pool_evidence["health_excluded_diagnostics"], waiver_candidate_outcomes=requested_outcomes, waiver_explain_player=requested_explanation_name, waiver_position_sections=manager_position_sections, waiver_more_available=manager_more_available, waiver_team_needs=team_needs, waiver_opportunity_status=waiver_opportunity_status, needs=needs, vacancies=vacancies, faab_budget=(meta.get("faab_balance") or {}).get("remaining"), faab_balance=meta.get("faab_balance") or {}, ranking_source=rankings, waiver_evidence=pool_evidence, opportunity_view=build_opportunity_view(current_app.config.get("OPPORTUNITY_EVIDENCE")), roster=roster, grades=grades, counts=counts, wda_roster=wda_roster, wda_candidates=client_wda_candidates, waiver_plan=waiver_plan, selected_player=selected_context, selected_focus=selected_focus, selected_result=selected_result, selected_comparisons=selected_comparisons, selected_screened_summary=selected_screened_summary, trending_evidence_state=trending_evidence.get("state"))
+        return render_template("waivers.html", title="Waiver and FAAB Center", context=context, meta=meta, waiver_decision=waiver_decision, waiver_market=waiver_market, waiver_universe=waiver_universe, waiver_universe_funnel=waiver_universe_funnel, recommendations=recommendations, preliminary_suggestions=preliminary_suggestions, monitor_candidates=monitor_candidates, health_excluded_diagnostics=pool_evidence["health_excluded_diagnostics"], waiver_candidate_outcomes=requested_outcomes, waiver_explain_player=requested_explanation_name, waiver_position_sections=manager_position_sections, waiver_more_available=manager_more_available, waiver_team_needs=team_needs, waiver_opportunity_status=waiver_opportunity_status, needs=needs, vacancies=vacancies, faab_budget=(meta.get("faab_balance") or {}).get("remaining"), faab_balance=meta.get("faab_balance") or {}, ranking_source=rankings, waiver_evidence=pool_evidence, opportunity_view=build_opportunity_view(current_app.config.get("OPPORTUNITY_EVIDENCE")), roster=roster, grades=grades, counts=counts, wda_roster=wda_roster, wda_candidates=client_wda_candidates, waiver_plan=waiver_plan, selected_player=selected_context, selected_focus=selected_focus, selected_result=selected_result, selected_comparisons=selected_comparisons, selected_screened_summary=selected_screened_summary, waiver_role=waiver_role, waiver_role_coverage=waiver_role_coverage, trending_evidence_state=trending_evidence.get("state"))
 
     @bp.route("/trades")
     def trades_page():

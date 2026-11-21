@@ -1476,7 +1476,7 @@ def waiver_route_week_evidence():
     return schedule, byes
 
 
-def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparison=False, candidate_health=None, include_missing_candidate=False, ranking_source_verified=False, extra_candidate_count=0, production_rows=None, faab_settings=None, consensus=None, request_method="GET", testing=True, selected_player_id=None, extra_rostered_player=None, selected_focus="all", extra_pool_candidates=(), explain_player=None, roster_positions=None, schedule_rows=(), bye_rows=(), catalog_records=None, other_roster_players=(), catalog_available=True, local_rows=(), league_overrides=None, roster_overrides=None, market_rows=None):
+def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparison=False, candidate_health=None, include_missing_candidate=False, ranking_source_verified=False, extra_candidate_count=0, production_rows=None, faab_settings=None, consensus=None, request_method="GET", testing=True, selected_player_id=None, extra_rostered_player=None, selected_focus="all", extra_pool_candidates=(), explain_player=None, roster_positions=None, schedule_rows=(), bye_rows=(), catalog_records=None, other_roster_players=(), catalog_available=True, local_rows=(), league_overrides=None, roster_overrides=None, market_rows=None, role_reads=None, extra_nflverse_ids=()):
     from flask import Flask
     import owner_operations
     catalog = {
@@ -1573,6 +1573,7 @@ def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparis
         "SELECT " + ", ".join(BYE_QUERY_COLUMNS) + " FROM bye_weeks": [tuple(row.get(column) for column in BYE_QUERY_COLUMNS) for row in bye_rows],
         "SELECT player_name, UPPER(position), nfl_team FROM players": [row[:3] for row in pool_rows],
         **({"FROM sleeper_api_snapshots": market_rows} if market_rows is not None else {}),
+        **(w6_role_markers(role_reads) if role_reads is not None else {}),
     })
     source_reads = {"league": 0, "users": 0, "rosters": 0, "catalog": 0}
 
@@ -1605,7 +1606,7 @@ def render_waiver_route(monkeypatch, *, rosters_available=True, disable_comparis
     app.config["WEEK_AUTHORITY_ACQUIRER"] = lambda season: build_sleeper_week_contract({"season": str(season), "week": 3}, season=season)
     app.config.update(
         TESTING=testing, SLEEPER_LEAGUE_ID="controlled",
-        NFLVERSE_PLAYER_METADATA=[{"gsis_id": "gsis-wr", "player_id": "gsis-wr"}, {"gsis_id": "gsis-owned", "player_id": "gsis-owned"}, *([{"gsis_id": extra_rostered_player["gsis_id"], "player_id": extra_rostered_player["gsis_id"]}] if extra_rostered_player and extra_rostered_player.get("gsis_id") else [])],
+        NFLVERSE_PLAYER_METADATA=[{"gsis_id": "gsis-wr", "player_id": "gsis-wr"}, {"gsis_id": "gsis-owned", "player_id": "gsis-owned"}, *([{"gsis_id": extra_rostered_player["gsis_id"], "player_id": extra_rostered_player["gsis_id"]}] if extra_rostered_player and extra_rostered_player.get("gsis_id") else []), *({"gsis_id": gsis, "player_id": gsis} for gsis in extra_nflverse_ids)],
         NFLVERSE_PLAYER_METADATA_LINEAGE={"source": "nflverse", "source_authority": "automated:nflverse", "artifact_id": "players", "version": "v1", "retrieved_at": COMPARISON_NOW, "coverage_state": "COMPLETE"},
     )
     app.register_blueprint(blueprint)
@@ -3746,3 +3747,204 @@ def test_w5_viewing_waivers_never_retrieves_or_stores_transaction_history(monkey
     assert [query for query in captured["executed_queries"] if "sleeper_api_snapshots" in query or "sleeper_sync_runs" in query] == [
         snapshots.HISTORY_QUERY, snapshots.LATEST_REFRESH_QUERY]
     assert captured["source_reads"] == {"league": 1, "users": 1, "rosters": 1, "catalog": 1}
+
+
+# W6: observed role and opportunity evidence on the /waivers route (informational only).
+
+W6_PROHIBITED = re.compile(r"opportunity score|role score|upside|usage grade|breakout|regression|buy low|sell high|must add|recommended bid|winning bid|"
+                           r"maximum bid|probability|will continue|projected|surge|significant", re.I)
+
+
+def w6_role_markers(role):
+    """Serve the W6 batch reads through the fake connection by query text, in each reader's column order."""
+    from owner_operations import SEASON_GAME_RESULT_KEYS
+    from services.player_opportunity_reader import COLUMNS as OPP_COLUMNS
+    from services.snap_share_reader import COLUMNS as SNAP_COLUMNS
+    return {
+        "FROM player_opportunity_evidence WHERE season = %s AND player_id = ANY": [tuple(row.get(column) for column in OPP_COLUMNS) for row in role.get("stats", [])],
+        "FROM player_opportunity_evidence WHERE season = %s GROUP BY": list(role.get("stats_coverage", [])),
+        "FROM snap_share_evidence WHERE season=%s AND player_id = ANY": [tuple(row.get(column) for column in SNAP_COLUMNS) for row in role.get("snaps", [])],
+        "FROM snap_share_evidence WHERE season=%s GROUP BY": list(role.get("snap_coverage", [])),
+        "SELECT week, home_team, away_team, game_time_utc, result": [tuple(row.get(key) for key in SEASON_GAME_RESULT_KEYS) for row in role.get("schedule", [])],
+    }
+
+
+def w6_role_reads(*, retrieved_hours_ago=1, values=None):
+    """Weeks 1-2 complete for all 32 teams and Week 3 in progress; stored observations for Steady Vet, Rookie Star and Bench WR."""
+    from services.team_codes import CANONICAL_TEAMS
+    now = datetime.now(timezone.utc)
+    retrieved = now - timedelta(hours=retrieved_hours_ago)
+    teams = sorted(CANONICAL_TEAMS)
+    schedule = [{"week": week, "home_team": home, "away_team": away, "game_time_utc": now - timedelta(days=7 * (3 - week)), "result": "7" if week < 3 else None,
+                 "source": "automated:nflverse-schedules:games.csv.gz:sha256:test", "source_recorded_at": retrieved, "retrieved_at": retrieved}
+                for week in (1, 2, 3) for home, away in zip(teams[0::2], teams[1::2])]
+    coverage = [(week, team, 3, retrieved, retrieved) for week in (1, 2) for team in teams]
+    values = values or {"gsis-vet": ("NYG", {1: (0.40, 3), 2: (0.62, 6)}), "gsis-new": ("PHI", {2: (0.30, 2)}), "gsis-bench": ("NYJ", {1: (0.70, 5), 2: (0.55, 3)})}
+    provenance = {"source": "automated:nflverse", "source_authority": "automated", "source_recorded_at": retrieved, "retrieved_at": retrieved, "checksum": "sha",
+                  "freshness_state": "FRESH", "completeness_state": "COMPLETE", "publication_state": "PUBLISHED"}
+    stats, snaps = [], []
+    for gsis, (team, weeks) in values.items():
+        for week, (share, targets) in weeks.items():
+            stats.append({**provenance, "season": 2026, "week": week, "player_id": gsis, "team": team, "position": "WR", "opponent_team": None, "targets": targets,
+                          "carries": 0, "fantasy_points_ppr": float(targets) * 2, "scoring_format": "FULL_PPR", "calculation_version": "full-ppr.v1",
+                          "artifact_id": "stats_player_week_2026", "version": "stats_player_week_2026", "freshness_threshold_id": "opportunity.evidence.v1", "lineage": {}})
+            snaps.append({**provenance, "season": 2026, "week": week, "player_id": gsis, "pfr_player_id": f"pfr-{gsis}", "team": team, "snap_share": share,
+                          "artifact_id": "snap_counts", "version": "snap_counts_2026", "freshness_threshold_id": "snap_share.evidence.v1",
+                          "lineage": json.dumps({"sample": {"participation_domain": "OFFENSE", "snap_count": str(round(share * 60)), "position": "WR"}})})
+    return {"stats": stats, "snaps": snaps, "stats_coverage": coverage, "snap_coverage": coverage, "schedule": schedule}
+
+
+_W6_WEEK_EVIDENCE = []
+
+
+def render_w6_route(monkeypatch, role="stored", roster_positions=("WR", "BN"), extra_catalog=None, **kwargs):
+    """The W5 scenario (ADD Steady Vet + DROP Bench WR) with exact GSIS identities so stored role observations can attach."""
+    import sys
+    monkeypatch.setenv("OPPORTUNITY_EVIDENCE_MAX_AGE_SECONDS", "86400")
+    monkeypatch.setenv("SNAP_SHARE_EVIDENCE_MAX_AGE_SECONDS", "86400")
+    # One kickoff fixture per session: renders compared with each other must not straddle a minute in the kickoff display text.
+    if not _W6_WEEK_EVIDENCE:
+        _W6_WEEK_EVIDENCE.append(waiver_route_week_evidence())
+    monkeypatch.setattr(sys.modules[__name__], "waiver_route_week_evidence", lambda: _W6_WEEK_EVIDENCE[0])
+    week = {"s-owned": (30, 25, 40), "s-new": (8, 4, 12), "s-vet": (15, 12, 18), "s-bench": (45, 40, 50)}
+    rest = {"s-owned": (12, 10, 14), "s-new": (52, 40, 64), "s-vet": (30, 26, 34), "s-bench": (60, 50, 70)}
+    catalog = {"s-new": sleeper_record("s-new", "Rookie Star", "WR", "PHI", gsis="gsis-new"), "s-vet": sleeper_record("s-vet", "Steady Vet", "WR", "NYG", gsis="gsis-vet"),
+               **(extra_catalog or {})}
+    return render_live_universe_route(
+        monkeypatch, roster_positions=list(roster_positions), catalog_records=catalog,
+        extra_rostered_player={"player_id": "s-bench", "player": "Bench WR", "position": "WR", "team": "NYJ", "gsis_id": "gsis-bench"},
+        consensus=ros_consensus("WR", week, rest), league_overrides=W5_LEAGUE, roster_overrides=W5_BUDGETS, market_rows=w5_market_rows(),
+        extra_nflverse_ids=("gsis-new", "gsis-vet"), role_reads=w6_role_reads() if role == "stored" else role, **kwargs)
+
+
+def w6_decision_view(captured):
+    """Everything W1-W5 decides, with the W5 market and the W6 role context removed from each move."""
+    decision = captured["waiver_decision"]
+    moves = [{key: value for key, value in move.items() if key not in ("role", "market")} for move in decision["moves"]]
+    sections = [[(option["candidate"]["player_id"], option["value"], option["ros_value"]) for option in section["options"]] for section in captured["waiver_position_sections"]]
+    funnel = {key: value for key, value in captured["waiver_universe_funnel"].items()}
+    return (moves, decision["verdict"], decision["depth_notes"], decision["positions"], decision["ros_value"], decision["replacement"], decision["decision_effect"],
+            decision["submits_transactions"], sections, [candidate["player_id"] for candidate in captured["preliminary_suggestions"]], funnel,
+            {key: value for key, value in captured["waiver_market"].items() if key != "generated_at"})
+
+
+def w6_text(html):
+    return " ".join(re.findall(r'<p class="(?:move|outcome|option)-(?:role|persistence|duration)">.*?</p>', html, re.S)) + html[html.index('id="waiver-role-coverage"'):html.index('id="waiver-universe-details"')]
+
+
+def test_w6_route_shows_role_after_drop_safety_without_changing_any_decision(monkeypatch):
+    import owner_operations
+
+    def render(role="stored", fail=False):
+        with monkeypatch.context() as patch:
+            if fail:
+                def broken(*args, **kwargs):
+                    raise RuntimeError("opportunity table unavailable")
+                patch.setattr(owner_operations, "read_opportunity_observations", broken)
+            response, captured = render_w6_route(patch, role=role)
+            return response, captured
+
+    response, captured = render()
+    html = response.get_data(as_text=True)
+    move = captured["waiver_decision"]["moves"][0]
+    assert response.status_code == 200 and (move["decision"], move["add"]["player_id"], move["drop"]["player_id"]) == ("ADD_DROP", "s-vet", "s-bench")
+    role = move["role"]
+    assert (role["state"], role["direction"], role["weeks"], role["sample_state"], role["recommendation_impact"]) == (
+        "CURRENT", "DIRECTION_UP", [1, 2], "LIMITED_HISTORY", "INFORMATIONAL_ONLY")
+    _, article = move_article(html)
+    lines = ["DROP SAFETY:</strong> SUPPORTED",
+             "ROLE / OPPORTUNITY:</strong> DIRECTION UP — snap share 40% → 62% (up); targets 3 → 6 (up) (Weeks 1, 2; 2 supported completed games).",
+             "OBSERVED PERSISTENCE:</strong> DURATION UNVERIFIED — The change appears across only 2 supported completed games (one change), so it has not been "
+             "observed to hold.",
+             "FUTURE DURATION:</strong> UNVERIFIED — No supported forward-looking evidence establishes how long this role will last",
+             "Role evidence by game (2) · informational only", "EVIDENCE:</strong>", "FAAB:</strong> Value-based bid unavailable.", "LEAGUE MARKET:</strong>",
+             "BACKUP:</strong>"]
+    positions = [article.index(line) for line in lines]
+    assert positions == sorted(positions)
+    assert "Week 2 · NYG: 62% snaps (37 offensive snaps) · 6 targets · 12.0 Full-PPR points" in article and not re.search(r"<details[^>]*\bopen\b", article)
+    assert not W6_PROHIBITED.search(w6_text(html))
+    _, no_role = render(role=None)
+    failed_response, failed = render(fail=True)
+    assert w6_decision_view(captured) == w6_decision_view(no_role) == w6_decision_view(failed)
+    assert (no_role["waiver_decision"]["moves"][0]["role"]["state"], failed["waiver_decision"]["moves"][0]["role"]["state"]) == ("NO_EVIDENCE", "BLOCKED")
+    _, failed_article = move_article(failed_response.get_data(as_text=True))
+    assert "ROLE / OPPORTUNITY:</strong> BLOCKED — Stored role evidence could not be read for this page view.</p>" in failed_article
+    assert move["faab"] == {"state": "UNSUPPORTED", "label": "Advanced FAAB valuation is not yet supported."}
+
+
+def test_w6_position_cards_lookup_and_coverage_show_role_evidence_without_changing_availability(monkeypatch):
+    response, captured = render_w6_route(monkeypatch, explain_player="Bench WR")
+    html = response.get_data(as_text=True)
+    wr = next(section for section in captured["waiver_position_sections"] if section["position"] == "WR")
+    assert [option["candidate"]["player_id"] for option in wr["options"]][:2] == ["s-new", "s-vet"]
+    assert wr["options"][0]["role"]["direction"] == "CURRENT_ROLE_ONLY"
+    assert ("ROLE / OPPORTUNITY:</strong> CURRENT ROLE ONLY — snap share 30%; targets 2 (Week 2; one supported completed game, so no trend is shown). "
+            "Informational only; it does not change this order.") in html
+    lookup = html.split('id="waiver-player-outcomes"')[1]
+    [outcome] = captured["waiver_candidate_outcomes"]
+    assert outcome["details"]["ownership"] == "ROSTERED" and outcome["details"]["role"]["direction"] == "DIRECTION_DOWN"
+    assert ("ROLE / OPPORTUNITY:</strong> DIRECTION DOWN — snap share 70% → 55% (down); targets 5 → 3 (down) (Weeks 1, 2; 2 supported completed games).") in lookup
+    assert "OBSERVED PERSISTENCE:</strong> DURATION UNVERIFIED" in lookup and "FUTURE DURATION:</strong> UNVERIFIED" in lookup
+    assert lookup.index("DROP STATUS:</strong>") < lookup.index("ROLE / OPPORTUNITY:</strong>")
+    coverage = captured["waiver_role_coverage"]
+    assert coverage["denominator"] == captured["waiver_universe_funnel"]["published"] and coverage["through_week"] == 2
+    assert coverage["positions"]["WR"]["current"] == 2 and coverage["positions"]["WR"]["population"] == captured["waiver_universe_funnel"]["published"]
+    section = html[html.index('id="waiver-role-coverage"'):html.index('id="waiver-universe-details"')]
+    assert (f"ROLE EVIDENCE (informational):</strong> completed games verified through Week 2. Current role evidence: QB 0/0 · RB 0/0 · WR 2/"
+            f"{coverage['positions']['WR']['population']} · TE 0/0 candidates · K and DEF not applicable (0). Missing role evidence does not mean a poor player.") in section
+    assert "Refresh with <code>python refresh_opportunity_evidence.py</code> after games are final; viewing this page never fetches or stores it." in section
+    assert html.index('id="waiver-priority-moves"') < html.index('id="waiver-role-coverage"') < html.index('id="waiver-player-lookup"') < html.index('id="waiver-diagnostics"')
+    vet_html = render_w6_route(monkeypatch, explain_player="Steady Vet")[0].get_data(as_text=True)
+    plain_html = render_w6_route(monkeypatch, role=None, explain_player="Steady Vet")[0].get_data(as_text=True)
+    vet_lookup, plain_lookup = (page.split('id="waiver-player-outcomes"')[1] for page in (vet_html, plain_html))
+    assert "ROLE / OPPORTUNITY:</strong> DIRECTION UP" in vet_lookup
+    for marker in ("outcome-state", "Ownership:", "CURRENT WEEK:</strong>", "REST OF SEASON:</strong>"):
+        assert vet_lookup[vet_lookup.index(marker):vet_lookup.index("</p>", vet_lookup.index(marker))] == plain_lookup[plain_lookup.index(marker):plain_lookup.index("</p>", plain_lookup.index(marker))]
+
+
+def test_w6_stale_role_evidence_is_labelled_historical_and_never_current(monkeypatch):
+    response, captured = render_w6_route(monkeypatch, role=w6_role_reads(retrieved_hours_ago=72))
+    html = response.get_data(as_text=True)
+    role = captured["waiver_decision"]["moves"][0]["role"]
+    assert (role["state"], role["direction"], captured["waiver_role_coverage"]["currency"]) == ("HISTORICAL_ONLY", "INSUFFICIENT_EVIDENCE", "HISTORICAL")
+    _, article = move_article(html)
+    assert "ROLE / OPPORTUNITY:</strong> HISTORICAL ONLY — Stored role evidence for this player ends at Week 2 and the stored sources are not verified as current" in article
+    assert "DIRECTION UP" not in article and "OBSERVED PERSISTENCE:</strong> DURATION UNVERIFIED" in article
+    assert "ROLE EVIDENCE (informational):</strong> no stored source is current, so no current role evidence is shown." in html
+
+
+def test_w6_kickers_and_defenses_show_not_applicable(monkeypatch):
+    response, captured = render_w6_route(monkeypatch, roster_positions=("WR", "K", "BN"), extra_catalog={"s-k": sleeper_record("s-k", "Avail Kicker", "K", "SEA")},
+                                         explain_player="Avail Kicker")
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200 and captured["waiver_role_coverage"]["positions"]["K"] == {
+        "population": 1, "current": 0, "historical_only": 0, "no_evidence": 0, "identity_unresolved": 0, "contradictory": 0, "blocked": 0, "not_applicable": 1}
+    lookup = html.split('id="waiver-player-outcomes"')[1]
+    outcome = lookup[lookup.index("Avail Kicker"):]
+    outcome = outcome[:outcome.index("</article>")]
+    assert "ROLE / OPPORTUNITY:</strong> NOT APPLICABLE — No individual offensive-role contract exists for kickers.</p>" in outcome
+    assert "OBSERVED PERSISTENCE" not in outcome and "FUTURE DURATION" not in outcome
+    for move in captured["waiver_decision"]["moves"]:
+        if move["position"] in ("K", "DEF"):
+            assert move["role"]["state"] == "NOT_APPLICABLE"
+
+
+def test_w6_viewing_waivers_reads_role_evidence_in_batches_and_never_fetches_or_writes(monkeypatch):
+    import imports.import_nflverse_opportunity as opportunity_import
+    import imports.import_nflverse_snap_counts as snap_import
+    import refresh_opportunity_evidence
+    import services.player_opportunity_publication as opportunity_publication
+    import services.snap_share_publication as snap_publication
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("viewing /waivers attempted to fetch or publish role evidence")
+    for module, name in ((opportunity_import, "build_evidence"), (snap_import, "build_snap_share_evidence"), (snap_import, "build_pfr_to_gsis_crosswalk"),
+                         (opportunity_publication, "publish_player_opportunity"), (snap_publication, "publish_snap_share"),
+                         (refresh_opportunity_evidence, "refresh_opportunity_evidence")):
+        monkeypatch.setattr(module, name, forbidden)
+    response, captured = render_w6_route(monkeypatch)
+    assert response.status_code == 200 and captured["waiver_decision"]["moves"][0]["role"]["state"] == "CURRENT"
+    queries = captured["executed_queries"]
+    assert all(query.lstrip().upper().startswith("SELECT") for query in queries)
+    w6_queries = [query for query in queries if "player_opportunity_evidence" in query or "snap_share_evidence" in query or "SELECT week, home_team" in query]
+    assert len(w6_queries) == 5 and sum("player_id = ANY" in query for query in w6_queries) == 2
