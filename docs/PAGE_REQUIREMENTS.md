@@ -108,6 +108,8 @@ The primary measure of progress is improved fantasy-football decision quality fo
 - Recommend a drop only at the same position, when fresh rest-of-season consensus ranks the candidate ahead with non-overlapping expert ranges (CLEAR ROS EDGE), the dropped player is neither protected nor locked, and every starting slot, including FLEX, can still be filled after the move and after higher-priority moves. A close rest-of-season call stays MONITOR or HOLD.
 - Show positional replacement context (how many comparable healthy, addable players remain available) as information only.
 - Show league FAAB market history from stored Sleeper transaction weeks (completed and failed claims, contested and uncontested claims, exact-player and same-position samples with N, and current team budgets) as descriptive evidence. It never changes a move and is not a recommended bid.
+- Show observed completed-game role and opportunity evidence for current candidates and the manager's roster: offensive snap share, targets, and carries per completed game, linked only by exact GSIS identity, with byes and missing games disclosed and never shown as zeros. Label it HISTORICAL ONLY when the stored sources are not current, and NOT APPLICABLE for K and DEF.
+- Show an informational role direction (DIRECTION UP, DIRECTION DOWN, FLAT, MIXED, or CURRENT ROLE ONLY), observed multi-game persistence, and a separate FUTURE DURATION shown as UNVERIFIED. Role evidence never changes candidate ordering, a move, drop safety, FAAB evidence, confidence, or recommendation authority.
 
 ### Recommendation vocabulary
 
@@ -120,7 +122,9 @@ The primary measure of progress is improved fantasy-football decision quality fo
 Stale ECR blocks ranking. Missing ECR produces **UNRANKED**; it does not mean the candidate is worse than another unranked player. Historical production and historical usage are informational only and do not create or replace a rank. Provisional guardrails are not winning bids. Winning-bid estimation and player-value-to-FAAB conversion are unavailable.
 
 ### Future requirements—not current behavior
-- Current role, opportunity trend, and expected duration of value as informational evidence, and any role-duration or opportunity-driven ranking.
+- Forward-looking expected duration of value; observed persistence does not establish how long a role will last.
+- Calibrated opportunity materiality; role direction is only the sign of change, with no magnitude threshold.
+- Role- or opportunity-driven ranking, including any integrated player-value score that uses role evidence.
 - Player-value scoring or other ranking based on team need, schedule, or replacement value.
 - Cross-position drop recommendations; supported drops are same-position only.
 - Winning-bid estimation and player-value-to-FAAB conversion.

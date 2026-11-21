@@ -159,6 +159,45 @@ Multi-source corroboration does not authorize a metric by itself. For every metr
 - Coverage: only weeks proven closed or final by later-week Sleeper transactions count; see League Transaction History in `DATA_FRESHNESS_POLICY.md`.
 - Decision use: descriptive only. It never changes an ADD, DROP, MONITOR, HOLD, or PASS decision and never produces a bid amount, bid range, winning estimate, probability, or demand score.
 
+## Waiver Role and Opportunity Evidence (W6)
+
+- Contracts: `waiver.opportunity_observation.v1` (one player's completed game as the stored sources recorded it), `waiver.opportunity_trend.v1` (direction across games), and `waiver.role_persistence.v1` (whether an observed change held). Owner: `services/waiver_role_evidence.py`, reading through `read_opportunity_observations` (`services/player_opportunity_reader.py`) and `read_snap_share_observations` (`services/snap_share_reader.py`). Tests: `tests/test_waiver_role_evidence.py` and the W6 route tests in `tests/test_waiver_availability.py`.
+- Authority: `PRELIMINARY`; recommendation impact `INFORMATIONAL_ONLY`; `decision_effect = NONE`. Under W6 no opportunity metric can alter waiver rank, ADD/DROP, drop safety, rest-of-season materiality, replacement context, confidence, or FAAB, and none produces a score, forecast, bid, or breakout label.
+- Identity and scope: players link only through the Waivers route's existing exact GSIS identity; names never match. Metrics by position: QB snap share and carries; RB snap share, carries, and targets; WR and TE snap share and targets. K and DEF are NOT APPLICABLE.
+- **Offensive snap share**
+  - Purpose: how much of the offense the player was on the field for; participation, not player value.
+  - Scale/unit: the provider's 0-1 ratio of the team's offensive snaps in one completed game, shown as a percent, with the offensive snap count when stored.
+  - Inputs: nflverse `snap_counts` `offense_pct` (Pro Football Reference), joined to GSIS through the nflverse players release and stored in `snap_share_evidence`.
+  - Directionality: higher means more of the offense on the field; it does not mean a better player.
+  - Freshness: `snap_share.evidence.v1`, measured from `retrieved_at` (see `DATA_FRESHNESS_POLICY.md`).
+  - Missing data: no snap row means participation is unknown, never 0; a stored 0 stays 0. Non-offensive participation and non-finite or out-of-range values are INVALID, never zero.
+  - Decision use: `INFORMATIONAL_ONLY`.
+- **Targets**
+  - Purpose: how many passes were thrown to the player.
+  - Scale/unit: whole-number count per completed game.
+  - Inputs: nflverse `stats_player_week` `targets`, stored by GSIS ID in `player_opportunity_evidence`.
+  - Directionality: higher means more passes thrown to the player.
+  - Freshness: `opportunity.evidence.v1`, measured from `retrieved_at`.
+  - Missing data: no stats row means unavailable for that game (the source lists only players credited with a statistic), never 0; a stored 0 stays 0; negative, fractional, or non-finite values are INVALID.
+  - Decision use: `INFORMATIONAL_ONLY`.
+- **Carries**
+  - Purpose: how many times the player ran the ball.
+  - Scale/unit: rushing attempts per completed game as published by nflverse (designed runs are not separated).
+  - Inputs: nflverse `stats_player_week` `carries`, stored in `player_opportunity_evidence`.
+  - Directionality: higher means more rushing attempts.
+  - Freshness: `opportunity.evidence.v1`, measured from `retrieved_at`.
+  - Missing data: as for targets.
+  - Decision use: `INFORMATIONAL_ONLY`.
+- Completed games: an observation counts only when the automated schedule marks that game final. An incomplete game, including the current week's, is excluded and disclosed; rows for a later week or another season are rejected.
+- Direction (`waiver.opportunity_trend.v1`): over the player's latest supported completed games (up to 3), a metric is up when it never falls and rises at least once, down when it never rises and falls at least once, mixed when it does both, and unchanged otherwise. The result is DIRECTION UP, DIRECTION DOWN, FLAT, MIXED (both directions, or metrics disagree), CURRENT ROLE ONLY (one supported game), or INSUFFICIENT EVIDENCE. Direction is the sign of change, not its size; no magnitude threshold exists, so a direction never means a significant change. A player is compared only with himself, never ranked against others.
+- Sample: NO EVIDENCE (0 supported games), CURRENT ROLE ONLY (1), LIMITED HISTORY (2), or MULTI-GAME HISTORY (3).
+- Gaps: a bye is shown as a bye, and a week without a stored row as no stored row (did not play, inactive, or not recorded; the source does not say which). Neither is a zero or a decline. A player with no supported row in 3 or more completed non-bye weeks since his last supported game is HISTORICAL ONLY.
+- Observed persistence (`waiver.role_persistence.v1`): PERSISTED ACROSS OBSERVED GAMES when an up or down change held in every later game of a 3-game window for each moving metric, or an unchanged role held across 3 games; otherwise DURATION UNVERIFIED. It looks back only. TEMPORARY_ROLE_RISK is reserved and never produced because no stored source verifies a teammate's absence or return.
+- Future duration: always UNVERIFIED (NOT APPLICABLE for K and DEF). Observed persistence is not future duration.
+- Production: Full-PPR points for the same games (`FULL_PPR` rows only) are shown beside the role and never blended into direction or persistence; any comparison sentence is descriptive only.
+- Result states: CURRENT, HISTORICAL ONLY, NO EVIDENCE, UNAVAILABLE (no exact GSIS identity), CONTRADICTORY (conflicting identity, team, or duplicate rows, never averaged), BLOCKED, and NOT APPLICABLE; other teams' players in the lookup are NOT EVALUATED. Missing role evidence does not mean a poor player. The coverage summary counts these states by position against the published candidate population.
+- Not supported (not in the stored sources): route participation, target share and rush share against provider team totals, red-zone and goal-line usage, air yards, and pass attempts or dropbacks.
+
 ## Confidence
 
 - Purpose: Express evidence certainty, not player quality.
