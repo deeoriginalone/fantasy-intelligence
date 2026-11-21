@@ -1,0 +1,13 @@
+[Unit]
+Description=Refresh W6 opportunity and snap-share evidence every six hours, after the schedule refresh
+[Timer]
+# Pacific times, 30 minutes after each nflverse-schedule-refresh run (00,06,12,18:00), so the completed-week boundary is current.
+# Four attempts a day keep stored evidence inside its 24-hour freshness limit through three consecutive failed attempts, and pick up
+# a newly completed week within six hours of nflverse publishing it (stats_player is rebuilt after each game window; snap_counts is
+# checked every six hours). A run that cannot reacquire a source changes nothing and never renews freshness.
+OnCalendar=*-*-* 00,06,12,18:30:00 America/Los_Angeles
+# Persistent: a run missed while the machine was off fires at the next start.
+Persistent=true
+RandomizedDelaySec=0
+[Install]
+WantedBy=timers.target

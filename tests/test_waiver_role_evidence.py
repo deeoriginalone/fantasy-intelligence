@@ -513,22 +513,29 @@ def test_refresh_publishes_only_completed_weeks_and_reports_each_source():
             calls.append((name, season, through_week))
             if fail:
                 raise RuntimeError("nflverse unavailable")
-            evidence = {"weeks": list(weeks), "rows": [{}] * 3, "provenance": {"retrieved_at": "now"}, "reconciliation": {"reconciled": True}}
+            evidence = {"weeks": list(weeks), "rows": [{}] * 3, "provenance": {"retrieved_at": "now", "checksum": "sha"}, "reconciliation": {"reconciled": True}}
             return evidence, (lambda evidence: None), (lambda connection, evidence: calls.append((name, "published")) or 3)
         return run
 
+    def current(connection, season, through_week, rows, environ):
+        return {key: {"currency": "CURRENT"} for key in ("stats_player_week", "snap_counts")}
+
+    fakes = {"environ": {}, "stored": lambda connection, season: {}, "evaluate": current}
     connection = ScheduleConnection(schedule())
-    result = refresh_opportunity_evidence(connection, season=2026, environ={}, steps=(("stats_player_week", step("stats")), ("snap_counts", step("snaps"))))
-    assert (result["status"], result["through_week"]) == ("success", 4)
+    result = refresh_opportunity_evidence(connection, season=2026, steps=(("stats_player_week", step("stats")), ("snap_counts", step("snaps"))), **fakes)
+    assert (result["status"], result["exit_code"], result["through_week"]) == ("success", 0, 4)
     assert calls == [("stats", 2026, 4), ("stats", "published"), ("snaps", 2026, 4), ("snaps", "published")]
     calls.clear()
-    dry = refresh_opportunity_evidence(connection, season=2026, dry_run=True, environ={}, steps=(("stats_player_week", step("stats")),))
+    dry = refresh_opportunity_evidence(connection, season=2026, dry_run=True, steps=(("stats_player_week", step("stats")),), **fakes)
     assert dry["sources"]["stats_player_week"]["state"] == "DRY_RUN" and ("stats", "published") not in calls
     calls.clear()
-    partial = refresh_opportunity_evidence(connection, season=2026, environ={}, steps=(("stats_player_week", step("stats", fail=True)), ("snap_counts", step("snaps"))))
-    assert partial["status"] == "partial" and partial["sources"]["stats_player_week"] == {"state": "FAILED", "error": "RuntimeError: nflverse unavailable"}
+    partial = refresh_opportunity_evidence(connection, season=2026, steps=(("stats_player_week", step("stats", fail=True)), ("snap_counts", step("snaps"))), **fakes)
+    failed = partial["sources"]["stats_player_week"]
+    assert (partial["status"], partial["exit_code"]) == ("partial", 2)
+    assert (failed["state"], failed["stage"], failed["error"], failed["prior_evidence"]) == ("FAILED", "acquisition", "RuntimeError: nflverse unavailable", "RETAINED")
     assert ("stats", "published") not in calls and ("snaps", "published") in calls
-    beyond = refresh_opportunity_evidence(connection, season=2026, environ={}, steps=(("snap_counts", step("snaps", weeks=(1, 5))),))
-    assert beyond["status"] == "failed" and "after the completed Week 4" in beyond["sources"]["snap_counts"]["error"]
-    nothing = refresh_opportunity_evidence(ScheduleConnection(schedule(completed=0, final_current=())), season=2026, environ={}, steps=())
-    assert (nothing["status"], nothing["through_week"]) == ("failed", None) and "No 2026 week is complete" in nothing["error"]
+    beyond = refresh_opportunity_evidence(connection, season=2026, steps=(("snap_counts", step("snaps", weeks=(1, 5))),), **fakes)
+    assert beyond["status"] == "failed" and beyond["sources"]["snap_counts"]["stage"] == "validation"
+    assert "after the completed Week 4" in beyond["sources"]["snap_counts"]["error"]
+    nothing = refresh_opportunity_evidence(ScheduleConnection(schedule(completed=0, final_current=())), season=2026, steps=(), **fakes)
+    assert (nothing["status"], nothing["exit_code"], nothing["through_week"]) == ("no_completed_week", 0, None) and "No 2026 week is complete" in nothing["message"]
