@@ -83,6 +83,7 @@ tests/test_integrity_freshness.py
 tests/test_draft_operations_hardening.py
 tests/test_dynastyprocess_identity_source.py
 tests/test_nflverse_defense_matchups.py
+tests/test_opportunity_evidence_refresh.py
 tests/test_active_week_degraded_routes.py
 tests/test_ux_evidence.py
 tests/test_survivor_persistence_contract.py
@@ -147,7 +148,7 @@ platform linux -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
 rootdir: /home/deeoriginalone/fantasy-intelligence
 configfile: pytest.ini
 testpaths: tests
-collected 114 items / 115 errors
+collected 114 items / 116 errors
 
 <Dir fantasy-intelligence>
   <Dir tests>
@@ -917,6 +918,16 @@ Traceback:
 tests/test_opportunity_evidence.py:1: in <module>
     from services.opportunity_evidence import DECISION_CENTER_PANELS, METRICS, OPPORTUNITY_TOUCH_SOURCE_FEASIBILITY, build_decision_center, build_market_value_evidence, build_opportunity_evidence, build_opportunity_evidence_contract, build_opportunity_foundation, build_opportunity_trend, build_opportunity_classification, build_opportunity_duration, build_preliminary_opportunity_comparison, build_role_classification, build_what_changed, build_what_changed_contract, classify_market_signal, classify_opportunity_trend, classify_trade_opportunity
 E   ModuleNotFoundError: No module named 'services'
+_________ ERROR collecting tests/test_opportunity_evidence_refresh.py __________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_opportunity_evidence_refresh.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_opportunity_evidence_refresh.py:16: in <module>
+    import refresh_opportunity_evidence as refresh_module
+E   ModuleNotFoundError: No module named 'refresh_opportunity_evidence'
 _____________ ERROR collecting tests/test_phase_f2_integration.py ______________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_phase_f2_integration.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -1501,6 +1512,7 @@ ERROR tests/test_no_csv_live_weekly_fallback.py
 ERROR tests/test_opportunity_consumer_contract.py
 ERROR tests/test_opportunity_context.py
 ERROR tests/test_opportunity_evidence.py
+ERROR tests/test_opportunity_evidence_refresh.py
 ERROR tests/test_phase_f2_integration.py
 ERROR tests/test_phase_f_draft_sandbox.py
 ERROR tests/test_player_opportunity_calculation.py
@@ -1553,5 +1565,5 @@ ERROR tests/test_weekly_evidence_trust_contract.py
 ERROR tests/test_weekly_lineup_intelligence.py
 ERROR tests/test_yahoo_oauth.py
 ERROR tests/test_yahoo_pickem.py
-!!!!!!!!!!!!!!!!!! Interrupted: 115 errors during collection !!!!!!!!!!!!!!!!!!!
-=================== 114 tests collected, 115 errors in 6.63s ===================
+!!!!!!!!!!!!!!!!!! Interrupted: 116 errors during collection !!!!!!!!!!!!!!!!!!!
+=================== 114 tests collected, 116 errors in 6.06s ===================

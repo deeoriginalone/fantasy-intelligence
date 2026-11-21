@@ -1,9 +1,9 @@
 # Canonical Memory Sync Validation
 
-- Generated UTC: `2026-11-21T01:08:43.570592+00:00`
+- Generated UTC: `2026-11-21T03:04:14.398758+00:00`
 - Result: `PASS`
 - Current branch: `test-weekly-evidence-trust`
-- Current HEAD: `4212a92d4cffe3605724d35370c65437dbd7e4c6`
+- Current HEAD: `754ed0c5f78f3b485e38fb0cc82dbc288d1a05e7`
 
 ## Checks
 
@@ -23,7 +23,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**`
+- Next milestone: `**automate the w5 league transaction-history refresh so faab market evidence on waivers stays complete through the latest closed waiver week without manual intervention, while preserving closed-week completeness rules, failed-week retention, descriptive-only market authority, and read-only waivers.**`
 
 ### PROJECT_STATE.md
 
@@ -31,7 +31,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**`
+- Next milestone: `**automate the w5 league transaction-history refresh so faab market evidence on waivers stays complete through the latest closed waiver week without manual intervention, while preserving closed-week completeness rules, failed-week retention, descriptive-only market authority, and read-only waivers.**`
 
 ### DEVELOPMENT_ROADMAP.md
 
@@ -39,7 +39,7 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**`
+- Next milestone: `**automate the w5 league transaction-history refresh so faab market evidence on waivers stays complete through the latest closed waiver week without manual intervention, while preserving closed-week completeness rules, failed-week retention, descriptive-only market authority, and read-only waivers.**`
 
 ### NEXT_SESSION_HANDOFF.md
 
@@ -47,8 +47,8 @@
 - Nonempty: `YES`
 - Branch present: `YES`
 - HEAD present: `YES`
-- Next milestone: `**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**`
+- Next milestone: `**automate the w5 league transaction-history refresh so faab market evidence on waivers stays complete through the latest closed waiver week without manual intervention, while preserving closed-week completeness rules, failed-week retention, descriptive-only market authority, and read-only waivers.**`
 
 ## Extracted Milestones
 
-- `**automate w6 opportunity-evidence refresh so completed-game role evidence stays current without manual intervention while preserving exact identity, completed-game boundaries, freshness, fail-closed behavior, informational_only authority, and read-only waivers.**`
+- `**automate the w5 league transaction-history refresh so faab market evidence on waivers stays complete through the latest closed waiver week without manual intervention, while preserving closed-week completeness rules, failed-week retention, descriptive-only market authority, and read-only waivers.**`
