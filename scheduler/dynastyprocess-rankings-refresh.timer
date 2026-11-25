@@ -1,0 +1,19 @@
+[Unit]
+Description=Refresh DynastyProcess consensus rankings for Waivers every six hours, after each upstream scrape window
+[Timer]
+# UTC, because everything this freshness depends on is UTC: DynastyProcess commits fp_latest_weekly.csv twice a day from scheduled
+# GitHub workflows (observed 2026-10-31 to 2026-11-20: 08:14-10:28 and 18:09-23:17 UTC), and the weekly scrape_date is a UTC day
+# that the ranking service reads as midnight UTC with a 48-hour limit (fresh through 00:00:00 UTC two days later). 11:40 follows
+# the morning scrape and 23:40 the evening scrape before the date rolls over; 17:40 and 05:40 retry each. With a morning scrape,
+# ranks stay fresh unless all three runs after it that day fail; six-hour gaps give eight attempts in every 48-hour window.
+# Pacific equivalents: 03:40, 09:40, 15:40 and 21:40 PST (UTC-8), or 04:40, 10:40, 16:40 and 22:40 PDT (UTC-7). A six-hour
+# America/Los_Angeles schedule would shift an hour against the UTC scrape windows at each DST change and, in PDT, lose the run
+# between the latest evening scrape and the UTC date rollover.
+# Each run forces a reacquisition, so the six-hour on-use refresh guard never skips it; reacquiring an unchanged or old file renews
+# only the retrieval time, never source freshness.
+OnCalendar=*-*-* 05,11,17,23:40:00 UTC
+# Persistent: a run missed while the machine was off fires at the next start.
+Persistent=true
+RandomizedDelaySec=0
+[Install]
+WantedBy=timers.target

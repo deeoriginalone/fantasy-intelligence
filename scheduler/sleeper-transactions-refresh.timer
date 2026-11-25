@@ -1,0 +1,18 @@
+[Unit]
+Description=Refresh W5 league transaction history after each weekly Sleeper waiver run
+[Timer]
+# Pacific times from this league's settings (FAAB, weekly waivers: daily_waivers 0, waiver_clear_days 2) and its stored 2026
+# transactions: every weekly waiver run processed Wednesday 00:10-00:12 and opened the next transaction week, and the first
+# transaction of each new week, which proves the previous week closed, appeared by 06:05 in all ten weeks.
+# Wednesday 06:30 verifies the newly closed week; Wednesday 18:30 retries the same day after a failed run or a later first transaction.
+OnCalendar=Wed *-*-* 06:30:00 America/Los_Angeles
+OnCalendar=Wed *-*-* 18:30:00 America/Los_Angeles
+# A claim on a player dropped in the two days before the waiver run still processes after that run, in the closed week (observed
+# Wednesday 12:21 and Thursday 07:41, 47 hours after each drop); Friday 06:30 is after the last such claim can process.
+OnCalendar=Fri *-*-* 06:30:00 America/Los_Angeles
+# Persistent: a run missed while the machine was off fires at the next start. Any run is safe to repeat: each week is one stored
+# row, replaced only by a successful retrieval.
+Persistent=true
+RandomizedDelaySec=0
+[Install]
+WantedBy=timers.target

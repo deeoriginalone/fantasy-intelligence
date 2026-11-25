@@ -265,6 +265,19 @@ def test_redownloading_an_old_ros_source_renews_retrieval_but_not_freshness(tmp_
     assert (summary["state"], summary["source_date"], summary["retrieved_at"], value["evidence_state"]) == ("STALE", "2026-10-02", later.isoformat(), "STALE")
 
 
+def test_weekly_freshness_boundary_is_48_hours_from_the_upstream_source_date_never_the_retrieval_time():
+    data = snapshot()
+    # A Monday-night kickoff keeps every evaluation below before the game, so only the source-age limit decides.
+    data["artifacts"]["fp_latest_weekly.csv"]["rows"][0]["player_game_kickoff_ts"] = str(datetime(2026, 10, 6, 0, 15, tzinfo=timezone.utc).timestamp())
+    published = datetime(2026, 10, 3, tzinfo=timezone.utc)
+    for offset, state in ((timedelta(hours=47, minutes=59), "FRESH"), (timedelta(hours=48), "FRESH"), (timedelta(hours=48, seconds=1), "STALE")):
+        evaluated_at = published + offset
+        # A download at the evaluation moment never renews the scrape date's age.
+        horizon = evaluate({**data, "last_successful_refresh": evaluated_at.isoformat()}, STATE, evaluated_at)["horizons"]["this_week"]
+        assert (horizon["freshness_state"], horizon["latest_source_age_seconds"]) == (state, int(offset.total_seconds()))
+        assert ("s-1" in horizon["ranks"]) is (state == "FRESH")
+
+
 def test_ros_freshness_boundary_is_seven_days_from_the_upstream_source_date():
     published = datetime(2026, 10, 2, tzinfo=timezone.utc)
     at_limit = evaluate(snapshot(), STATE, published + timedelta(days=7))
@@ -294,6 +307,19 @@ def test_weekly_overall_and_unsupported_pages_never_become_ros_ranks(page):
     moved["artifacts"]["db_fpecr_latest.csv"]["rows"] = []
     horizons = evaluate(moved, STATE, NOW)["horizons"]
     assert horizons["rest_of_season"]["ranks"] == {} and horizons["this_week"]["ranks"]["s-1"]["ecr"] == 12.5
+
+
+@pytest.mark.parametrize("page", ["/nfl/rankings/ppr-wr.php", "/nfl/rankings/dynasty-wr.php"])
+def test_draft_and_dynasty_ranks_published_beside_ros_never_substitute_for_either_horizon(page):
+    # The upstream ROS artifact also carries draft (ppr-wr.php) and dynasty pages. With no weekly row and only a stale ROS row, a fresh
+    # draft or dynasty rank for the same player supplies no rank to either horizon and never renews the ROS source date.
+    data = snapshot()
+    data["artifacts"]["fp_latest_weekly.csv"]["rows"] = []
+    stale = {**data["artifacts"]["db_fpecr_latest.csv"]["rows"][0], "scrape_date": "2026-09-20"}
+    data["artifacts"]["db_fpecr_latest.csv"]["rows"] = [stale, {"fp_page": page, "id": "fp-1", "ecr": "3", "scrape_date": "2026-10-03"}]
+    week, ros = (evaluate(data, STATE, NOW)["horizons"][horizon] for horizon in ("this_week", "rest_of_season"))
+    assert (week["ranks"], week["state"], week["freshness_state"]) == ({}, "UNAVAILABLE", "UNAVAILABLE")
+    assert (ros["ranks"], ros["freshness_state"], ros["latest_source_date"], ros["reconciliation"]["supported_scope_rows"]) == ({}, "STALE", "2026-09-20", 1)
 
 
 @pytest.mark.parametrize("ecr", ["NaN", "inf", "-3", "abc"])

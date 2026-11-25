@@ -1,0 +1,11 @@
+[Unit]
+Description=Fantasy Intelligence W5 league transaction-history refresh
+# Keeps the stored Sleeper transaction weeks that the /waivers FAAB market history reads current by running the existing explicit
+# refresh; the page itself only reads stored rows. A week that fails keeps its prior snapshot and retrieval time. The run reports
+# W5's own closure verdict for every week: a failed week or a closed week not yet verified exits nonzero, so systemd records the
+# run as failed and the journal keeps the JSON result. The command loads the repository .env itself.
+[Service]
+Type=oneshot
+WorkingDirectory=/home/deeoriginalone/fantasy-intelligence
+ExecStart=/home/deeoriginalone/fantasy-intelligence/venv/bin/python /home/deeoriginalone/fantasy-intelligence/refresh_sleeper_transactions.py
+TimeoutStartSec=15min

@@ -1,0 +1,12 @@
+[Unit]
+Description=Fantasy Intelligence DynastyProcess consensus ranking refresh (current-week and rest-of-season ECR for Waivers)
+# Keeps the shared ranking cache that /waivers and My Team read (instance/dynastyprocess-rankings.json) on the newest upstream
+# DynastyProcess release by running the explicit refresh command, so fresh current-week ECR no longer waits for a My Team visit or
+# the Refresh Waiver Intelligence button. The command reuses the existing ranking service: freshness stays governed by each
+# artifact's scrape_date, a failed acquisition keeps the previous release, and GET /waivers still only reads the cache. A failed or
+# partial run exits nonzero, so systemd records the run as failed and the journal keeps the JSON result. No credentials are needed.
+[Service]
+Type=oneshot
+WorkingDirectory=/home/deeoriginalone/fantasy-intelligence
+ExecStart=/home/deeoriginalone/fantasy-intelligence/venv/bin/python /home/deeoriginalone/fantasy-intelligence/refresh_dynastyprocess_rankings.py
+TimeoutStartSec=10min
