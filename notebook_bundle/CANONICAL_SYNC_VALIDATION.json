@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-11-25T07:27:22.954847+00:00",
+  "generated_at_utc": "2026-11-25T20:16:44.068937+00:00",
   "passed": true,
   "repository": {
     "branch": "test-weekly-evidence-trust",
-    "head": "ac5a3239e39654ecd9c75491487cd57d1d2e5039",
-    "short_head": "ac5a323"
+    "head": "fef67807429ffb09335e9fc06a11df210a0ecef9",
+    "short_head": "fef6780"
   },
   "checks": {
     "canonical_files_present": true,
@@ -18,35 +18,35 @@
   "files": {
     "PROJECT_STATUS.md": {
       "exists": true,
-      "bytes": 117163,
+      "bytes": 131857,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**validate, commit, and reconcile the waivers evidence-refresh automation already installed from the working tree \u2014 the w5 sleeper transaction-history refresh and the dynastyprocess consensus-ranking refresh \u2014 and verify their timer-triggered runs, so faab market history and current-week and rest-of-season consensus stay current without manual intervention while preserving closed-week completeness, upstream source-date freshness, fail-closed behavior, descriptive-only market authority, and read-only waivers.**"
+      "next_milestone": "**resolve the five recorded waivers presentation contradictions \u2014 the move checker's empty add line, a depth_upgrade weakest-bench comparison that names a player a higher-priority move already releases, protected beside releasable for the same bench player in the lookup, the observed-production check's hold label for a kept starter, and \"suggested drop: unavailable\" on an open-spot add \u2014 so every waivers surface states one consistent, decision-safe status for each player, without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab behavior, or transaction behavior.**"
     },
     "PROJECT_STATE.md": {
       "exists": true,
-      "bytes": 117558,
+      "bytes": 132252,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**validate, commit, and reconcile the waivers evidence-refresh automation already installed from the working tree \u2014 the w5 sleeper transaction-history refresh and the dynastyprocess consensus-ranking refresh \u2014 and verify their timer-triggered runs, so faab market history and current-week and rest-of-season consensus stay current without manual intervention while preserving closed-week completeness, upstream source-date freshness, fail-closed behavior, descriptive-only market authority, and read-only waivers.**"
+      "next_milestone": "**resolve the five recorded waivers presentation contradictions \u2014 the move checker's empty add line, a depth_upgrade weakest-bench comparison that names a player a higher-priority move already releases, protected beside releasable for the same bench player in the lookup, the observed-production check's hold label for a kept starter, and \"suggested drop: unavailable\" on an open-spot add \u2014 so every waivers surface states one consistent, decision-safe status for each player, without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab behavior, or transaction behavior.**"
     },
     "DEVELOPMENT_ROADMAP.md": {
       "exists": true,
-      "bytes": 118517,
+      "bytes": 132062,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**validate, commit, and reconcile the waivers evidence-refresh automation already installed from the working tree \u2014 the w5 sleeper transaction-history refresh and the dynastyprocess consensus-ranking refresh \u2014 and verify their timer-triggered runs, so faab market history and current-week and rest-of-season consensus stay current without manual intervention while preserving closed-week completeness, upstream source-date freshness, fail-closed behavior, descriptive-only market authority, and read-only waivers.**"
+      "next_milestone": "**resolve the five recorded waivers presentation contradictions \u2014 the move checker's empty add line, a depth_upgrade weakest-bench comparison that names a player a higher-priority move already releases, protected beside releasable for the same bench player in the lookup, the observed-production check's hold label for a kept starter, and \"suggested drop: unavailable\" on an open-spot add \u2014 so every waivers surface states one consistent, decision-safe status for each player, without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab behavior, or transaction behavior.**"
     },
     "NEXT_SESSION_HANDOFF.md": {
       "exists": true,
-      "bytes": 118501,
+      "bytes": 133195,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**validate, commit, and reconcile the waivers evidence-refresh automation already installed from the working tree \u2014 the w5 sleeper transaction-history refresh and the dynastyprocess consensus-ranking refresh \u2014 and verify their timer-triggered runs, so faab market history and current-week and rest-of-season consensus stay current without manual intervention while preserving closed-week completeness, upstream source-date freshness, fail-closed behavior, descriptive-only market authority, and read-only waivers.**"
+      "next_milestone": "**resolve the five recorded waivers presentation contradictions \u2014 the move checker's empty add line, a depth_upgrade weakest-bench comparison that names a player a higher-priority move already releases, protected beside releasable for the same bench player in the lookup, the observed-production check's hold label for a kept starter, and \"suggested drop: unavailable\" on an open-spot add \u2014 so every waivers surface states one consistent, decision-safe status for each player, without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab behavior, or transaction behavior.**"
     }
   },
   "missing_files": [],
@@ -55,7 +55,7 @@
   "head_mismatches": [],
   "missing_milestones": [],
   "unique_milestones": [
-    "**validate, commit, and reconcile the waivers evidence-refresh automation already installed from the working tree \u2014 the w5 sleeper transaction-history refresh and the dynastyprocess consensus-ranking refresh \u2014 and verify their timer-triggered runs, so faab market history and current-week and rest-of-season consensus stay current without manual intervention while preserving closed-week completeness, upstream source-date freshness, fail-closed behavior, descriptive-only market authority, and read-only waivers.**"
+    "**resolve the five recorded waivers presentation contradictions \u2014 the move checker's empty add line, a depth_upgrade weakest-bench comparison that names a player a higher-priority move already releases, protected beside releasable for the same bench player in the lookup, the observed-production check's hold label for a kept starter, and \"suggested drop: unavailable\" on an open-spot add \u2014 so every waivers surface states one consistent, decision-safe status for each player, without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab behavior, or transaction behavior.**"
   ],
   "sensitive_findings": []
 }
