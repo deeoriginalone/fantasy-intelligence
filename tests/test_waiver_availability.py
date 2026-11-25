@@ -7,6 +7,7 @@ from services.ux_evidence import derived_waiver_availability, evaluate_waiver_av
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 from owner_operations import attach_waiver_opportunity_identity, waiver_candidate_context, waiver_projection_contribution, waiver_recent_production, waiver_snap_share
+from services.team_needs import league_settings_contract, team_needs_contract
 
 
 def evidence(domain, state="FRESH", completeness="COMPLETE", blocker=None):
@@ -3948,3 +3949,118 @@ def test_w6_viewing_waivers_reads_role_evidence_in_batches_and_never_fetches_or_
     assert all(query.lstrip().upper().startswith("SELECT") for query in queries)
     w6_queries = [query for query in queries if "player_opportunity_evidence" in query or "snap_share_evidence" in query or "SELECT week, home_team" in query]
     assert len(w6_queries) == 5 and sum("player_id = ANY" in query for query in w6_queries) == 2
+
+
+# Cross-position plan: one shared decision for the plan, Priority Moves, the Move Checker, Candidate Evidence, and team need.
+
+def multi_position_consensus(week, rest):
+    """Fresh current-week and rest-of-season consensus at several positions; each value is (position, ECR, best expert rank, worst expert rank)."""
+    def row(value, horizon):
+        position, ecr, best, worst = value
+        return {"position": position, "ecr": ecr, "expert_best_rank": best, "expert_worst_rank": worst, "source_date": "2026-10-13", "source_age_seconds": 3600,
+                "horizon": horizon, "scoring": "PPR", "season": 2026, "week": 3 if horizon == "this_week" else None, "identity_method": "PUBLISHED_PROVIDER_CROSSWALK"}
+    return {"source": "FantasyPros consensus via DynastyProcess", "horizons": {
+        "this_week": {"state": "AVAILABLE", "max_age_seconds": 172800, "ranks": {key: row(value, "this_week") for key, value in week.items()}},
+        "rest_of_season": {"state": "AVAILABLE", "max_age_seconds": 604800, "ranks": {key: row(value, "rest_of_season") for key, value in rest.items()},
+                           "latest_source_date": "2026-10-13", "latest_source_age_seconds": 3600, "freshness_state": "FRESH"}}}
+
+
+def render_te_need_route(monkeypatch, **kwargs):
+    """My roster: Owned WR and Starting TE start; four bench WRs make WR a surplus (5 vs 4) while TE is below its depth target (1 vs 2)."""
+    bench = {"s-w2": ("Second WR", "NYJ"), "s-w3": ("Third WR", "SEA"), "s-w4": ("Fourth WR", "HOU"), "s-w5": ("Fifth WR", "ARI")}
+    records = {player_id: sleeper_record(player_id, name, "WR", team) for player_id, (name, team) in bench.items()}
+    records.update({"s-te": sleeper_record("s-te", "Starting TE", "TE", "LV"), "s-chig": sleeper_record("s-chig", "Chig Okonkwo", "TE", "WAS"),
+                    "s-pitts": sleeper_record("s-pitts", "Kyle Pitts Sr.", "TE", "ATL"), "s-wfa": sleeper_record("s-wfa", "Waiver WR", "WR", "CLE")})
+    week = {"s-owned": ("WR", 10, 9, 11), "s-te": ("TE", 29, 23, 36), "s-chig": ("TE", 10, 9, 11), "s-pitts": ("TE", 15, 13, 17), "s-wr": ("WR", 45, 40, 50),
+            "s-wfa": ("WR", 48, 44, 52)}
+    rest = {"s-owned": ("WR", 5, 4, 6), "s-te": ("TE", 22, 15, 28), "s-chig": ("TE", 14, 13, 15), "s-pitts": ("TE", 14.5, 11, 17), "s-w2": ("WR", 15, 14, 16),
+            "s-w3": ("WR", 20, 18, 22), "s-w4": ("WR", 25, 23, 27), "s-w5": ("WR", 42, 35, 47), "s-wr": ("WR", 44, 38, 50), "s-wfa": ("WR", 45, 36, 52)}
+    kwargs.setdefault("roster_positions", ["WR", "TE", "BN", "BN", "BN", "BN"])
+    kwargs.setdefault("roster_overrides", {0: {"players": ["s-owned", "s-te", *bench], "starters": ["s-owned", "s-te"]}})
+    return render_live_universe_route(monkeypatch, catalog_records=records, consensus=multi_position_consensus(week, rest), **kwargs)
+
+
+def test_route_plan_priority_move_checker_and_candidate_evidence_share_one_cross_position_decision(monkeypatch):
+    response, captured = render_te_need_route(monkeypatch)
+    html = response.get_data(as_text=True)
+    decision, plan = captured["waiver_decision"], captured["waiver_manager_plan"]
+    move = decision["moves"][0]
+
+    assert response.status_code == 200 and decision["verdict"]["state"] == "ACT"
+    assert (move["add"]["player_id"], move["drop"]["player_id"], move["drop"]["basis"]) == ("s-chig", "s-w5", "cross_position")
+    assert plan["headline"] == "ADD Chig Okonkwo · DROP Fifth WR" and plan["best_move"]["priority"] == 1
+    assert html.index('id="waiver-plan"') < html.index('id="waiver-verdict"') < html.index('id="waiver-priority-moves"') < html.index('id="waiver-supporting-evidence"')
+    top = html[html.index('id="waiver-plan"'):html.index('id="waiver-verdict"')]
+    for text in ("ADD Chig Okonkwo (WAS TE) · DROP Fifth WR (WR) · cross-position release · priority #1",
+                 "If the claim for Chig Okonkwo fails: ADD Kyle Pitts Sr. (ATL TE) · DROP Fifth WR (WR) — verified separately. These are alternatives, not cumulative claims.",
+                 "Value-based bid unavailable.", "<strong>TE: UPGRADE</strong> — 1 rostered · depth target 2 (below target)",
+                 "<strong>WR: SURPLUS</strong> — 5 rostered · depth target 4 (surplus) · Fifth WR released by #1", "<strong>Fifth WR</strong> (WR) — VERIFIED DROP"):
+        assert text in top
+    _, article = move_article(html)
+    assert "1. ADD + DROP — CROSS-POSITION · TE · Current-week upgrade · RECOMMENDED" in article
+    assert ("CROSS-POSITION RELEASE:</strong> Chig Okonkwo fills a verified depth need; Starting TE stays on your roster. Fifth WR is released from your WR surplus "
+            "(5 against a depth target of 4, leaving 4). Ranks are never compared across positions.") in article
+    assert "CONTINGENT CLAIMS (alternatives, checked one by one):</strong> Kyle Pitts Sr.: ADD Kyle Pitts Sr. · DROP Fifth WR (WR) — verified" in article
+    # Team need comes from one shared contract: the engine's copy equals the page's, and every section states the same TE need.
+    keys = ("state", "rostered_or_eligible", "depth_target", "depth_status", "strategic_need")
+    assert decision["team_needs"]["state"] == "AVAILABLE"
+    assert {key: decision["team_needs"]["positions"]["TE"][key] for key in keys} == {key: captured["waiver_team_needs"]["TE"][key] for key in keys}
+    te_section = next(section for section in captured["waiver_position_sections"] if section["position"] == "TE")
+    assert te_section["need_message"] == "Roster depth is below the supported TE target."
+    panel = html[html.index('<section class="card waiver-trust-panel">'):]
+    assert "Team need: TE depth below target (1 of 2)" in panel and "Team need: Unavailable" not in panel
+    assert "Suggested drop: Fifth WR (WR) — verified by Priority Move #1" in panel
+    assert "Ranking authority unavailable" not in panel
+    # The Move Checker repeats the Priority Moves decision for the selected TE instead of re-deriving a different one.
+    assert captured["selected_player"]["player_id"] == "s-te"
+    assert [candidate["player_id"] for candidate in captured["wda_candidates"]][:2] == ["s-chig", "s-pitts"]
+    shared = html[html.index('id="wda-shared-priority"'):]
+    shared = shared[:shared.index("</div>")]
+    assert "PRIORITY MOVES DECISION FOR STARTING TE:</strong> #1 ADD + DROP — CROSS-POSITION · ADD Chig Okonkwo · DROP Fifth WR (WR) · Starting TE stays on your roster." in shared
+    assert "Chig Okonkwo (this week 10.0 · ROS 14.0 · claim verified with DROP Fifth WR); Kyle Pitts Sr. (this week 15.0 · ROS 14.5 · claim verified with DROP Fifth WR)" in shared
+    assert decision["submits_transactions"] is False and all(query.lstrip().upper().startswith("SELECT") for query in captured["executed_queries"])
+    assert W5_PROHIBITED.search(top + article) is None
+
+
+def test_route_keeps_a_close_te_call_as_monitor_when_no_position_has_a_safe_surplus(monkeypatch):
+    response, captured = render_te_need_route(monkeypatch, roster_overrides={0: {"players": ["s-owned", "s-te", "s-w2", "s-w3", "s-w5"], "starters": ["s-owned", "s-te"]}},
+                                              roster_positions=["WR", "TE", "BN", "BN", "BN"], other_roster_players=["s-w4"])
+    html = response.get_data(as_text=True)
+    move = captured["waiver_decision"]["moves"][0]
+    assert response.status_code == 200
+    assert (move["decision"], move["drop"], move["drop_blocker"]) == ("MONITOR", None, "ROS_EDGE_NOT_MATERIAL")
+    assert "A release at a different position was checked: Fifth WR (WR) — WR depth would fall to 3, below the supported target of 4." in move["monitor_detail"]
+    top = html[html.index('id="waiver-plan"'):html.index('id="waiver-verdict"')]
+    assert "MONITOR Chig Okonkwo — no move is supported yet" in top and "Players to consider dropping:</strong> none" in top
+
+
+def week_authority_with_stale_persisted_week():
+    from services.authoritative_week import build_authoritative_week_contract, build_sleeper_week_contract, resolve_week_owners
+    persisted = build_authoritative_week_contract(season=2026, week=1, source="application_state", source_authority="application_state.current_week",
+                                                  source_recorded_at="2026-09-07 14:35:28", retrieved_at="2026-11-25T05:23:06+00:00",
+                                                  freshness_state="FRESH", completeness_state="COMPLETE")
+    return resolve_week_owners(persisted, build_sleeper_week_contract({"season": "2026", "week": 12}, season=2026, retrieved_at="2026-11-25T05:23:06+00:00"))
+
+
+def test_verified_sleeper_week_is_shown_as_current_while_a_stale_stored_week_is_explained_not_flagged():
+    authority = week_authority_with_stale_persisted_week()
+    assert (authority["week"], authority["warnings"]) == (12, ["PERSISTED_WEEK_CONFLICT"])
+    rendered = render_waivers(meta={"week_authority": authority}, preliminary_suggestions=[preliminary_candidate()], wda_candidates=[preliminary_candidate()])
+    line = rendered[rendered.index('id="waiver-week-authority"'):]
+    line = line[:line.index("</p>")]
+    assert ("12 · Sleeper NFL state · retrieved 2026-11-25T05:23:06+00:00 · verified by Sleeper's live NFL state. The stored app week "
+            "(Week 1, recorded 2026-09-07 14:35:28) is out of date and is not used.") in line
+    assert "PERSISTED_WEEK_CONFLICT" not in line
+
+
+def test_candidate_evidence_uses_shared_team_need_and_states_ranking_authority_only_when_consensus_is_fresh():
+    needs = team_needs_contract([{"position": "TE"}, {"position": "WR"}], league_settings_contract({"roster_positions": ["WR", "TE", "BN"], "scoring_settings": {"rec": 1}}))
+    candidate = {"player_id": "s-te-free", "player": "Free TE", "position": "TE", "need": None, "projection": None, "faab": None}
+    evidence = {"allowed": True, "blockers": [], "ranking_confidence": "UNVERIFIED", "decision_evidence": {"blocker": "WAIVER_RANKING_SOURCE_UNVERIFIED"},
+                "ownership": {"source": "Sleeper API", "freshness_state": "FRESH"}, "eligibility": {"source": "Sleeper API", "freshness_state": "FRESH"}}
+    for consensus, authority in (("AVAILABLE", "Ranking authority:</strong> fresh FantasyPros consensus"), ("UNAVAILABLE", "Ranking authority unavailable:</strong> WAIVER_RANKING_SOURCE_UNVERIFIED")):
+        rendered = render_waivers(waiver_evidence=evidence, wda_candidates=[candidate], waiver_team_needs=needs, waiver_decision={"evidence": {"this_week_state": consensus}})
+        panel = rendered[rendered.index('<section class="card waiver-trust-panel">'):]
+        assert authority in panel and "Team need: TE depth below target (1 of 2)" in panel
+    bare = render_waivers(waiver_evidence=evidence, wda_candidates=[candidate])
+    assert "Team need: Unavailable" in bare[bare.index('<section class="card waiver-trust-panel">'):]

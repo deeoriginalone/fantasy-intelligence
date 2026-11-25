@@ -17,6 +17,12 @@ W4 adds waiver.ros_materiality.v1 and waiver.replacement_context.v1. An ordinal 
 when the published expert ranges are clearly separated (the candidate's worst expert rank is better than the roster
 player's best). Replacement context describes, per position, how many verified available players reach a player's
 expert range. Neither produces points, percentages, a value score, or a FAAB amount.
+
+waiver.cross_position_drop.v1 lets a move release a bench player at a different position when no same-position release is verified:
+the candidate must fill a verified need (the shared team-needs depth target) or be an expert-unanimous starter upgrade, and rank ahead
+of the player he displaces at his own position for the rest of the season; the released player must be an unprotected, unlocked,
+ranked bench player at a surplus position that keeps its depth target, with STRONG waiver replacement depth, and the post-move lineup
+check must pass. Ranks are still never compared across positions.
 """
 from __future__ import annotations
 
@@ -26,6 +32,7 @@ from typing import Any, Mapping, Sequence
 from services.game_lock import build_game_lock
 from services.schedule_bye_evidence import team_bye_evidence
 from services.team_codes import canonical_team
+from services.team_needs import team_needs_contract
 
 CONTRACT_ID = "waiver.roster_decision.v1"
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
@@ -52,7 +59,7 @@ ROS_IDENTITY_FAILURES = frozenset({"PROVIDER_ID_ABSENT_FROM_CROSSWALK", "SLEEPER
                                    "CONTEXTUAL_IDENTITY_AMBIGUOUS", "TEAM_DEFENSE_IDENTITY_UNVERIFIED", "DUPLICATE_RANK_PLAYER_ID"})
 HEALTH_RISK_STATES = ("QUESTIONABLE", "DOUBTFUL")
 MOVE_STATE_LABELS = {
-    "ADD_DROP": "ADD + DROP", "ADD": "ADD — OPEN ROSTER SPOT", "NO_SAFE_DROP": "MONITOR — NO SAFE DROP VERIFIED",
+    "ADD_DROP": "ADD + DROP", "ADD_DROP_CROSS": "ADD + DROP — CROSS-POSITION", "ADD": "ADD — OPEN ROSTER SPOT", "NO_SAFE_DROP": "MONITOR — NO SAFE DROP VERIFIED",
     "ROS_VALUE_UNAVAILABLE": "MONITOR — ROS VALUE UNAVAILABLE", "QUESTIONABLE": "MONITOR — HEALTH DESIGNATION",
     "FLEX_CROSS_POSITION": "MONITOR — CROSS-POSITION CHOICE REQUIRED", "NO_CANDIDATE": "MONITOR — NO VERIFIED REPLACEMENT",
     "ROS_EDGE_NOT_MATERIAL": "MONITOR — CLOSE ROS CALL", "ROS_MATERIALITY_UNVERIFIED": "MONITOR — ROS MATERIALITY UNVERIFIED",
@@ -68,6 +75,19 @@ REPLACEMENT_RULE = ("Comparable means a healthy, addable available player at the
                     "player's range (his best published expert rank is at or ahead of this player's worst). STRONG: two or more comparable players, so one "
                     "competing claim still leaves another; LIMITED: exactly one; SCARCE: none.")
 POSITION_PLURALS = {"QB": "QBs", "RB": "RBs", "WR": "WRs", "TE": "TEs", "K": "kickers", "DEF": "defenses"}
+CROSS_POSITION_CONTRACT_ID = "waiver.cross_position_drop.v1"
+CROSS_POSITION_RULE = ("A bench player at a different position is released only when no same-position release is verified and: the candidate is healthy, "
+                       "verified available, and fresh-ranked for the rest of the season; he fills a required slot, fills a position below its supported "
+                       "depth target, or is a starter upgrade every published expert agrees on (or a clear rest-of-season edge), and he ranks ahead of the "
+                       "player he displaces at his own position for the rest of the season; the released player is an unprotected, unlocked bench player "
+                       "with a fresh rank, the weakest releasable player at a position that stays at or above its depth target, and has STRONG waiver "
+                       "replacement depth; and every starting slot, including FLEX, stays fillable. Ranks are never compared across positions.")
+CROSS_ADD_BASIS_TEXT = {"REQUIRED_SLOT_FILL": "fills a required starting slot this week", "VERIFIED_NEED": "fills a verified depth need",
+                        "UNANIMOUS_STARTER_UPGRADE": "is a starter upgrade every published expert agrees on this week",
+                        "CLEAR_ROS_EDGE": "is clearly ahead for the rest of the season"}
+DROP_CANDIDATES_CONTRACT_ID = "waiver.drop_candidates.v1"
+MANAGER_PLAN_CONTRACT_ID = "waiver.manager_plan.v1"
+VALUE_BID_UNAVAILABLE = "VALUE-BASED BID UNAVAILABLE"
 
 
 def normalize_position(value: Any) -> str:
@@ -437,6 +457,12 @@ def player_value_context(decision: Mapping[str, Any] | None, ros_value: Mapping[
                 "replacement": {"state": "UNVERIFIED", "label": REPLACEMENT_LABELS["UNVERIFIED"], "reason": reason, "nearest": []}}
     context = replacement_context(ros_value, name, pool)
     verified = next((move for move in (decision or {}).get("moves") or [] if (move.get("drop") or {}).get("player_id") == ros_value.get("player_id")), None)
+    if rostered and verified and verified["drop"].get("basis") == "cross_position":
+        # Released for a player at a different position: positional ranks are not compared, so no materiality applies to him.
+        add = verified.get("add") or {}
+        reason = (f"Verified release for ADD {add.get('player')} ({add.get('position')}), a different position: the release rests on {position} surplus and "
+                  f"waiver replacement depth, never on a cross-position rank comparison.")
+        return {"materiality": {"state": "NOT_APPLICABLE", "label": "CROSS-POSITION RELEASE", "reason": reason}, "replacement": context}
     if rostered and verified:
         # He is already the verified drop of a priority move: the materiality that matters is against the player replacing him.
         return {"materiality": verified["drop"]["materiality"], "replacement": context}
@@ -472,8 +498,12 @@ def build_waiver_roster_decision(*, roster: Sequence[Mapping[str, Any]] | None, 
                                  now: Any = None, mode: str = "LIVE", pool_allowed: bool = False, pool_blockers: Sequence[str] = (),
                                  owned_player_ids: Sequence[Any] | None = None, roster_capacity: Any = None,
                                  empty_required_slots: Sequence[str] | None = None, faab_balance: Mapping[str, Any] | None = None,
-                                 schedule_max_age_seconds: Any = None) -> dict[str, Any]:
-    """Return the waiver.roster_decision.v1 contract: verdict, priority moves, and per-position outcomes."""
+                                 schedule_max_age_seconds: Any = None, team_needs: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Return the waiver.roster_decision.v1 contract: verdict, priority moves, and per-position outcomes.
+
+    team_needs is the page's shared team-needs result; it must match the contract recomputed from the active roster, otherwise
+    positional need and surplus are CONTRADICTORY and no cross-position release is made.
+    """
     settings = dict(league_settings or {})
     horizons = dict((rankings or {}).get("horizons") or {})
     this_week_data = dict(horizons.get("this_week") or {})
@@ -496,6 +526,9 @@ def build_waiver_roster_decision(*, roster: Sequence[Mapping[str, Any]] | None, 
                       "roster": {}, "candidates": {}, "drop_status": {}, "protected": {}, "coverage": {}},
         "replacement": {"contract_id": REPLACEMENT_CONTEXT_CONTRACT_ID, "rule": REPLACEMENT_RULE, "positions": {}, "players": {}},
         "depth_notes": [],
+        "team_needs": {"state": "UNAVAILABLE", "positions": {}, "source": "shared team-needs contract",
+                       "reason": "Team needs were not evaluated because the roster comparison did not run."},
+        "drop_candidates": {"contract_id": DROP_CANDIDATES_CONTRACT_ID, "state": "UNAVAILABLE", "players": [], "rule": None},
         "faab": {"state": balance.get("state") or "UNAVAILABLE", "remaining": balance.get("remaining") if balance.get("state") == "AVAILABLE" else None,
                  "budget": balance.get("budget") if balance.get("state") == "AVAILABLE" else None, "disclosure": FAAB_DISCLOSURE},
         "move_checker_focus": None,
@@ -535,6 +568,8 @@ def build_waiver_roster_decision(*, roster: Sequence[Mapping[str, Any]] | None, 
             result["positions"][position] = _position_summary(position, "INSUFFICIENT_EVIDENCE", "Your current Sleeper lineup could not be verified.")
         result["insufficient_positions"] = list(POSITIONS)
         return _finish(result, "INSUFFICIENT_EVIDENCE", global_reasons=["Your current Sleeper lineup could not be verified."])
+    team_need_view = _team_needs_view(team_needs, active, settings)
+    result["team_needs"] = team_need_view
 
     owned = {str(value) for value in (owned_player_ids or [])} | roster_ids
     candidate_models = []
@@ -625,7 +660,7 @@ def build_waiver_roster_decision(*, roster: Sequence[Mapping[str, Any]] | None, 
 
     open_spots = max(0, int(roster_capacity) - len(active)) if isinstance(roster_capacity, int) and not isinstance(roster_capacity, bool) else 0
     sequence = [str(slot).upper() for slot in settings.get("starter_slot_sequence") or []]
-    drop_context = {"active": active, "protections": protections, "used_drops": set(), "added": [], "ros": ros_summary,
+    drop_context = {"active": active, "protections": protections, "used_drops": set(), "added": [], "ros": ros_summary, "needs": team_need_view,
                     "slot_positions": [SLOT_POSITIONS[slot] for slot in sequence if slot in SLOT_POSITIONS], "pools": _replacement_pools(candidate_models)}
     moves = []
     for intent in sorted(intents, key=lambda item: (URGENCY_ORDER[item["urgency"]], KIND_ORDER[item["kind"]], POSITIONS.index(item["position"]) if item["position"] in POSITIONS else 9)):
@@ -648,6 +683,7 @@ def build_waiver_roster_decision(*, roster: Sequence[Mapping[str, Any]] | None, 
     result["moves"] = moves
     result["ros_value"].update(_ros_value_block(models, candidate_models, moves, drop_context))
     result["replacement"] = _replacement_block(drop_context)
+    result["drop_candidates"] = _drop_candidates_block(active, moves, drop_context, result["replacement"])
 
     for position in evaluated_positions:
         if position not in result["positions"]:
@@ -706,6 +742,22 @@ def _candidate_model(raw, owned, ranks_usable, this_week_data, ros, context):
             "current_week_actionable": health == "HEALTHY" and playable, "questionable_playable": health == "QUESTIONABLE" and playable,
             "depth_addable": health == "HEALTHY" and ctx["lock_state"] in DROPPABLE_LOCK_STATES, "week_rank": week_rank, "ros_rank": ros_rank,
             "ros_value": ros_value, "context": ctx}
+
+
+def _team_needs_view(supplied, active, settings):
+    """The shared team-needs contract for the active roster. A page copy that disagrees with it is CONTRADICTORY and authorizes no release."""
+    computed = team_needs_contract([{"position": model["position"]} for model in active], settings)
+    available = bool(computed) and all(item.get("state") == "AVAILABLE" for item in computed.values())
+    view = {"state": "AVAILABLE" if available else "UNAVAILABLE", "positions": computed, "source": "shared team-needs contract",
+            "reason": None if available else "League roster settings are not verified, so positional depth targets are unavailable."}
+    if isinstance(supplied, Mapping) and supplied:
+        keys = ("state", "rostered_or_eligible", "depth_target", "required_slots")
+        mismatched = [position for position, item in computed.items()
+                      if tuple((supplied.get(position) or {}).get(key) for key in keys) != tuple(item.get(key) for key in keys)]
+        if mismatched:
+            view.update(state="CONTRADICTORY", reason=(f"The page's team-needs result disagrees with your active roster at {', '.join(mismatched)}, "
+                                                       "so positional need and surplus are not used."))
+    return view
 
 
 def _slot_needs(settings, active, empty_required_slots):
@@ -961,17 +1013,33 @@ def _no_drop(code, detail, material=False, materiality=None, subject=None):
 
 
 def _safe_drop(intent, context):
-    """Same-position release supported by fresh, clearly separated rest-of-season evidence and the post-move lineup check, else the exact blocker.
+    """A verified release for one add: same position first, then waiver.cross_position_drop.v1, else the exact same-position blocker.
 
-    material reports whether any pairing cleared the materiality gate, so a close call is distinguishable from a safety block.
+    material reports whether any same-position pairing cleared the materiality gate, so a close call is distinguishable from a safety block.
+    A cross-position finding is added to the blocker only when it says something the same-position explanation does not.
     """
     add, ros = intent["add"], context["ros"]
-    position = add["position"]
     if ros["state"] != "AVAILABLE":
         return _no_drop("ROS_VALUE_UNAVAILABLE", f"A safe release cannot be verified because rest-of-season value is unavailable: {ros['reason']}")
     if add["ros_value"]["evidence_state"] != "RANKED":
         state = add["ros_value"]["evidence_state"].replace("_", " ").lower()
         return _no_drop("CANDIDATE_ROS_UNRANKED", f"{add['name']} has no fresh rest-of-season rank ({state}), so releasing a roster player for him cannot be verified.")
+    same = _same_position_drop(intent, context)
+    if same["drop"]:
+        return same
+    cross = _cross_position_drop(intent, context)
+    if cross["drop"]:
+        return {**cross, "same_position": {"code": same["code"], "detail": same["detail"]}}
+    if cross["note"]:
+        same["detail"] = f"{same['detail']} {cross['note']}"
+    same["cross_position"] = cross["evaluation"]
+    return same
+
+
+def _same_position_drop(intent, context):
+    """Same-position release supported by fresh, clearly separated rest-of-season evidence and the post-move lineup check, else the exact blocker."""
+    add = intent["add"]
+    position = add["position"]
     blockers, not_material = [], []
 
     def weigh(member, role):
@@ -1021,8 +1089,151 @@ def _safe_drop(intent, context):
                         materiality=chosen[0][2], subject=chosen[0][3])
     combined = blockers + [item[:2] for item in not_material]
     if not combined:
-        return _no_drop("NO_SAME_POSITION_RELEASE", f"No {position} on your active roster can be released for {add['name']}, and players are never released across positions.")
+        return _no_drop("NO_SAME_POSITION_RELEASE", f"No {position} on your active roster can be released for {add['name']}.")
     return _no_drop(combined[0][0], " ".join(dict.fromkeys(detail for _, detail in combined)), material)
+
+
+def _position_count(position, context):
+    """Active players at one position after the higher-priority moves already recommended."""
+    used = context["used_drops"]
+    return (sum(1 for model in context["active"] if model["position"] == position and model["id"] not in used)
+            + sum(1 for model in context["added"] if model["position"] == position))
+
+
+def _cross_position_add(intent, context):
+    """Candidate side of waiver.cross_position_drop.v1 as (basis or None, evidence, note).
+
+    The note is None when the same-position explanation already says why (the displaced player was weighed and kept).
+    """
+    add, needs = intent["add"], context.get("needs") or {}
+    position = add["position"]
+    count, target = _position_count(position, context), ((needs.get("positions") or {}).get(position) or {}).get("depth_target")
+    displaced = intent.get("replaced") if intent["kind"] == "MUST_FILL" else intent.get("over")
+    if intent["kind"] == "DEPTH_UPGRADE" and displaced is not None and displaced["id"] in context["used_drops"]:
+        # The weakest bench player was already released by a higher-priority move; compare with the weakest one still on the roster.
+        remaining = [model for model in context["active"] if model["is_starter"] is False and model["position"] == position
+                     and model["id"] not in context["used_drops"] and _ranked(model["ros_rank"])]
+        displaced = max(remaining, key=lambda model: (model["ros_rank"]["ecr"], model["name"], model["id"])) if remaining else None
+    evidence = {"player_id": add["id"], "player": add["name"], "position": position, "kind": intent["kind"], "count": count, "depth_target": target,
+                "displaced": {"player_id": displaced["id"], "player": displaced["name"], "position": displaced["position"]} if displaced else None,
+                "current_week_separation": (intent.get("materiality") or {}).get("state") if intent["kind"] == "CURRENT_WEEK_UPGRADE" else None,
+                "ros_comparison": None, "ros_materiality": None}
+    if needs.get("state") != "AVAILABLE":
+        note = f"A release at a different position is not evaluated: {needs.get('reason')}" if needs.get("state") == "CONTRADICTORY" else None
+        return None, evidence, note
+    if add.get("health_state") != "HEALTHY":
+        return None, evidence, None
+    if intent["kind"] == "MUST_FILL":
+        return "REQUIRED_SLOT_FILL", evidence, None
+    if displaced is None:
+        return None, evidence, None
+    comparison = compare_ros_values(add["ros_value"], displaced["ros_value"], candidate_name=add["name"], roster_name=displaced["name"])
+    evidence.update(ros_comparison=comparison,
+                    ros_materiality=ros_materiality(add["ros_value"], displaced["ros_value"], candidate_name=add["name"], roster_name=displaced["name"]))
+    if comparison["state"] != "CANDIDATE_BETTER":
+        if _drop_hold(displaced, context) is None:
+            return None, evidence, None
+        return None, evidence, f"{comparison['reason']} A short-term edge does not release a player at a different position either."
+    if isinstance(target, int) and count < target:
+        return "VERIFIED_NEED", evidence, None
+    if evidence["current_week_separation"] == "UNANIMOUS":
+        return "UNANIMOUS_STARTER_UPGRADE", evidence, None
+    if evidence["ros_materiality"]["state"] == "CLEAR_EDGE":
+        return "CLEAR_ROS_EDGE", evidence, None
+    return None, evidence, (f"{add['name']} ranks ahead of {displaced['name']} for the rest of the season, but {position} depth is not below its supported "
+                            f"target ({count} of {target}) and no horizon shows an edge every published expert agrees on, so no player at a different "
+                            "position is released for him.")
+
+
+def _cross_position_options(add, context):
+    """For each different position with a releasable bench player, the weakest one who passes every release check, else the first check failed.
+
+    Protected, locked, already-used, and unranked players are never released and are not reported as options (unranked is not worse).
+    """
+    needs = (context.get("needs") or {}).get("positions") or {}
+    excluded = [model["id"] for model in context["added"]] + [add["id"]]
+    options = []
+    for position in POSITIONS:
+        if position == add["position"]:
+            continue
+        members = sorted((model for model in context["active"] if model["is_starter"] is False and model["position"] == position
+                          and _drop_hold(model, context) is None and model["ros_value"]["evidence_state"] == "RANKED"),
+                         key=lambda model: (-model["ros_value"]["ros_ecr"], model["name"], model["id"]))
+        if not members:
+            continue
+        count, target = _position_count(position, context), (needs.get(position) or {}).get("depth_target")
+        first = None
+        for member in members:
+            replacement = replacement_context(member["ros_value"], member["name"], context["pools"].get(position), exclude_ids=excluded)
+            option = {"player_id": member["id"], "player": member["name"], "position": position, "ros_ecr": member["ros_value"]["ros_ecr"],
+                      "range": _span(member["ros_value"]), "count": count, "count_after": count - 1, "depth_target": target, "replacement": replacement,
+                      "safety": None, "blocker": None, "reason": None, "_model": member}
+            if not isinstance(target, int) or count - 1 < target:
+                option.update(blocker="DEPTH_BELOW_TARGET", reason=f"{position} depth would fall to {count - 1}, below the supported target of {target}")
+            elif replacement["state"] != "STRONG":
+                option.update(blocker="REPLACEMENT_NOT_STRONG", reason=f"{replacement['label'].lower()} on waivers ({replacement['reason']})")
+            else:
+                option["safety"] = _post_move_safety(add, member, context)
+                if option["safety"]["state"] != "SAFE":
+                    option.update(blocker="LINEUP_COVERAGE", reason=option["safety"]["reason"])
+            first = first or option
+            if option["blocker"] is None or option["blocker"] == "DEPTH_BELOW_TARGET":
+                first = option
+                break
+        options.append(first)
+    return options
+
+
+def _cross_position_drop(intent, context):
+    """waiver.cross_position_drop.v1 for one add: a verified release at a different position, or the evaluation that blocked it."""
+    add = intent["add"]
+    basis, add_evidence, note = _cross_position_add(intent, context)
+    evaluation = {"contract_id": CROSS_POSITION_CONTRACT_ID, "rule": CROSS_POSITION_RULE, "add": add_evidence, "basis": basis, "options": [], "state": None}
+    result = {"drop": None, "code": None, "detail": None, "material": False, "materiality": None, "subject": None, "evaluation": evaluation, "note": None}
+    if basis is None:
+        evaluation["state"] = "NOT_SUPPORTED"
+        result["note"] = note
+        return result
+    options = _cross_position_options(add, context)
+    evaluation["options"] = [{key: value for key, value in option.items() if key != "_model"} for option in options]
+    eligible = [option for option in options if option["blocker"] is None]
+    if not eligible:
+        evaluation["state"] = "NO_ELIGIBLE_RELEASE" if options else "NO_OPTIONS"
+        if options:
+            result["note"] = ("A release at a different position was checked: " + "; ".join(f"{option['player']} ({option['position']}) — {option['reason']}"
+                                                                                          for option in options) + ".")
+        return result
+    # Replaceability decides between positions (more available players clearly ahead, then reaching his range); ranks are never compared.
+    chosen = min(eligible, key=lambda option: (-(option["replacement"]["clearly_ahead_count"] or 0), -(option["replacement"]["comparable_count"] or 0),
+                                               -(option["count_after"] - option["depth_target"]), POSITIONS.index(option["position"]), option["player"], option["player_id"]))
+    evaluation.update(state="VERIFIED", chosen=chosen["player_id"])
+    result.update(drop=_cross_drop_view(add, chosen, add_evidence, basis, evaluation), material=True)
+    return result
+
+
+def _cross_drop_view(add, option, add_evidence, basis, evaluation):
+    member, replacement = option["_model"], option["replacement"]
+    position, value, displaced = member["position"], member["ros_value"], add_evidence["displaced"]
+    comparison = add_evidence["ros_comparison"] or {"state": "NOT_APPLICABLE", "reason": f"{add['name']} fills a required slot; no {add['position']} on your roster is displaced."}
+    materiality = add_evidence["ros_materiality"] or {"state": "NOT_APPLICABLE", "label": MATERIALITY_LABELS["NOT_APPLICABLE"], "reason": comparison["reason"]}
+    plural = POSITION_PLURALS.get(position, f"{position}s")
+    add_text = {"REQUIRED_SLOT_FILL": f"{add['name']} fills a required {add['position']} starting slot this week",
+                "VERIFIED_NEED": f"{add['name']} fills a verified {add['position']} depth need ({add_evidence['count']} rostered against a target of {add_evidence['depth_target']})",
+                "UNANIMOUS_STARTER_UPGRADE": f"{add['name']} is a {add['position']} starter upgrade every published expert agrees on this week",
+                "CLEAR_ROS_EDGE": f"{add['name']} is clearly ahead for the rest of the season"}[basis]
+    if displaced and comparison.get("state") == "CANDIDATE_BETTER":
+        add_text += (f" and ranks ahead of {displaced['player']}, who is kept, for the rest of the season ({add['position']} ROS ECR "
+                     f"{comparison['candidate_ecr']:.1f} vs {comparison['roster_ecr']:.1f}; {materiality['label']})")
+    reason = (f"{member['name']} is your weakest releasable {position} for the rest of the season ({position} ROS ECR {value['ros_ecr']:.1f}"
+              + (f", experts {_span(value)}" if _span(value) else "") + f") at a surplus position ({option['count']} {plural} against a supported depth target of "
+              f"{option['depth_target']}, leaving {option['count_after']}), and {replacement['comparable_count']} healthy available {plural} have fresh "
+              f"rest-of-season expert ranges reaching his, so he is replaceable from waivers. {add_text}. {option['safety']['reason']} "
+              "Ranks are not compared across positions.")
+    return {"player_id": member["id"], "player": member["name"], "position": position, "basis": "cross_position", "role": "CROSS_POSITION_BENCH",
+            "add_ecr": None, "drop_ecr": value["ros_ecr"], "ros_comparison": comparison, "materiality": materiality, "safety": option["safety"],
+            "ros_value": value, "replacement": replacement, "add_basis": basis, "add_basis_text": CROSS_ADD_BASIS_TEXT[basis], "displaced": displaced,
+            "surplus": {"position": position, "count": option["count"], "count_after": option["count_after"], "depth_target": option["depth_target"]},
+            "cross_position": evaluation, "reason": reason}
 
 
 def _with_add(intent, add, fallbacks):
@@ -1056,8 +1267,13 @@ def _horizon_views(intent, move, context, outcome=None):
     else:
         current = {"state": "NOT_COMPARED", "text": "Bench depth move: your current-week lineup is unchanged."}
     materiality = None
+    cross = bool(drop) and drop.get("basis") == "cross_position"
     if ros["state"] != "AVAILABLE":
         rest = {"state": ros["state"], "text": ros["reason"]}
+    elif cross:
+        # A cross-position release keeps the displaced player; the rest-of-season comparison stays at the candidate's own position.
+        rest = {**drop["ros_comparison"], "roster": (drop.get("displaced") or {}).get("player"), "text": drop["ros_comparison"]["reason"]}
+        materiality = drop["materiality"] if (drop.get("displaced") or {}).get("player") else None
     elif drop:
         rest = {**drop["ros_comparison"], "roster": drop["player"], "text": drop["ros_comparison"]["reason"]}
         materiality = drop["materiality"]
@@ -1079,7 +1295,18 @@ def _horizon_views(intent, move, context, outcome=None):
         replacement = replacement_context(subject["ros_value"], subject["name"], context["pools"].get(subject["ros_value"]["position"]),
                                           exclude_ids=[model["id"] for model in context["added"]])
     clear = (materiality or {}).get("state") == "CLEAR_EDGE"
-    if kind == "MUST_FILL":
+    if cross:
+        combination = "CROSS_POSITION_RELEASE"
+        released = f"{drop['player']} ({drop['position']}), surplus depth with strong waiver replacement, is released"
+        if kind == "MUST_FILL":
+            impact = f"Fills a required {intent.get('slot') or add['position']} slot this week; {released}"
+        elif kind == "DEPTH_UPGRADE":
+            kept = (drop.get("displaced") or {}).get("player") or target["name"]
+            impact = f"Adds {add['position']} depth for the rest of the season while {kept} stays; your current-week lineup is unchanged; {released}"
+        else:
+            impact = (f"Current-week upgrade over {target['name']}, who stays as {add['position']} depth; for the rest of the season {add['name']} also ranks "
+                      f"ahead of him ({(materiality or {}).get('label') or 'materiality unverified'}); {released}")
+    elif kind == "MUST_FILL":
         combination, impact = "REQUIRED_SLOT_FILL", "Fills a required starter slot this week"
         if clear and drop:
             impact += f"; {add['name']} is also clearly ahead of {drop['player']}, who is released, for the rest of the season"
@@ -1104,14 +1331,27 @@ def _horizon_views(intent, move, context, outcome=None):
     return current, rest, materiality, replacement, combination, impact
 
 
-def _fallback_views(fallbacks, subject, ros_available):
-    """Backups with their own ROS materiality against the same roster player; a verified drop is never inherited by a backup."""
+def _fallback_views(fallbacks, subject, ros_available, intent=None, context=None, open_spots=0):
+    """Backups with their own ROS materiality against the same roster player and their own claim check.
+
+    A verified drop is never inherited by a backup: each contingent claim is verified with that backup as the add. Backups are
+    alternatives if the first claim fails, never cumulative claims.
+    """
     views = []
     for model in fallbacks:
         view = _player_view(model, include_ros=True)
         if subject is not None and ros_available:
             materiality = ros_materiality(model["ros_value"], subject["ros_value"], candidate_name=model["name"], roster_name=subject["name"])
             view["ros_materiality"] = {"state": materiality["state"], "label": materiality["label"], "against": subject["name"]}
+        if intent is not None and not intent.get("forced_monitor"):
+            if open_spots > 0:
+                view["claim"] = {"state": "ADD", "drop": None, "blocker": None, "reason": "An active roster spot is open, so nobody is released."}
+            else:
+                outcome = _safe_drop(_with_add(intent, model, []), context)
+                drop = outcome["drop"]
+                view["claim"] = {"state": "ADD_DROP" if drop else "MONITOR", "blocker": outcome["code"],
+                                 "drop": {key: drop[key] for key in ("player_id", "player", "position", "basis")} if drop else None,
+                                 "reason": drop["reason"] if drop else outcome["detail"]}
         views.append(view)
     return views
 
@@ -1131,7 +1371,7 @@ def _resolve(intent, context, open_spots):
         if not intent.get("forced_monitor") and open_spots <= 0:
             attempts = []
             for option in options:
-                attempts.append((option, _safe_drop({**intent, "add": option}, context)))
+                attempts.append((option, _safe_drop(_with_add(intent, option, []), context)))
                 if attempts[-1][1]["drop"]:
                     break
             chosen, outcome = attempts[-1] if attempts[-1][1]["drop"] else attempts[0]
@@ -1188,18 +1428,30 @@ def _resolve(intent, context, open_spots):
                     drop_safety={"state": "NOT_REQUIRED", "reason": "An active roster spot is open, so nobody is released."})
         move["disclosures"].append("Your roster has an open active spot, so no drop is needed.")
     elif outcome["drop"]:
-        move.update(decision="ADD_DROP", drop=outcome["drop"], drop_state="VERIFIED", state_label=MOVE_STATE_LABELS["ADD_DROP"],
+        cross = outcome["drop"].get("basis") == "cross_position"
+        move.update(decision="ADD_DROP", drop=outcome["drop"], drop_state="VERIFIED", state_label=MOVE_STATE_LABELS["ADD_DROP_CROSS" if cross else "ADD_DROP"],
                     drop_safety={"state": "SUPPORTED", "reason": outcome["drop"]["reason"]})
+        if cross:
+            same = outcome.get("same_position") or {}
+            move["cross_position"] = outcome["drop"]["cross_position"]
+            move["disclosures"].append("Cross-position release: positional ranks are never compared across positions; this release rests on the released "
+                                       "player's positional surplus, his waiver replacement depth, and the post-move lineup check."
+                                       + (f" No same-position release was verified: {same['detail']}" if same.get("detail") else ""))
     else:
         code = outcome["code"]
         label = code if code in ("ROS_VALUE_UNAVAILABLE", *MATERIALITY_BLOCKERS) else "NO_SAFE_DROP"
         move.update(decision="MONITOR", reason=NO_SAFE_DROP_REASON, monitor_detail=outcome["detail"], drop_state="UNVERIFIED", drop_blocker=code,
                     state_label=MOVE_STATE_LABELS[label], drop_safety={"state": "NOT_SUPPORTED", "blocker": code, "reason": outcome["detail"]})
+        if outcome.get("cross_position"):
+            move["cross_position"] = outcome["cross_position"]
     (move["current_week"], move["rest_of_season"], move["ros_materiality"], move["replacement_context"],
      move["value_combination"], move["impact"]) = _horizon_views(intent, move, context, outcome)
     target = (outcome or {}).get("subject") or intent.get("over") or intent.get("replaced") or intent.get("slot_player")
-    subject = {"ros_value": move["drop"]["ros_value"], "name": move["drop"]["player"]} if move["drop"] else ({"ros_value": target["ros_value"], "name": target["name"]} if target else None)
-    move["fallbacks"] = _fallback_views(intent.get("fallbacks") or [], subject, ros["state"] == "AVAILABLE")
+    cross = bool(move["drop"]) and move["drop"].get("basis") == "cross_position"
+    # Backups are judged against the player who leaves the roster; after a cross-position release that is still the displaced same-position player.
+    subject = ({"ros_value": move["drop"]["ros_value"], "name": move["drop"]["player"]} if move["drop"] and not cross
+               else {"ros_value": target["ros_value"], "name": target["name"]} if target else None)
+    move["fallbacks"] = _fallback_views(intent.get("fallbacks") or [], subject, ros["state"] == "AVAILABLE", intent=intent, context=context, open_spots=open_spots)
     if ros["state"] != "AVAILABLE" and intent["kind"] != "DEPTH_UPGRADE":
         move["disclosures"].append(ROS_UNAVAILABLE_LABEL)
     move["decision_label"] = DECISION_LABELS[move["decision"]]
@@ -1310,6 +1562,74 @@ def _replacement_block(context):
     return {"contract_id": REPLACEMENT_CONTEXT_CONTRACT_ID, "rule": REPLACEMENT_RULE, "positions": positions, "players": players}
 
 
+DROP_CANDIDATE_ORDER = {"VERIFIED_DROP": 0, "RELEASABLE": 1, "KEEP": 2, "UNVERIFIED": 3}
+DROP_CANDIDATE_LABELS = {"VERIFIED_DROP": "VERIFIED DROP", "RELEASABLE": "RELEASABLE IF THE SPOT IS NEEDED", "KEEP": "KEEP", "UNVERIFIED": "NOT EVALUATED"}
+DROP_CANDIDATES_RULE = ("Bench players ordered from most to least expendable by verified evidence, never by a score: verified drops of priority moves first; "
+                        "then players whose release keeps their position at its supported depth target and who have STRONG waiver replacement depth "
+                        "(more available players clearly ahead, then more whose expert range reaches his); then players to keep; then players without "
+                        "a fresh rest-of-season rank, who are not treated as worse. Each entry is an alternative, not a cumulative plan.")
+
+
+def _drop_candidates_block(active, moves, context, replacement):
+    """waiver.drop_candidates.v1: the bottom of the roster, from most to least expendable, with the evidence for each player."""
+    needs = context.get("needs") or {}
+    positions = needs.get("positions") or {}
+    verified = {move["drop"]["player_id"]: move for move in moves if move.get("drop")}
+    independent = {**context, "used_drops": set()}
+    bench = [model for model in active if model["is_starter"] is False]
+    weakest = {}
+    for model in bench:
+        if _drop_hold(model, independent) is None and model["ros_value"]["evidence_state"] == "RANKED":
+            current = weakest.get(model["position"])
+            if current is None or (model["ros_value"]["ros_ecr"], model["name"]) > (current["ros_value"]["ros_ecr"], current["name"]):
+                weakest[model["position"]] = model
+    entries = []
+    for model in bench:
+        position, value = model["position"], model["ros_value"]
+        count = sum(1 for other in active if other["position"] == position)
+        target = (positions.get(position) or {}).get("depth_target")
+        own = (replacement.get("players") or {}).get(model["id"]) or {}
+        week = model["week_rank"]
+        entry = {"player_id": model["id"], "player": model["name"], "position": position, "team": model["context"]["team"],
+                 "ros_ecr": value.get("ros_ecr"), "ros_range": _span(value) if value.get("evidence_state") == "RANKED" else None,
+                 "ros_state": value.get("evidence_state"), "week_ecr": week.get("ecr") if _ranked(week) else None,
+                 "count": count, "depth_target": target, "replacement_state": own.get("state"), "replacement_label": own.get("label"),
+                 "comparable_count": own.get("comparable_count"), "clearly_ahead_count": own.get("clearly_ahead_count"), "priority": None, "reasons": []}
+        held = _drop_hold(model, independent)
+        if model["id"] in verified:
+            move = verified[model["id"]]
+            entry.update(state="VERIFIED_DROP", priority=move.get("priority"), reasons=[f"Verified drop for ADD {move['add']['player']}: {move['drop']['reason']}"])
+        elif held:
+            entry.update(state="KEEP", reasons=[held[1]])
+        elif context["ros"]["state"] != "AVAILABLE" or value.get("evidence_state") != "RANKED" or needs.get("state") != "AVAILABLE":
+            why = (f"no fresh rest-of-season rank ({str(value.get('evidence_state') or 'unavailable').replace('_', ' ').lower()})"
+                   if context["ros"]["state"] == "AVAILABLE" and value.get("evidence_state") != "RANKED" else
+                   "rest-of-season value is unavailable" if context["ros"]["state"] != "AVAILABLE" else (needs.get("reason") or "team needs are unavailable"))
+            entry.update(state="UNVERIFIED", reasons=[f"Not ranked here: {why}; an unranked player is not treated as worse."])
+        else:
+            depth_ok = isinstance(target, int) and count - 1 >= target
+            replaceable = own.get("state") == "STRONG"
+            # A bare release (no add) must keep every starting slot, including FLEX, fillable this week and for the season.
+            safety = _post_move_safety(None, model, independent)
+            reasons = [(f"{position}: {count} rostered against a supported depth target of {target}" + (" (surplus)" if count > target else "")
+                        + ("; releasing him keeps the target." if depth_ok else f"; releasing him would leave {count - 1}, below the target."))]
+            reasons.append(f"{own.get('label')}: {own.get('reason')}")
+            if safety["state"] != "SAFE":
+                reasons.append(safety["reason"])
+            if weakest.get(position) is not None and weakest[position]["id"] != model["id"]:
+                reasons.append(f"{weakest[position]['name']} ranks below him at {position} for the rest of the season, so he would be released first.")
+            entry.update(state="RELEASABLE" if depth_ok and replaceable and safety["state"] == "SAFE" else "KEEP", reasons=reasons)
+        entry["label"] = DROP_CANDIDATE_LABELS[entry["state"]]
+        entries.append(entry)
+    entries.sort(key=lambda entry: (DROP_CANDIDATE_ORDER[entry["state"]], entry["priority"] or 0, -(entry["clearly_ahead_count"] or 0),
+                                    -(entry["comparable_count"] or 0), -((entry["count"] - 1 - entry["depth_target"]) if isinstance(entry["depth_target"], int) else -99),
+                                    POSITIONS.index(entry["position"]) if entry["position"] in POSITIONS else 9, entry["player"], entry["player_id"]))
+    for rank, entry in enumerate(entries, 1):
+        entry["order"] = rank
+    return {"contract_id": DROP_CANDIDATES_CONTRACT_ID, "state": "AVAILABLE" if context["ros"]["state"] == "AVAILABLE" and needs.get("state") == "AVAILABLE" else "PARTIAL",
+            "rule": DROP_CANDIDATES_RULE, "players": entries}
+
+
 def _position_summary(position, status, reason, **extra):
     ranked, unranked = extra.get("ranked_candidates"), extra.get("unranked_candidates")
     summary = {"position": position, "status": status, "reason": reason, "ranked_candidates": ranked, "unranked_candidates": unranked,
@@ -1363,3 +1683,160 @@ def _finish(result, state, *, global_reasons):
         "counts": {"moves": len(moves), "executable": len(executable), "monitor": sum(1 for move in moves if move["decision"] == "MONITOR")},
     }
     return result
+
+
+def _first_sentence(text: Any) -> str:
+    text = str(text or "").strip()
+    end = text.find(". ")
+    return text if end < 0 else text[:end + 1]
+
+
+def _plan_evidence(move: Mapping[str, Any]) -> list[str]:
+    """How strong each part of a move's evidence is, in the engine's own vocabulary (no score)."""
+    lines = []
+    separation = (move.get("materiality") or {}).get("state")
+    if move.get("kind") == "CURRENT_WEEK_UPGRADE":
+        lines.append({"UNANIMOUS": "This week: every published expert ranks him ahead (expert ranges do not overlap).",
+                      "SPLIT": "This week: ahead by consensus, but expert ranges overlap (close call)."}.get(separation, "This week: expert ranges unavailable."))
+    elif move.get("kind") == "MUST_FILL":
+        lines.append("This week: fills a required starting slot.")
+    materiality = move.get("ros_materiality") or {}
+    if materiality.get("label"):
+        against = (move.get("rest_of_season") or {}).get("roster")
+        lines.append(f"Rest of season: {materiality['label']}" + (f" vs {against}." if against else "."))
+    drop = move.get("drop") or {}
+    replacement = move.get("replacement_context") or {}
+    if drop and replacement.get("label"):
+        lines.append(f"Release: {replacement['label']} for {drop.get('player')} ({drop.get('position')}).")
+    return lines
+
+
+def _plan_move(move: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    if not move:
+        return None
+    add, drop = move.get("add") or {}, move.get("drop") or {}
+    claims = []
+    for backup in move.get("fallbacks") or []:
+        claim = backup.get("claim") or {}
+        claims.append({"add": backup.get("player"), "add_id": backup.get("player_id"), "team": backup.get("team"), "position": backup.get("position"),
+                       "state": claim.get("state") or "NOT_EVALUATED", "drop": (claim.get("drop") or {}).get("player"),
+                       "drop_position": (claim.get("drop") or {}).get("position"), "reason": _first_sentence(claim.get("reason"))})
+    return {"priority": move.get("priority"), "decision": move.get("decision"), "state_label": move.get("state_label"), "kind": move.get("kind"),
+            "position": move.get("position"), "add": {"player_id": add.get("player_id"), "player": add.get("player"), "team": add.get("team"), "position": add.get("position")} if add else None,
+            "drop": {"player_id": drop.get("player_id"), "player": drop.get("player"), "position": drop.get("position"), "basis": drop.get("basis")} if drop else None,
+            "over": (move.get("over") or {}).get("player"), "why": " ".join(part for part in (move.get("why"), move.get("materiality_text")) if part),
+            "improvement": move.get("impact"), "current_week": (move.get("current_week") or {}).get("text"), "rest_of_season": (move.get("rest_of_season") or {}).get("text"),
+            "drop_safety": (move.get("drop_safety") or {}).get("reason"), "monitor_reason": move.get("monitor_detail"), "evidence": _plan_evidence(move),
+            "claims": claims, "faab": move.get("faab") or {}, "market_lines": list((move.get("market") or {}).get("lines") or [])}
+
+
+def _plan_positions(decision: Mapping[str, Any]) -> list[dict[str, Any]]:
+    moves, needs = decision.get("moves") or [], ((decision.get("team_needs") or {}).get("positions") or {})
+    rows = []
+    for position in POSITIONS:
+        summary = (decision.get("positions") or {}).get(position) or {}
+        need = needs.get(position) or {}
+        at = [move for move in moves if move.get("position") == position]
+        released = [move for move in moves if move.get("decision") == "ADD_DROP" and (move.get("drop") or {}).get("position") == position]
+        status = summary.get("status")
+        if any(move.get("decision") in ("ADD", "ADD_DROP") for move in at):
+            label = "FILL" if any(move.get("kind") == "MUST_FILL" for move in at) else "UPGRADE"
+        elif at:
+            label = "MONITOR"
+        elif status in ("BLOCKED", "NOT_APPLICABLE"):
+            label = status.replace("_", " ")
+        elif need.get("strategic_need") == "ADD_STARTER":
+            label = "NEED"
+        elif need.get("depth_status") == "ABOVE_TARGET" or released:
+            label = "SURPLUS"
+        elif status == "INSUFFICIENT_EVIDENCE":
+            label = "UNVERIFIED"
+        else:
+            label = "HOLD"
+        details = []
+        if need.get("state") == "AVAILABLE" and status != "NOT_APPLICABLE":
+            depth = {"BELOW_TARGET": " (below target)", "ABOVE_TARGET": " (surplus)", "AT_TARGET": ""}.get(need.get("depth_status"), "")
+            details.append(f"{need.get('rostered_or_eligible')} rostered · depth target {need.get('depth_target')}{depth}")
+        for move in at:
+            add = (move.get("add") or {}).get("player")
+            details.append(f"#{move.get('priority')} {move.get('state_label')}: {add}" + (f" over {move['over']['player']}" if move.get("over") else ""))
+        for move in released:
+            details.append(f"{move['drop']['player']} released by #{move.get('priority')}")
+        if not at and summary.get("reason"):
+            details.append(summary["reason"])
+        rows.append({"position": position, "label": label, "status": status, "detail": " · ".join(details)})
+    return rows
+
+
+def _plan_faab(decision: Mapping[str, Any], move: Mapping[str, Any] | None, market: Mapping[str, Any] | None) -> dict[str, Any]:
+    """FAAB evidence for the plan: the verified balance and descriptive league history only; no value-based bid is derived."""
+    balance, market = decision.get("faab") or {}, dict(market or {})
+    budget = (market.get("budget_context") or {})
+    distribution = budget.get("distribution") or {}
+    position = (move or {}).get("position")
+    summary = (market.get("position_summaries") or {}).get(position) or {}
+    guardrail = (move or {}).get("faab") or {}
+    return {"state": balance.get("state"), "remaining": balance.get("remaining"), "budget": balance.get("budget"),
+            "league_median_remaining": distribution.get("median_remaining") if budget.get("state") == "AVAILABLE" else None,
+            "league_teams_verified": f"{distribution.get('n')}/{budget.get('total')}" if budget.get("state") == "AVAILABLE" else None,
+            "market_state": market.get("state"), "market_label": market.get("label"), "scope": market.get("scope_text"), "position": position,
+            "position_history": summary.get("text"), "contested_bids": (summary.get("contested_bids") or {}).get("text"),
+            "uncontested_bids": (summary.get("uncontested_bids") or {}).get("text"),
+            "player_history": next((line for line in ((move or {}).get("market") or {}).get("lines") or [] if line.startswith("Player history")), None),
+            "coverage": (market.get("completeness") or {}).get("text"), "limitations": list(market.get("limitations") or []),
+            "guardrail": guardrail if guardrail.get("state") == "PROVISIONAL" else None,
+            "value_bid": VALUE_BID_UNAVAILABLE, "disclosure": FAAB_DISCLOSURE}
+
+
+def build_manager_plan(decision: Mapping[str, Any] | None, *, market: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """waiver.manager_plan.v1: the shared decision restated for the top of /waivers (what to do, who to add and drop, backup plan, FAAB evidence).
+
+    Pure and read-only: it never re-derives a move, a drop, or a bid. League market history stays descriptive, so the bid line is always
+    VALUE-BASED BID UNAVAILABLE unless the existing provisional K/DEF slot-fill guardrail applies.
+    """
+    decision = dict(decision or {})
+    verdict = decision.get("verdict") or {}
+    moves = decision.get("moves") or []
+    executable = [move for move in moves if move.get("decision") in ("ADD", "ADD_DROP")]
+    monitors = [move for move in moves if move.get("decision") == "MONITOR"]
+    best = executable[0] if executable else None
+    state = verdict.get("state") or "INSUFFICIENT_EVIDENCE"
+    if best:
+        add, drop = (best.get("add") or {}).get("player"), (best.get("drop") or {}).get("player")
+        headline = f"ADD {add} · DROP {drop}" if drop else f"ADD {add} (open roster spot)"
+    elif monitors:
+        headline = f"MONITOR {(monitors[0].get('add') or {}).get('player') or monitors[0].get('position')} — no move is supported yet"
+    elif state == "PASS":
+        headline = "NO WAIVER MOVE RECOMMENDED" + (" · Save FAAB." if verdict.get("save_faab") else "")
+    else:
+        headline = verdict.get("headline") or state.replace("_", " ")
+    candidates = [entry for entry in (decision.get("drop_candidates") or {}).get("players") or [] if entry.get("state") in ("VERIFIED_DROP", "RELEASABLE")]
+    plan_best = _plan_move(best)
+    return {"contract_id": MANAGER_PLAN_CONTRACT_ID, "state": state, "headline": headline, "detail": verdict.get("detail"), "reasons": list(verdict.get("reasons") or []),
+            "best_move": plan_best, "backup_claims": (plan_best or {}).get("claims") or [], "more_moves": [_plan_move(move) for move in executable[1:]],
+            "monitor": [_plan_move(move) for move in monitors], "faab": _plan_faab(decision, best or (monitors[0] if monitors else None), market),
+            "drop_candidates": candidates[:3], "drop_candidates_rule": (decision.get("drop_candidates") or {}).get("rule"),
+            "positions": _plan_positions(decision), "blockers": list(decision.get("blockers") or []), "submits_transactions": False}
+
+
+def selected_player_priority(decision: Mapping[str, Any] | None, player_id: Any) -> dict[str, Any] | None:
+    """The Priority Moves decision involving one roster player, restated for the Waiver Move Checker so the two never diverge."""
+    pid = str(player_id or "")
+    if not pid or not decision:
+        return None
+    for move in decision.get("moves") or []:
+        role = ("REPLACED" if (move.get("over") or {}).get("player_id") == pid else "SLOT" if (move.get("slot_player") or {}).get("player_id") == pid
+                else "DROP" if (move.get("drop") or {}).get("player_id") == pid else None)
+        if role:
+            plan = _plan_move(move)
+            primary = {"add": (move.get("add") or {}).get("player"), "add_id": (move.get("add") or {}).get("player_id"), "team": (move.get("add") or {}).get("team"),
+                       "week_ecr": ((move.get("add") or {}).get("rank") or {}).get("ecr"), "ros_ecr": ((move.get("add") or {}).get("ros_value") or {}).get("ros_ecr"),
+                       "state": move.get("decision"), "drop": (move.get("drop") or {}).get("player"), "drop_position": (move.get("drop") or {}).get("position")}
+            options = [primary] + [{"add": backup.get("player"), "add_id": backup.get("player_id"), "team": backup.get("team"),
+                                    "week_ecr": (backup.get("rank") or {}).get("ecr") if (backup.get("rank") or {}).get("state") == "RANKED" else None,
+                                    "ros_ecr": (backup.get("ros_value") or {}).get("ros_ecr"), "state": (backup.get("claim") or {}).get("state") or "NOT_EVALUATED",
+                                    "drop": ((backup.get("claim") or {}).get("drop") or {}).get("player"),
+                                    "drop_position": ((backup.get("claim") or {}).get("drop") or {}).get("position")} for backup in move.get("fallbacks") or []]
+            return {"state": "IN_PRIORITY_MOVE", "role": role, "move": plan, "options": options}
+    entry = next((item for item in (decision.get("drop_candidates") or {}).get("players") or [] if item.get("player_id") == pid), None)
+    return {"state": "NO_PRIORITY_MOVE", "role": None, "move": None, "options": [], "drop_candidate": entry}

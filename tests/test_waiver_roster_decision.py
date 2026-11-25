@@ -7,8 +7,8 @@ import pytest
 
 from services.team_codes import CANONICAL_TEAMS
 from services.team_needs import league_settings_contract, team_needs_contract
-from services.waiver_roster_decision import (NO_SAFE_DROP_REASON, ROS_UNAVAILABLE_LABEL, build_waiver_roster_decision, compare_ros_values, player_value_context,
-                                             replacement_context, ros_materiality, ros_player_value)
+from services.waiver_roster_decision import (NO_SAFE_DROP_REASON, ROS_UNAVAILABLE_LABEL, build_manager_plan, build_waiver_roster_decision, compare_ros_values,
+                                             player_value_context, replacement_context, ros_materiality, ros_player_value, selected_player_priority)
 
 SEASON, WEEK = 2026, 11
 NOW = datetime(2026, 11, 15, 17, 0, tzinfo=timezone.utc)
@@ -400,7 +400,8 @@ def test_full_roster_without_a_same_position_release_stays_monitor():
                     rest_of_season={"wr-bench": ros("WR", 99), "k-free": ros("K", 3)})
     move = result["moves"][0]
     assert (move["kind"], move["decision"], move["drop"], move["drop_blocker"]) == ("MUST_FILL", "MONITOR", None, "NO_SAME_POSITION_RELEASE")
-    assert move["monitor_detail"] == "No K on your active roster can be released for k-free, and players are never released across positions."
+    assert move["monitor_detail"] == ("No K on your active roster can be released for k-free. A release at a different position was checked: "
+                                      "wr-bench (WR) — WR depth would fall to 1, below the supported target of 4.")
     assert (move["state_label"], result["verdict"]["state"], result["verdict"]["counts"]["executable"]) == ("MONITOR — NO SAFE DROP VERIFIED", "ACT", 0)
 
 
@@ -754,3 +755,210 @@ def test_flex_coverage_never_names_a_cross_position_best_backup():
     with_rb = decide([*roster, player("rb-bench", "RB", "DAL", starter=False)], [], **{**kwargs, "this_week": {**kwargs["this_week"], "rb-bench": rank("RB", 45)}})
     [note] = with_rb["lineup_notes"]
     assert (note["player_id"], note["note"]) == ("rb-bench", "Start rb-bench in the FLEX slot for rb-flex; no waiver move is needed.")
+
+
+# Cross-position release (waiver.cross_position_drop.v1), the drop-candidate order, and the manager plan built on them.
+
+FULL_SLOTS = ("QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF")
+
+
+def ros_range(position, ecr, best, worst):
+    return {**ros(position, ecr), "expert_best_rank": best, "expert_worst_rank": worst}
+
+
+def starters_core(flex=None):
+    return [player("qb", "QB", "CIN", index=0), player("rb-1", "RB", "TEN", index=1), player("rb-2", "RB", "NYJ", index=2), player("wr-1", "WR", "DAL", index=3),
+            player("wr-2", "WR", "SEA", index=4), player("te-1", "TE", "LV", index=5), {**(flex or player("wr-3", "WR", "HOU", index=6)), "lineup_slot": "FLEX"},
+            player("k", "K", "JAX", index=7), player("def", "DEF", "JAX", index=8)]
+
+
+def surplus_bench():
+    return [player("rb-3", "RB", "MIA", starter=False), player("rb-4", "RB", "PIT", starter=False), player("rb-5", "RB", "ARI", starter=False),
+            player("wr-4", "WR", "NE", starter=False), player("wr-5", "WR", "SF", starter=False)]
+
+
+FREE_AGENTS = [candidate("te-free", "TE", "WAS"), candidate("te-alt", "TE", "ATL"), candidate("rb-fa-1", "RB", "DET"), candidate("rb-fa-2", "RB", "BAL"),
+               candidate("rb-fa-3", "RB", "CHI"), candidate("wr-fa-1", "WR", "NO"), candidate("wr-fa-2", "WR", "CLE")]
+SURPLUS_WEEK = {"qb": rank("QB", 1), "rb-1": rank("RB", 16), "rb-2": rank("RB", 15), "wr-1": rank("WR", 3), "wr-2": rank("WR", 2), "wr-3": rank("WR", 12),
+                "te-1": rank("TE", 29, expert_best_rank=23, expert_worst_rank=36), "k": rank("K", 2), "def": rank("DEF", 3), "rb-3": rank("RB", 22),
+                "rb-4": rank("RB", 39), "rb-5": rank("RB", 42), "wr-4": rank("WR", 17), "wr-5": rank("WR", 16), "te-free": rank("TE", 10),
+                "te-alt": rank("TE", 15, expert_best_rank=13, expert_worst_rank=17)}
+SURPLUS_ROS = {"qb": ros("QB", 2), "rb-1": ros_range("RB", 19, 14, 26), "rb-2": ros_range("RB", 20, 17, 25), "wr-1": ros("WR", 4), "wr-2": ros("WR", 1),
+               "wr-3": ros("WR", 13), "te-1": ros_range("TE", 22, 15, 28), "k": ros("K", 3), "def": ros("DEF", 4), "rb-3": ros_range("RB", 19, 17, 21),
+               "rb-4": ros_range("RB", 40, 37, 43), "rb-5": ros_range("RB", 42, 35, 47), "wr-4": ros_range("WR", 15, 15, 16), "wr-5": ros_range("WR", 28, 26, 30),
+               "te-free": ros_range("TE", 14, 13, 15), "te-alt": ros_range("TE", 14.5, 11, 17), "rb-fa-1": ros_range("RB", 35, 31, 42),
+               "rb-fa-2": ros_range("RB", 42, 36, 48), "rb-fa-3": ros_range("RB", 47, 40, 50), "wr-fa-1": ros_range("WR", 25, 19, 29), "wr-fa-2": ros_range("WR", 30, 25, 35)}
+
+
+def surplus_league(roster=None, *, week=None, rest=None, candidates=None, **overrides):
+    """A full 14-player roster: one TE (below its depth target of 2) and five RBs and five WRs (each one above its target of 4)."""
+    return decide(roster or starters_core() + surplus_bench(), FREE_AGENTS if candidates is None else candidates, this_week={**SURPLUS_WEEK, **(week or {})},
+                  rest_of_season={**SURPLUS_ROS, **(rest or {})} if rest is not False else None, slots=FULL_SLOTS, **overrides)
+
+
+def test_te_upgrade_releases_the_most_replaceable_surplus_rb_when_no_te_can_be_released():
+    result = surplus_league()
+    move = result["moves"][0]
+    assert (move["position"], move["kind"], move["decision"], move["state_label"]) == ("TE", "CURRENT_WEEK_UPGRADE", "ADD_DROP", "ADD + DROP — CROSS-POSITION")
+    assert (move["add"]["player_id"], move["drop"]["player_id"], move["drop"]["basis"], move["drop"]["add_basis"]) == ("te-free", "rb-5", "cross_position", "VERIFIED_NEED")
+    assert move["drop"]["surplus"] == {"position": "RB", "count": 5, "count_after": 4, "depth_target": 4}
+    # RB is chosen over the equally eligible WR because more waiver RBs reach his expert range (3 vs 2); positional ranks are never compared.
+    assert [(option["player_id"], option["blocker"], option["replacement"]["comparable_count"]) for option in move["cross_position"]["options"]] == [
+        ("rb-5", None, 3), ("wr-5", None, 2)]
+    assert (move["rest_of_season"]["roster"], move["ros_materiality"]["state"], move["replacement_context"]["state"]) == ("te-1", "CLOSE_CALL", "STRONG")
+    assert move["value_combination"] == "CROSS_POSITION_RELEASE" and move["impact"].startswith("Current-week upgrade over te-1, who stays as TE depth")
+    assert move["drop_safety"]["state"] == "SUPPORTED" and move["drop"]["reason"].endswith(
+        "Every starting slot, including FLEX, can still be filled this week and for the rest of the season. Ranks are not compared across positions.")
+    assert any(text.startswith("Cross-position release:") and "No same-position release was verified: te-free ranks ahead of te-1" in text for text in move["disclosures"])
+    assert (result["verdict"]["state"], result["verdict"]["counts"]["executable"]) == ("ACT", 1)
+    status = result["ros_value"]["drop_status"]
+    assert (status["rb-5"]["state"], status["te-1"]["state"]) == ("SAFE", "PROTECTED")
+    rb_view = player_value_context(result, result["ros_value"]["roster"]["rb-5"], "rb-5", rostered=True)
+    assert rb_view["materiality"]["label"] == "CROSS-POSITION RELEASE" and "never on a cross-position rank comparison" in rb_view["materiality"]["reason"]
+
+
+def test_te_upgrade_releases_a_clearly_beaten_bench_te_before_any_other_position():
+    roster = starters_core() + surplus_bench() + [player("te-2", "TE", "KC", starter=False)]
+    move = surplus_league(roster, rest={"te-2": ros_range("TE", 40, 38, 42)})["moves"][0]
+    assert (move["decision"], move["state_label"], move["drop"]["player_id"], move["drop"]["basis"], move["drop"]["role"]) == (
+        "ADD_DROP", "ADD + DROP", "te-2", "rest_of_season", "BENCH")
+    assert "cross_position" not in move
+
+
+def test_candidate_better_this_week_but_not_rest_of_season_never_releases_a_player_at_another_position():
+    result = surplus_league(rest={"te-free": ros_range("TE", 25, 24, 26), "te-alt": ros_range("TE", 26, 24, 28)})
+    move = result["moves"][0]
+    assert (move["decision"], move["drop"], move["drop_blocker"], move["value_combination"]) == ("MONITOR", None, "ROSTER_ROS_STRONGER", "B_SHORT_TERM")
+    assert move["monitor_detail"] == ("te-1 ranks ahead of te-free for the rest of the season (TE ROS ECR 22.0 vs 25.0; lower is better). "
+                                      "The current-week edge is short-term, so te-1 is kept.")
+    assert [backup["claim"]["state"] for backup in move["fallbacks"]] == ["MONITOR"]
+    assert result["ros_value"]["drop_status"]["rb-5"]["state"] != "SAFE" and result["verdict"]["counts"]["executable"] == 0
+
+
+def rb_need_league(flex_fresh=True):
+    """Three RBs (below the target of 4) and six WRs; rb-free is a rest-of-season RB upgrade on bye this week, so not a current-week one."""
+    flex = {**player("wr-3", "WR", "HOU", index=6), **({} if flex_fresh else {"health_freshness_state": "STALE"})}
+    roster = starters_core(flex) + [player("rb-3", "RB", "MIA", starter=False), player("wr-4", "WR", "NE", starter=False),
+                                    player("wr-5", "WR", "SF", starter=False), player("wr-6", "WR", "BUF", starter=False)]
+    return decide(roster, [candidate("rb-free", "RB", "MIN"), candidate("wr-fa-1", "WR", "NO"), candidate("wr-fa-2", "WR", "CLE")], slots=FULL_SLOTS,
+                  byes=("MIN", "MIA", "NE", "SF"), this_week={key: SURPLUS_WEEK[key] for key in ("qb", "rb-1", "rb-2", "wr-1", "wr-2", "wr-3", "te-1", "k", "def")},
+                  rest_of_season={**{key: SURPLUS_ROS[key] for key in ("qb", "rb-1", "rb-2", "wr-1", "wr-2", "wr-3", "te-1", "k", "def")},
+                                  "rb-3": ros_range("RB", 45, 40, 50), "rb-free": ros_range("RB", 38, 35, 41), "wr-4": ros_range("WR", 15, 15, 16),
+                                  "wr-5": ros_range("WR", 29, 27, 31), "wr-6": ros_range("WR", 30, 26, 34), "wr-fa-1": ros_range("WR", 32, 28, 36),
+                                  "wr-fa-2": ros_range("WR", 35, 30, 40)})
+
+
+@pytest.mark.parametrize("flex_fresh,drop", [(True, "wr-6"), (False, "wr-5")])
+def test_rest_of_season_need_releases_surplus_depth_without_breaking_flex(flex_fresh, drop):
+    result = rb_need_league(flex_fresh)
+    [move] = result["moves"]
+    assert (move["kind"], move["decision"], move["add"]["player_id"], move["drop"]["player_id"], move["drop"]["add_basis"]) == (
+        "DEPTH_UPGRADE", "ADD_DROP", "rb-free", drop, "VERIFIED_NEED")
+    assert move["current_week"]["text"] == "Bench depth move: your current-week lineup is unchanged."
+    assert move["impact"] == f"Adds RB depth for the rest of the season while rb-3 stays; your current-week lineup is unchanged; {drop} (WR), surplus depth with strong waiver replacement, is released"
+    keep = {entry["player_id"]: entry for entry in result["drop_candidates"]["players"]}
+    if flex_fresh:
+        assert keep["wr-5"]["state"] == "RELEASABLE"
+    else:
+        # wr-6 is the only bench player who can fill FLEX this week (wr-3's health is unverified and the rest are on bye), so he is kept.
+        assert keep["wr-6"]["state"] == "KEEP" and "would leave fewer starting slots covered this week" in " ".join(keep["wr-6"]["reasons"])
+
+
+def test_protected_and_starting_players_are_never_released_across_positions():
+    questionable = player("wr-1", "WR", "DAL", index=3, health="QUESTIONABLE")
+    roster = [questionable if item["player_id"] == "wr-1" else item for item in starters_core()]
+    roster += [player("rb-3", "RB", "MIA", starter=False), player("rb-4", "RB", "PIT", starter=False), player("wr-4", "WR", "NE", starter=False),
+               player("wr-5", "WR", "SF", starter=False), player("wr-6", "WR", "BUF", starter=False)]
+    result = surplus_league(roster, week={"wr-6": rank("WR", 40)}, rest={"rb-1": ros_range("RB", 60, 55, 65), "wr-4": ros_range("WR", 27, 25, 29),
+                                                                          "wr-5": ros_range("WR", 28, 26, 30), "wr-6": ros_range("WR", 15, 15, 16)})
+    move = result["moves"][0]
+    assert result["ros_value"]["protected"]["wr-5"] == "Backup for wr-1 (Questionable) at WR this week."
+    weakest_starter = surplus_league(rest={"rb-1": ros_range("RB", 60, 55, 65)})["moves"][0]
+    assert (weakest_starter["drop"]["player_id"], weakest_starter["drop"]["position"]) == ("rb-5", "RB")
+    assert (move["decision"], move["drop"]["player_id"], move["drop"]["position"]) == ("ADD_DROP", "wr-4", "WR")
+    assert result["ros_value"]["drop_status"]["rb-1"]["state"] == "PROTECTED" and all(option["player_id"] != "wr-5" for option in move["cross_position"]["options"])
+
+
+def test_player_whose_game_has_kicked_off_is_never_released_across_positions():
+    result = surplus_league(locked_games=(("ARI", "MIN"),))
+    move = result["moves"][0]
+    assert (move["decision"], move["drop"]["player_id"]) == ("ADD_DROP", "rb-4")
+    assert result["ros_value"]["drop_status"]["rb-5"] == {"state": "PROTECTED", "reason": "His game has already kicked off this week, so his roster spot is locked."}
+
+
+def test_stale_rest_of_season_evidence_never_authorizes_a_cross_position_release():
+    stale = {key: {**value, "source_age_seconds": 752400, "source_date": "2026-11-07"} for key, value in SURPLUS_ROS.items()}
+    result = surplus_league(rest=stale)
+    move = result["moves"][0]
+    assert (move["decision"], move["drop"], move["drop_blocker"], "cross_position" in move) == ("MONITOR", None, "ROS_VALUE_UNAVAILABLE", False)
+    assert {entry["state"] for entry in result["drop_candidates"]["players"]} == {"UNVERIFIED"}
+    plan = build_manager_plan(result)
+    assert plan["best_move"] is None and plan["headline"].startswith("MONITOR te-free") and plan["drop_candidates"] == []
+
+
+def test_unverified_ownership_blocks_the_plan_and_every_release():
+    result = surplus_league(pool_allowed=False, pool_blockers=["WAIVER_OWNERSHIP_RETRIEVAL_FAILED"])
+    plan = build_manager_plan(result)
+    assert (result["verdict"]["state"], result["moves"], result["drop_candidates"]["players"]) == ("BLOCKED", [], [])
+    assert (plan["state"], plan["best_move"], plan["blockers"]) == ("BLOCKED", None, ["WAIVER_OWNERSHIP_RETRIEVAL_FAILED"])
+
+
+def test_unranked_bench_player_is_not_treated_as_the_weakest_release():
+    rest = {key: value for key, value in SURPLUS_ROS.items() if key != "rb-5"}
+    result = decide(starters_core() + surplus_bench(), FREE_AGENTS, this_week=SURPLUS_WEEK, rest_of_season=rest, slots=FULL_SLOTS)
+    assert result["moves"][0]["drop"]["player_id"] == "rb-4"
+    entry = next(item for item in result["drop_candidates"]["players"] if item["player_id"] == "rb-5")
+    assert entry["state"] == "UNVERIFIED" and entry["reasons"] == ["Not ranked here: no fresh rest-of-season rank (unranked); an unranked player is not treated as worse."]
+
+
+def test_contradictory_team_needs_fail_closed_for_cross_position_releases():
+    roster = starters_core() + surplus_bench()
+    settings = league_settings_contract({"roster_positions": [*FULL_SLOTS, "BN", "BN"], "scoring_settings": {"rec": 1}})
+    page_needs = team_needs_contract([*({"position": item["position"]} for item in roster), {"position": "RB"}], settings)
+    result = surplus_league(team_needs=page_needs)
+    move = result["moves"][0]
+    assert result["team_needs"]["state"] == "CONTRADICTORY"
+    assert (move["decision"], move["drop"], move["drop_blocker"]) == ("MONITOR", None, "ROS_EDGE_NOT_MATERIAL")
+    assert "A release at a different position is not evaluated: The page's team-needs result disagrees with your active roster at RB, FLEX" in move["monitor_detail"]
+    assert surplus_league(team_needs=team_needs_contract(roster, settings))["team_needs"]["state"] == "AVAILABLE"
+
+
+def test_contingent_claims_are_verified_one_by_one_and_shared_with_the_move_checker():
+    result = surplus_league()
+    move = result["moves"][0]
+    assert [(backup["player_id"], backup["claim"]["state"], (backup["claim"]["drop"] or {}).get("player_id")) for backup in move["fallbacks"]] == [("te-alt", "ADD_DROP", "rb-5")]
+    checker = selected_player_priority(result, "te-1")
+    assert (checker["state"], checker["role"], checker["move"]["add"]["player_id"], checker["move"]["drop"]["player_id"]) == ("IN_PRIORITY_MOVE", "REPLACED", "te-free", "rb-5")
+    assert [(option["add_id"], option["state"], option["drop"]) for option in checker["options"]] == [("te-free", "ADD_DROP", "rb-5"), ("te-alt", "ADD_DROP", "rb-5")]
+    assert selected_player_priority(result, "rb-5")["role"] == "DROP"
+    unrelated = selected_player_priority(result, "wr-4")
+    assert (unrelated["state"], unrelated["drop_candidate"]["state"]) == ("NO_PRIORITY_MOVE", "KEEP")
+
+
+def test_drop_candidates_and_manager_plan_restate_the_shared_decision():
+    result = surplus_league()
+    order = [(entry["player_id"], entry["state"]) for entry in result["drop_candidates"]["players"]]
+    assert order == [("rb-5", "VERIFIED_DROP"), ("rb-4", "RELEASABLE"), ("wr-5", "RELEASABLE"), ("rb-3", "KEEP"), ("wr-4", "KEEP")]
+    assert result["team_needs"]["positions"]["TE"]["depth_status"] == "BELOW_TARGET"
+    market = {"state": "AVAILABLE", "label": "MARKET HISTORY AVAILABLE", "scope_text": "Weeks 1–10",
+              "budget_context": {"state": "AVAILABLE", "total": 10, "distribution": {"n": 10, "median_remaining": 81}},
+              "position_summaries": {"TE": {"text": "TE (Weeks 1–10): 10 completed claims.", "contested_bids": {"text": "$9 (N=1, single observation)"},
+                                            "uncontested_bids": {"text": "$0–$11, median $3 (N=9)"}}}}
+    result["moves"][0]["market"] = {"lines": ["Player history: NO LEAGUE CLAIM HISTORY for te-free in Weeks 1–10.", "TE (Weeks 1–10): 10 completed claims."]}
+    plan = build_manager_plan(result, market=market)
+    assert (plan["state"], plan["headline"], plan["best_move"]["drop"]["basis"]) == ("ACT", "ADD te-free · DROP rb-5", "cross_position")
+    assert [(claim["add"], claim["state"], claim["drop"]) for claim in plan["backup_claims"]] == [("te-alt", "ADD_DROP", "rb-5")]
+    assert [entry["player_id"] for entry in plan["drop_candidates"]] == ["rb-5", "rb-4", "wr-5"]
+    labels = {row["position"]: row["label"] for row in plan["positions"]}
+    assert labels == {"QB": "HOLD", "RB": "SURPLUS", "WR": "SURPLUS", "TE": "UPGRADE", "K": "HOLD", "DEF": "HOLD"}
+    faab = plan["faab"]
+    assert (faab["remaining"], faab["league_median_remaining"], faab["value_bid"], faab["guardrail"]) == (41, 81, "VALUE-BASED BID UNAVAILABLE", None)
+    assert faab["player_history"] == "Player history: NO LEAGUE CLAIM HISTORY for te-free in Weeks 1–10." and plan["submits_transactions"] is False
+
+
+def test_cross_position_release_needs_strong_waiver_replacement_depth_at_the_released_position():
+    result = surplus_league(candidates=[candidate("te-free", "TE", "WAS"), candidate("te-alt", "TE", "ATL"), candidate("rb-fa-1", "RB", "DET")])
+    move = result["moves"][0]
+    assert (move["decision"], move["drop"], move["drop_blocker"]) == ("MONITOR", None, "ROS_EDGE_NOT_MATERIAL")
+    assert [(option["player_id"], option["blocker"]) for option in move["cross_position"]["options"]] == [("rb-5", "REPLACEMENT_NOT_STRONG"), ("wr-5", "REPLACEMENT_NOT_STRONG")]
+    assert "A release at a different position was checked: rb-5 (RB) — replacement depth limited on waivers" in move["monitor_detail"]

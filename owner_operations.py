@@ -39,8 +39,8 @@ from services.sleeper_service import get_matchups, get_trending_adds, get_trendi
 from services.espn_player_news import news_for_espn_player, read_espn_nfl_news
 from services.dynastyprocess_rankings import read_rankings
 from services.dynastyprocess_rankings import read_cached_rankings, refresh_rankings
-from services.waiver_roster_decision import (FAAB_DISCLOSURE, build_waiver_roster_decision, consensus_rank, consensus_rank_row_is_current,
-                                            player_value_context, ranking_horizon_summary, ros_player_value)
+from services.waiver_roster_decision import (FAAB_DISCLOSURE, build_manager_plan, build_waiver_roster_decision, consensus_rank, consensus_rank_row_is_current,
+                                            player_value_context, ranking_horizon_summary, ros_player_value, selected_player_priority)
 from services.waiver_candidate_universe import build_waiver_candidate_universe, candidate_health_group, candidate_universe_funnel, explain_catalog_player, find_catalog_players
 from services.sleeper_snapshots import read_transaction_history
 from services.waiver_market_evidence import build_faab_market_evidence, market_context
@@ -3221,6 +3221,7 @@ def create_owner_operations_blueprint(
             pool_allowed=pool_evidence.get("allowed") is True, pool_blockers=pool_evidence.get("blockers") or [],
             owned_player_ids=(pool_evidence.get("ownership") or {}).get("owned_player_ids") or [], roster_capacity=roster_capacity,
             empty_required_slots=next((player.get("sleeper_empty_required_slots") for player in roster), None), faab_balance=meta.get("faab_balance") or {},
+            team_needs=team_needs,
         )
         attach_waiver_decision_faab(waiver_decision, faab_inputs)
         # League FAAB history is attached after every decision is final: it is descriptive context and never changes a move or its order.
@@ -3245,6 +3246,15 @@ def create_owner_operations_blueprint(
         for move in waiver_decision.get("moves") or []:
             if move.get("add"):
                 move["role"] = waiver_role.get(str(move["add"].get("player_id") or ""))
+        # The plan at the top of the page restates the final decision and the descriptive market; it never re-derives a move or a bid.
+        waiver_manager_plan = build_manager_plan(waiver_decision, market=waiver_market)
+        waiver_priority_by_player = {}
+        for move in waiver_decision.get("moves") or []:
+            if move.get("add"):
+                waiver_priority_by_player.setdefault(str(move["add"].get("player_id")), {"role": "ADD", "priority": move.get("priority"), "decision": move.get("decision"),
+                                                                                         "state_label": move.get("state_label"), "drop": move.get("drop")})
+            for backup in move.get("fallbacks") or []:
+                waiver_priority_by_player.setdefault(str(backup.get("player_id")), {"role": "BACKUP", "priority": move.get("priority"), "claim": backup.get("claim") or {}})
         focus_player_id = (waiver_decision.get("move_checker_focus") or {}).get("player_id")
         selected_player = next((player for player in wda_roster if requested_selected_player_id and player.get("player_id") == str(requested_selected_player_id)), None)
         if not requested_selected_player_id:
@@ -3261,6 +3271,8 @@ def create_owner_operations_blueprint(
             "lineup_slot": selected_player.get("lineup_slot") if selected_player else None,
             "valid": selected_player is not None,
         }
+        # The Move Checker repeats the Priority Moves decision for the selected player from the same contract, so the two cannot diverge.
+        selected_priority = selected_player_priority(waiver_decision, selected_player_id)
         pagewide_news_candidates = [
             candidate for candidate in preliminary_suggestions
             if (candidate.get("acquisition_evaluation") or {}).get("evidence_relevance") in {"MEANINGFUL_COMPARISON", "DIRECTIONAL_SIGNAL"}
@@ -3337,7 +3349,11 @@ def create_owner_operations_blueprint(
                     equivalent_alternatives=max(0, next((len(problem["claims"]) for problem in waiver_plan["problems"] if problem["selected_player_id"] == selected_player.get("player_id")), 0) - 1),
                 )
             decision_order = {"ADD": 0, "PRELIMINARY_RECOMMENDATION": 1, "MONITOR": 2, "HOLD": 3, "BLOCKED": 4, "NO_ACTIONABLE_UPGRADE": 5}
+            # When the selected player is part of a priority move, its options lead in the same order as Priority Moves, so the
+            # production check reviews the same players instead of surfacing a different set; otherwise the order is unchanged.
+            priority_rank = {str(option.get("add_id")): index for index, option in enumerate((selected_priority or {}).get("options") or [])}
             relevant_candidates.sort(key=lambda candidate: (
+                priority_rank.get(str(candidate.get("player_id") or ""), len(priority_rank)),
                 decision_order.get((candidate.get("selected_comparison") or {}).get("decision"), 5),
                 # Equal decisions follow the validated consensus rank (lower is better); unranked follow ranked instead of alphabetical order.
                 (0, float((candidate.get("waiver_value_result") or {})["rank"]))
@@ -3691,6 +3707,8 @@ def create_owner_operations_blueprint(
                                         if roster_match is not None or candidate is not None else None)
             if roster_match:
                 details["drop_status"] = ((waiver_decision.get("ros_value") or {}).get("drop_status") or {}).get(rank_lookup_id)
+                details["drop_candidate"] = next((entry for entry in (waiver_decision.get("drop_candidates") or {}).get("players") or []
+                                                  if entry.get("player_id") == rank_lookup_id), None)
             if str(outcome.get("message") or "").startswith("Already rostered"):
                 details["ownership"] = "ROSTERED"
             else:
@@ -3727,7 +3745,7 @@ def create_owner_operations_blueprint(
                 (details.get("waiver_value") or {}).get("reason")
                 or ("Not ranked because this player is already rostered." if roster_match else outcome.get("message")),
             )
-        return render_template("waivers.html", title="Waiver and FAAB Center", context=context, meta=meta, waiver_decision=waiver_decision, waiver_market=waiver_market, waiver_universe=waiver_universe, waiver_universe_funnel=waiver_universe_funnel, recommendations=recommendations, preliminary_suggestions=preliminary_suggestions, monitor_candidates=monitor_candidates, health_excluded_diagnostics=pool_evidence["health_excluded_diagnostics"], waiver_candidate_outcomes=requested_outcomes, waiver_explain_player=requested_explanation_name, waiver_position_sections=manager_position_sections, waiver_more_available=manager_more_available, waiver_team_needs=team_needs, waiver_opportunity_status=waiver_opportunity_status, needs=needs, vacancies=vacancies, faab_budget=(meta.get("faab_balance") or {}).get("remaining"), faab_balance=meta.get("faab_balance") or {}, ranking_source=rankings, waiver_evidence=pool_evidence, opportunity_view=build_opportunity_view(current_app.config.get("OPPORTUNITY_EVIDENCE")), roster=roster, grades=grades, counts=counts, wda_roster=wda_roster, wda_candidates=client_wda_candidates, waiver_plan=waiver_plan, selected_player=selected_context, selected_focus=selected_focus, selected_result=selected_result, selected_comparisons=selected_comparisons, selected_screened_summary=selected_screened_summary, waiver_role=waiver_role, waiver_role_coverage=waiver_role_coverage, trending_evidence_state=trending_evidence.get("state"))
+        return render_template("waivers.html", title="Waiver and FAAB Center", context=context, meta=meta, waiver_decision=waiver_decision, waiver_market=waiver_market, waiver_universe=waiver_universe, waiver_universe_funnel=waiver_universe_funnel, recommendations=recommendations, preliminary_suggestions=preliminary_suggestions, monitor_candidates=monitor_candidates, health_excluded_diagnostics=pool_evidence["health_excluded_diagnostics"], waiver_candidate_outcomes=requested_outcomes, waiver_explain_player=requested_explanation_name, waiver_position_sections=manager_position_sections, waiver_more_available=manager_more_available, waiver_team_needs=team_needs, waiver_opportunity_status=waiver_opportunity_status, needs=needs, vacancies=vacancies, faab_budget=(meta.get("faab_balance") or {}).get("remaining"), faab_balance=meta.get("faab_balance") or {}, ranking_source=rankings, waiver_evidence=pool_evidence, opportunity_view=build_opportunity_view(current_app.config.get("OPPORTUNITY_EVIDENCE")), roster=roster, grades=grades, counts=counts, wda_roster=wda_roster, wda_candidates=client_wda_candidates, waiver_plan=waiver_plan, selected_player=selected_context, selected_focus=selected_focus, selected_result=selected_result, selected_comparisons=selected_comparisons, selected_screened_summary=selected_screened_summary, waiver_role=waiver_role, waiver_role_coverage=waiver_role_coverage, trending_evidence_state=trending_evidence.get("state"), waiver_manager_plan=waiver_manager_plan, selected_priority=selected_priority, waiver_priority_by_player=waiver_priority_by_player)
 
     @bp.route("/trades")
     def trades_page():
