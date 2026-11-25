@@ -13,11 +13,13 @@ tests/test_team_opportunity_integration.py
 tests/test_integrity_summary_template.py
 tests/test_ux2_health_route_freshness.py
 tests/test_readiness.py
+tests/test_sleeper_transaction_refresh.py
 tests/test_survivor_intelligence.py
 tests/test_trade_evidence_timestamp_writers.py
 tests/test_f2r_a_local_identity.py
 tests/test_survivor_template_states.py
 tests/test_ux2_health_contract.py
+tests/test_dynastyprocess_rankings_refresh.py
 tests/test_failed_event_retry.py
 tests/test_no_csv_live_weekly_fallback.py
 tests/test_gsis_identity_crosswalk.py
@@ -148,7 +150,7 @@ platform linux -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
 rootdir: /home/deeoriginalone/fantasy-intelligence
 configfile: pytest.ini
 testpaths: tests
-collected 114 items / 116 errors
+collected 114 items / 118 errors
 
 <Dir fantasy-intelligence>
   <Dir tests>
@@ -438,6 +440,16 @@ Traceback:
 tests/test_dynastyprocess_rankings.py:7: in <module>
     from services.dynastyprocess_rankings import evaluate, read_cached_rankings, refresh, refresh_rankings
 E   ModuleNotFoundError: No module named 'services'
+________ ERROR collecting tests/test_dynastyprocess_rankings_refresh.py ________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_dynastyprocess_rankings_refresh.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_dynastyprocess_rankings_refresh.py:24: in <module>
+    import refresh_dynastyprocess_rankings as refresh_module
+E   ModuleNotFoundError: No module named 'refresh_dynastyprocess_rankings'
 _______________ ERROR collecting tests/test_espn_player_news.py ________________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_espn_player_news.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -1068,6 +1080,16 @@ Traceback:
 tests/test_security_and_validation.py:13: in <module>
     from yahoo_pickem import PickemGame, build_week
 E   ModuleNotFoundError: No module named 'yahoo_pickem'
+__________ ERROR collecting tests/test_sleeper_transaction_refresh.py __________
+ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_sleeper_transaction_refresh.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_sleeper_transaction_refresh.py:23: in <module>
+    import refresh_sleeper_transactions as refresh_module
+E   ModuleNotFoundError: No module named 'refresh_sleeper_transactions'
 _____________ ERROR collecting tests/test_snap_share_foundation.py _____________
 ImportError while importing test module '/home/deeoriginalone/fantasy-intelligence/tests/test_snap_share_foundation.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -1464,6 +1486,7 @@ ERROR tests/test_draft_state_hardening.py
 ERROR tests/test_draftboard_polling.py
 ERROR tests/test_dynastyprocess_identity_source.py
 ERROR tests/test_dynastyprocess_rankings.py
+ERROR tests/test_dynastyprocess_rankings_refresh.py
 ERROR tests/test_espn_player_news.py
 ERROR tests/test_f2r_a_local_identity.py
 ERROR tests/test_f2r_c_identity_bridge.py
@@ -1527,6 +1550,7 @@ ERROR tests/test_roster_reconciliation.py
 ERROR tests/test_schedule_bye_source_contract.py
 ERROR tests/test_schedule_bye_threshold_registry.py
 ERROR tests/test_security_and_validation.py
+ERROR tests/test_sleeper_transaction_refresh.py
 ERROR tests/test_snap_share_foundation.py
 ERROR tests/test_snap_share_publication.py
 ERROR tests/test_survival_calibration.py
@@ -1565,5 +1589,5 @@ ERROR tests/test_weekly_evidence_trust_contract.py
 ERROR tests/test_weekly_lineup_intelligence.py
 ERROR tests/test_yahoo_oauth.py
 ERROR tests/test_yahoo_pickem.py
-!!!!!!!!!!!!!!!!!! Interrupted: 116 errors during collection !!!!!!!!!!!!!!!!!!!
-=================== 114 tests collected, 116 errors in 6.06s ===================
+!!!!!!!!!!!!!!!!!! Interrupted: 118 errors during collection !!!!!!!!!!!!!!!!!!!
+=================== 114 tests collected, 118 errors in 4.74s ===================

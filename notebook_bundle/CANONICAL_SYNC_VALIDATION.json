@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-11-21T03:04:14.398758+00:00",
+  "generated_at_utc": "2026-11-25T07:27:22.954847+00:00",
   "passed": true,
   "repository": {
     "branch": "test-weekly-evidence-trust",
-    "head": "754ed0c5f78f3b485e38fb0cc82dbc288d1a05e7",
-    "short_head": "754ed0c"
+    "head": "ac5a3239e39654ecd9c75491487cd57d1d2e5039",
+    "short_head": "ac5a323"
   },
   "checks": {
     "canonical_files_present": true,
@@ -18,35 +18,35 @@
   "files": {
     "PROJECT_STATUS.md": {
       "exists": true,
-      "bytes": 103302,
+      "bytes": 117163,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**automate the w5 league transaction-history refresh so faab market evidence on waivers stays complete through the latest closed waiver week without manual intervention, while preserving closed-week completeness rules, failed-week retention, descriptive-only market authority, and read-only waivers.**"
+      "next_milestone": "**validate, commit, and reconcile the waivers evidence-refresh automation already installed from the working tree \u2014 the w5 sleeper transaction-history refresh and the dynastyprocess consensus-ranking refresh \u2014 and verify their timer-triggered runs, so faab market history and current-week and rest-of-season consensus stay current without manual intervention while preserving closed-week completeness, upstream source-date freshness, fail-closed behavior, descriptive-only market authority, and read-only waivers.**"
     },
     "PROJECT_STATE.md": {
       "exists": true,
-      "bytes": 103697,
+      "bytes": 117558,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**automate the w5 league transaction-history refresh so faab market evidence on waivers stays complete through the latest closed waiver week without manual intervention, while preserving closed-week completeness rules, failed-week retention, descriptive-only market authority, and read-only waivers.**"
+      "next_milestone": "**validate, commit, and reconcile the waivers evidence-refresh automation already installed from the working tree \u2014 the w5 sleeper transaction-history refresh and the dynastyprocess consensus-ranking refresh \u2014 and verify their timer-triggered runs, so faab market history and current-week and rest-of-season consensus stay current without manual intervention while preserving closed-week completeness, upstream source-date freshness, fail-closed behavior, descriptive-only market authority, and read-only waivers.**"
     },
     "DEVELOPMENT_ROADMAP.md": {
       "exists": true,
-      "bytes": 105741,
+      "bytes": 118517,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**automate the w5 league transaction-history refresh so faab market evidence on waivers stays complete through the latest closed waiver week without manual intervention, while preserving closed-week completeness rules, failed-week retention, descriptive-only market authority, and read-only waivers.**"
+      "next_milestone": "**validate, commit, and reconcile the waivers evidence-refresh automation already installed from the working tree \u2014 the w5 sleeper transaction-history refresh and the dynastyprocess consensus-ranking refresh \u2014 and verify their timer-triggered runs, so faab market history and current-week and rest-of-season consensus stay current without manual intervention while preserving closed-week completeness, upstream source-date freshness, fail-closed behavior, descriptive-only market authority, and read-only waivers.**"
     },
     "NEXT_SESSION_HANDOFF.md": {
       "exists": true,
-      "bytes": 104640,
+      "bytes": 118501,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**automate the w5 league transaction-history refresh so faab market evidence on waivers stays complete through the latest closed waiver week without manual intervention, while preserving closed-week completeness rules, failed-week retention, descriptive-only market authority, and read-only waivers.**"
+      "next_milestone": "**validate, commit, and reconcile the waivers evidence-refresh automation already installed from the working tree \u2014 the w5 sleeper transaction-history refresh and the dynastyprocess consensus-ranking refresh \u2014 and verify their timer-triggered runs, so faab market history and current-week and rest-of-season consensus stay current without manual intervention while preserving closed-week completeness, upstream source-date freshness, fail-closed behavior, descriptive-only market authority, and read-only waivers.**"
     }
   },
   "missing_files": [],
@@ -55,7 +55,7 @@
   "head_mismatches": [],
   "missing_milestones": [],
   "unique_milestones": [
-    "**automate the w5 league transaction-history refresh so faab market evidence on waivers stays complete through the latest closed waiver week without manual intervention, while preserving closed-week completeness rules, failed-week retention, descriptive-only market authority, and read-only waivers.**"
+    "**validate, commit, and reconcile the waivers evidence-refresh automation already installed from the working tree \u2014 the w5 sleeper transaction-history refresh and the dynastyprocess consensus-ranking refresh \u2014 and verify their timer-triggered runs, so faab market history and current-week and rest-of-season consensus stay current without manual intervention while preserving closed-week completeness, upstream source-date freshness, fail-closed behavior, descriptive-only market authority, and read-only waivers.**"
   ],
   "sensitive_findings": []
 }

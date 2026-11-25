@@ -1,12 +1,12 @@
 {
-  "generated_at_utc": "2026-11-21T03:04:14.140026+00:00",
+  "generated_at_utc": "2026-11-25T07:27:22.684459+00:00",
   "bundle_directory": "notebook_bundle",
   "archive": "notebook_bundle.tar.gz",
   "files": [
     {
       "name": "DEVELOPMENT_ROADMAP.md",
-      "bytes": 105741,
-      "sha256": "13eeb4d17c5bb26ee2b3174fad9192bf484244b1873ea6a331bf32041f8e8722"
+      "bytes": 118517,
+      "sha256": "e30421aaa45340d9603ec27464a3b260b777c146b1d79d7bd6edd2cc06316bbb"
     },
     {
       "name": "IMPLEMENTATION_INVENTORY.md",
@@ -20,8 +20,8 @@
     },
     {
       "name": "NEXT_SESSION_HANDOFF.md",
-      "bytes": 104640,
-      "sha256": "51617b1e65c24206222b08cfedf444962900961a0e5b768cc53dad989ad4fcf1"
+      "bytes": 118501,
+      "sha256": "481ca9a9a38ac9537dceed09977dc0d2288074a59fbd8c46164120a5bfce7add"
     },
     {
       "name": "PARITY_STATUS.md",
@@ -30,18 +30,18 @@
     },
     {
       "name": "PROJECT_STATE.md",
-      "bytes": 103697,
-      "sha256": "1dbcc0f72d6a6ca1a24bfa13c12d398d84479b42e072cf4e51b48c048cb30980"
+      "bytes": 117558,
+      "sha256": "112fd17ca98bedb70d88c3ec3f619f9141f784da1633bce679b1cb3de8625435"
     },
     {
       "name": "PROJECT_STATUS.md",
-      "bytes": 103302,
-      "sha256": "e2dfab6335cf56521e6e00d81702195836906b84176df8572e2920d0c841529e"
+      "bytes": 117163,
+      "sha256": "40617675c8548199f7250f16eb84496b7f30ce2c71ebfaca5d11d8cc22fd50b4"
     },
     {
       "name": "REPOSITORY_CHECKPOINT.md",
-      "bytes": 3129,
-      "sha256": "aca0340c0f9b90e11feb5faa451e38bb4619f459b8956a7d0d2dacb19b7cc1b0"
+      "bytes": 3669,
+      "sha256": "d99021a5eacea44c71fe84debaf622a9cfe2084477509e28a8bc6e0032923d90"
     },
     {
       "name": "SCHEMA.md",
@@ -50,8 +50,8 @@
     },
     {
       "name": "TEST_INVENTORY.md",
-      "bytes": 96180,
-      "sha256": "f628a3e8f3e6fdd49ea755751372b09083fb443c6423dbe38d28b18a400f72da"
+      "bytes": 97714,
+      "sha256": "5839570c487655a1a2c5b1204f5bd63442b63c5f13b0f41ef182ea68ba555061"
     }
   ]
 }

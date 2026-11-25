@@ -1,20 +1,20 @@
 {
-  "generated_at_utc": "2026-11-21T03:04:14.447379+00:00",
+  "generated_at_utc": "2026-11-25T07:27:23.019859+00:00",
   "repository": {
     "root": "/home/deeoriginalone/fantasy-intelligence",
     "branch": "test-weekly-evidence-trust",
-    "head": "754ed0c5f78f3b485e38fb0cc82dbc288d1a05e7",
-    "short_head": "754ed0c"
+    "head": "ac5a3239e39654ecd9c75491487cd57d1d2e5039",
+    "short_head": "ac5a323"
   },
   "working_tree": {
-    "status": "## test-weekly-evidence-trust...origin/test-weekly-evidence-trust [ahead 1]\n M .continuity/last_bundle_manifest.json\n M DEVELOPMENT_ROADMAP.md\n M PROJECT_STATE.md\n M PROJECT_STATUS.md\n M docs/DATA_FRESHNESS_POLICY.md\n M docs/NEXT_SESSION_HANDOFF.md\n M notebook_bundle.tar.gz\n M notebook_bundle/BUNDLE_MANIFEST.json\n M notebook_bundle/BUNDLE_VALIDATION.json\n M notebook_bundle/BUNDLE_VALIDATION.md\n M notebook_bundle/CANONICAL_SYNC_VALIDATION.json\n M notebook_bundle/CANONICAL_SYNC_VALIDATION.md\n M notebook_bundle/CHANGE_REPORT.json\n M notebook_bundle/CHANGE_REPORT.md\n M notebook_bundle/DEVELOPMENT_ROADMAP.md\n M notebook_bundle/NEXT_SESSION_HANDOFF.md\n M notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json\n M notebook_bundle/PROJECT_STATE.md\n M notebook_bundle/PROJECT_STATUS.md\n M notebook_bundle/REPOSITORY_CHECKPOINT.md\n M notebook_bundle/TEST_INVENTORY.md\n?? artifacts/\n?? audit/f3_b31/\n?? collect_batch_b_evidence.sh\n?? data/sleeper_waiver_wire_2026_wk1_wk2_stats_wk3_projections.json\n?? docs/PULL_SLEEPER_WAIVER_WIRE_WEEKS_1_3_PROMPT.md\n?? restore-needs.patch\n?? scripts/rollback_013_nflverse_defense_matchups.sql\n?? ux2_team_needs_summary.patch",
-    "diff_stat": ".continuity/last_bundle_manifest.json          |  26 +++----\n DEVELOPMENT_ROADMAP.md                         |  47 +++++++++----\n PROJECT_STATE.md                               |  47 +++++++++----\n PROJECT_STATUS.md                              |  47 +++++++++----\n docs/DATA_FRESHNESS_POLICY.md                  |   6 +-\n docs/NEXT_SESSION_HANDOFF.md                   |  47 +++++++++----\n notebook_bundle.tar.gz                         | Bin 174284 -> 178412 bytes\n notebook_bundle/BUNDLE_MANIFEST.json           |  26 +++----\n notebook_bundle/BUNDLE_VALIDATION.json         |   2 +-\n notebook_bundle/BUNDLE_VALIDATION.md           |   2 +-\n notebook_bundle/CANONICAL_SYNC_VALIDATION.json |  24 +++----\n notebook_bundle/CANONICAL_SYNC_VALIDATION.md   |  14 ++--\n notebook_bundle/CHANGE_REPORT.json             |  68 ++++++++----------\n notebook_bundle/CHANGE_REPORT.md               |   8 +--\n notebook_bundle/DEVELOPMENT_ROADMAP.md         |  47 +++++++++----\n notebook_bundle/NEXT_SESSION_HANDOFF.md        |  47 +++++++++----\n notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json  |  30 ++++----\n notebook_bundle/PROJECT_STATE.md               |  47 +++++++++----\n notebook_bundle/PROJECT_STATUS.md              |  47 +++++++++----\n notebook_bundle/REPOSITORY_CHECKPOINT.md       |  93 ++++++++++---------------\n notebook_bundle/TEST_INVENTORY.md              |  18 ++++-\n 21 files changed, 410 insertions(+), 283 deletions(-)",
+    "status": "## test-weekly-evidence-trust...origin/test-weekly-evidence-trust [ahead 1]\n M .continuity/last_bundle_manifest.json\n M DEVELOPMENT_ROADMAP.md\n M PROJECT_STATE.md\n M PROJECT_STATUS.md\n M docs/METRIC_DEFINITIONS.md\n M docs/NEXT_SESSION_HANDOFF.md\n M docs/PAGE_REQUIREMENTS.md\n M notebook_bundle.tar.gz\n M notebook_bundle/BUNDLE_MANIFEST.json\n M notebook_bundle/BUNDLE_VALIDATION.json\n M notebook_bundle/BUNDLE_VALIDATION.md\n M notebook_bundle/CANONICAL_SYNC_VALIDATION.json\n M notebook_bundle/CANONICAL_SYNC_VALIDATION.md\n M notebook_bundle/CHANGE_REPORT.json\n M notebook_bundle/CHANGE_REPORT.md\n M notebook_bundle/DEVELOPMENT_ROADMAP.md\n M notebook_bundle/NEXT_SESSION_HANDOFF.md\n M notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json\n M notebook_bundle/PROJECT_STATE.md\n M notebook_bundle/PROJECT_STATUS.md\n M notebook_bundle/REPOSITORY_CHECKPOINT.md\n M notebook_bundle/TEST_INVENTORY.md\n M refresh_sleeper_transactions.py\n M tests/test_dynastyprocess_rankings.py\n M tests/test_waiver_roster_decision.py\n?? artifacts/\n?? audit/f3_b31/\n?? collect_batch_b_evidence.sh\n?? data/sleeper_waiver_wire_2026_wk1_wk2_stats_wk3_projections.json\n?? docs/PULL_SLEEPER_WAIVER_WIRE_WEEKS_1_3_PROMPT.md\n?? refresh_dynastyprocess_rankings.py\n?? restore-needs.patch\n?? scheduler/dynastyprocess-rankings-refresh.service\n?? scheduler/dynastyprocess-rankings-refresh.timer\n?? scheduler/sleeper-transactions-refresh.service\n?? scheduler/sleeper-transactions-refresh.timer\n?? scripts/rollback_013_nflverse_defense_matchups.sql\n?? tests/test_dynastyprocess_rankings_refresh.py\n?? tests/test_sleeper_transaction_refresh.py\n?? ux2_team_needs_summary.patch",
+    "diff_stat": ".continuity/last_bundle_manifest.json          |  26 +--\n DEVELOPMENT_ROADMAP.md                         |  54 ++++--\n PROJECT_STATE.md                               |  54 ++++--\n PROJECT_STATUS.md                              |  54 ++++--\n docs/METRIC_DEFINITIONS.md                     |   9 +-\n docs/NEXT_SESSION_HANDOFF.md                   |  54 ++++--\n docs/PAGE_REQUIREMENTS.md                      |  11 +-\n notebook_bundle.tar.gz                         | Bin 183193 -> 193750 bytes\n notebook_bundle/BUNDLE_MANIFEST.json           |  26 +--\n notebook_bundle/BUNDLE_VALIDATION.json         |   2 +-\n notebook_bundle/BUNDLE_VALIDATION.md           |   2 +-\n notebook_bundle/CANONICAL_SYNC_VALIDATION.json |  24 +--\n notebook_bundle/CANONICAL_SYNC_VALIDATION.md   |  14 +-\n notebook_bundle/CHANGE_REPORT.json             |  54 +++---\n notebook_bundle/CHANGE_REPORT.md               |   2 +-\n notebook_bundle/DEVELOPMENT_ROADMAP.md         |  54 ++++--\n notebook_bundle/NEXT_SESSION_HANDOFF.md        |  54 ++++--\n notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json  |  26 +--\n notebook_bundle/PROJECT_STATE.md               |  54 ++++--\n notebook_bundle/PROJECT_STATUS.md              |  54 ++++--\n notebook_bundle/REPOSITORY_CHECKPOINT.md       | 104 ++++++------\n notebook_bundle/TEST_INVENTORY.md              |  30 +++-\n refresh_sleeper_transactions.py                | 222 +++++++++++++++++++++++--\n tests/test_dynastyprocess_rankings.py          |  13 ++\n tests/test_waiver_roster_decision.py           |  10 ++\n 25 files changed, 714 insertions(+), 293 deletions(-)",
     "counts": {
-      "modified": 21,
+      "modified": 25,
       "deleted": 0,
       "added": 0,
       "renamed": 0,
-      "untracked": 8,
+      "untracked": 15,
       "other": 0
     },
     "categories": {
@@ -23,8 +23,9 @@
         " M DEVELOPMENT_ROADMAP.md",
         " M PROJECT_STATE.md",
         " M PROJECT_STATUS.md",
-        " M docs/DATA_FRESHNESS_POLICY.md",
+        " M docs/METRIC_DEFINITIONS.md",
         " M docs/NEXT_SESSION_HANDOFF.md",
+        " M docs/PAGE_REQUIREMENTS.md",
         " M notebook_bundle.tar.gz",
         " M notebook_bundle/BUNDLE_MANIFEST.json",
         " M notebook_bundle/BUNDLE_VALIDATION.json",
@@ -39,7 +40,10 @@
         " M notebook_bundle/PROJECT_STATE.md",
         " M notebook_bundle/PROJECT_STATUS.md",
         " M notebook_bundle/REPOSITORY_CHECKPOINT.md",
-        " M notebook_bundle/TEST_INVENTORY.md"
+        " M notebook_bundle/TEST_INVENTORY.md",
+        " M refresh_sleeper_transactions.py",
+        " M tests/test_dynastyprocess_rankings.py",
+        " M tests/test_waiver_roster_decision.py"
       ],
       "deleted": [],
       "added": [],
@@ -50,8 +54,15 @@
         "?? collect_batch_b_evidence.sh",
         "?? data/sleeper_waiver_wire_2026_wk1_wk2_stats_wk3_projections.json",
         "?? docs/PULL_SLEEPER_WAIVER_WIRE_WEEKS_1_3_PROMPT.md",
+        "?? refresh_dynastyprocess_rankings.py",
         "?? restore-needs.patch",
+        "?? scheduler/dynastyprocess-rankings-refresh.service",
+        "?? scheduler/dynastyprocess-rankings-refresh.timer",
+        "?? scheduler/sleeper-transactions-refresh.service",
+        "?? scheduler/sleeper-transactions-refresh.timer",
         "?? scripts/rollback_013_nflverse_defense_matchups.sql",
+        "?? tests/test_dynastyprocess_rankings_refresh.py",
+        "?? tests/test_sleeper_transaction_refresh.py",
         "?? ux2_team_needs_summary.patch"
       ],
       "other": []
@@ -68,16 +79,16 @@
     }
   },
   "recent_commits": [
-    "754ed0c (HEAD -> test-weekly-evidence-trust) feat(waivers): automate opportunity evidence refresh",
-    "1eee4ba (origin/test-weekly-evidence-trust) chore(continuity): refresh W6 project handoff",
+    "ac5a323 (HEAD -> test-weekly-evidence-trust) feat(waivers): support roster-safe cross-position releases",
+    "317130a (origin/test-weekly-evidence-trust) chore(continuity): refresh opportunity automation handoff",
+    "16631ba docs(project): record automated W6 evidence refresh",
+    "754ed0c feat(waivers): automate opportunity evidence refresh",
+    "1eee4ba chore(continuity): refresh W6 project handoff",
     "4dab664 docs(project): record W6 role evidence boundary",
     "4212a92 feat(waivers): add informational role and opportunity evidence",
     "38cd314 chore(continuity): refresh repository handoff artifacts",
     "4798bb0 docs(project): reconcile W1-W5 waiver delivery boundary",
-    "79be2ff feat(waivers): add roster-safe decisions and league FAAB evidence",
-    "9556268 chore(ai): add Fantasy Intelligence repository agents",
-    "b5b6cc6 chore(continuity): refresh repository handoff artifacts",
-    "8774fa8 docs: reconcile Weekly Score v2 shadow boundary"
+    "79be2ff feat(waivers): add roster-safe decisions and league FAAB evidence"
   ],
   "first_command": "cd /home/deeoriginalone/fantasy-intelligence && source venv/bin/activate && git status --short --branch"
 }
