@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-11-25T20:16:44.068937+00:00",
+  "generated_at_utc": "2026-11-26T00:43:09.084517+00:00",
   "passed": true,
   "repository": {
     "branch": "test-weekly-evidence-trust",
-    "head": "fef67807429ffb09335e9fc06a11df210a0ecef9",
-    "short_head": "fef6780"
+    "head": "101b21733505455cdf4548e0dcf23e0aec4c9dac",
+    "short_head": "101b217"
   },
   "checks": {
     "canonical_files_present": true,
@@ -18,35 +18,35 @@
   "files": {
     "PROJECT_STATUS.md": {
       "exists": true,
-      "bytes": 131857,
+      "bytes": 146955,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**resolve the five recorded waivers presentation contradictions \u2014 the move checker's empty add line, a depth_upgrade weakest-bench comparison that names a player a higher-priority move already releases, protected beside releasable for the same bench player in the lookup, the observed-production check's hold label for a kept starter, and \"suggested drop: unavailable\" on an open-spot add \u2014 so every waivers surface states one consistent, decision-safe status for each player, without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab behavior, or transaction behavior.**"
+      "next_milestone": "**make the waiver move checker's informational observed-production check never present an add \u2192 drop heading, roster-effect text, or provisional faab band that the shared waiver decision does not support, so a player the decision keeps or protects is never shown as the drop in wording that reads like a recommendation \u2014 without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab amount, or transaction behavior.**"
     },
     "PROJECT_STATE.md": {
       "exists": true,
-      "bytes": 132252,
+      "bytes": 147350,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**resolve the five recorded waivers presentation contradictions \u2014 the move checker's empty add line, a depth_upgrade weakest-bench comparison that names a player a higher-priority move already releases, protected beside releasable for the same bench player in the lookup, the observed-production check's hold label for a kept starter, and \"suggested drop: unavailable\" on an open-spot add \u2014 so every waivers surface states one consistent, decision-safe status for each player, without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab behavior, or transaction behavior.**"
+      "next_milestone": "**make the waiver move checker's informational observed-production check never present an add \u2192 drop heading, roster-effect text, or provisional faab band that the shared waiver decision does not support, so a player the decision keeps or protects is never shown as the drop in wording that reads like a recommendation \u2014 without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab amount, or transaction behavior.**"
     },
     "DEVELOPMENT_ROADMAP.md": {
       "exists": true,
-      "bytes": 132062,
+      "bytes": 145933,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**resolve the five recorded waivers presentation contradictions \u2014 the move checker's empty add line, a depth_upgrade weakest-bench comparison that names a player a higher-priority move already releases, protected beside releasable for the same bench player in the lookup, the observed-production check's hold label for a kept starter, and \"suggested drop: unavailable\" on an open-spot add \u2014 so every waivers surface states one consistent, decision-safe status for each player, without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab behavior, or transaction behavior.**"
+      "next_milestone": "**make the waiver move checker's informational observed-production check never present an add \u2192 drop heading, roster-effect text, or provisional faab band that the shared waiver decision does not support, so a player the decision keeps or protects is never shown as the drop in wording that reads like a recommendation \u2014 without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab amount, or transaction behavior.**"
     },
     "NEXT_SESSION_HANDOFF.md": {
       "exists": true,
-      "bytes": 133195,
+      "bytes": 148293,
       "nonempty": true,
       "branch_present": true,
       "head_present": true,
-      "next_milestone": "**resolve the five recorded waivers presentation contradictions \u2014 the move checker's empty add line, a depth_upgrade weakest-bench comparison that names a player a higher-priority move already releases, protected beside releasable for the same bench player in the lookup, the observed-production check's hold label for a kept starter, and \"suggested drop: unavailable\" on an open-spot add \u2014 so every waivers surface states one consistent, decision-safe status for each player, without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab behavior, or transaction behavior.**"
+      "next_milestone": "**make the waiver move checker's informational observed-production check never present an add \u2192 drop heading, roster-effect text, or provisional faab band that the shared waiver decision does not support, so a player the decision keeps or protects is never shown as the drop in wording that reads like a recommendation \u2014 without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab amount, or transaction behavior.**"
     }
   },
   "missing_files": [],
@@ -55,7 +55,7 @@
   "head_mismatches": [],
   "missing_milestones": [],
   "unique_milestones": [
-    "**resolve the five recorded waivers presentation contradictions \u2014 the move checker's empty add line, a depth_upgrade weakest-bench comparison that names a player a higher-priority move already releases, protected beside releasable for the same bench player in the lookup, the observed-production check's hold label for a kept starter, and \"suggested drop: unavailable\" on an open-spot add \u2014 so every waivers surface states one consistent, decision-safe status for each player, without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab behavior, or transaction behavior.**"
+    "**make the waiver move checker's informational observed-production check never present an add \u2192 drop heading, roster-effect text, or provisional faab band that the shared waiver decision does not support, so a player the decision keeps or protects is never shown as the drop in wording that reads like a recommendation \u2014 without changing any waiver decision, ordering, release rule, evidence authority, confidence, faab amount, or transaction behavior.**"
   ],
   "sensitive_findings": []
 }

@@ -1,16 +1,19 @@
 # Repository Checkpoint
 
-Generated: Wed Nov 25 08:16:44 PM UTC 2026
+Generated: Thu Nov 26 12:43:09 AM UTC 2026
 
 ## Branch
 test-weekly-evidence-trust
 
 ## HEAD
-fef67807429ffb09335e9fc06a11df210a0ecef9
+101b21733505455cdf4548e0dcf23e0aec4c9dac
 
 ## Recent Commits
-fef6780 (HEAD -> test-weekly-evidence-trust) feat(waivers): automate market and consensus refresh
-858bd0a (origin/test-weekly-evidence-trust) chore(continuity): refresh cross-position waiver handoff
+101b217 (HEAD -> test-weekly-evidence-trust) fix(waivers): align manager-facing move states
+17252a9 (origin/test-weekly-evidence-trust) chore(continuity): refresh evidence-refresh automation handoff
+f10e95f docs(project): record automated Waivers evidence refresh
+fef6780 feat(waivers): automate market and consensus refresh
+858bd0a chore(continuity): refresh cross-position waiver handoff
 80cca46 docs(project): record cross-position waiver boundary
 ac5a323 feat(waivers): support roster-safe cross-position releases
 317130a chore(continuity): refresh opportunity automation handoff
@@ -21,9 +24,6 @@ ac5a323 feat(waivers): support roster-safe cross-position releases
 4212a92 feat(waivers): add informational role and opportunity evidence
 38cd314 chore(continuity): refresh repository handoff artifacts
 4798bb0 docs(project): reconcile W1-W5 waiver delivery boundary
-79be2ff feat(waivers): add roster-safe decisions and league FAAB evidence
-9556268 chore(ai): add Fantasy Intelligence repository agents
-b5b6cc6 chore(continuity): refresh repository handoff artifacts
 
 ## Repository Status
 ## test-weekly-evidence-trust...origin/test-weekly-evidence-trust [ahead 1]
@@ -31,8 +31,9 @@ b5b6cc6 chore(continuity): refresh repository handoff artifacts
  M DEVELOPMENT_ROADMAP.md
  M PROJECT_STATE.md
  M PROJECT_STATUS.md
- M docs/DATA_FRESHNESS_POLICY.md
+ M docs/METRIC_DEFINITIONS.md
  M docs/NEXT_SESSION_HANDOFF.md
+ M docs/PAGE_REQUIREMENTS.md
  M docs/REPOSITORY_CHECKPOINT.md
  M notebook_bundle.tar.gz
  M notebook_bundle/BUNDLE_MANIFEST.json
@@ -62,29 +63,30 @@ b5b6cc6 chore(continuity): refresh repository handoff artifacts
 ?? ux2_team_needs_summary.patch
 
 ## Diff Summary
- .continuity/last_bundle_manifest.json          |  24 +++---
- DEVELOPMENT_ROADMAP.md                         |  55 +++++++++----
- PROJECT_STATE.md                               |  57 ++++++++++----
- PROJECT_STATUS.md                              |  57 ++++++++++----
- docs/DATA_FRESHNESS_POLICY.md                  |   8 +-
- docs/NEXT_SESSION_HANDOFF.md                   |  57 ++++++++++----
- docs/REPOSITORY_CHECKPOINT.md                  |  55 ++-----------
- notebook_bundle.tar.gz                         | Bin 198382 -> 210585 bytes
- notebook_bundle/BUNDLE_MANIFEST.json           |  24 +++---
+ .continuity/last_bundle_manifest.json          |  24 +++----
+ DEVELOPMENT_ROADMAP.md                         |  43 +++++++++---
+ PROJECT_STATE.md                               |  45 +++++++++---
+ PROJECT_STATUS.md                              |  45 +++++++++---
+ docs/METRIC_DEFINITIONS.md                     |   1 +
+ docs/NEXT_SESSION_HANDOFF.md                   |  45 +++++++++---
+ docs/PAGE_REQUIREMENTS.md                      |   2 +-
+ docs/REPOSITORY_CHECKPOINT.md                  |  43 +++---------
+ notebook_bundle.tar.gz                         | Bin 215261 -> 226160 bytes
+ notebook_bundle/BUNDLE_MANIFEST.json           |  24 +++----
  notebook_bundle/BUNDLE_VALIDATION.json         |   2 +-
  notebook_bundle/BUNDLE_VALIDATION.md           |   2 +-
- notebook_bundle/CANONICAL_SYNC_VALIDATION.json |  24 +++---
+ notebook_bundle/CANONICAL_SYNC_VALIDATION.json |  24 +++----
  notebook_bundle/CANONICAL_SYNC_VALIDATION.md   |  14 ++--
- notebook_bundle/CHANGE_REPORT.json             |  52 ++++++-------
+ notebook_bundle/CHANGE_REPORT.json             |  50 ++++++-------
  notebook_bundle/CHANGE_REPORT.md               |   2 +-
- notebook_bundle/DEVELOPMENT_ROADMAP.md         |  55 +++++++++----
- notebook_bundle/NEXT_SESSION_HANDOFF.md        |  57 ++++++++++----
- notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json  |  26 +++----
- notebook_bundle/PROJECT_STATE.md               |  57 ++++++++++----
- notebook_bundle/PROJECT_STATUS.md              |  57 ++++++++++----
- notebook_bundle/REPOSITORY_CHECKPOINT.md       | 104 ++++++++++---------------
- notebook_bundle/SESSION_START.json             |  38 ++++-----
- notebook_bundle/SESSION_START.md               |  73 +++++++----------
+ notebook_bundle/DEVELOPMENT_ROADMAP.md         |  43 +++++++++---
+ notebook_bundle/NEXT_SESSION_HANDOFF.md        |  45 +++++++++---
+ notebook_bundle/PREVIOUS_BUNDLE_MANIFEST.json  |  24 +++----
+ notebook_bundle/PROJECT_STATE.md               |  45 +++++++++---
+ notebook_bundle/PROJECT_STATUS.md              |  45 +++++++++---
+ notebook_bundle/REPOSITORY_CHECKPOINT.md       |  93 +++++++++++--------------
+ notebook_bundle/SESSION_START.json             |  27 +++----
+ notebook_bundle/SESSION_START.md               |  54 +++++++-------
  notebook_bundle/TEST_INVENTORY.md              |   2 +-
  tests/test_waiver_roster_decision.py           |  10 +++
- 25 files changed, 510 insertions(+), 402 deletions(-)
+ 26 files changed, 457 insertions(+), 297 deletions(-)

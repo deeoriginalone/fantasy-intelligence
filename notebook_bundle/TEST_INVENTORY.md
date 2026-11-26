@@ -1590,4 +1590,4 @@ ERROR tests/test_weekly_lineup_intelligence.py
 ERROR tests/test_yahoo_oauth.py
 ERROR tests/test_yahoo_pickem.py
 !!!!!!!!!!!!!!!!!! Interrupted: 118 errors during collection !!!!!!!!!!!!!!!!!!!
-=================== 114 tests collected, 118 errors in 4.77s ===================
+=================== 114 tests collected, 118 errors in 2.19s ===================
