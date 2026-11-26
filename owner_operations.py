@@ -40,7 +40,8 @@ from services.espn_player_news import news_for_espn_player, read_espn_nfl_news
 from services.dynastyprocess_rankings import read_rankings
 from services.dynastyprocess_rankings import read_cached_rankings, refresh_rankings
 from services.waiver_roster_decision import (FAAB_DISCLOSURE, build_manager_plan, build_waiver_roster_decision, consensus_rank, consensus_rank_row_is_current,
-                                            player_value_context, ranking_horizon_summary, ros_player_value, selected_player_priority)
+                                            player_value_context, priority_by_player, ranking_horizon_summary, roster_player_status, ros_player_value,
+                                            selected_player_priority)
 from services.waiver_candidate_universe import build_waiver_candidate_universe, candidate_health_group, candidate_universe_funnel, explain_catalog_player, find_catalog_players
 from services.sleeper_snapshots import read_transaction_history
 from services.waiver_market_evidence import build_faab_market_evidence, market_context
@@ -1579,6 +1580,29 @@ def waiver_selected_player_comparison(selected_player, candidate, team_needs, le
                               if drop_ok else {"state": "UNAVAILABLE", "reason": "Roster construction does not verify a safe same-position drop."}),
         )
     return result
+
+def production_check_label(comparison, selected_player, shared_priority=None):
+    """Manager-facing label for the informational observed-production check (selected-waiver-comparison.v1).
+
+    Its HOLD is not the waiver decision's HOLD (a position whose starters rank ahead of every available player). It covers two results: no
+    observed edge for the candidate, and an observed edge where the check's own starter-and-coverage rule keeps the selected player. Both read
+    KEEP <player>, marked as the current starter when he starts. When a priority move releases him for its own reasons, the label instead says
+    what the observed comparison shows: NO PRODUCTION UPGRADE OVER <player>, or PRODUCTION EDGE OVER <player> when the candidate scored more.
+    Every other decision keeps its wording.
+    """
+    comparison = comparison or {}
+    decision = comparison.get("decision")
+    if decision != "HOLD":
+        return decision
+    selected_player = selected_player or {}
+    name = selected_player.get("player") or "the selected player"
+    released = (((shared_priority or {}).get("move") or {}).get("drop") or {}).get("player_id")
+    if released and str(released) == str(selected_player.get("player_id") or ""):
+        difference = (comparison.get("comparison_summary") or {}).get("difference")
+        edge = isinstance(difference, (int, float)) and not isinstance(difference, bool) and difference > 0
+        return f"{'PRODUCTION EDGE' if edge else 'NO PRODUCTION UPGRADE'} OVER {name}"
+    return f"KEEP {name}" + (" (current starter)" if selected_player.get("is_starter") is True else "")
+
 
 def waiver_slot_fill_inputs(team, season, week, bye_rows, schedule_rows):
     team = normalize_team(team)
@@ -3248,13 +3272,7 @@ def create_owner_operations_blueprint(
                 move["role"] = waiver_role.get(str(move["add"].get("player_id") or ""))
         # The plan at the top of the page restates the final decision and the descriptive market; it never re-derives a move or a bid.
         waiver_manager_plan = build_manager_plan(waiver_decision, market=waiver_market)
-        waiver_priority_by_player = {}
-        for move in waiver_decision.get("moves") or []:
-            if move.get("add"):
-                waiver_priority_by_player.setdefault(str(move["add"].get("player_id")), {"role": "ADD", "priority": move.get("priority"), "decision": move.get("decision"),
-                                                                                         "state_label": move.get("state_label"), "drop": move.get("drop")})
-            for backup in move.get("fallbacks") or []:
-                waiver_priority_by_player.setdefault(str(backup.get("player_id")), {"role": "BACKUP", "priority": move.get("priority"), "claim": backup.get("claim") or {}})
+        waiver_priority_by_player = priority_by_player(waiver_decision)
         focus_player_id = (waiver_decision.get("move_checker_focus") or {}).get("player_id")
         selected_player = next((player for player in wda_roster if requested_selected_player_id and player.get("player_id") == str(requested_selected_player_id)), None)
         if not requested_selected_player_id:
@@ -3370,6 +3388,10 @@ def create_owner_operations_blueprint(
                 if (candidate.get("selected_comparison") or {}).get("decision") in {"ADD", "HOLD", "MONITOR", "PRELIMINARY_RECOMMENDATION"}
                 and (candidate.get("selected_comparison") or {}).get("relevance_class") in {"MEANINGFUL_COMPARISON", "DIRECTIONAL_SIGNAL", "SLOT_FILL"}
             ][:5]
+            # Display label only, added after the order is final; the check's decision values (and their sort order) are unchanged.
+            for candidate in relevant_candidates:
+                if candidate.get("selected_comparison") is not None:
+                    candidate["selected_comparison"]["decision_label"] = production_check_label(candidate["selected_comparison"], selected_context, selected_priority)
         screened_reason_counts = {}
         selected_comparison_ids = {candidate.get("player_id") for candidate in selected_comparisons}
         relevant_ids = {candidate.get("player_id") for candidate in relevant_candidates} if selected_player else set()
@@ -3706,9 +3728,9 @@ def create_owner_operations_blueprint(
                                                              outcome.get("player") or (candidate or roster_match or {}).get("player"), rostered=roster_match is not None)
                                         if roster_match is not None or candidate is not None else None)
             if roster_match:
-                details["drop_status"] = ((waiver_decision.get("ros_value") or {}).get("drop_status") or {}).get(rank_lookup_id)
-                details["drop_candidate"] = next((entry for entry in (waiver_decision.get("drop_candidates") or {}).get("players") or []
-                                                  if entry.get("player_id") == rank_lookup_id), None)
+                roster_status = roster_player_status(waiver_decision, rank_lookup_id)
+                details["drop_status"] = roster_status["drop_status"]
+                details["drop_candidate"] = roster_status["roster_spot"]
             if str(outcome.get("message") or "").startswith("Already rostered"):
                 details["ownership"] = "ROSTERED"
             else:

@@ -53,7 +53,7 @@
       <p><strong>What Changed:</strong> {% if changes %}{% for change in changes %}{{ change.display }} {{ change.label|lower }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}UNAVAILABLE{% endif %}</p>
       <p>Confidence: {{ context.confidence if context.confidence else 'Unavailable' }}</p>
       <p>Risk: {{ context.risk|join('; ') if context.risk else 'Unavailable' }}</p>
-      <p>Suggested drop: {% if shared_priority and shared_priority.role == 'ADD' and shared_priority.drop %}{{ shared_priority.drop.player }} ({{ shared_priority.drop.position }}) — verified by Priority Move #{{ shared_priority.priority }}{% elif shared_priority and shared_priority.role == 'BACKUP' and (shared_priority.claim or {}).drop %}{{ shared_priority.claim.drop.player }} ({{ shared_priority.claim.drop.position }}) — verified backup claim for Priority Move #{{ shared_priority.priority }}{% else %}{{ (drop.player ~ ' (projection-only comparison)') if candidate_actionable and drop.state == 'INFORMATIONAL_ONLY' and drop.player else 'Unavailable' }}{% endif %}</p>
+      <p>Suggested drop: {% if shared_priority and shared_priority.drop_line %}{{ shared_priority.drop_line.text }}{% else %}{{ (drop.player ~ ' (projection-only comparison)') if candidate_actionable and drop.state == 'INFORMATIONAL_ONLY' and drop.player else 'Unavailable' }}{% endif %}</p>
       <p>Projection: {{ candidate.projection if candidate.projection is not none else 'Unavailable' }}</p>
       <p>FAAB: {{ ('$' ~ candidate.faab) if candidate_actionable and candidate.faab is not none else 'Unavailable' }}</p>
     </article>

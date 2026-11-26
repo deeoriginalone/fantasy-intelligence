@@ -523,7 +523,7 @@ def build_waiver_roster_decision(*, roster: Sequence[Mapping[str, Any]] | None, 
                                       if ros_available else f"{ros_summary['reason']} Rest-of-season value and drop safety are not evaluated."),
                            **{key: ros_summary[key] for key in ("source", "source_date", "age_seconds", "max_age_seconds", "freshness_state", "retrieved_at", "blocker")}},
         "ros_value": {"contract_id": ROS_VALUE_CONTRACT_ID, "summary": {key: value for key, value in ros_summary.items() if key != "identity_failures"},
-                      "roster": {}, "candidates": {}, "drop_status": {}, "protected": {}, "coverage": {}},
+                      "roster": {}, "candidates": {}, "drop_status": {}, "no_same_position_upgrade": [], "protected": {}, "coverage": {}},
         "replacement": {"contract_id": REPLACEMENT_CONTEXT_CONTRACT_ID, "rule": REPLACEMENT_RULE, "positions": {}, "players": {}},
         "depth_notes": [],
         "team_needs": {"state": "UNAVAILABLE", "positions": {}, "source": "shared team-needs contract",
@@ -1100,6 +1100,13 @@ def _position_count(position, context):
             + sum(1 for model in context["added"] if model["position"] == position))
 
 
+def _weakest_remaining_bench(position, context):
+    """The weakest rest-of-season-ranked bench player at one position still on the roster after the higher-priority moves, else None."""
+    remaining = [model for model in context["active"] if model["is_starter"] is False and model["position"] == position
+                 and model["id"] not in context["used_drops"] and _ranked(model["ros_rank"])]
+    return max(remaining, key=lambda model: (model["ros_rank"]["ecr"], model["name"], model["id"])) if remaining else None
+
+
 def _cross_position_add(intent, context):
     """Candidate side of waiver.cross_position_drop.v1 as (basis or None, evidence, note).
 
@@ -1111,9 +1118,7 @@ def _cross_position_add(intent, context):
     displaced = intent.get("replaced") if intent["kind"] == "MUST_FILL" else intent.get("over")
     if intent["kind"] == "DEPTH_UPGRADE" and displaced is not None and displaced["id"] in context["used_drops"]:
         # The weakest bench player was already released by a higher-priority move; compare with the weakest one still on the roster.
-        remaining = [model for model in context["active"] if model["is_starter"] is False and model["position"] == position
-                     and model["id"] not in context["used_drops"] and _ranked(model["ros_rank"])]
-        displaced = max(remaining, key=lambda model: (model["ros_rank"]["ecr"], model["name"], model["id"])) if remaining else None
+        displaced = _weakest_remaining_bench(position, context)
     evidence = {"player_id": add["id"], "player": add["name"], "position": position, "kind": intent["kind"], "count": count, "depth_target": target,
                 "displaced": {"player_id": displaced["id"], "player": displaced["name"], "position": displaced["position"]} if displaced else None,
                 "current_week_separation": (intent.get("materiality") or {}).get("state") if intent["kind"] == "CURRENT_WEEK_UPGRADE" else None,
@@ -1247,6 +1252,32 @@ def _with_add(intent, add, fallbacks):
     return updated
 
 
+def _post_move_view(intent, context):
+    """The intent as the manager sees it once the higher-priority moves are made. Display only: moves are resolved and verified with the
+    unchanged intent.
+
+    A DEPTH_UPGRADE names its weakest bench player before any move is resolved. When a higher-priority move already releases him, the
+    comparison is shown against the weakest ranked bench player still on the roster (the same player the cross-position check compares
+    with), or against nobody when none remains. Expert separation is recomputed only while the add still ranks ahead of that player.
+    """
+    over = intent.get("over")
+    if intent["kind"] != "DEPTH_UPGRADE" or over is None or over["id"] not in context["used_drops"]:
+        return intent
+    remaining = _weakest_remaining_bench(over["position"], context)
+    add = intent.get("add")
+    ahead = add is not None and remaining is not None and add["ros_rank"]["ecr"] < remaining["ros_rank"]["ecr"]
+    return {**intent, "over": remaining, "released_over": over, "still_ahead": ahead,
+            "materiality": expert_separation(add["ros_rank"], remaining["ros_rank"]) if ahead else None}
+
+
+def _depth_why(add, shown):
+    position, over = shown["position"], shown.get("over")
+    if over is None:
+        return (f"Rest-of-season {position} consensus rank {add['ros_rank']['ecr']:.1f} (lower is better); no ranked bench {position} is left to compare "
+                "after the higher-priority moves.")
+    return f"Rest-of-season {position} consensus rank {add['ros_rank']['ecr']:.1f} vs {over['ros_rank']['ecr']:.1f} for your weakest bench {position} (lower is better)."
+
+
 def _horizon_views(intent, move, context, outcome=None):
     """Current week, rest of season, ROS materiality and replacement context for one move; they are never collapsed into one value.
 
@@ -1312,8 +1343,14 @@ def _horizon_views(intent, move, context, outcome=None):
             impact += f"; {add['name']} is also clearly ahead of {drop['player']}, who is released, for the rest of the season"
     elif kind == "DEPTH_UPGRADE":
         combination = "C_DEPTH"
-        impact = ("Rest-of-season depth upgrade (bench); your current-week lineup is unchanged" if clear else
-                  f"Rest-of-season bench add for an open roster spot, not a clear upgrade over {target['name']}; your current-week lineup is unchanged")
+        if clear:
+            impact = "Rest-of-season depth upgrade (bench); your current-week lineup is unchanged"
+        elif target is None:
+            impact = (f"Rest-of-season {add['position']} bench add; no ranked bench {add['position']} is left to compare after the higher-priority moves; "
+                      "your current-week lineup is unchanged")
+        else:
+            spot = " for an open roster spot" if move.get("decision") == "ADD" else ""
+            impact = f"Rest-of-season bench add{spot}, not a clear upgrade over {target['name']}; your current-week lineup is unchanged"
     elif rest.get("state") == "CANDIDATE_BETTER" and clear:
         combination = "A_BOTH"
         if drop and drop["player_id"] != target["id"]:
@@ -1386,10 +1423,11 @@ def _resolve(intent, context, open_spots):
                                "blocker": first_attempt["code"], "reason": first_attempt["detail"], "summary": summary}
                 intent = _with_add(intent, chosen, [option for option in options if option is not chosen])
     add = intent.get("add")
+    shown = _post_move_view(intent, context)
     move = {"kind": intent["kind"], "kind_label": KIND_LABELS[intent["kind"]], "urgency": intent["urgency"], "position": intent["position"], "slot": intent.get("slot"),
-            "add": _player_view(add, include_ros=True), "over": _player_view(intent.get("over"), include_ros=True), "slot_player": _player_view(intent.get("slot_player"), include_ros=True),
+            "add": _player_view(add, include_ros=True), "over": _player_view(shown.get("over"), include_ros=True), "slot_player": _player_view(intent.get("slot_player"), include_ros=True),
             "fallbacks": [], "drop": None, "drop_state": None, "drop_blocker": None, "reason": None, "monitor_detail": None, "passed_over": passed_over,
-            "materiality": intent.get("materiality"), "materiality_text": None, "trigger": intent.get("trigger"), "ordering": intent.get("ordering"), "disclosures": []}
+            "materiality": shown.get("materiality"), "materiality_text": None, "trigger": intent.get("trigger"), "ordering": intent.get("ordering"), "disclosures": []}
     if intent["kind"] == "MUST_FILL":
         move["why"] = f"Required: {intent['trigger_text']}."
         if intent.get("ordering") == "VERIFIED_EQUIVALENT_OPTIONS":
@@ -1399,7 +1437,7 @@ def _resolve(intent, context, open_spots):
     elif intent["kind"] == "CURRENT_WEEK_UPGRADE":
         move["why"] = f"Current-week {intent['position']} consensus rank {add['week_rank']['ecr']:.1f} vs {intent['over']['week_rank']['ecr']:.1f} (lower is better)."
     else:
-        move["why"] = f"Rest-of-season {intent['position']} consensus rank {add['ros_rank']['ecr']:.1f} vs {intent['over']['ros_rank']['ecr']:.1f} for your weakest bench {intent['position']} (lower is better)."
+        move["why"] = _depth_why(add, shown)
     if add and intent["kind"] != "DEPTH_UPGRADE":
         rank = add["week_rank"]
         move["evidence"] = {"source": rank.get("source") or CONSENSUS_SOURCE, "horizon": "this_week", "week": rank.get("week"), "source_date": rank.get("source_date"),
@@ -1409,8 +1447,8 @@ def _resolve(intent, context, open_spots):
         move["evidence"] = {"source": rank.get("source") or CONSENSUS_SOURCE, "horizon": "rest_of_season", "week": None, "source_date": rank.get("source_date"), "freshness_state": rank.get("freshness_state")}
     else:
         move["evidence"] = None
-    materiality = intent.get("materiality") or {}
-    over_name = (intent.get("over") or {}).get("name")
+    materiality = shown.get("materiality") or {}
+    over_name = (shown.get("over") or {}).get("name")
     if materiality.get("state") == "UNANIMOUS":
         move["materiality_text"] = (f"Expert ranges do not overlap: every published expert rank for {add['name']} ({materiality['candidate_range']}) is better than "
                                     f"every published expert rank for {over_name} ({materiality['roster_range']}).")
@@ -1444,9 +1482,18 @@ def _resolve(intent, context, open_spots):
                     state_label=MOVE_STATE_LABELS[label], drop_safety={"state": "NOT_SUPPORTED", "blocker": code, "reason": outcome["detail"]})
         if outcome.get("cross_position"):
             move["cross_position"] = outcome["cross_position"]
+    released = shown.get("released_over")
+    if released is not None:
+        position = intent["position"]
+        move["released_over"] = {"player_id": released["id"], "player": released["name"], "position": released["position"]}
+        move["disclosures"].append(f"{released['name']} is already released by a higher-priority move, so "
+                                   + (f"this compares against your weakest bench {position} still on the roster." if shown.get("over") is not None
+                                      else f"no ranked bench {position} is left to compare."))
+        if move["decision"] == "MONITOR" and shown.get("over") is not None and not shown["still_ahead"]:
+            move["reason"] = "NO LONGER AN UPGRADE AFTER THE HIGHER-PRIORITY MOVES."
     (move["current_week"], move["rest_of_season"], move["ros_materiality"], move["replacement_context"],
-     move["value_combination"], move["impact"]) = _horizon_views(intent, move, context, outcome)
-    target = (outcome or {}).get("subject") or intent.get("over") or intent.get("replaced") or intent.get("slot_player")
+     move["value_combination"], move["impact"]) = _horizon_views(shown, move, context, outcome)
+    target = (outcome or {}).get("subject") or shown.get("over") or intent.get("replaced") or intent.get("slot_player")
     cross = bool(move["drop"]) and move["drop"].get("basis") == "cross_position"
     # Backups are judged against the player who leaves the roster; after a cross-position release that is still the displaced same-position player.
     subject = ({"ros_value": move["drop"]["ros_value"], "name": move["drop"]["player"]} if move["drop"] and not cross
@@ -1469,12 +1516,19 @@ def _depth_note(move):
             "blocker": move["drop_blocker"], "detail": move["monitor_detail"], "text": text}
 
 
-def _drop_status(model, move, context, candidates):
+def _drop_status(model, move, context, candidates, value_holds=None):
     """Why one roster player is or is not releasable: SAFE, PROTECTED, or UNVERIFIED, with the actual reason.
 
     A release is judged with its replacement, exactly as a recommended drop is: SAFE needs an available, addable same-position
     player, not already a recommended add, who is clearly ahead for the rest of the season and keeps every starting slot covered.
+    A PROTECTED status that rests only on same-position value (no available player ranks better, the only better ones are already
+    recommended adds, or their expert ranges overlap his) is also recorded in value_holds; protection rules and lineup coverage are not.
     """
+    def value_hold(reason):
+        if value_holds is not None:
+            value_holds.add(model["id"])
+        return {"state": "PROTECTED", "reason": reason}
+
     if move:
         return {"state": "SAFE", "reason": f"Verified drop for ADD {move['add']['player']}: {move['drop']['reason']}"}
     if model["reserve"] or model["taxi"]:
@@ -1496,12 +1550,12 @@ def _drop_status(model, move, context, candidates):
     added = {candidate["id"] for candidate in context["added"]}
     open_better = [candidate for candidate in better if candidate["id"] not in added]
     if not better:
-        return {"state": "PROTECTED", "reason": f"No available {position} has a better fresh rest-of-season rank than his {position} ROS ECR {value['ros_ecr']:.1f}, "
-                                                "so releasing him would give up rest-of-season value."}
+        return value_hold(f"No available {position} has a better fresh rest-of-season rank than his {position} ROS ECR {value['ros_ecr']:.1f}, "
+                          "so releasing him would give up rest-of-season value.")
     if not open_better:
         names = ", ".join(candidate["name"] for candidate in better)
-        return {"state": "PROTECTED", "reason": f"The only available {position} with a better fresh rest-of-season rank ({names}) "
-                                                f"{'is' if len(better) == 1 else 'are'} already a recommended add, so releasing him as well would give up rest-of-season value."}
+        return value_hold(f"The only available {position} with a better fresh rest-of-season rank ({names}) "
+                          f"{'is' if len(better) == 1 else 'are'} already a recommended add, so releasing him as well would give up rest-of-season value.")
     judged = [(candidate, ros_materiality(candidate["ros_value"], value, candidate_name=candidate["name"], roster_name=model["name"])) for candidate in open_better]
     first_loss = None
     for replacement, materiality in judged:
@@ -1518,8 +1572,8 @@ def _drop_status(model, move, context, candidates):
         return {"state": "PROTECTED", "reason": first_loss}
     best = judged[0][0]
     if any(materiality["state"] == "CLOSE_CALL" for _, materiality in judged):
-        return {"state": "PROTECTED", "reason": f"Available {position} players rank ahead of him (best: {best['name']}, {position} ROS ECR {best['ros_value']['ros_ecr']:.1f} "
-                                                f"vs his {value['ros_ecr']:.1f}), but none is clearly ahead: their expert ranges overlap his, so releasing him would not be a meaningful upgrade."}
+        return value_hold(f"Available {position} players rank ahead of him (best: {best['name']}, {position} ROS ECR {best['ros_value']['ros_ecr']:.1f} "
+                          f"vs his {value['ros_ecr']:.1f}), but none is clearly ahead: their expert ranges overlap his, so releasing him would not be a meaningful upgrade.")
     return {"state": "UNVERIFIED", "reason": f"Available {position} players rank ahead of him (best: {best['name']}), but expert ranges are unavailable, "
                                              "so consensus separation cannot be verified."}
 
@@ -1538,8 +1592,10 @@ def _ros_value_block(models, candidate_models, moves, context):
         return {"ranked": sum(bucket["ranked"] for bucket in by_position.values()), "unranked": sum(bucket["unranked"] for bucket in by_position.values()),
                 "materiality_capable": sum(bucket["materiality_capable"] for bucket in by_position.values()), "by_position": by_position, "states": states}
 
+    value_holds = set()
+    drop_status = {model["id"]: _drop_status(model, verified.get(model["id"]), context, candidate_models, value_holds) for model in models}
     return {"roster": {model["id"]: model["ros_value"] for model in models}, "candidates": {model["id"]: model["ros_value"] for model in candidate_models},
-            "drop_status": {model["id"]: _drop_status(model, verified.get(model["id"]), context, candidate_models) for model in models},
+            "drop_status": drop_status, "no_same_position_upgrade": sorted(value_holds),
             "protected": dict(context["protections"]), "coverage": {"roster": coverage(models), "candidates": coverage(candidate_models)}}
 
 
@@ -1711,6 +1767,15 @@ def _plan_evidence(move: Mapping[str, Any]) -> list[str]:
     return lines
 
 
+def _add_line(move: Mapping[str, Any]) -> str:
+    """The move's add in the Priority Moves wording: ADD when the move is executable, CANDIDATE while it is monitored, and NO ADD RECOMMENDED
+    when no player is supported (the move's monitor reason says why); never an empty or missing player."""
+    add = (move.get("add") or {}).get("player")
+    if not add:
+        return "NO ADD RECOMMENDED"
+    return f"{'CANDIDATE' if move.get('decision') == 'MONITOR' else 'ADD'} {add}"
+
+
 def _plan_move(move: Mapping[str, Any] | None) -> dict[str, Any] | None:
     if not move:
         return None
@@ -1723,6 +1788,7 @@ def _plan_move(move: Mapping[str, Any] | None) -> dict[str, Any] | None:
                        "drop_position": (claim.get("drop") or {}).get("position"), "reason": _first_sentence(claim.get("reason"))})
     return {"priority": move.get("priority"), "decision": move.get("decision"), "state_label": move.get("state_label"), "kind": move.get("kind"),
             "position": move.get("position"), "add": {"player_id": add.get("player_id"), "player": add.get("player"), "team": add.get("team"), "position": add.get("position")} if add else None,
+            "add_line": _add_line(move),
             "drop": {"player_id": drop.get("player_id"), "player": drop.get("player"), "position": drop.get("position"), "basis": drop.get("basis")} if drop else None,
             "over": (move.get("over") or {}).get("player"), "why": " ".join(part for part in (move.get("why"), move.get("materiality_text")) if part),
             "improvement": move.get("impact"), "current_week": (move.get("current_week") or {}).get("text"), "rest_of_season": (move.get("rest_of_season") or {}).get("text"),
@@ -1758,7 +1824,7 @@ def _plan_positions(decision: Mapping[str, Any]) -> list[dict[str, Any]]:
             depth = {"BELOW_TARGET": " (below target)", "ABOVE_TARGET": " (surplus)", "AT_TARGET": ""}.get(need.get("depth_status"), "")
             details.append(f"{need.get('rostered_or_eligible')} rostered · depth target {need.get('depth_target')}{depth}")
         for move in at:
-            add = (move.get("add") or {}).get("player")
+            add = (move.get("add") or {}).get("player") or "no add recommended"
             details.append(f"#{move.get('priority')} {move.get('state_label')}: {add}" + (f" over {move['over']['player']}" if move.get("over") else ""))
         for move in released:
             details.append(f"{move['drop']['player']} released by #{move.get('priority')}")
@@ -1786,6 +1852,76 @@ def _plan_faab(decision: Mapping[str, Any], move: Mapping[str, Any] | None, mark
             "coverage": (market.get("completeness") or {}).get("text"), "limitations": list(market.get("limitations") or []),
             "guardrail": guardrail if guardrail.get("state") == "PROVISIONAL" else None,
             "value_bid": VALUE_BID_UNAVAILABLE, "disclosure": FAAB_DISCLOSURE}
+
+
+DROP_STATUS_LABELS = {"VERIFIED_DROP": "VERIFIED DROP", "SAFE": "RELEASABLE FOR A SAME-POSITION UPGRADE", "PROTECTED": "PROTECTED",
+                      "NO_SAME_POSITION_UPGRADE": "NO SAME-POSITION UPGRADE", "UNVERIFIED": "UNVERIFIED"}
+
+
+def roster_player_status(decision: Mapping[str, Any] | None, player_id: Any) -> dict[str, Any]:
+    """The lookup's DROP STATUS and ROSTER SPOT for one rostered player, read from the shared decision (display only).
+
+    DROP STATUS is the same-position check (waiver.ros_value.v1 drop_status): can an available player at his position replace him? ROSTER
+    SPOT is waiver.drop_candidates.v1: can his spot be freed for a player at another position? A bench player kept only because no available
+    player at his position is a verified rest-of-season upgrade (ros_value no_same_position_upgrade) reads NO SAME-POSITION UPGRADE, so he is
+    never shown as PROTECTED beside a releasable roster spot. Every other PROTECTED status (a protection rule, a current starter, IR/taxi, or
+    a release the post-move lineup check rejects) stays PROTECTED. The underlying states are unchanged.
+    """
+    pid = str(player_id or "")
+    decision = decision or {}
+    ros_value = decision.get("ros_value") or {}
+    entry = next((item for item in (decision.get("drop_candidates") or {}).get("players") or [] if item.get("player_id") == pid), None)
+    status = (ros_value.get("drop_status") or {}).get(pid)
+    view = None
+    if status:
+        state = status.get("state")
+        if any((move.get("drop") or {}).get("player_id") == pid for move in decision.get("moves") or []):
+            key = "VERIFIED_DROP"
+        elif state == "PROTECTED" and pid in set(ros_value.get("no_same_position_upgrade") or ()):
+            key = "NO_SAME_POSITION_UPGRADE"
+        else:
+            key = state
+        view = {**status, "label": DROP_STATUS_LABELS.get(key, str(state or "").replace("_", " "))}
+    return {"drop_status": view, "roster_spot": entry}
+
+
+MOVE_DROP_LINE_STATES = {"VERIFIED": "VERIFIED", "NOT_REQUIRED": "NOT_NEEDED", "UNVERIFIED": "NOT_VERIFIED", "NOT_EVALUATED": "NOT_EVALUATED"}
+CLAIM_DROP_LINE_STATES = {"ADD_DROP": "VERIFIED", "ADD": "NOT_NEEDED", "MONITOR": "NOT_VERIFIED"}
+
+
+def _drop_line(priority: Any, *, state: str, drop: Mapping[str, Any] | None, state_label: Any = None, backup: bool = False) -> dict[str, Any]:
+    """What a priority ADD or backup claim does with the roster: a verified drop, no drop needed (open roster spot), a drop that is still
+    required but not verified, or no release evaluated yet. The absence of a drop is never shown as missing evidence when none is needed."""
+    claim = f"backup claim for Priority Move #{priority}" if backup else f"Priority Move #{priority}"
+    line = {"state": state, "player_id": None, "player": None, "position": None}
+    if state == "VERIFIED" and drop:
+        verified = f"verified backup claim for Priority Move #{priority}" if backup else f"verified by Priority Move #{priority}"
+        return {**line, "player_id": drop.get("player_id"), "player": drop.get("player"), "position": drop.get("position"),
+                "text": f"{drop.get('player')} ({drop.get('position')}) — {verified}"}
+    if state == "NOT_NEEDED":
+        return {**line, "text": f"Not needed — open roster spot ({claim})"}
+    if state == "NOT_VERIFIED":
+        return {**line, "text": f"None verified ({state_label}, {claim})" if state_label else f"None verified ({claim})"}
+    return {**line, "state": "NOT_EVALUATED", "text": f"Not evaluated — no supported ADD exists yet ({claim})"}
+
+
+def priority_by_player(decision: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
+    """Each candidate's part in the Priority Moves (the ADD or a contingent backup claim) with its drop line, keyed by Sleeper player ID, so
+    Candidate Evidence and the Player-to-Roster Checks restate the same decision. The first move that names a player wins."""
+    entries: dict[str, dict[str, Any]] = {}
+    for move in (decision or {}).get("moves") or []:
+        priority = move.get("priority")
+        if move.get("add"):
+            entries.setdefault(str(move["add"].get("player_id")), {
+                "role": "ADD", "priority": priority, "decision": move.get("decision"), "state_label": move.get("state_label"), "drop": move.get("drop"),
+                "drop_line": _drop_line(priority, state=MOVE_DROP_LINE_STATES.get(move.get("drop_state"), "NOT_EVALUATED"), drop=move.get("drop"),
+                                        state_label=move.get("state_label"))})
+        for backup in move.get("fallbacks") or []:
+            claim = backup.get("claim") or {}
+            entries.setdefault(str(backup.get("player_id")), {
+                "role": "BACKUP", "priority": priority, "claim": claim,
+                "drop_line": _drop_line(priority, state=CLAIM_DROP_LINE_STATES.get(claim.get("state"), "NOT_EVALUATED"), drop=claim.get("drop"), backup=True)})
+    return entries
 
 
 def build_manager_plan(decision: Mapping[str, Any] | None, *, market: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -1825,14 +1961,16 @@ def selected_player_priority(decision: Mapping[str, Any] | None, player_id: Any)
     if not pid or not decision:
         return None
     for move in decision.get("moves") or []:
-        role = ("REPLACED" if (move.get("over") or {}).get("player_id") == pid else "SLOT" if (move.get("slot_player") or {}).get("player_id") == pid
+        # A comparison re-pointed after a higher-priority release is display only; it never links the bench player to this move.
+        replaced = (move.get("over") or {}).get("player_id") == pid and not move.get("released_over")
+        role = ("REPLACED" if replaced else "SLOT" if (move.get("slot_player") or {}).get("player_id") == pid
                 else "DROP" if (move.get("drop") or {}).get("player_id") == pid else None)
         if role:
             plan = _plan_move(move)
             primary = {"add": (move.get("add") or {}).get("player"), "add_id": (move.get("add") or {}).get("player_id"), "team": (move.get("add") or {}).get("team"),
                        "week_ecr": ((move.get("add") or {}).get("rank") or {}).get("ecr"), "ros_ecr": ((move.get("add") or {}).get("ros_value") or {}).get("ros_ecr"),
                        "state": move.get("decision"), "drop": (move.get("drop") or {}).get("player"), "drop_position": (move.get("drop") or {}).get("position")}
-            options = [primary] + [{"add": backup.get("player"), "add_id": backup.get("player_id"), "team": backup.get("team"),
+            options = ([primary] if move.get("add") else []) + [{"add": backup.get("player"), "add_id": backup.get("player_id"), "team": backup.get("team"),
                                     "week_ecr": (backup.get("rank") or {}).get("ecr") if (backup.get("rank") or {}).get("state") == "RANKED" else None,
                                     "ros_ecr": (backup.get("ros_value") or {}).get("ros_ecr"), "state": (backup.get("claim") or {}).get("state") or "NOT_EVALUATED",
                                     "drop": ((backup.get("claim") or {}).get("drop") or {}).get("player"),

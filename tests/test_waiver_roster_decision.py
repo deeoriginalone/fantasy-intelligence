@@ -8,7 +8,8 @@ import pytest
 from services.team_codes import CANONICAL_TEAMS
 from services.team_needs import league_settings_contract, team_needs_contract
 from services.waiver_roster_decision import (NO_SAFE_DROP_REASON, ROS_UNAVAILABLE_LABEL, build_manager_plan, build_waiver_roster_decision, compare_ros_values,
-                                             player_value_context, replacement_context, ros_materiality, ros_player_value, selected_player_priority)
+                                             player_value_context, priority_by_player, replacement_context, roster_player_status, ros_materiality,
+                                             ros_player_value, selected_player_priority)
 
 SEASON, WEEK = 2026, 11
 NOW = datetime(2026, 11, 15, 17, 0, tzinfo=timezone.utc)
@@ -962,3 +963,106 @@ def test_cross_position_release_needs_strong_waiver_replacement_depth_at_the_rel
     assert (move["decision"], move["drop"], move["drop_blocker"]) == ("MONITOR", None, "ROS_EDGE_NOT_MATERIAL")
     assert [(option["player_id"], option["blocker"]) for option in move["cross_position"]["options"]] == [("rb-5", "REPLACEMENT_NOT_STRONG"), ("wr-5", "REPLACEMENT_NOT_STRONG")]
     assert "A release at a different position was checked: rb-5 (RB) — replacement depth limited on waivers" in move["monitor_detail"]
+
+
+# Manager-facing restatements of the shared decision: display only; the decision fields they read are unchanged.
+
+def released_bench_league(bench_ros):
+    """#1 is a current-week WR upgrade that releases w, the weakest bench WR; #2 is a rest-of-season depth add (y) whose intent named w first."""
+    bench = {"w": 50, **bench_ros}
+    roster = [player("s", "WR", "KC", index=0), *(player(player_id, "WR", "BUF", starter=False) for player_id in bench)]
+    return decide(roster, [candidate("x", "WR", "DEN"), candidate("y", "WR", "LV")], this_week={"s": rank("WR", 30), "x": rank("WR", 10), "y": rank("WR", 45)},
+                  rest_of_season={"s": ros("WR", 10), "x": ros("WR", 25), "y": ros("WR", 40), **{player_id: ros("WR", ecr) for player_id, ecr in bench.items()}})
+
+
+@pytest.mark.parametrize("bench_ros,decision,drop,over,separation,reason,why,impact", [
+    ({"w2": 45}, "ADD_DROP", "w2", "w2", "UNANIMOUS", None, "Rest-of-season WR consensus rank 40.0 vs 45.0 for your weakest bench WR (lower is better).",
+     "Rest-of-season depth upgrade (bench); your current-week lineup is unchanged"),
+    ({"w2": 30, "w3": 20}, "MONITOR", None, "w2", None, "NO LONGER AN UPGRADE AFTER THE HIGHER-PRIORITY MOVES.",
+     "Rest-of-season WR consensus rank 40.0 vs 30.0 for your weakest bench WR (lower is better).",
+     "Rest-of-season bench add, not a clear upgrade over w2; your current-week lineup is unchanged"),
+    ({}, "MONITOR", None, None, None, NO_SAFE_DROP_REASON,
+     "Rest-of-season WR consensus rank 40.0 (lower is better); no ranked bench WR is left to compare after the higher-priority moves.",
+     "Rest-of-season WR bench add; no ranked bench WR is left to compare after the higher-priority moves; your current-week lineup is unchanged"),
+])
+def test_depth_move_after_a_higher_priority_release_compares_with_the_bench_player_still_on_the_roster(bench_ros, decision, drop, over, separation, reason, why, impact):
+    result = released_bench_league(bench_ros)
+    first, second = result["moves"]
+    assert (first["decision"], first["drop"]["player_id"]) == ("ADD_DROP", "w")
+    assert (second["kind"], second["add"]["player_id"], second["decision"], (second["drop"] or {}).get("player_id")) == ("DEPTH_UPGRADE", "y", decision, drop)
+    assert ((second["over"] or {}).get("player_id"), (second["materiality"] or {}).get("state"), second["reason"]) == (over, separation, reason)
+    assert (second["why"], second["impact"]) == (why, impact) and " w (" not in (second["materiality_text"] or "")
+    assert ("w is already released by a higher-priority move, so " + ("this compares against your weakest bench WR still on the roster." if over
+                                                                      else "no ranked bench WR is left to compare.")) in second["disclosures"]
+    wr_row = next(row for row in build_manager_plan(result)["positions"] if row["position"] == "WR")["detail"]
+    assert " over w ·" not in wr_row and "w released by #1" in wr_row
+    released = selected_player_priority(result, "w")
+    assert (released["role"], released["move"]["priority"]) == ("DROP", 1) and second["released_over"]["player_id"] == "w"
+    # The re-pointed comparison is display only: the Move Checker links that bench player only to a move that releases him.
+    if over:
+        compared = selected_player_priority(result, over)
+        assert (compared["role"], (compared["move"] or {}).get("priority")) == (("DROP", 2) if drop else (None, None))
+
+
+def test_a_move_without_a_supported_add_is_never_restated_as_an_empty_add():
+    roster = [player("k", "K", "JAX", index=0), player("wr", "WR", "KC", index=1)]
+    result = decide(roster, [candidate("wr-free", "WR", "DEN")], slots=("K", "WR"), byes=("JAX",), this_week={"wr": rank("WR", 10), "wr-free": rank("WR", 40)})
+    [move] = result["moves"]
+    assert (move["kind"], move["decision"], move["add"], move["state_label"]) == ("MUST_FILL", "MONITOR", None, "MONITOR — NO VERIFIED REPLACEMENT")
+    checker = selected_player_priority(result, "k")
+    assert (checker["role"], checker["move"]["add_line"], checker["options"]) == ("SLOT", "NO ADD RECOMMENDED", [])
+    plan = build_manager_plan(result)
+    assert plan["monitor"][0]["add_line"] == "NO ADD RECOMMENDED"
+    assert next(row for row in plan["positions"] if row["position"] == "K")["detail"].endswith("#1 MONITOR — NO VERIFIED REPLACEMENT: no add recommended")
+    # A supported add keeps the Priority Moves wording: ADD when executable, CANDIDATE while monitored.
+    executable = one_wr_starter(this_week={"wr-start": rank("WR", 30), "wr-free": rank("WR", 10)})
+    monitored = decide([player("wr-start", "WR", "KC", index=0), player("rb-bench", "RB", "BUF", starter=False)], [candidate("wr-free", "WR", "DEN")],
+                       this_week={"wr-start": rank("WR", 30), "wr-free": rank("WR", 10)})
+    assert [selected_player_priority(item, "wr-start")["move"]["add_line"] for item in (executable, monitored)] == ["ADD wr-free", "CANDIDATE wr-free"]
+
+
+def test_lookup_drop_status_is_protected_only_under_a_protection_rule():
+    def shown(result, player_id):
+        status = roster_player_status(result, player_id)
+        return status["drop_status"]["label"], (status["roster_spot"] or {}).get("state")
+
+    surplus = surplus_league()
+    assert (surplus["ros_value"]["drop_status"]["rb-4"]["state"], "rb-4" in surplus["ros_value"]["protected"]) == ("PROTECTED", False)
+    assert [shown(surplus, player_id) for player_id in ("rb-5", "rb-4", "rb-3", "te-1")] == [
+        ("VERIFIED DROP", "VERIFIED_DROP"), ("NO SAME-POSITION UPGRADE", "RELEASABLE"), ("NO SAME-POSITION UPGRADE", "KEEP"), ("PROTECTED", None)]
+    locked = surplus_league(locked_games=(("ARI", "MIN"),))
+    unranked = decide(starters_core() + surplus_bench(), FREE_AGENTS, this_week=SURPLUS_WEEK, slots=FULL_SLOTS,
+                      rest_of_season={key: value for key, value in SURPLUS_ROS.items() if key != "rb-5"})
+    backup = decide([player("rb-start", "RB", "KC", index=0, health="QUESTIONABLE"), player("rb-backup", "RB", "BUF", starter=False)],
+                    [candidate("rb-free", "RB", "DEN")], slots=("RB",), this_week={"rb-start": rank("RB", 20), "rb-backup": rank("RB", 35), "rb-free": rank("RB", 25)},
+                    rest_of_season={"rb-start": ros("RB", 10), "rb-backup": ros("RB", 70), "rb-free": ros("RB", 30)})
+    same_position_args = ([player("wr-a", "WR", "KC", index=0), {**player("wr-b", "WR", "BUF", index=1), "health_freshness_state": "STALE"},
+                           player("wr-c", "WR", "CIN", starter=False)], [candidate("wr-s1", "WR", "DEN"), candidate("wr-s2", "WR", "LAR")])
+    same_position_kwargs = dict(slots=("WR", "WR"), capacity=4,
+                                this_week={"wr-a": rank("WR", 10), "wr-b": rank("WR", 20), "wr-c": rank("WR", 50), "wr-s1": rank("WR", 60), "wr-s2": rank("WR", 70)},
+                                rest_of_season={"wr-a": ros("WR", 5), "wr-b": ros("WR", 8), "wr-c": ros("WR", 50), "wr-s1": ros("WR", 10), "wr-s2": ros("WR", 15)})
+    same_position = decide(*same_position_args, **same_position_kwargs)
+    assert shown(locked, "rb-5") == ("PROTECTED", "KEEP") and shown(unranked, "rb-5") == ("UNVERIFIED", "UNVERIFIED")
+    assert shown(backup, "rb-backup") == ("PROTECTED", "KEEP") and shown(same_position, "wr-c")[0] == "RELEASABLE FOR A SAME-POSITION UPGRADE"
+    # With both clearly better WRs on bye, wr-c is kept by the post-move lineup check, not by value: still PROTECTED.
+    coverage = decide(*same_position_args, byes=("DEN", "LAR"), **same_position_kwargs)
+    assert coverage["ros_value"]["drop_status"]["wr-c"]["state"] == "PROTECTED" and shown(coverage, "wr-c") == ("PROTECTED", "KEEP")
+    for result in (surplus, locked, unranked, backup, same_position, coverage):
+        for entry in result["drop_candidates"]["players"]:
+            label, spot = shown(result, entry["player_id"])
+            assert (label == "VERIFIED DROP") == (spot == "VERIFIED_DROP") and not (label == "PROTECTED" and spot != "KEEP")
+
+
+def test_priority_drop_lines_state_what_each_claim_does_with_the_roster():
+    def lines(result):
+        return {player_id: entry["drop_line"]["text"] for player_id, entry in priority_by_player(result).items()}
+
+    assert lines(surplus_league()) == {"te-free": "rb-5 (RB) — verified by Priority Move #1", "te-alt": "rb-5 (RB) — verified backup claim for Priority Move #1"}
+    assert lines(one_wr_starter(this_week={"wr-start": rank("WR", 30), "wr-free": rank("WR", 10)})) == {"wr-free": "Not needed — open roster spot (Priority Move #1)"}
+    monitored = decide([player("wr-start", "WR", "KC", index=0), player("rb-bench", "RB", "BUF", starter=False)], [candidate("wr-free", "WR", "DEN")],
+                       this_week={"wr-start": rank("WR", 30), "wr-free": rank("WR", 10)})
+    assert lines(monitored) == {"wr-free": "None verified (MONITOR — ROS VALUE UNAVAILABLE, Priority Move #1)"}
+    questionable = decide([player("wr-start", "WR", "KC", index=0)], [candidate("wr-q", "WR", "DEN", health="QUESTIONABLE")],
+                          this_week={"wr-start": rank("WR", 30), "wr-q": rank("WR", 10)}, capacity=2)
+    assert lines(questionable) == {"wr-q": "Not evaluated — no supported ADD exists yet (Priority Move #1)"}
+    assert lines(surplus_league(pool_allowed=False, pool_blockers=["WAIVER_OWNERSHIP_RETRIEVAL_FAILED"])) == {}

@@ -1730,6 +1730,7 @@ def test_selected_player_id_reaches_reader_and_recomputes_comparison(monkeypatch
     assert second["selected_player"]["player_id"] == "s-owned-2"
     assert first["selected_result"]["decision"] == "HOLD"
     assert second["selected_result"]["decision"] == "HOLD"
+    assert (first["selected_result"]["decision_label"], second["selected_result"]["decision_label"]) == ("KEEP Owned WR (current starter)", "KEEP Second Owned WR")
     assert first["selected_result"]["comparison_summary"]["selected_average"] == 20.5
     assert second["selected_result"]["comparison_summary"]["selected_average"] == 5.5
     assert "coverage" in second["selected_result"]["roster_effect"]
@@ -1738,6 +1739,7 @@ def test_selected_player_id_reaches_reader_and_recomputes_comparison(monkeypatch
     assert second["selected_focus"] == "this_week"
     second_html = second_response.get_data(as_text=True)
     assert "Second Owned WR" in second_html
+    assert "<h4>KEEP Second Owned WR · observed production, informational</h4>" in second_html
     assert "MONITOR" in second_html and "Avail WR" in second_html
     assert 'id="wda-candidates-data"' not in second_html
     assert len(second["wda_candidates"]) <= 5
@@ -3488,7 +3490,7 @@ def test_w3_route_renders_a_ros_supported_add_drop_before_any_diagnostics(monkey
     [outcome] = captured["waiver_candidate_outcomes"]
     assert "CURRENT WEEK:</strong> RANKED — WR ECR 45.0 · published 2026-10-13 · fresh" in html
     assert "REST OF SEASON:</strong> RANKED — WR ROS ECR 60.0 · published 2026-10-12 · fresh" in html
-    assert outcome["details"]["drop_status"]["state"] == "SAFE" and "DROP STATUS:</strong> SAFE — Verified drop for ADD Rookie Star: Bench WR is your weakest" in html
+    assert outcome["details"]["drop_status"]["state"] == "SAFE" and "DROP STATUS:</strong> VERIFIED DROP — Verified drop for ADD Rookie Star: Bench WR is your weakest" in html
     assert decision["submits_transactions"] is False and decision["decision_effect"] == "RECOMMENDATION_ONLY"
     assert all(query.lstrip().upper().startswith("SELECT") for query in captured["executed_queries"])
     assert html.count('method="post"') == 1 and '<form method="post" action="/waivers"><button type="submit">Refresh Waiver Intelligence</button></form>' in html
@@ -3602,7 +3604,7 @@ def test_w4_route_recommends_the_option_with_a_clear_ros_edge_and_explains_the_c
     lookup = html.split('id="waiver-player-outcomes"')[1]
     assert "ROS MATERIALITY:</strong> CLEAR ROS EDGE — Clear rest-of-season edge: every published expert rank for Steady Vet (26–34) is better than every published expert rank for Bench WR (50–70)" in lookup
     assert "REPLACEMENT CONTEXT:</strong> REPLACEMENT DEPTH LIMITED" in lookup and "Closest supported options: Rookie Star (WR ROS ECR 52.0, experts 40–64)." in lookup
-    assert "DROP STATUS:</strong> SAFE — Verified drop for ADD Steady Vet" in lookup
+    assert "DROP STATUS:</strong> VERIFIED DROP — Verified drop for ADD Steady Vet" in lookup
     assert html.index('id="waiver-verdict"') < start < html.index('id="waiver-data-details"')
     for forbidden in ("VALUE SCORE", "VALUE-BASED BID", "ESTIMATED WINNING BID", "points over replacement"):
         assert forbidden not in html
@@ -4032,6 +4034,97 @@ def test_route_keeps_a_close_te_call_as_monitor_when_no_position_has_a_safe_surp
     assert "A release at a different position was checked: Fifth WR (WR) — WR depth would fall to 3, below the supported target of 4." in move["monitor_detail"]
     top = html[html.index('id="waiver-plan"'):html.index('id="waiver-verdict"')]
     assert "MONITOR Chig Okonkwo — no move is supported yet" in top and "Players to consider dropping:</strong> none" in top
+
+
+TE_NEED_SCENARIOS = {
+    "ADD_DROP": {},
+    "OPEN_SPOT": {"roster_positions": ["WR", "TE", "BN", "BN", "BN", "BN", "BN"]},
+    "MONITOR": {"roster_overrides": {0: {"players": ["s-owned", "s-te", "s-w2", "s-w3", "s-w5"], "starters": ["s-owned", "s-te"]}},
+                "roster_positions": ["WR", "TE", "BN", "BN", "BN"], "other_roster_players": ["s-w4"]},
+}
+
+
+@pytest.mark.parametrize("scenario,decision,plan_text,card_text,drop_line,checker,drop_status,roster_spot", [
+    ("ADD_DROP", "ADD_DROP", "ADD Chig Okonkwo (WAS TE) · DROP Fifth WR (WR) · cross-position release · priority #1", "DROP:</strong> Fifth WR (WR)",
+     "Fifth WR (WR) — verified by Priority Move #1", "#1 ADD + DROP — CROSS-POSITION · ADD Chig Okonkwo · DROP Fifth WR (WR) · Starting TE stays on your roster.",
+     "VERIFIED DROP — Verified drop for ADD Chig Okonkwo", "VERIFIED DROP (#1 on your bench"),
+    ("OPEN_SPOT", "ADD", "ADD Chig Okonkwo (WAS TE) · no drop needed (open roster spot) · priority #1", "DROP:</strong> Not needed — an active roster spot is open.",
+     "Not needed — open roster spot (Priority Move #1)", "#1 ADD — OPEN ROSTER SPOT · ADD Chig Okonkwo · Starting TE stays on your roster.",
+     "NO SAME-POSITION UPGRADE — No available WR has a better", "RELEASABLE IF THE SPOT IS NEEDED (#1 on your bench"),
+    ("MONITOR", "MONITOR", "Watch Chig Okonkwo (MONITOR — CLOSE ROS CALL)", "CANDIDATE:</strong> Chig Okonkwo",
+     "None verified (MONITOR — CLOSE ROS CALL, Priority Move #1)", "#1 MONITOR — CLOSE ROS CALL · CANDIDATE Chig Okonkwo · Starting TE is kept while this move is monitored.",
+     "NO SAME-POSITION UPGRADE — No available WR has a better", "KEEP (#1 on your bench"),
+])
+def test_every_waiver_surface_restates_the_same_priority_move(monkeypatch, scenario, decision, plan_text, card_text, drop_line, checker, drop_status, roster_spot):
+    response, captured = render_te_need_route(monkeypatch, explain_player="Fifth WR", **TE_NEED_SCENARIOS[scenario])
+    html = response.get_data(as_text=True)
+    move = captured["waiver_decision"]["moves"][0]
+    assert response.status_code == 200 and (move["priority"], move["decision"], move["add"]["player_id"]) == (1, decision, "s-chig")
+    plan = html[html.index('id="waiver-plan"'):html.index('id="waiver-verdict"')]
+    assert plan_text in plan and f"#1 {move['state_label']}: Chig Okonkwo over Starting TE" in plan
+    _, article = move_article(html)
+    assert card_text in article and ("DROP:</strong>" in article) == (decision != "MONITOR")
+    details = html[html.index('id="your-waiver-decisions"'):]
+    details = re.sub(r"\s+", " ", details[details.index('data-position="TE"'):][:details[details.index('data-position="TE"'):].index("</article>")])
+    assert "ACTION:</strong> SEE PRIORITY MOVES" in details and f"DROP:</strong> {drop_line}" in details
+    assert f"Suggested drop: {drop_line}" in html[html.index('<section class="card waiver-trust-panel">'):]
+    shared = html[html.index('id="wda-shared-priority"'):]
+    assert f"PRIORITY MOVES DECISION FOR STARTING TE:</strong> {checker}" in shared[:shared.index("</div>")]
+    lookup = html.split('id="waiver-player-outcomes"')[1]
+    assert f"DROP STATUS:</strong> {drop_status}" in lookup and f"ROSTER SPOT:</strong> {roster_spot}" in lookup
+
+
+def test_move_checker_states_no_add_instead_of_an_empty_player():
+    move = {"priority": 1, "decision": "MONITOR", "state_label": "MONITOR — NO VERIFIED REPLACEMENT", "position": "K", "add": None, "add_line": "NO ADD RECOMMENDED",
+            "drop": None, "monitor_reason": "No verified, healthy, unlocked K with a current game is available."}
+    rendered = render_waivers(selected_priority={"state": "IN_PRIORITY_MOVE", "role": "SLOT", "move": move, "options": []},
+                              selected_player={"player_id": "k", "player": "Bye Kicker", "position": "K", "valid": True},
+                              preliminary_suggestions=[preliminary_candidate()], wda_roster=[{"player_id": "k", "player": "Bye Kicker", "position": "K"}])
+    shared = rendered[rendered.index('id="wda-shared-priority"'):]
+    shared = re.sub(r"<[^>]+>", "", shared[:shared.index("</div>")])
+    assert "#1 MONITOR — NO VERIFIED REPLACEMENT · NO ADD RECOMMENDED. No verified, healthy, unlocked K with a current game is available." in shared
+    assert "Same K options as Priority Moves (fresh consensus; lower is better): none — no verified available K option." in shared
+    assert "ADD ." not in shared and "None (" not in shared
+
+
+@pytest.mark.parametrize("candidate_points,starter,released,label", [
+    ((10, 10, 10), True, False, "KEEP Selected WR (current starter)"), ((10, 10, 10), False, False, "KEEP Selected WR"),
+    ((18, 16, 20), True, False, "KEEP Selected WR (current starter)"), ((10, 10, 10), False, True, "NO PRODUCTION UPGRADE OVER Selected WR"),
+    ((18, 16, 20), True, True, "PRODUCTION EDGE OVER Selected WR"),
+])
+def test_production_check_hold_is_never_shown_as_a_waiver_hold(candidate_points, starter, released, label):
+    from owner_operations import production_check_label
+    selected = {"player_id": "s-selected", "player": "Selected WR", "position": "WR", "is_starter": starter, "valid": True}
+    shared = {"move": {"drop": {"player_id": "s-selected"}}} if released else None
+    # A HOLD without an observed edge, or with an edge the check's own starter rule keeps (the candidate out-scored the starter).
+    result = selected_comparison_fixture(selected_points=(15, 15, 15) if candidate_points == (10, 10, 10) else (6, 7, 5), candidate_points=candidate_points,
+                                         selected_starter=starter)
+    assert result["decision"] == "HOLD" and production_check_label(result, selected, shared) == label
+    assert production_check_label({**result, "decision": "MONITOR"}, selected, shared) == "MONITOR"
+    result = {**result, "decision_label": label}
+    candidate = {"player_id": "s-candidate", "player": "Available WR", "position": "WR"}
+    rendered = render_waivers(selected_result=result, selected_player=selected, preliminary_suggestions=[preliminary_candidate()],
+                              selected_comparisons=[{**candidate, "selected_comparison": result}, {**candidate, "player": "Second WR", "selected_comparison": result}],
+                              wda_roster=[{"player_id": "s-selected", "player": "Selected WR", "position": "WR"}])
+    checker = rendered[rendered.index('id="selected-waiver-primary"'):]
+    checker = checker[:checker.index("</section>")]
+    assert f"<h4>{label} · observed production, informational</h4>" in checker and f"<h4>{label} · vs Second WR (WR)</h4>" in checker
+    assert "FAAB:</strong> Not suggested by this informational check." in checker
+    assert re.search(r"\bHOLD\b", re.sub(r"<[^>]+>", " ", checker)) is None
+
+
+def test_player_to_roster_check_restates_the_priority_drop_line():
+    from services.waiver_roster_decision import priority_by_player
+    decision = {"moves": [{"priority": 1, "decision": "ADD", "state_label": "ADD — OPEN ROSTER SPOT", "drop_state": "NOT_REQUIRED", "drop": None,
+                           "add": {"player_id": "sleeper-preliminary", "player": "Healthy Candidate"}, "fallbacks": []}]}
+    candidate = preliminary_candidate(acquisition_evaluation={
+        "action": "ADD", "evidence_relevance": "MEANINGFUL_COMPARISON", "horizon": "THIS_WEEK", "roster_fit": "Fills a verified need.",
+        "suggested_drop": {"state": "UNAVAILABLE", "reason": "Complete roster coverage and an authoritative drop-value comparison are unavailable."},
+        "faab": {"state": "UNAVAILABLE", "category": "UNAVAILABLE", "rationale": "No bid."}})
+    for priority, text in ((priority_by_player(decision), "Not needed — open roster spot (Priority Move #1)"),
+                           ({}, "Complete roster coverage and an authoritative drop-value comparison are unavailable.")):
+        rendered = render_waivers(preliminary_suggestions=[candidate], waiver_priority_by_player=priority)
+        assert f"Suggested drop:</strong> {text}" in rendered[rendered.index('id="best-waiver-moves"'):rendered.index('id="waiver-decision-assistant"')]
 
 
 def week_authority_with_stale_persisted_week():
